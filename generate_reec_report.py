@@ -361,8 +361,8 @@ def _page_cover(pdf, cd: str, total_ty23: float):
     ax.add_patch(Rectangle((0.07, 0.075), 0.86, 0.0012, facecolor=LINE,
                            transform=ax.transAxes, clip_on=False))
     ax.text(0.07, 0.053,
-            "Source: Hawai'i Department of Taxation — Tax Credits Claimed by "
-            "Hawai'i Taxpayers (Dec 2025).",
+            "Source: Hawaiʻi Department of Taxation — Tax Credits Claimed by "
+            "Hawaiʻi Taxpayers (Dec 2025).",
             ha="left", va="center", fontsize=12, color=MUTED,
             transform=ax.transAxes)
     ax.text(0.07, 0.036,
@@ -385,7 +385,7 @@ def _page_about(pdf, cd: str):
     _header_strip(fig,
         kicker="About this credit",
         headline="What is the Renewable Energy Tax Credit?",
-        subtitle="§235-12.5  ·  Hawai'i Revised Statutes",
+        subtitle="§235-12.5  ·  Hawaiʻi Revised Statutes",
     )
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
@@ -405,7 +405,7 @@ def _page_about(pdf, cd: str):
     # ===== 1 — What the credit is ===========================================
     _sec_label(0.852, "How the credit works", PRIMARY)
     lead1 = (
-        "Hawai'i's Renewable Energy Technologies Tax Credit (§235-12.5) lets "
+        "Hawaiʻi's Renewable Energy Technologies Tax Credit (§235-12.5) lets "
         "homeowners and businesses cut their state income tax when they install "
         "renewable energy equipment — most commonly rooftop solar, but also "
         "solar water heaters and wind turbines."
@@ -429,7 +429,7 @@ def _page_about(pdf, cd: str):
     ax.text(x_left, 0.628, "About $100M a year — a major State tax break",
             ha="left", va="center", fontsize=15, color=INK,
             fontweight="bold", transform=ax.transAxes)
-    s2 = ("In Tax Year 2023, Hawai'i taxpayers claimed roughly $100M in RETITC credits. "
+    s2 = ("In Tax Year 2023, Hawaiʻi taxpayers claimed roughly $100M in RETITC credits. "
           "Here is how that total splits by who claimed it:")
     ax.text(x_left, 0.602, textwrap.fill(s2, width=104, break_long_words=False),
             ha="left", va="top", fontsize=12, color=BODY,
@@ -515,7 +515,7 @@ def _page_about(pdf, cd: str):
                 linespacing=1.5, transform=ax.transAxes)
 
     _footer_caption(fig,
-        f"RETITC = Renewable Energy Technologies Tax Credit (Hawai'i Revised "
+        f"RETITC = Renewable Energy Technologies Tax Credit (Hawaiʻi Revised "
         f"Statutes §235-12.5). Claim totals from DOTAX Tax Year 2023. SB 3125 CD{cd} "
         f"provisions as drafted.")
 
@@ -579,7 +579,7 @@ def _page_historical(pdf, hist_df):
         t.set_color(BODY)
 
     _footer_caption(fig,
-        "Source: DOTAX — Tax Credits Claimed by Hawai'i Taxpayers (Tax Year 2018–2022 "
+        "Source: DOTAX — Tax Credits Claimed by Hawaiʻi Taxpayers (Tax Year 2018–2022 "
         "actuals; Tax Year 2023 Dec 2025 publication). \"Other\" = Total − Individual − "
         "Corporate so disclosure-suppressed cells appear in the stack.")
     pdf.savefig(fig)
@@ -656,12 +656,12 @@ def _page_agi_dist(pdf, agi_bins: list, ind_total_M: float):
     plt.close(fig)
 
 
-# Hawai'i household quintile income boundaries (2026-anchored, household income).
+# Hawaiʻi household quintile income boundaries (2026-anchored, household income).
 # Source: forecast_sb3125_static_quintile.py — weighted equal-population breaks.
 # Re-anchored to the analysis year at render time (see _page_quintile_burden).
 _HH_QUINTILE_BREAKS = [28_336, 60_915, 100_510, 168_638]
 
-# Total Hawai'i households (ACS 2023 1-yr ≈ 471K) → ~94.2K per quintile.
+# Total Hawaiʻi households (ACS 2023 1-yr ≈ 471K) → ~94.2K per quintile.
 _HI_HOUSEHOLDS = 471_000
 
 # DOTAX AGI bin edges ($) — aligned by index to RETITC_INDIVIDUAL_BY_AGI_BIN
@@ -674,7 +674,7 @@ _PARETO_ALPHA = 1.5
 
 
 def _growth_for_year(results_df, year: int) -> float:
-    """Nominal Hawai'i individual income-growth factor (base TY2023) for `year`.
+    """Nominal Hawaiʻi individual income-growth factor (base TY2023) for `year`.
 
     Read straight from the credit model's own ``growth_individual`` return
     value, so the report needs no separate income-projection import and stays
@@ -996,7 +996,7 @@ def _page_quintile_burden(pdf, results_df, agi_bins: list, cd: str):
         "Individual RETITC loss distributed across DOTAX Tax Year 2023 AGI bins via fractional "
         f"income-range overlap onto TY2027-anchored household quintiles "
         f"(${breaks[0]/1000:.0f}K / ${breaks[1]/1000:.0f}K / ${breaks[2]/1000:.0f}K / "
-        f"${breaks[3]/1000:.0f}K breaks). Hawai'i households ≈ {_HI_HOUSEHOLDS/1000:.0f}K "
+        f"${breaks[3]/1000:.0f}K breaks). Hawaiʻi households ≈ {_HI_HOUSEHOLDS/1000:.0f}K "
         "(ACS 2023). Static incidence — no behavioral response modeled.")
     pdf.savefig(fig)
     plt.close(fig)
@@ -1064,7 +1064,7 @@ def _page_demand(pdf, demand_df):
         t.set_color(BODY)
 
     _footer_caption(fig,
-        "Hawai'i nominal income growth (individual) + business-sector growth (commercial) "
+        "Hawaiʻi nominal income growth (individual) + business-sector growth (commercial) "
         "applied to Tax Year 2023 DOTAX baseline. Post-OBBBA scenarios reflect federal §25D "
         "termination (PL 119-21, July 2025). Shaded band spans Severe – Pre-OBBBA.")
     pdf.savefig(fig)
@@ -1572,7 +1572,7 @@ def _page_glossary(pdf, cd: str):
 
     _footer_caption(fig,
         f"SB 3125 CD{cd}  ·  §235-12.5 Renewable Energy Technologies Tax Credit  ·  "
-        "Statutory language at Hawai'i Revised Statutes §235-12.5.")
+        "Statutory language at Hawaiʻi Revised Statutes §235-12.5.")
     pdf.savefig(fig)
     plt.close(fig)
 

@@ -41,7 +41,7 @@ References:
     Taxation of the Elite" American Sociological Review.
   - Cohen, Lai, Steindel (2014) "State income taxes and team performance"
     NJ Treasury working paper on millionaire migration.
-  - Hawaii DOTAX "Tax Credits Claimed by Hawai`i Taxpayers — Tax Year
+  - Hawaii DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year
     2023" (Dec 2025) for PTE base.
 """
 from __future__ import annotations

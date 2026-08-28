@@ -19,7 +19,7 @@ captured by the individual-income-tax microsimulation:
      - Net effect: credit eliminated 1 year earlier (TY 2029 instead of 2030)
      - Bill impact = TY 2029 only; TY 2030+ baseline already has it sunset
 
-DOTAX TY2023 baselines (in $M, from "Tax Credits Claimed by Hawai`i
+DOTAX TY2023 baselines (in $M, from "Tax Credits Claimed by Hawaiʻi
 Taxpayers — Tax Year 2023", Dec 2025):
 
   Renewable Energy Tax Credit (Table A-1, line 1854; A-5, line 2067):
@@ -76,7 +76,7 @@ REEC_CORPORATE_TOTAL_M  = 38.565
 REEC_OTHER_TOTAL_M      =  3.217   # financial corp, fiduciaries, exempt orgs (not subject to AGI limit)
 # Sanity: 58.293 + 38.565 + 3.217 = $100.075M, matches DOTAX Table A-1 line 1854.
 
-# Refundable / nonrefundable split (DOTAX "Tax Credits Claimed by Hawai`i
+# Refundable / nonrefundable split (DOTAX "Tax Credits Claimed by Hawaiʻi
 # Taxpayers — Tax Year 2023", refund-flag breakout). Refundable claims
 # offset state revenue dollar-for-dollar; nonrefundable claims that exceed
 # tax liability carry forward and don't reduce current-year revenue, so

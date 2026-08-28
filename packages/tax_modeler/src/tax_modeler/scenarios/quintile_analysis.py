@@ -25,7 +25,7 @@ import pandas as pd
 from typing import Optional
 
 # DOTAX TY2023 individual REEC by AGI bin (label, total_$M, eligible_share)
-# Source: DOTAX "Tax Credits Claimed by Hawai`i Taxpayers TY2023", Table A-5
+# Source: DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers TY2023", Table A-5
 _REEC_BINS = [
     ("<$10K",        4.731, 1.000),
     ("$10K-$30K",    2.522, 1.000),
