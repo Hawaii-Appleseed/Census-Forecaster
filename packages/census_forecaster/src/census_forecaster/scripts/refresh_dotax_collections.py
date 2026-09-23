@@ -40,6 +40,7 @@ import io
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import date
@@ -101,18 +102,47 @@ def _shift_year(ym: str, delta: int) -> str:
     return f"{int(ym[:4]) + delta}{ym[4:]}"
 
 
-def _fetch_xlsx(url: str):
-    """Return an openpyxl workbook, or None on HTTP 404."""
+class Throttled(Exception):
+    """DOTAX (behind Cloudflare) kept answering 429/503 after every retry."""
+
+
+#: Pause between requests. files.hawaii.gov (Cloudflare) rate-limits bursts:
+#: on 2026-09-23 a GitHub runner drew 429 on its first file, and ~40 quick
+#: requests from a residential IP tripped it too, after which even published
+#: files answered 429.
+PACE_SECONDS = 3.0
+RETRY_WAITS = (10, 30, 60)
+
+
+def _fetch_xlsx(url: str, *, sleep=time.sleep):
+    """Return an openpyxl workbook, or None on HTTP 404.
+
+    429/503 are retried after ``Retry-After`` (or 10s/30s/60s); if the site is
+    still throttling after the last wait, raise :class:`Throttled`.
+    """
     import openpyxl
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "census-forecaster/refresh"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = resp.read()
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
-    return openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+    for attempt in range(len(RETRY_WAITS) + 1):
+        sleep(PACE_SECONDS)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "census-forecaster/refresh"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = resp.read()
+            return openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            if e.code not in (429, 503):
+                raise
+            if attempt == len(RETRY_WAITS):
+                raise Throttled(f"HTTP {e.code} from {url} after {attempt} retries") from e
+            try:
+                wait = min(int(e.headers.get("Retry-After", "")), 300)
+            except (TypeError, ValueError):
+                wait = RETRY_WAITS[attempt]
+            print(f"[dotax] HTTP {e.code} on {url.rsplit('/', 1)[-1]}; retrying in {wait}s",
+                  file=sys.stderr)
+            sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def parse_collec(wb, year: int, month: int) -> dict[str, dict[str, float]]:
@@ -199,7 +229,12 @@ def _iter_months_back(months_back: int):
             y, m = y - 1, 12
 
 
-def refresh(out_path: Path, months_back: int, verbose: bool = True) -> dict:
+def refresh(out_path: Path, months_back: int, verbose: bool = True) -> tuple:
+    """Merge every fetchable month into the existing bundle.
+
+    Returns ``(payload, n_files, throttled)``. On a persistent 429 the loop
+    stops and returns what it merged so far — the bundle is an accumulating
+    archive, so a partial merge never loses committed history."""
     existing: dict = {}
     if out_path.exists():
         with open(out_path) as f:
@@ -208,11 +243,16 @@ def refresh(out_path: Path, months_back: int, verbose: bool = True) -> dict:
     asof: dict = dict(existing.get("value_asof", {}))
 
     n_files = 0
+    throttled = None
     # Oldest → newest so that newer files overwrite on overlap.
     for y, m in reversed(list(_iter_months_back(months_back))):
         for kind, parser in (("collec", parse_collec), ("ge", parse_ge)):
             fname = f"{y:04d}{m:02d}{kind}.xlsx"
-            wb = _fetch_xlsx(f"{BASE_URL}/{fname}")
+            try:
+                wb = _fetch_xlsx(f"{BASE_URL}/{fname}")
+            except Throttled as e:
+                throttled = str(e)
+                break
             if wb is None:
                 continue
             n_files += 1
@@ -222,10 +262,14 @@ def refresh(out_path: Path, months_back: int, verbose: bool = True) -> dict:
                 monthly.setdefault(month_str, {}).update(values)
                 asof[month_str] = fname
             wb.close()
+        if throttled:
+            break
 
     payload = {
         "source": "Hawaii DOTAX monthly collection reports (files.hawaii.gov/tax/stats/monthly)",
-        "fetch_date": date.today().isoformat(),
+        # A throttled run that fetched nothing must not look like a fresh one.
+        "fetch_date": (existing.get("fetch_date", date.today().isoformat())
+                       if throttled and not n_files else date.today().isoformat()),
         "units": "USD, cash collections in deposit month",
         "limitations": LIMITATIONS,
         "series_keys": sorted(
@@ -233,15 +277,22 @@ def refresh(out_path: Path, months_back: int, verbose: bool = True) -> dict:
         "value_asof": {k: asof[k] for k in sorted(asof)},
         "monthly": {k: monthly[k] for k in sorted(monthly)},
     }
-    return payload, n_files
+    return payload, n_files, throttled
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch DOTAX monthly collections and merge into the bundle.")
     parser.add_argument("--out", type=Path, default=_default_out())
-    parser.add_argument("--months-back", type=int, default=30,
+    # 15, not 30: DOTAX keeps only ~12 months up as XLSX and the bundle
+    # accumulates, so probing further back only spends the rate limit on 404s.
+    parser.add_argument("--months-back", type=int, default=15,
                         help="How many recent report-months to probe (404s skipped).")
+    parser.add_argument("--tolerate-throttle", action="store_true",
+                        help="If DOTAX keeps answering 429 after retries, keep the "
+                             "committed archive, emit a GitHub warning and exit 0 "
+                             "(DOTAX keeps ~12 months online, so next month's run "
+                             "recovers what this one missed).")
     args = parser.parse_args(argv)
 
     try:
@@ -251,7 +302,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
               file=sys.stderr)
         return 2
 
-    payload, n_files = refresh(args.out, args.months_back)
+    payload, n_files, throttled = refresh(args.out, args.months_back)
     if n_files == 0 and not payload["monthly"]:
         print("ERROR: no report files found and no existing bundle — nothing to write.",
               file=sys.stderr)
@@ -265,6 +316,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"[dotax] {n_files} report files parsed; bundle now spans "
           f"{min(payload['monthly'])} – {max(payload['monthly'])} "
           f"({len(payload['monthly'])} months) → {args.out}", file=sys.stderr)
+    if throttled:
+        msg = (f"DOTAX throttled the refresh ({throttled}); kept the committed "
+               f"archive plus {n_files} file(s) fetched before it")
+        if args.tolerate_throttle:
+            print(f"::warning title=DOTAX throttled::{msg}")
+            return 0
+        print(f"ERROR: {msg}", file=sys.stderr)
+        return 1
     return 0
 
 

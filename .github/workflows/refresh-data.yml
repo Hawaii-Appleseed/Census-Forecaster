@@ -216,7 +216,13 @@ jobs:
           # it to one fetch. That accumulation is exactly why this
           # belongs on the monthly cron — every month it runs is history
           # that would otherwise fall off the DOTAX site unrecoverably.
-          uv run python -m census_forecaster.scripts.refresh_dotax_collections
+          #
+          # --tolerate-throttle: files.hawaii.gov sits behind Cloudflare,
+          # which answered this runner with 429 on the first file
+          # (2026-09-23) and so sank every later step, commit included.
+          # A throttled month is recoverable (~12 months stay online), a
+          # lost month of every other refresh is not worth that trade.
+          uv run python -m census_forecaster.scripts.refresh_dotax_collections --tolerate-throttle
 
       - name: Refresh Council on Revenues IIT projections
         id: cor
