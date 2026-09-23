@@ -31,9 +31,10 @@ geoid-constant market/national channels.
 
 Known limitations (see also METHODOLOGY "HTA visitor arrivals")
 --------------------------------------------------------------
-* **No API.** HTA publishes spreadsheets behind opaque, rotating
-  ``/media/<id>/`` URLs, so this script scrapes the listing page to
-  discover the current link rather than hardcoding one. UHERO's data
+* **No API.** HTA publishes spreadsheets behind opaque, rotating URLs
+  (``/media/<id>/`` on the old site; ``/wp-content/uploads/<yyyy>/<mm>/``
+  since the September 2026 move to hta.hawaii.gov), so this script scrapes
+  the listing page to discover the current link rather than hardcoding one. UHERO's data
   warehouse does expose a real API but requires a Bearer token, which
   breaks the repo's keyless-fetch discipline.
 * **Ends at 2024.** The historical workbook is a yearly snapshot. The
@@ -61,6 +62,7 @@ import sys
 from datetime import date
 from pathlib import Path
 from typing import Optional, Sequence
+from urllib.parse import urljoin
 
 import requests
 
@@ -70,7 +72,9 @@ _PKG_DATA = Path(__file__).resolve().parent.parent / "data"
 _MARKETS_DIR = _PKG_DATA / "markets"
 MACRO_MONTHLY_FILE = _MARKETS_DIR / "macro_monthly.json"
 
-HTA_BASE = "https://www.hawaiitourismauthority.org"
+# The site moved from www.hawaiitourismauthority.org to hta.hawaii.gov in
+# 2026; the old research paths 404 rather than redirect.
+HTA_BASE = "https://hta.hawaii.gov"
 HISTORICAL_PAGE = f"{HTA_BASE}/research/historical-visitor-statistics/"
 
 #: Table 6 sheet name in the historical workbook.
@@ -125,16 +129,17 @@ def discover_historical_url(page_url: str = HISTORICAL_PAGE,
                             *, timeout: float = 30.0) -> Optional[str]:
     """Find the 'historical-visitors-through-<year>' workbook link.
 
-    The ``/media/<id>/`` ids rotate on every republish, so the listing
-    page is the only stable entry point.
+    The upload paths rotate on every republish, so the listing page is the
+    only stable entry point. Links may be relative (the old site's
+    ``/media/<id>/``) or absolute (WordPress uploads on hta.hawaii.gov).
     """
     resp = requests.get(page_url, timeout=timeout)
     resp.raise_for_status()
-    hits = re.findall(r'href="(/media/\d+/[^"]*historical-visitors[^"]*\.xlsx)"',
+    hits = re.findall(r'href="([^"]*historical-visitors[^"]*\.xlsx)"',
                       resp.text, flags=re.I)
     if not hits:
         return None
-    return HTA_BASE + hits[0]
+    return urljoin(page_url, hits[0])
 
 
 def parse_table6(content: bytes) -> dict[str, list[dict]]:

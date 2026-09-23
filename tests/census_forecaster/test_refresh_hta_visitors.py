@@ -109,6 +109,26 @@ def test_discover_url_finds_historical_workbook(monkeypatch):
     assert url == hta.HTA_BASE + "/media/14768/historical-visitors-through-2024-final.xlsx"
 
 
+def test_discover_url_accepts_absolute_wordpress_links(monkeypatch):
+    # hta.hawaii.gov (since 2026) links uploads absolutely, and lists the
+    # single-year workbooks first; only the "through-<year>" one is wanted.
+    html = ('<a href="https://hta.hawaii.gov/wp-content/uploads/2026/06/'
+            '2024-monthly-visitor-statistics-final.xlsx">x</a>'
+            '<a href="https://hta.hawaii.gov/wp-content/uploads/2026/06/'
+            'historical-visitors-through-2024-final-final.xlsx">y</a>')
+
+    class R:
+        text = html
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(hta.requests, "get", lambda *a, **k: R())
+    assert hta.discover_historical_url() == (
+        "https://hta.hawaii.gov/wp-content/uploads/2026/06/"
+        "historical-visitors-through-2024-final-final.xlsx")
+
+
 def test_discover_url_returns_none_when_absent(monkeypatch):
     class _R:
         text = "<a href='/media/1/2016-highlights.xls'>x</a>"
