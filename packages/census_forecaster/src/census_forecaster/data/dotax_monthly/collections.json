@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-08-06",
+  "fetch_date": "2026-09-23",
   "limitations": [
     "Collections are cash-basis by *deposit* month \u2014 payment-deadline timing (estimated-tax due dates, filing season) makes single months noisy; compare year-over-year same-month or rolling windows only.",
     "Withholding growth conflates wage growth with WITHHOLDING-RATE policy: the Act 46 (2024) bracket cuts phase in from TY2025 and mechanically depress withholding relative to wages. GE&Use (rate-stable) is the cleaner pure-activity gauge.",
@@ -110,6 +110,12 @@
     "2025-04": {
       "ge_allocated": 433176232.26
     },
+    "2025-05": {
+      "ge_allocated": 374006494.63
+    },
+    "2025-06": {
+      "ge_allocated": 375540817.91
+    },
     "2025-07": {
       "corp_est": 16111862.59,
       "corp_refunds": -5699490.58,
@@ -211,6 +217,12 @@
     },
     "2026-04": {
       "ge_allocated": 430308341.92
+    },
+    "2026-05": {
+      "ge_allocated": 390068755.5
+    },
+    "2026-06": {
+      "ge_allocated": 392531156.52
     }
   },
   "series_keys": [
@@ -241,6 +253,8 @@
     "2025-02": "202602ge.xlsx",
     "2025-03": "202603ge.xlsx",
     "2025-04": "202604ge.xlsx",
+    "2025-05": "202605ge.xlsx",
+    "2025-06": "202606ge.xlsx",
     "2025-07": "202507ge.xlsx",
     "2025-08": "202508ge.xlsx",
     "2025-09": "202509ge.xlsx",
@@ -250,6 +264,8 @@
     "2026-01": "202601ge.xlsx",
     "2026-02": "202602ge.xlsx",
     "2026-03": "202603ge.xlsx",
-    "2026-04": "202604ge.xlsx"
+    "2026-04": "202604ge.xlsx",
+    "2026-05": "202605ge.xlsx",
+    "2026-06": "202606ge.xlsx"
   }
 }

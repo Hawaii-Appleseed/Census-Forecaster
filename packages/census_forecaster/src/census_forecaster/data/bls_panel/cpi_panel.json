@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-08-06",
+  "fetch_date": "2026-09-23",
   "n_series": 60,
   "series": {
     "CUUR0000SA0": [
@@ -986,6 +986,16 @@
       {
         "period": "M06",
         "value": 333.952,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 333.918,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 334.98,
         "year": 2026
       }
     ],
@@ -1974,6 +1984,16 @@
         "period": "M06",
         "value": 321.631,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 321.643,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 321.5,
+        "year": 2026
       }
     ],
     "CUUR0000SAH1": [
@@ -2961,6 +2981,16 @@
         "period": "M06",
         "value": 429.062,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 429.491,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 430.611,
+        "year": 2026
       }
     ],
     "CUUR0000SEHA": [
@@ -3947,6 +3977,16 @@
       {
         "period": "M06",
         "value": 446.945,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 447.963,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 448.997,
         "year": 2026
       }
     ],
@@ -4940,6 +4980,16 @@
         "period": "M06",
         "value": 358.518,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 350.846,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 359.738,
+        "year": 2026
       }
     ],
     "CUURS11ASA0": [
@@ -5436,6 +5486,11 @@
       {
         "period": "M05",
         "value": 359.056,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 359.707,
         "year": 2026
       }
     ],
@@ -6424,6 +6479,16 @@
         "period": "M06",
         "value": 324.334,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 325.514,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 321.674,
+        "year": 2026
       }
     ],
     "CUURS11ASAH1": [
@@ -7411,6 +7476,16 @@
         "period": "M06",
         "value": 470.085,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 476.313,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 471.321,
+        "year": 2026
       }
     ],
     "CUURS11ASEHA": [
@@ -8397,6 +8472,16 @@
       {
         "period": "M06",
         "value": 489.296,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 491.717,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 493.76,
         "year": 2026
       }
     ],
@@ -9390,6 +9475,16 @@
         "period": "M06",
         "value": 364.797,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 351.849,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 357.358,
+        "year": 2026
       }
     ],
     "CUURS12ASA0": [
@@ -10376,6 +10471,16 @@
       {
         "period": "M06",
         "value": 360.529,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 362.189,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 362.328,
         "year": 2026
       }
     ],
@@ -11364,6 +11469,16 @@
         "period": "M06",
         "value": 336.978,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 338.451,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 337.79,
+        "year": 2026
       }
     ],
     "CUURS12ASAH1": [
@@ -12351,6 +12466,16 @@
         "period": "M06",
         "value": 496.178,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 498.478,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 499.903,
+        "year": 2026
       }
     ],
     "CUURS12ASEHA": [
@@ -13337,6 +13462,16 @@
       {
         "period": "M06",
         "value": 506.466,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 508.793,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 509.228,
         "year": 2026
       }
     ],
@@ -14330,6 +14465,16 @@
         "period": "M06",
         "value": 333.481,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 323.52,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 327.64,
+        "year": 2026
       }
     ],
     "CUURS23ASA0": [
@@ -15316,6 +15461,16 @@
       {
         "period": "M06",
         "value": 309.915,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 309.462,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 310.89,
         "year": 2026
       }
     ],
@@ -16304,6 +16459,16 @@
         "period": "M06",
         "value": 306.103,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 308.929,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 309.741,
+        "year": 2026
       }
     ],
     "CUURS23ASAH1": [
@@ -17291,6 +17456,16 @@
         "period": "M06",
         "value": 435.119,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 438.674,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 438.194,
+        "year": 2026
       }
     ],
     "CUURS23ASEHA": [
@@ -18277,6 +18452,16 @@
       {
         "period": "M06",
         "value": 467.954,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 469.31,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 471.853,
         "year": 2026
       }
     ],
@@ -19270,6 +19455,16 @@
         "period": "M06",
         "value": 371.592,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 357.613,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 373.151,
+        "year": 2026
       }
     ],
     "CUURS24ASA0": [
@@ -19531,6 +19726,11 @@
       {
         "period": "M05",
         "value": 319.899,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 317.85,
         "year": 2026
       }
     ],
@@ -20044,6 +20244,16 @@
         "period": "M06",
         "value": 326.379,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 326.821,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 326.528,
+        "year": 2026
       }
     ],
     "CUURS24ASAH1": [
@@ -20556,6 +20766,16 @@
         "period": "M06",
         "value": 366.417,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 366.84,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 365.483,
+        "year": 2026
       }
     ],
     "CUURS24ASEHA": [
@@ -21067,6 +21287,16 @@
       {
         "period": "M06",
         "value": 376.512,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 377.678,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 378.312,
         "year": 2026
       }
     ],
@@ -21585,6 +21815,16 @@
         "period": "M06",
         "value": 320.419,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 322.483,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 333.942,
+        "year": 2026
       }
     ],
     "CUURS35ASA0": [
@@ -22081,6 +22321,11 @@
       {
         "period": "M05",
         "value": 334.707,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 335.716,
         "year": 2026
       }
     ],
@@ -23069,6 +23314,16 @@
         "period": "M06",
         "value": 315.428,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 316.73,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 314.908,
+        "year": 2026
       }
     ],
     "CUURS35ASAH1": [
@@ -24056,6 +24311,16 @@
         "period": "M06",
         "value": 422.933,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 420.95,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 423.024,
+        "year": 2026
       }
     ],
     "CUURS35ASEHA": [
@@ -25042,6 +25307,16 @@
       {
         "period": "M06",
         "value": 446.328,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 445.589,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 445.993,
         "year": 2026
       }
     ],
@@ -26035,6 +26310,16 @@
         "period": "M06",
         "value": 371.43,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 367.782,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 372.098,
+        "year": 2026
       }
     ],
     "CUURS37ASA0": [
@@ -26531,6 +26816,11 @@
       {
         "period": "M05",
         "value": 311.261,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 311.093,
         "year": 2026
       }
     ],
@@ -27519,6 +27809,16 @@
         "period": "M06",
         "value": 281.469,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 284.41,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 280.12,
+        "year": 2026
       }
     ],
     "CUURS37ASAH1": [
@@ -28506,6 +28806,16 @@
         "period": "M06",
         "value": 352.758,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 353.16,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 351.801,
+        "year": 2026
       }
     ],
     "CUURS37ASEHA": [
@@ -29492,6 +29802,16 @@
       {
         "period": "M06",
         "value": 371.747,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 372.135,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 372.301,
         "year": 2026
       }
     ],
@@ -30485,6 +30805,16 @@
         "period": "M06",
         "value": 311.396,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 321.544,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 336.46,
+        "year": 2026
       }
     ],
     "CUURS48ASA0": [
@@ -30741,6 +31071,11 @@
       {
         "period": "M06",
         "value": 190.704,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 191.724,
         "year": 2026
       }
     ],
@@ -31228,6 +31563,11 @@
       {
         "period": "M01",
         "value": 190.859,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 191.162,
         "year": 2026
       }
     ],
@@ -31741,6 +32081,16 @@
         "period": "M06",
         "value": 228.094,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 226.775,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 226.413,
+        "year": 2026
       }
     ],
     "CUURS48ASEHA": [
@@ -32252,6 +32602,16 @@
       {
         "period": "M06",
         "value": 235.143,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 235.062,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 235.508,
         "year": 2026
       }
     ],
@@ -32770,6 +33130,16 @@
         "period": "M06",
         "value": 365.855,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 351.008,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 384.355,
+        "year": 2026
       }
     ],
     "CUURS48BSA0": [
@@ -33031,6 +33401,11 @@
       {
         "period": "M05",
         "value": 351.621,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 349.209,
         "year": 2026
       }
     ],
@@ -33544,6 +33919,16 @@
         "period": "M06",
         "value": 284.218,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 287.973,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 288.763,
+        "year": 2026
       }
     ],
     "CUURS48BSAH1": [
@@ -34056,6 +34441,16 @@
         "period": "M06",
         "value": 406.595,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 409.398,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 409.339,
+        "year": 2026
       }
     ],
     "CUURS48BSEHA": [
@@ -34567,6 +34962,16 @@
       {
         "period": "M06",
         "value": 411.376,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 412.153,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 411.927,
         "year": 2026
       }
     ],
@@ -35084,6 +35489,16 @@
       {
         "period": "M06",
         "value": 320.887,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 318.974,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 348.022,
         "year": 2026
       }
     ],
@@ -36072,6 +36487,16 @@
         "period": "M06",
         "value": 354.325,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 355.311,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 356.993,
+        "year": 2026
       }
     ],
     "CUURS49ASAF11": [
@@ -37058,6 +37483,16 @@
       {
         "period": "M06",
         "value": 336.343,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 338.555,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 341.659,
         "year": 2026
       }
     ],
@@ -38046,6 +38481,16 @@
         "period": "M06",
         "value": 470.103,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 473.415,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 475.519,
+        "year": 2026
       }
     ],
     "CUURS49ASEHA": [
@@ -39032,6 +39477,16 @@
       {
         "period": "M06",
         "value": 499.739,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 500.922,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 501.811,
         "year": 2026
       }
     ],
@@ -40025,6 +40480,16 @@
         "period": "M06",
         "value": 423.433,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 409.143,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 421.6,
+        "year": 2026
       }
     ],
     "CUURS49BSA0": [
@@ -40516,6 +40981,11 @@
       {
         "period": "M06",
         "value": 369.913,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 370.13,
         "year": 2026
       }
     ],
@@ -41504,6 +41974,16 @@
         "period": "M06",
         "value": 363.266,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 361.858,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 352.027,
+        "year": 2026
       }
     ],
     "CUURS49BSAH1": [
@@ -42491,6 +42971,16 @@
         "period": "M06",
         "value": 470.049,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 469.378,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 467.656,
+        "year": 2026
       }
     ],
     "CUURS49BSEHA": [
@@ -43477,6 +43967,16 @@
       {
         "period": "M06",
         "value": 532.233,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 534.331,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 533.851,
         "year": 2026
       }
     ],
@@ -44470,6 +44970,16 @@
         "period": "M06",
         "value": 415.45,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 398.966,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 404.361,
+        "year": 2026
       }
     ],
     "CUURS49FSA0": [
@@ -44731,6 +45241,11 @@
       {
         "period": "M05",
         "value": 367.429,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 367.836,
         "year": 2026
       }
     ],
@@ -45244,6 +45759,16 @@
         "period": "M06",
         "value": 379.269,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 380.152,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 378.674,
+        "year": 2026
       }
     ],
     "CUURS49FSAH1": [
@@ -45756,6 +46281,16 @@
         "period": "M06",
         "value": 440.845,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 440.464,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 439.507,
+        "year": 2026
       }
     ],
     "CUURS49FSEHA": [
@@ -46267,6 +46802,16 @@
       {
         "period": "M06",
         "value": 440.911,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 443.047,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 443.953,
         "year": 2026
       }
     ],
@@ -46784,6 +47329,16 @@
       {
         "period": "M06",
         "value": 446.235,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 436.083,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 434.451,
         "year": 2026
       }
     ]

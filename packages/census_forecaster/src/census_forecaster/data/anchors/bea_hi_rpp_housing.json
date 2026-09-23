@@ -1,6 +1,6 @@
 {
   "frequency": "annual",
-  "last_refresh": "2026-08",
+  "last_refresh": "2026-09",
   "limitations": [
     "RPP services-rents component combines actual and imputed rents; differs from BLS's CPI rent (actual rents only) and HUD FMR (small-area assessed rents).",
     "State-level aggregation smooths intra-state variation (Honolulu vs. neighbor islands).",

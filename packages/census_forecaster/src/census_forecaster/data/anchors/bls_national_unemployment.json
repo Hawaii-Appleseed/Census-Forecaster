@@ -2,7 +2,7 @@
   "aggregation_method": "annual_average",
   "frequency": "monthly_aggregated_to_annual",
   "geography": "national",
-  "last_refresh": "2026-08",
+  "last_refresh": "2026-09",
   "limitations": [
     "National level does not transfer to county level; registered (Phase 3) as a RATE anchor so only the YoY direction is used.",
     "CPS-based; conceptually closer to ACS S2301 than LAUS models but still a labor-force denominator, not population 16+.",
@@ -34,6 +34,6 @@
     "2023": 3.625,
     "2024": 4.025,
     "2025": 4.264,
-    "2026": 4.3
+    "2026": 4.25
   }
 }

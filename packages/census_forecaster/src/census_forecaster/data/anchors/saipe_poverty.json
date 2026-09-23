@@ -2,7 +2,7 @@
   "aggregation_method": "annual_point_estimate",
   "frequency": "annual",
   "geography": "county",
-  "last_refresh": "2026-08",
+  "last_refresh": "2026-09",
   "limitations": [
     "SAIPE is a model-based estimate combining ACS, IRS records, SNAP participation, and decennial Census via hierarchical Bayesian shrinkage; small-county estimates draw signal from state-level patterns.",
     "SAIPE poverty rate is for the population for whom poverty status is determined (excludes group quarters, college students living in dorms in non-family settings, etc.) \u2014 the same population concept as ACS S1701_C03_001E.",
