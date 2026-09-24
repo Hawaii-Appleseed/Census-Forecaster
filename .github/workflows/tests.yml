@@ -7,6 +7,8 @@ on:
       - 'packages/**'
       - 'tests/**'
       - 'forecast_*.py'
+      - 'site/**'
+      - 'scripts/build_site.py'
       - 'pyproject.toml'
       - 'ruff.toml'
       - 'uv.lock'

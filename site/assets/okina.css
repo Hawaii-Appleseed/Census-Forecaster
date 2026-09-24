@@ -1,0 +1,45 @@
+/* =====================================================================
+   ʻokina (U+02BB) support for the brand fonts.  GENERATED — do not hand-edit.
+
+   Neither Manrope nor Poppins encodes U+02BB, so every ʻokina on the site
+   (~300 of them) silently fell back to the OS UI font: Helvetica in print,
+   .SFNS on screen, visibly off-weight beside its neighbours. These one-glyph
+   faces re-encode each family's OWN U+2018 outline at U+02BB, so the mark is
+   the one Manrope's / Poppins' designer drew. The text keeps the correct
+   character — substituting U+2018 is an orthographic error in Hawaiian and
+   would break search, copy-paste and screen readers.
+
+   The Okina* family must come FIRST in a stack; its unicode-range keeps it
+   from claiming any other character. Adding these faces to the real
+   'Manrope'/'Poppins' families instead does NOT work: Google's own latin face
+   declares U+02BB in its unicode-range without shipping the glyph, wins the
+   match, and falls back. (Verified, not assumed.)
+
+   Regenerate with primer-editor's  python3 tools/build_okina_font.py .
+   Manrope (c) 2018 The Manrope Project Authors; Poppins (c) 2020 The Poppins
+   Project Authors. Both SIL OFL 1.1, no Reserved Font Name.
+   ===================================================================== */
+@font-face { font-family:'OkinaManrope'; font-weight:200 800;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAMAABIAAAAAByQAAAKdAASBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMD9IVkFSNgZgP1NUQVSBAgA0L2oRCAowSTBSATYCJAMICwYABCAFhSwHIAwHG/0FSL4EcIe14O6gCINqRdPe1Ahlo7zcU87Os/rOGdhEBPkXX/W8WfCDPig6x2BOM6LjDS8Eo4uJNWzO+7JjXeEqPDjiAbKe9c1knaweAd46m2CK0kQhGZuAqn1I4TsALXB3AwyA9m8AkyBY+c9ZWELWWQBoWnioPs/NOOL6Vlukl1gvgqX54jlsTI8kD/iELvEbxAeGp5tD5fHgg4jIgmFY/lRB31LL5eBD/RyCClOAoG+r7Rrke9rxn+se+hmT+xE6/j0ImEt991AwX4T9mVBEwN9iPV2tRWtufR0PxfPysd3KLVzhGq0jb+DgV35S3aP+i/By5QOBuk/rGaxURXQFc3WwVLn45PWdwNhi6+3lQKEuAokJAinZigYlTe6hfIxAan7NaJXjYN/G7uw0K0FBg7kawVzVSlRVKB9NqeQbgWCmIuRWn/ofR40JzUqIBBPSTSFbSS8NuYf0U8mvZJAW5TjIMG3Kx2SUDs1KMhaZUkABFcEQMwEVkOHlb2egf82zr+xd6n7/nLkav5X5glVAELBYAYvB0muCvm3X2B/2VzUnrK+Gyqe54EwbXy97+5r9/a9teg33fT8vvPDATTfcdL2gXtu+YJ9njcT+W6rzGXz17jfAD/f0hEti82NraCsgfIffmrjkqRsBs7TkJHmTxVAOwh/Nz1gjtScWklGMLdw33b4K2rZbv58p1CxzHUULQ6fIExR9F6AxthDV0FVomek2tHU9ho7ZnkPXduvRs9bb6NvocwysDwxtznqMrM5hP+TY1pwnsrNxNBGYOLo6OVtILaw87E2AQsMh3u6u130bK2v32mlZWP8SQXdu4+EgE+LQtJ3szaM+qJczifTxmdg66/p8M0GdfJkuhKbW2jTXms5u8u9n2vVOAAAA) format('woff2');
+    unicode-range:U+02BB; }
+@font-face { font-family:'OkinaPoppins'; font-weight:300;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAGMAAwAAAAAAygAAAFAAAQBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMAZgADQKHDgBNgIkAwgLBgAEIAWBLgcgG2sCIC4KY2PZeImq+GNqZRfO1Mslqwjq78W9e5dSK6UDl4qhSt8oFOBMxMIBD1BEPwgw5nYRKUGsPptqS08v1aA0Ot45ERoAo/Zf7mJpFGCqLU8zefEIu8swSjDQALTAAm02mw48ZEGQbILtxajAqHWb4jIYzyNX0A8gMOrIiYZEczc4+tgMdTK8B9XiAgcD5EcOHvI+3vFFCCi66u4pmOI5per/TFcr4Q4E5K7wim2FRMO8JjCvbKOUIH/6dfFfEAGABIVAYQhQgKiasqQav2aKL35AoEKa/jHd0gV+5SLRN/D3/QL+P51YjjfOQhiSIDhxZDzQni8CAJDxAL/sAqkECGnTIDoAhjwTiVIQlplIk5bRLMMLg/YdYtoy1Rmj7qXMTCx1pK2srf3bTtbAyMFcxxZ0p8chR8b2JlKtjwsA) format('woff2');
+    unicode-range:U+02BB; }
+@font-face { font-family:'OkinaPoppins'; font-weight:400;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAF0AAwAAAAAAwgAAAEmAAQBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMAZgADQKHDgBNgIkAwgLBgAEIAWBEAcgG00CYJ4JdqyWadFs4NF4+G/s230zs6KGWVaTRiikDYVGKWKl4A0/fYnLL8DUREAUrdr/D27FmdLlUpVY6Zc4sZyzwEMWBMkm2V6UCtQbNCw2bt55UK0ClYBAvUWWyIDuvHjp8QrDgXMWnIOSD8S0KtLTdBQ7ch+nrYitUEVbbTu4eY/36VV6Vfr/72K5kx4gIE2mlxhVkJDRKQt0KkZRFEF6VanFs5sFgAQKAgU1gAKIcqL+SMOTD5fPfF8HBEpUL1gw25mWlf/k/Bc+P/8Wfk97pjc+epFeoEYCwYWRMaPXuBcCAJBiBt/0CiRFgJAMq8ZFAFXWy6LUCb0MSpr1UtYLFmHV5pljjxuuue2cve64666/PbDfJVc8ctM59zFvsSUrV2EFAAAA) format('woff2');
+    unicode-range:U+02BB; }
+@font-face { font-family:'OkinaPoppins'; font-weight:500;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAGQAAwAAAAAAywAAAFCAAQBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMAZgADQKHDgBNgIkAwgLBgAEIAWBMgcgG28CYC4KYyJzHusKrkX24mq+ZaKI9tdFUOz327t3iEkSLUm8kUxaIjaGUKCSCIkhW4Tv85zrb20VAs3jUV5zN51AahTBvTM/W2tg3e4qwNSq/bflaSYvHnmGEQUagBZYnIVJNx3oxuAG02FJWLFUoNusebG9G1fBK2gFBLpt2NIIVn3o7gLzpaYn56Ca8ygw5GMKjvo+rgRxCLTDqIPTKMOXPC/+Xzo1zzUIyOV8AosKiQajGoFRZRGlBPncOov/IgSABIVAoQNQgKjz7kbP5WU/+OcABCra/3afZ6+F8Jenmk94//wBHwdXWPHqjQx0SBC8cI6CZdEbAjozfsAXSyCVACHNa8cDADqcoUR1CZMcSP0m0ZiEF9otWcKgSaJDeh3LjA3NNOXmFhb721pZV9/WRNNKu9tOdHUMbU2jFKQWAQAAAA==) format('woff2');
+    unicode-range:U+02BB; }
+@font-face { font-family:'OkinaPoppins'; font-weight:600;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAGUAAwAAAAAAzQAAAFGAAQBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMAZgADQKHDgBNgIkAwgLBgAEIAWBOgcgG3cCYJ4FjnPiVHH1ItFWkQdH+OvH8//ct9/ndpuxlscJD5PGUUahthIPKLCPvwcP/Lh8HwchQVNeYpJQMisU0qIU8kJlvN4DTN1Xtf+2PE0g0BePPMOIAs0tDjDQstlsN3COBYNpYDqsvFVgIS5J7A6tvZhpMAQEFkqqKMH7H3P7dZLQVCRn0KPpGmRAPWFc7+euLq1gio0631o6eJH3dd/R35XZ3qgdCKhtPcKGhoIRrCkC1rQ0NE2gXsMc/N9CAFBAQ6BhCtAA6ZHFwPL2fbLyFCDQMX79uE+46v/MSn3D56ZP+B54SipP/uUdTEkgeGFlKlKy/gkAQKWCrKQIKJoAQkoywgOAqWGKaAtCGAckpzCUMKSGUUEGbmFUPdw6dVixZN2UThs2bfa3Hd3mLNizasq29r6sx5w1SxpsWDWLKdMG6gAAAAA=) format('woff2');
+    unicode-range:U+02BB; }
+@font-face { font-family:'OkinaPoppins'; font-weight:700;
+    font-style:normal; font-display:block;
+    src:url(data:font/woff2;base64,d09GMgABAAAAAAF0AAwAAAAAAvwAAAEpAAQBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcMAZgADQKHDgBNgIkAwgLBgAEIAWBBAcgG0ECQC8KbFukNzTis868eNV4qB/739m993n8LkmQyJBcmpiVQOgeGlS8MV1DYpj+ifA6QQNrV/7XPiRg6mtBkj49DawlEFMGQUSBJpxagQVadrvH2DAsZTsMowJdk6bFjl0HTmir0AcIdK1YUxo/eOnyk82mBeejVQ9quZ7vNcinGfbrf5yxOQ5BG6/ae2LXYS/zvPr/tUv1bj5EQK7lF8yqSBQMKgKDqllUVZDv+vDwv10CQIKKQEULUAFRT3ZP9r69+W7vIRCo0Rx4tP/z2bb+bZfyB37tK/zmmeV4G+RHoSVB8P1krFu2KToCAJCxTmyxLJCqACFNa+ISgIZtiqgdYZTk1DbKxShYlTXNm3XYTdfdcd4Rd91zj/TQttwtlxpdpRWW+tsM) format('woff2');
+    unicode-range:U+02BB; }

@@ -113,6 +113,23 @@ proposals. Self-contained analyses with their own entry guides:
 |---|---|
 | **RxKids Hawaiʻi** — cost of a prenatal/infant cash program | **[`RXKIDS_GUIDE.md`](RXKIDS_GUIDE.md)** → [`RXKIDS_METHODOLOGY.md`](RXKIDS_METHODOLOGY.md) |
 | SB 3125 CD1 — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) |
+| Capital-gains rate options on Act 24 brackets | [`forecast_cg_rate_options.py`](forecast_cg_rate_options.py) · published on the estimates site |
+
+### Estimates site
+
+Published estimates are served from `site/` by GitHub Pages
+(`.github/workflows/pages.yml`, which deploys the directory as-is). To publish
+or refresh one after a model run:
+
+```bash
+python forecast_cg_rate_options.py          # writes runs/cg_rate_options/ (gitignored)
+python scripts/build_site.py --import-runs  # copies outputs to site/data/, regenerates pages
+```
+
+Commit `site/` with the change. Pages are generated only from the committed
+`site/data/`, so prose, charts and downloadable CSVs always agree, and
+`tests/site/` fails if the committed pages are stale. Adding an estimate means
+an `Estimate` entry and a page builder in `scripts/build_site.py`.
 
 ## Design principles
 
