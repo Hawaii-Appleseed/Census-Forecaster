@@ -145,7 +145,7 @@ Acts 58/96 (2025) and Acts 46/47 (2024) only. The **September 3, 2026** COR
 meeting is the first with "major tax law changes in 2026" on the agenda; that
 will be the first official figure incorporating Act 24 and EO 26-02.
 
-**Administering agency.** Act 24 REEC certification runs through the **Hawai'i
+**Administering agency.** Act 24 REEC certification runs through the **Hawaiʻi
 State Energy Office (HSEO)**, not DBEDT as older text in this document and in
 `RETITC_REPORT_METHODOLOGY.md` states. No number depends on this.
 
@@ -1068,7 +1068,7 @@ The tables below show every bracket for each filing status and each effective pe
 |--------|-------------|-----|
 | **ACS 5-Year PUMS 2020–2024** | U.S. Census Bureau, Hawaii (State FIPS 15) — `psam_p15.csv` / `psam_h15.csv` | Base population of tax units |
 | **IRS Statistics of Income (SOI) 2022, Table A8 — Hawaii** | High-income filer count and tax by AGI bracket | Targets for top-income synthesis: 1,824 filers at $1M+, $663M in tax |
-| **DOTAX "Tax Credits Claimed by Hawai`i Taxpayers — Tax Year 2023"** | Table A-1 (REEC aggregate), Table A-5 (REEC by AGI bin), line 1490 (CGEC) | Credit overlay baseline values |
+| **DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year 2023"** | Table A-1 (REEC aggregate), Table A-5 (REEC by AGI bin), line 1490 (CGEC) | Credit overlay baseline values |
 
 ### Administrative Benchmarks
 | Source | Description | Use |

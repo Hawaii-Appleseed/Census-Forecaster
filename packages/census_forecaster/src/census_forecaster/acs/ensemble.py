@@ -449,10 +449,12 @@ def _load_bundled_ml_panel() -> dict | None:
                 load_county_data,
                 load_market_signals_data,
                 load_national_macro_data,
+                load_state_data,
             )
             series, pops, _manifest = load_panel()
             # Build the panel WITH the auxiliary channels (BPS/SAIPE/LAUS,
-            # screen-gated market signals, national macro) — the shipped
+            # screen-gated market signals, national macro, state UI
+            # claims) — the shipped
             # ml_trend calibration records were fit on models trained with
             # these features (calibration.py Pass 2b loads the same three),
             # so the production model must see the same columns.
@@ -464,6 +466,7 @@ def _load_bundled_ml_panel() -> dict | None:
                     county_data=load_county_data(),
                     market_data=load_market_signals_data(),
                     national_data=load_national_macro_data(),
+                    state_data=load_state_data(),
                 ),
             }
         except Exception:

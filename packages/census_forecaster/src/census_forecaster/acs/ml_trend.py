@@ -62,6 +62,7 @@ from .ml_features import (
     load_county_data,
     load_market_signals_data,
     load_national_macro_data,
+    load_state_data,
     make_feature_spec,
     make_inference_row,
     make_training_rows,
@@ -144,6 +145,7 @@ def train_ml_model(
     county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
     market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
     national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
+    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
 ) -> Optional[TrainedMlModel]:
     """Fit one HGB model for one (indicator, cutoff_year).
 
@@ -161,11 +163,13 @@ def train_ml_model(
         _cty = county_data if county_data is not None else load_county_data()
         _mkt = market_data if market_data is not None else load_market_signals_data()
         _nm = national_data if national_data is not None else load_national_macro_data()
+        _st = state_data if state_data is not None else load_state_data()
         panel = build_panel_index(
             series_by_key,
             county_data=_cty,
             market_data=_mkt,
             national_data=_nm,
+            state_data=_st,
         )
 
     matrix: TrainingMatrix = make_training_rows(
@@ -391,6 +395,7 @@ def project_ml_trend_one_shot(
     county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
     market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
     national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
+    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
 ) -> Optional[ForecastPoint]:
     """One-shot: train (or fetch cached) model and produce a forecast.
 
@@ -409,11 +414,13 @@ def project_ml_trend_one_shot(
         _cty = county_data if county_data is not None else load_county_data()
         _mkt = market_data if market_data is not None else load_market_signals_data()
         _nm = national_data if national_data is not None else load_national_macro_data()
+        _st = state_data if state_data is not None else load_state_data()
         panel = build_panel_index(
             series_by_key,
             county_data=_cty,
             market_data=_mkt,
             national_data=_nm,
+            state_data=_st,
         )
 
     if cutoff_year is None:

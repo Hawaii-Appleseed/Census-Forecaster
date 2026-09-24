@@ -1053,6 +1053,7 @@ def run_stratified_calibration(
     county_data: Optional[dict] = None,
     market_data: Optional[dict] = None,
     national_data: Optional[dict] = None,
+    state_data: Optional[dict] = None,
     include_kalman: bool = False,
     include_conformal: bool = False,
     enable_phi: bool = False,
@@ -1089,6 +1090,11 @@ def run_stratified_calibration(
         in log space. Default `log(1.10)` ≈ ±10% multiplicative.
     include_conformal : when True, split anchor_years and compute
         per-stratum conformal quantiles (requires ≥ 3 anchor years).
+    state_data : optional {series_name → {state_fips → {year → value}}}
+        Overrides the bundled STATE_SERIES channel (DOL UI claims) for
+        the ML pass. Pass ``{}`` to run an arm with the channel switched
+        off — that is how ``compare_ui_claims_ablation`` builds its
+        baseline. ``None`` (default) loads the bundled file.
     bias_half_life_years : when set, Pass A weights fold log-ratios by
         recency (half-life in anchor-years) so old-regime bias decays
         out of the correction; None keeps the historical unweighted
@@ -1351,6 +1357,7 @@ def run_stratified_calibration(
             load_county_data as _load_cty,
             load_market_signals_data as _load_mkt,
             load_national_macro_data as _load_nm,
+            load_state_data as _load_st,
         )
         from .ml_trend import (
             train_ml_model as _train_ml_model,
@@ -1361,11 +1368,13 @@ def run_stratified_calibration(
         _cty = county_data if county_data is not None else _load_cty()
         _mkt = market_data if market_data is not None else _load_mkt()
         _nm = national_data if national_data is not None else _load_nm()
+        _st = state_data if state_data is not None else _load_st()
         ml_panel = _build_panel_index(
             series_by_key,
             county_data=_cty,
             market_data=_mkt,
             national_data=_nm,
+            state_data=_st,
         )
         # Group (geoid, indicator) by indicator so we can iterate
         # indicator-major, anchor-major, then geoid for each.

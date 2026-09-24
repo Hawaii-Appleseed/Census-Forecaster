@@ -25,7 +25,7 @@ projection, so the rake doesn't see (and try to undo) the synthetic
 rows. After synthesis, the base tax must be re-computed so the
 synthetic rows have proper ``hi_tax_liability`` values.
 
-DOTAX target source: "Tax Credits Claimed by Hawai`i Taxpayers — Tax
+DOTAX target source: "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax
 Year 2023" combined with IRS SOI 2022 Hawaii Table A8 (1,824 filers
 generating $663M Hawaii state tax above $1M AGI).
 """

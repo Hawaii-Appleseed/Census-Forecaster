@@ -172,7 +172,10 @@ jobs:
         run: |
           # No API key required — keyless all-states CSV (~13 MB). The
           # fastest-moving labour signal in the panel (~11-day lag at the
-          # weekly grain); aggregated here to calendar-month means.
+          # weekly grain). One fetch, two outputs: calendar-month means
+          # for Hawaii (the causal screen's monthly grid) and per-state
+          # calendar-year means (leading_indicators/ui_claims.json, the
+          # ML STATE_SERIES channel).
           uv run python -m census_forecaster.scripts.refresh_ui_claims
 
       - name: Refresh Hawaii FRED + BTS indicators

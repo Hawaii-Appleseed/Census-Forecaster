@@ -206,7 +206,7 @@ For TY2027–2029, total new RETITC certifications are capped at **$40M per year
 
 ### How pro-rata works
 
-The cap is administered through the certification process (§235-12.5(h)). *(Agency note: the statute and this pipeline's older text say DBEDT; sources contemporaneous with Act 24 attribute certification to the **Hawai'i State Energy Office (HSEO)**. The cap mechanics are identical either way — no number depends on this.)* When aggregate eligible demand in a given year exceeds $40M, every eligible filer receives a **proportional share** of the cap rather than their full credit. The pro-rata factor is simply:
+The cap is administered through the certification process (§235-12.5(h)). *(Agency note: the statute and this pipeline's older text say DBEDT; sources contemporaneous with Act 24 attribute certification to the **Hawaiʻi State Energy Office (HSEO)**. The cap mechanics are identical either way — no number depends on this.)* When aggregate eligible demand in a given year exceeds $40M, every eligible filer receives a **proportional share** of the cap rather than their full credit. The pro-rata factor is simply:
 
 ```
 pro-rata factor = $40M cap ÷ total eligible demand

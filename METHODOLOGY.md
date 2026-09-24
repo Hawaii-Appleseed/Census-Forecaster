@@ -753,6 +753,17 @@ member — so the null is reproducible; (3) the still-open S2301 idea is
 a *nowcast* channel (UI claims → Hawaii counties), which needs a
 Hawaii-restricted evaluation design, not a panel-wide one.
 
+*Resolved 2026-08-22.* The dilemma dissolved rather than being solved:
+ETA-539 publishes all 50 states, so the channel was built **per-state**
+(each county reads its own state's claims) and both evaluations became
+available at once — a panel-wide ablation with real signal in all 90
+counties, plus the Hawaii-restricted read this paragraph asked for. It
+passes the no-regression gate in both, and the accuracy gain is ~0.5%
+relative on S2301 — i.e. this section's central finding survives the
+promotion intact: state-driven labour predictors do not move the ACS
+county print much, however strong they look on the monthly grid. See
+§"State-level UI claims channel" at the end of this document.
+
 ---
 
 ## Batch-2 diagnostics — two nulls and a pass (August 2026)
@@ -1484,7 +1495,9 @@ are mechanically upstream of the unemployment *stock*, so part of the
 relationship is definitional. The 1-month xcorr lead and the e-64
 Granger p on 480+ aligned months are still the best nowcasting evidence
 in the panel — but ablation-gate before any forecast use, per standing
-rule.
+rule. *(Gated and promoted 2026-08-22 via an all-states rebuild of the
+channel — see §"State-level UI claims channel". The gate passes; the
+forecast gain is a wash.)*
 
 ### Ablation re-verified against corrected data (2026-08-05)
 
@@ -2275,3 +2288,151 @@ plus the small hardcoded `mkt_*` block, which stays bespoke by choice: the
 market channels are screen-gated (they appear/disappear with
 `selected_signals.json`), so their spec is dynamic where a registry is
 static. See `REGISTRY_MIGRATION_SCOPE.md` for the reusable recipe.
+
+### State-level UI claims channel (2026-08-22)
+
+The causal screen's strongest-ever finding was finally promoted to a
+feature registry — and the honest size of the win is far smaller than its
+p-value suggests.
+
+**Why it sat unpromoted for two weeks.** `HI_UI_CLAIMS →
+HI_UNEMPLOYMENT` (Granger p=3.2e-64, r=+0.821, genuine 1-month lead,
+2020-robust; §"Current-indicator intake batch" above) cleared every
+screen gate, but the standing rule is ablation-before-forecast-use and no
+ablation was constructible. A Hawaii-only feature is *constant* across 86
+of the panel's 90 counties, so a panel-wide ablation is arithmetically
+blind to it; and §"S2301 mean-reversion model" had just established the
+other half of the trap — that LAUS-state-driven predictors lose
+panel-wide to ACS-self-trained ones, so a Hawaii-only channel would have
+to be judged Hawaii-restricted, on 4 counties, where fold counts are too
+thin to gate on. Neither evaluation could carry a promotion.
+
+**The unlock is that the source was never Hawaii-only.** ETA-539
+publishes every state in the same keyless CSV
+(`refresh_ui_claims.py` already downloaded all 13 MB and threw 50 states
+away). The script now emits a second output —
+`data/leading_indicators/ui_claims.json`, per-state calendar-year mean
+weekly initial claims, keyed by 2-digit **FIPS** so the feature module
+resolves it straight off `geoid[:2]` with no postal-abbreviation table.
+51 states, 1984→current.
+
+**A third geographic tier.** `COUNTY_SERIES` varies by geoid; the market
+and national-macro registries are geoid-*constant* (pure year-effects,
+near-collinear with `anchor_year_norm`, which is why they wash out).
+`STATE_SERIES` sits between: every county reads its own state's value, so
+the column varies across both the cross-section and time without needing
+county-level source data. Values live under a `__state_<FF>__`
+pseudo-geoid, the same trick `__national__` already used.
+
+Column policy `log_level_changes3` — 4 columns, matching the county
+tier's width, of which **three are deliberately scale-free**:
+
+| column | transform | why |
+|---|---|---|
+| `ui_claims_log_lag0` | log(v[Y]) | scales with state size; useful only as a state-size interaction, not as signal |
+| `ui_claims_chg1` | log(v[Y]/v[Y−1]) | 1-yr change |
+| `ui_claims_chg2` | log(v[Y]/v[Y−2]) | 2-yr change |
+| `ui_claims_rel3` | log(v[Y]/mean(v[Y−1..Y−3])) | level against the state's **own** recent baseline — "claims are elevated", comparable across states of any size |
+
+Claim levels span two orders of magnitude across states (Hawaii ~1,100
+weekly filings, California ~74,000), so a raw-level channel would teach
+the tree state size, not labour-market stress. The ratio columns are what
+make one pooled rule valid in all 51 states. Columns are appended **last**
+in `_AUX_COLUMNS`, so every pre-existing column keeps its slot index and
+older permutation-importance tables stay readable.
+
+**Ablation: PASS, but the result is a wash.**
+`compare_ui_claims_ablation.py`, two arms both `include_ml=True` carrying
+every shipped channel, differing only in `state_data`
+(`backtests/results/ui_claims_ablation_2026-08-22.md`):
+
+| cell | RMSE baseline | RMSE +ui_claims | Δ |
+|---|---:|---:|---:|
+| S2301 panel-wide | 36.87% | 36.69% | −0.18pp (−0.5% rel) |
+| S2301 Hawaii-restricted | 46.70% | 46.47% | −0.24pp (−0.5% rel) |
+| worst panel-wide regression | — | — | +0.10pp (vacancy_rate) |
+
+Every gate clears — no RMSE regression > 2% absolute panel-wide or on the
+Hawaii-restricted S2301 cell, CI90 coverage in band — but a 0.5% relative
+improvement is **nowhere near** the 5% relative the ML ship gate demands
+of an ensemble member. This is the same ensemble-level wash the
+national-macro registry produced, and for a related reason: BLS LAUS
+ingests UI claims as one of its own model inputs, and LAUS is *already* a
+county-level ML feature. The channel is substantially collinear with
+`laus_*` rather than independent of it. A e-64 Granger p on 480 monthly
+observations does not translate into annual county-panel forecast
+accuracy, because the annual ACS print's variance is dominated by its own
+measurement structure — the same lesson §"S2301 mean-reversion model"
+records.
+
+**What actually earns the registration** is not the RMSE delta (see also
+the Honolulu counter-evidence below):
+
+1. *Permutation importance is real.* `ui_claims_rel3` scores +0.01505 ±
+   0.00137 on S2301 — the trees use it. (For scale, `natl_unemp_lvl` is
+   +0.243 on the same target: this channel is an order of magnitude
+   weaker, not a rival.) The channel is also used off-target —
+   `ui_claims_chg2` +0.01010 on S1701 poverty, `ui_claims_log_lag0`
+   +0.01030 on B19013 income — consistent with the LAUS note that labour
+   state covaries with poverty and in-migration.
+2. *It moves the way its mechanism says.* Per the sign-check discipline
+   (§"The sign check is now part of the screen"), an RMSE delta is as
+   direction-blind as a Granger F-test, so the ablation reports partial
+   dependence of predicted S2301 log-growth on `ui_claims_rel3`. The
+   curve is monotone with net slope **+0.0621**: counties in states whose
+   claims sit below their own 3-year baseline get predicted unemployment
+   *declines*, above-baseline get *increases*. The ML fit independently
+   reproduces the screen's mechanism on a different estimator, different
+   grid and different target. A channel that improved RMSE while moving
+   against its mechanism would have been rejected here regardless of the
+   gate.
+
+**The one number that argues against it.** Honolulu County (15003) is
+the repo's flagship cell and carries its own standing gate in
+`CLAUDE.md`. Its pooled `ensemble_with_ml` MAPE across all 16 indicators
+moves **5.73% → 5.84%, +0.105pp** (+1.8% relative) — the wrong
+direction. It clears every gate (both levels sit well under the
+documented 6.76% baseline, and the move is 0.105pp against a 2pp
+regression limit), and it coexists with a Hawaii-restricted S2301
+*improvement*, so the channel helps the indicator it was built for while
+very slightly hurting the 16-indicator pool on that one county. But it is
+an increase, it is on the county this project cares most about, and it is
+the single strongest argument for keeping the channel out of the default
+path. Recorded here rather than left in the report's appendix, because a
+"GATE PASSED" banner should not be the only thing a future reader takes
+away. *(The 6.76% figure has no script in this repo that emits it, so its
+definition is unrecoverable and the absolute levels above are not claimed
+comparable to it; the A-vs-B delta on identical folds is the defensible
+comparison, and that is what the ablation now reports.)*
+
+**Caveats carried forward.** (a) The definitional caution from the screen
+still applies: initial claims are mechanically upstream of the
+unemployment *stock*, so part of the relationship is accounting, not
+prediction. (b) The partial-dependence grid spans roughly [−0.40, 0.00] —
+the panel's 2010–2022 anchors are dominated by the post-2020 claims
+decline, so the *positive* side of `rel3` is thinly sampled and the sign
+check is better evidence about direction than about magnitude. (c) Five of the six
+Hawaii-restricted coverage flags outside [85%, 95%] are **pre-existing in
+the baseline arm** — 4 counties, ~272 folds per indicator, κ/bias strata
+fit panel-wide — and the report marks them `pre-existing` rather than
+letting them read as damage this channel did. Exactly one is genuinely
+new: **B19013 Hawaii coverage 85.29% → 84.56%**, a 0.73pp slip across the
+85% line on 272 folds, while the same indicator's *panel-wide* coverage
+moved the other way (86.46% → 87.06%) on flat RMSE. Noise-scale and not
+gated, but recorded rather than rounded away — it is the one cell where
+adding this channel made something marginally worse.
+
+**Consistency requirement.** `ensemble.py`'s bundled ML panel and
+`calibration.py`'s Pass 2b both load the channel by default, so the
+shipped `calibration.json` was regenerated (`run_acs_calibration
+--as-of-mode publication --include-ml --include-conformal`) — its κ and
+bias records must be fit on the same feature columns the production model
+sees, which is the invariant `_load_bundled_ml_panel` documents.
+
+The regeneration's blast radius is itself a check on the claim that this
+touches only the ML member: 143 of 410 bias records and 26 of 410 κ
+records moved, and **every one of them is a `ml_trend` cell** — the
+`trend_ensemble` and `multi_anchor` records are unchanged. Bias moves are
+sub-percent (max 0.022 in log space); the κ moves are single steps on the
+bisection grid (1.625 / 1.95 / 2.6 / 3.25), i.e. quantisation rather than
+drift.

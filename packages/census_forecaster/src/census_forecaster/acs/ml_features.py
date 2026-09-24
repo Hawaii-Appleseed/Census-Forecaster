@@ -239,11 +239,94 @@ def national_macro_columns() -> tuple[str, ...]:
     return tuple(cols)
 
 
+# ---------------------------------------------------------------------------
+# State-level feature registry
+# ---------------------------------------------------------------------------
+# The third geographic tier. COUNTY_SERIES varies by geoid; the market and
+# national-macro channels are geoid-CONSTANT (pure year-effects). A state
+# series sits between them: every county in a state shares its state's
+# value, so the column varies across both the panel's cross-section and
+# its time dimension without needing county-level source data.
+#
+# This tier exists because of a specific evaluation constraint. The causal
+# screen's strongest pair — HI_UI_CLAIMS -> HI_UNEMPLOYMENT (Granger
+# p=3.2e-64, r=+0.821, genuine 1-month lead, 2020-robust) — could not be
+# ablated: a Hawaii-only feature is constant across 86 of the panel's 90
+# counties, so a panel-wide ablation cannot see it, and METHODOLOGY.md
+# §"S2301 mean-reversion model" established that Hawaii-restricted
+# evaluation is the only honest read of a Hawaii-only channel. ETA-539
+# publishes all states from one keyless CSV, so the channel generalises:
+# each county gets its own state's claims, the signal is real everywhere,
+# and the standard ablation applies. See METHODOLOGY.md §"State-level UI
+# claims channel".
+#
+# Storage: values live under a per-state pseudo-geoid ``__state_<FF>__``
+# (the same trick the market/national channels use with ``__national__``),
+# resolved at row-build time from the county's own state FIPS. Source
+# files are written FIPS-keyed by the fetcher, so no postal-abbreviation
+# table is needed here.
+#
+# Column policy — "log_level_changes3" (4 cols, matching the county tier's
+# width):
+#   <name>_log_lag0  log(v[Y])            level; scales with state size, so
+#                                         it is useful only as a state-size
+#                                         interaction, not as signal itself
+#   <name>_chg1      log(v[Y]/v[Y-1])     scale-free 1-yr change
+#   <name>_chg2      log(v[Y]/v[Y-2])     scale-free 2-yr change
+#   <name>_rel3      log(v[Y]/mean(v[Y-1..Y-3]))
+#                                         level against the state's OWN
+#                                         recent baseline — the "claims are
+#                                         elevated" signal, comparable
+#                                         across states of any size
+# Three of the four are deliberately scale-free: that is what lets a pooled
+# tree learn one rule across 51 states whose claim levels span two orders
+# of magnitude.
+
+_STATE_GEOID_FMT = "__state_{:02d}__"
+
+
+def _state_geoid(state_fips: int) -> str:
+    """Pseudo-geoid under which one state's series values are stored."""
+    return _STATE_GEOID_FMT.format(int(state_fips))
+
+
+class StateSeriesSpec(NamedTuple):
+    """One state-level auxiliary series: storage + loader + column policy."""
+    name: str        # column stem, e.g. "ui_claims"
+    sentinel: str    # PanelIndex sentinel
+    subdir: str      # data/<subdir>/
+    filename: str    # bundled JSON with a values_by_state_year block
+    col_policy: str  # "log_level_changes3"
+
+
+STATE_SERIES: tuple[StateSeriesSpec, ...] = (
+    StateSeriesSpec("ui_claims", "_ST_UI_CLAIMS", "leading_indicators",
+                    "ui_claims.json", "log_level_changes3"),
+)
+
+
+def state_series_columns(spec: StateSeriesSpec) -> tuple[str, ...]:
+    """Feature column names contributed by one state series."""
+    if spec.col_policy == "log_level_changes3":
+        return (f"{spec.name}_log_lag0", f"{spec.name}_chg1",
+                f"{spec.name}_chg2", f"{spec.name}_rel3")
+    raise ValueError(f"unknown col_policy: {spec.col_policy!r}")
+
+
+def state_columns() -> tuple[str, ...]:
+    """All state-level feature column names, in registry order."""
+    cols: list[str] = []
+    for spec in STATE_SERIES:
+        cols.extend(state_series_columns(spec))
+    return tuple(cols)
+
+
 def build_panel_index(
     series_by_key: Mapping[tuple[str, str], Sequence[AcsObservation]],
     county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
     market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
     national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
+    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
 ) -> PanelIndex:
     """Build a PanelIndex from the calibration panel.
 
@@ -271,6 +354,15 @@ def build_panel_index(
         (National unemployment migrated here 2026-07-15 from the former
         bespoke ``natl_unemp_data`` param — the leading-indicator
         reframing of the rejected national unemployment anchor.)
+    state_data : optional {series_name → {state_fips → {year → value}}}
+        State-level registry channel (``STATE_SERIES``): DOL ETA-539 UI
+        initial claims. Stored once per state under the reserved
+        ``__state_<FF>__`` pseudo-geoid; every county in that state reads
+        the same values via its own state FIPS. Feeds the
+        ``<name>_log_lag0`` / ``_chg1`` / ``_chg2`` / ``_rel3`` columns.
+        State FIPS keys may arrive as ``"15"`` or ``15``; values ≤ 0 are
+        not stored (a zero-claims week-mean is a source artefact, and the
+        columns are log-transformed).
 
     None of the auxiliary indicators are added to ``indicators`` so they
     never appear as cross-indicator features for other ACS targets —
@@ -325,6 +417,25 @@ def build_panel_index(
             for year, val in year_vals.items():
                 if val is not None and math.isfinite(float(val)):
                     est[(_NM_GEOID, sentinel, int(year))] = float(val)
+
+    # State registry channel: {series_name: {state_fips: {year: value}}}
+    # stored under __state_<FF>__. Claim counts are strictly positive and
+    # the columns are logged, so ≤0 is treated as missing (matching the
+    # county tier's log policy).
+    if state_data is not None:
+        _sentinel_by_state_name = {s.name: s.sentinel for s in STATE_SERIES}
+        for name, by_state in state_data.items():
+            sentinel = _sentinel_by_state_name.get(name)
+            if sentinel is None:      # unknown series → ignore, don't guess
+                continue
+            for fips_key, year_vals in by_state.items():
+                try:
+                    sgeoid = _state_geoid(int(fips_key))
+                except (TypeError, ValueError):
+                    continue
+                for year, val in year_vals.items():
+                    if val is not None and math.isfinite(float(val)) and val > 0:
+                        est[(sgeoid, sentinel, int(year))] = float(val)
 
     return PanelIndex(
         estimate_by_key=est,
@@ -401,6 +512,12 @@ _AUX_COLUMNS: tuple[str, ...] = (
     # natl_unemp_lvl/chg1/chg2 — formerly the bespoke natl_unemp_lag0/chg1/
     # chg2 block, numerically identical values; see METHODOLOGY.md).
     *national_macro_columns(),
+    # State-level registry columns (1 series → 4 cols, generated from
+    # STATE_SERIES). Appended LAST so every pre-existing column keeps its
+    # slot index — permutation-importance tables and any cached
+    # name→position lookup from earlier runs stay valid. NaN-filled when
+    # ui_claims.json is absent.
+    *state_columns(),
 )
 
 # Back-compat alias: full core-column tuple (base + aux), length-preserving.
@@ -626,6 +743,30 @@ def _build_row(
         else:
             raise ValueError(f"unknown col_policy: {spec.col_policy!r}")
 
+    # State-registry features. ONE generic loop over STATE_SERIES — same
+    # iteration order as state_columns(). Every county in a state reads
+    # the same stored values via `state_fips`, resolved above. Three of
+    # the four columns are ratios so they are comparable across states
+    # whose claim levels differ by orders of magnitude; the raw log level
+    # is kept only for the tree to interact with state size.
+    for sspec in STATE_SERIES:
+        sgeoid = _state_geoid(state_fips)
+
+        def _sv(back: int, _g: str = sgeoid, _sent: str = sspec.sentinel) -> Optional[float]:
+            v = panel.get(_g, _sent, anchor_year - back)
+            return float(v) if (v is not None and v > 0) else None
+
+        v0, v1, v2, v3 = (_sv(b) for b in (0, 1, 2, 3))
+        log0 = math.log(v0) if v0 is not None else nan
+        chg1 = math.log(v0 / v1) if (v0 is not None and v1 is not None) else nan
+        chg2 = math.log(v0 / v2) if (v0 is not None and v2 is not None) else nan
+        prior = [v for v in (v1, v2, v3) if v is not None]
+        rel3 = (math.log(v0 / (sum(prior) / len(prior)))
+                if (v0 is not None and prior) else nan)
+        if sspec.col_policy != "log_level_changes3":
+            raise ValueError(f"unknown col_policy: {sspec.col_policy!r}")
+        row.extend([log0, chg1, chg2, rel3])
+
     row.append(float(horizon))
     return row
 
@@ -754,6 +895,44 @@ def load_county_data() -> dict[str, dict[str, dict[int, float]]]:
     return out
 
 
+def _load_values_by_state_year(
+    subdir: str, filename: str,
+) -> Optional[dict[str, dict[int, float]]]:
+    """Load a ``values_by_state_year`` block from a bundled JSON file.
+
+    State keys are normalised to zero-padded 2-digit FIPS strings so a
+    file written with either ``"15"`` or ``"5"``-style keys resolves the
+    same way (``build_panel_index`` casts to int regardless).
+    """
+    path = Path(__file__).parent.parent / "data" / subdir / filename
+    if not path.exists():
+        return None
+    import json as _json
+    with open(path) as f:
+        payload = _json.load(f)
+    raw = payload.get("values_by_state_year", {})
+    return {
+        f"{int(state):02d}": {int(yr): float(v) for yr, v in yr_dict.items()
+                              if v is not None}
+        for state, yr_dict in raw.items()
+    }
+
+
+def load_state_data() -> dict[str, dict[str, dict[int, float]]]:
+    """Load every STATE_SERIES source as ``{name → {state_fips → {year → val}}}``.
+
+    Series whose bundled file is absent are simply omitted — callers treat
+    a missing series as "no features from it" and the corresponding
+    columns NaN-fill.
+    """
+    out: dict[str, dict[str, dict[int, float]]] = {}
+    for spec in STATE_SERIES:
+        data = _load_values_by_state_year(spec.subdir, spec.filename)
+        if data:
+            out[spec.name] = data
+    return out
+
+
 def load_market_signals_data() -> Optional[dict[str, dict[int, float]]]:
     """Load annual market signals from the bundled leading-indicator JSON.
 
@@ -816,8 +995,13 @@ __all__ = [
     "NationalSeriesSpec",
     "NATIONAL_SERIES",
     "national_macro_columns",
+    "StateSeriesSpec",
+    "STATE_SERIES",
+    "state_series_columns",
+    "state_columns",
     "build_panel_index",
     "load_county_data",
+    "load_state_data",
     "load_market_signals_data",
     "load_national_macro_data",
     "make_feature_spec",
