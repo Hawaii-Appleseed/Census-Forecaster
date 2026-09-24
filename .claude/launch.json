@@ -4,8 +4,26 @@
     {
       "name": "poverty-dashboard",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "dashboard/dist"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "dashboard/dist"
+      ],
       "port": 8765
+    },
+    {
+      "name": "estimates-site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8766",
+        "--directory",
+        "site"
+      ],
+      "port": 8766
     }
   ]
 }
