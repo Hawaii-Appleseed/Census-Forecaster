@@ -48,38 +48,52 @@ C_SECOND = "#84A98C"
 @dataclass(frozen=True)
 class Estimate:
     slug: str
-    run_dir: str          # under runs/
-    files: tuple[str, ...]
+    files: dict[str, str]   # published name in site/data/<slug>/ -> source path under runs/
+    stamp: tuple[str, ...] = ()   # JSON manifests to stamp with published_at on import
 
 
 CAPITAL_GAINS = Estimate(
     slug="capital-gains",
-    run_dir="cg_rate_options",
-    files=(
+    files={f: f"cg_rate_options/{f}" for f in (
         "revenue_by_year.csv",
         "distribution_ty2027_act24.csv",
         "distribution_ty2026_act46.csv",
         "nonresident_addon.csv",
         "anchor_check.csv",
         "manifest.json",
-    ),
+    )},
+    stamp=("manifest.json",),
 )
-ESTIMATES = (CAPITAL_GAINS,)
+ACT24 = Estimate(
+    slug="act-24",
+    files={
+        "fiscal_by_scenario.csv": "sb3125_cd2_enhanced/enhanced.csv",
+        "distribution_quintile.csv": "sb3125_cd2_enhanced/quintile.csv",
+        "distribution_income_class.csv": "sb3125_cd2_enhanced/bracket.csv",
+        "manifest.json": "sb3125_cd2_enhanced/manifest.json",
+        # forecast_act24_vs_pre_act46.py writes no manifest; its provenance is
+        # the script itself and SB3125_CD1_FORECAST.md's reconciliation section.
+        "vs_pre_act46.csv": "act24_vs_pre_act46/decomposition.csv",
+    },
+    stamp=("manifest.json",),
+)
+ESTIMATES = (ACT24, CAPITAL_GAINS)
 
 
 def import_runs(est: Estimate) -> None:
-    src = REPO / "runs" / est.run_dir
-    dst = DATA / est.slug
-    missing = [f for f in est.files if not (src / f).exists()]
+    runs = REPO / "runs"
+    missing = [src for src in est.files.values() if not (runs / src).exists()]
     if missing:
-        raise SystemExit(f"{src} is missing {missing}; run the model first.")
+        raise SystemExit(f"runs/ is missing {missing}; run the model first.")
+    dst = DATA / est.slug
     dst.mkdir(parents=True, exist_ok=True)
-    for f in est.files:
-        shutil.copy2(src / f, dst / f)
-    manifest = json.loads((dst / "manifest.json").read_text())
-    manifest["published_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    (dst / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"imported {len(est.files)} files: runs/{est.run_dir} -> site/data/{est.slug}")
+    for name, src in est.files.items():
+        shutil.copy2(runs / src, dst / name)
+    for name in est.stamp:
+        manifest = json.loads((dst / name).read_text())
+        manifest["published_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        (dst / name).write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"imported {len(est.files)} files -> site/data/{est.slug}")
 
 
 def read_csv(path: Path) -> list[dict]:
@@ -106,8 +120,15 @@ def millions(v: float) -> str:
 
 
 def m1(v: float) -> str:
-    """Tables: millions to one decimal."""
-    return f"{v:,.1f}"
+    """Tables: millions to one decimal, with a true minus sign."""
+    return f"{v:,.1f}".replace("-", "−")
+
+
+def signed_dollars(v: float) -> str:
+    """'+$1,075' / '−$58' / '$0' (true minus sign)."""
+    if abs(v) < 0.5:
+        return "$0"
+    return f"{'+' if v > 0 else '−'}${abs(v):,.0f}"
 
 
 def dollars(v: float) -> str:
@@ -180,6 +201,47 @@ def column_chart(categories: list[str], series: Series, *, label: str, fmt=_mone
                      f'<div class="ha-est__col-cat">{esc(cat)}</div></div>')
     return (f'<div class="ha-est__chart ha-est__chart--v" role="img" aria-label="{esc(label)}">'
             f'<div class="ha-est__col-grid" aria-hidden="true">{"".join(slots)}</div></div>')
+
+def stacked_column_chart(categories: list[str], series: Series, *, label: str, fmt=_money_m) -> str:
+    """One column per category, series stacked bottom-up, total printed on top.
+    Values must be non-negative."""
+    totals = [sum(vals[i] for _, _, vals in series) for i in range(len(categories))]
+    vmax = max(totals) or 1
+    slots = []
+    for i, cat in enumerate(categories):
+        segs = "".join(
+            f'<span class="ha-est__col-bar ha-est__col-seg" style="height:{100 * vals[i] / (totals[i] or 1):.2f}%;background:{color}"></span>'
+            for _, color, vals in reversed(series))      # top-down in the DOM, so the first series ends up at the bottom
+        slots.append(f'<div class="ha-est__col-slot"><div class="ha-est__col-bars">'
+                     f'<div class="ha-est__col ha-est__col--stack"><span class="ha-est__col-val">{esc(fmt(totals[i]))}</span>'
+                     f'<div class="ha-est__col-stack" style="height:{100 * totals[i] / vmax:.2f}%">{segs}</div></div>'
+                     f'</div><div class="ha-est__col-cat">{esc(cat)}</div></div>')
+    return (f'<div class="ha-est__chart ha-est__chart--v" role="img" aria-label="{esc(label)}">'
+            f'<div class="ha-est__col-grid" aria-hidden="true">{"".join(slots)}</div></div>')
+
+
+def diverging_bar_chart(categories: list[str], values: list[float], *, label: str, fmt,
+                        pos_color: str = C_PRIMARY, neg_color: str = C_SECOND) -> str:
+    """Single-series horizontal bars around a zero axis: negatives run left,
+    positives right. The axis sits where the data's range puts it."""
+    lo, hi = min(0.0, *values), max(0.0, *values)
+    span = (hi - lo) or 1
+    zero = 100 * -lo / span                      # axis position, % from the left
+    rows = []
+    for cat, v in zip(categories, values, strict=True):
+        w = 100 * abs(v) / span
+        left = zero if v >= 0 else zero - w
+        color = pos_color if v >= 0 else neg_color
+        side = "pos" if v >= 0 else "neg"
+        rows.append(
+            f'<div class="ha-est__div-row"><div class="ha-est__hbar-cat">{esc(cat)}</div>'
+            f'<div class="ha-est__div-track"><span class="ha-est__div-axis" style="left:{zero:.2f}%"></span>'
+            f'<span class="ha-est__div-bar" style="left:{left:.2f}%;width:{max(w, 0.3):.2f}%;background:{color}"></span>'
+            f'<span class="ha-est__div-val ha-est__div-val--{side}" style="{"left" if v >= 0 else "right"}:'
+            f'{(zero + w) if v >= 0 else (100 - zero + w):.2f}%">{esc(fmt(v))}</span></div></div>')
+    return (f'<div class="ha-est__chart" role="img" aria-label="{esc(label)}">'
+            f'<div aria-hidden="true">{"".join(rows)}</div></div>')
+
 
 def legend(series: list[tuple[str, str, list[float]]]) -> str:
     items = "".join(f'<span><span class="ha-est__swatch" style="background:{c}"></span>{esc(n)}</span>'
@@ -333,7 +395,7 @@ def build_capital_gains() -> tuple[str, dict]:
     c9_last = _rev(rev, last, "act24", "cap9")["behavioral_M"]
 
     T_act24 = (
-        'Hawaiʻi State Legislature, “SB 3125 SD2 HD2 CD2,” enacted as Act 24, Session Laws of Hawaiʻi 2026, '
+        'Hawaiʻi State Legislature, “SB 3125 SD1 HD1 CD2,” enacted as Act 24, Session Laws of Hawaiʻi 2026, '
         'May 21, 2026. <a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=SB&amp;billnumber=3125&amp;year=2026">'
         'capitol.hawaii.gov</a>')
     T_hrs = (
@@ -470,6 +532,7 @@ def build_capital_gains() -> tuple[str, dict]:
             f"in tax year {Y}; a {pct(cap_new)} percent cap about {millions(c9['behavioral_M'])}.")
     card = {
         "slug": CAPITAL_GAINS.slug,
+        "category": "proposed",
         "eyebrow": "Capital gains",
         "title": "Closing the Gap",
         "text": f"What taxing capital gains at {pct(cap_new)} percent, or at ordinary rates, would raise under Act 24.",
@@ -485,11 +548,212 @@ def build_capital_gains() -> tuple[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# Act 24 page
+# ---------------------------------------------------------------------------
+
+# Joint-filer rate changes, Act 46 schedule -> Act 24 (SB 3125 CD2), from the
+# enacted bracket schedules (SB3125_CD1_FORECAST.md §3; CD1 and CD2 brackets are
+# identical). Statute, not model output, so it lives here rather than in site/data.
+# (taxable income band, Act 46 rate TY2027, Act 24 rate, Act 46 rate TY2029)
+ACT24_MFJ_CHANGES = (
+    ("$28,800 to $38,400", "3.20", "2.50", "3.20"),
+    ("$38,400 to $48,000", "5.50", "5.00", "5.50"),
+    ("$350,000 to $450,000", "7.90", "8.25", "7.60"),
+    ("$450,000 to $550,000", "8.25", "9.00", "7.90"),
+    ("$550,000 to $650,000", "9.00", "10.00", "8.25"),
+    ("$650,000 to $1 million", "10.00", "11.00", "9.00 to 11.00"),
+    ("Above $1 million", "11.00", "13.00", "11.00"),
+)
+
+QUINTILE_LABEL = {"Q1 (bottom 20%)": "Lowest 20 percent", "Q2": "Second 20 percent", "Q3": "Middle 20 percent",
+                  "Q4": "Fourth 20 percent", "Q5 (top 20%)": "Top 20 percent"}
+
+
+def _fiscal(rows, scenario, year):
+    for r in rows:
+        if r["scenario"] == scenario and int(r["tax_year"]) == year:
+            return r
+    raise KeyError((scenario, year))
+
+
+def build_act24() -> tuple[str, dict]:
+    d = DATA / ACT24.slug
+    fis = read_csv(d / "fiscal_by_scenario.csv")
+    quint = read_csv(d / "distribution_quintile.csv")
+    klass = read_csv(d / "distribution_income_class.csv")
+    pre = read_csv(d / "vs_pre_act46.csv")
+    manifest = json.loads((d / "manifest.json").read_text())
+    notes = Notes()
+
+    years = sorted({int(r["tax_year"]) for r in fis})
+    Y, last = years[0], years[-1]
+    mid = {y: _fiscal(fis, "MID", y) for y in years}
+    tot = {sc: sum(_fiscal(fis, sc, y)["total_impact_$M"] for y in years) for sc in ("LOW", "MID", "HIGH")}
+    credit = {y: mid[y]["credit_total_$M"] for y in years}
+    brk = {y: mid[y]["bracket_delta_post_$M"] for y in years}
+    brk_static5 = sum(mid[y]["bracket_delta_static_$M"] for y in years)
+    eti5 = sum(mid[y]["eti_response_$M"] for y in years)
+    pte5 = sum(mid[y]["pte_shift_$M"] for y in years)
+    reec5 = sum(mid[y]["reec_savings_$M"] for y in years)
+    cgec5 = sum(mid[y]["cgec_savings_$M"] for y in years)
+    tcra5 = sum(mid[y]["tcra_savings_$M"] for y in years)
+
+    q = [r for r in quint if int(r["tax_year"]) == Y]
+    q_top = q[-1]
+    q_mid = [r for r in q if r["quintile"] == "Q3"][0]
+    k = [r for r in klass if int(r["tax_year"]) == Y]
+    k_1m = [r for r in k if r["income_bracket"] == "$1M+"][0]
+    # Per-household figures use the bracket change only. The distribution module
+    # also spreads each income band's expected renewable-credit loss evenly over
+    # every filer in it, so every household picks up a few dollars and the
+    # module's pay-more/pay-less shares count them all as paying more, which is
+    # not what happens: only solar claimants lose credit. (It also scores credits
+    # with the CD1 overlay, not CD2's.) Credit changes are reported in aggregate.
+    k_bottom = [r for r in k if r["avg_per_hh_bracket_change"] <= 0]
+    cut_ceiling = k_bottom[-1]["income_bracket"].split("–")[-1].replace("K", ",000")   # e.g. "$350,000"
+
+    p = {int(r["tax_year"]): r for r in pre}
+    a46_last = -(p[last]["A_act46_banked_by_2026"] + p[last]["B_act46_remaining_phaseins"])
+    c_last = p[last]["C_act24_increment"]
+
+    T_act24 = ('Hawaiʻi State Legislature, “SB 3125 SD1 HD1 CD2,” enacted as Act 24, Session Laws of Hawaiʻi 2026, '
+               'May 21, 2026. <a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=SB&amp;billnumber=3125&amp;year=2026">'
+               'capitol.hawaii.gov</a>')
+    T_act46 = ('Hawaiʻi State Legislature, “HB 2404 HD1 SD1 CD1,” enacted as Act 46, Session Laws of Hawaiʻi 2024, June 3, 2024. '
+               '<a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=HB&amp;billnumber=2404&amp;year=2024">capitol.hawaii.gov</a>')
+    T_dotax = ('Hawaiʻi Department of Taxation, Announcement No. 2026-06, on the Act 24 changes to the renewable '
+               'energy technologies income tax credit, 2026. <a href="https://tax.hawaii.gov/">tax.hawaii.gov</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_sb3125_enhanced.py">github.com</a>')
+    T_doc = (f'Hawaiʻi Appleseed, “SB 3125 (enacted as Act 24, SLH 2026) — Hawaii Income Tax Fiscal Impact Forecast,” '
+             f'methodology and results, Census-Forecaster model. <a href="{REPO_URL}/blob/main/SB3125_CD1_FORECAST.md">github.com</a>')
+    T_cor = ('Council on Revenues, General Fund forecast letter, May 21, 2026. '
+             '<a href="https://tax.hawaii.gov/useful/a9_1cor/">tax.hawaii.gov</a>')
+    T_pre = (f'Hawaiʻi Appleseed, <code>forecast_act24_vs_pre_act46.py</code>, Census-Forecaster model. '
+             f'<a href="{REPO_URL}/blob/main/forecast_act24_vs_pre_act46.py">github.com</a>')
+
+    src_model = "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; middle scenario."
+
+    hero = f"""
+<section class="ha-est__hero"><div class="ha-est__hero-inner">
+<p class="ha-est__eyebrow">Current policy · Income tax</p>
+<h1>Act 24</h1>
+<hr class="ha-est__hero-rule">
+<p class="ha-est__deck">How Hawaiʻi’s 2026 income tax law changes state revenue, and who pays more or less, compared with the Act 46 schedule it replaced.</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
+</div></section>
+<div class="ha-est__stats">
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(tot["MID"])}</div><div class="ha-est__stat-label"><strong>More revenue over five years,</strong> tax years {Y} to {last}, than Act 46 would have raised.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(mid[Y]["total_impact_$M"])}</div><div class="ha-est__stat-label">In <strong>tax year {Y},</strong> the first year the new brackets apply.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(-q_mid["avg_per_hh_bracket_change"])}</div><div class="ha-est__stat-label">Average tax cut for the <strong>middle 20 percent</strong> of households in {Y}.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(k_1m["avg_per_hh_bracket_change"])}</div><div class="ha-est__stat-label">Average increase for households with income <strong>above $1 million</strong> in {Y}.</div></div>
+</div>"""
+
+    krows = [[r["income_bracket"].replace("–", " to "), f"{r['household_count']:,.0f}",
+              signed_dollars(r["avg_per_hh_bracket_change"]), m1(r["total_bracket_$M"])] for r in k]
+    s1 = section("What Act 24 Changed", f"""
+{lead("Act 24 rewrote the income tax brackets", f"that Act 46 of 2024 had scheduled for the rest of the decade.{notes.ref(T_act24)}{notes.ref(T_act46)} It cut two rates that most working households pay and raised the rates on income above $350,000 for joint filers ($262,500 for heads of household, $175,000 for single filers), adding a 13 percent bracket above $1 million ($750,000 and $500,000).")}
+<p>Table 1 shows the changes for joint filers. The lower-bracket cuts are the same in every year. The increases at the top grow in {Y + 2}, when Act 46 would have lowered those rates again and Act 24 holds them where they are.</p>
+{table(["Taxable income (joint)", f"Act 46, {Y}", "Act 24", f"Act 46, {Y + 2}"],
+       [[b, f"{a} percent", f"{n} percent", f"{c} percent"] for b, a, n, c in ACT24_MFJ_CHANGES],
+       caption="Table 1. Tax Rates That Changed, Joint Filers")}
+<p>Act 24 also capped, ended or repealed several tax credits. These estimates score the three largest changes. It caps the renewable energy technologies income tax credit at $40 million a year, limits it to filers with income under $175,000 (single) or $350,000 (joint), and ends new credits after tax year 2029.{notes.ref(T_dotax)} It ends the capital goods excise tax credit after tax year 2027 and speeds up the phase-out of the research activities credit.</p>
+""", "changes")
+
+    s2_series = [("Bracket changes", C_PRIMARY, [brk[y] for y in years]),
+                 ("Credit changes", C_SECOND, [credit[y] for y in years])]
+    fig1_label = "Act 24 revenue gain by tax year: " + ", ".join(
+        f"{y} {m1(mid[y]['total_impact_$M'])} million" for y in years) + "."
+    frows = []
+    for y in years:
+        r = mid[y]
+        frows.append([str(y), m1(r["bracket_delta_static_$M"]), m1(r["eti_response_$M"]), m1(r["credit_total_$M"]),
+                      m1(r["total_impact_$M"]), m1(_fiscal(fis, "LOW", y)["total_impact_$M"]), m1(_fiscal(fis, "HIGH", y)["total_impact_$M"])])
+    frows.append(["Total", m1(brk_static5), m1(eti5), m1(reec5 + cgec5 + tcra5), m1(tot["MID"]), m1(tot["LOW"]), m1(tot["HIGH"])])
+    s2 = section("What It Raises", f"""
+{lead("Compared with Act 46,", f"Act 24 raises an estimated {millions(mid[Y]['total_impact_$M'])} in tax year {Y}, rising to {millions(mid[last]['total_impact_$M'])} by {last}, for {millions(tot['MID'])} over five years.{notes.ref(T_code)}")}
+<p>Two pieces add up to that total, shown in Figure 1. The bracket changes raise {millions(sum(brk.values()))} over the five years after accounting for high-income filers reporting less income when rates rise. The credit changes save the state {millions(reec5 + cgec5 + tcra5)}, most of it from the renewable energy credit ({millions(reec5)}). Credit savings jump in {years[3]}, the first year no new renewable energy credits are allowed.</p>
+{figure(1, f"Revenue Gain From Act 24 Compared With Act 46, Hawaiʻi ({Y} to {last})",
+        stacked_column_chart([str(y) for y in years], s2_series,
+                             label=fig1_label),
+        src_model + " Millions of dollars. Bracket changes include the behavioral response.", s2_series)}
+{table(["Tax year", "Brackets, static", "Behavioral response", "Credit changes", "Total (middle)", "Low scenario", "High scenario"],
+       frows, caption="Table 2. Act 24 Revenue Compared With Act 46 ($ Millions)", em_rows={len(frows) - 1})}
+<div class="ha-est__callout"><p><strong>How sure are these numbers?</strong> The low and high scenarios vary how strongly top earners respond to higher rates, how fast top incomes grow, and how much demand there is for the renewable energy credit. Over five years they range from {millions(tot['LOW'])} to {millions(tot['HIGH'])}. {"One channel is not yet in these figures: some business owners may pay tax through their business instead of on their own returns to avoid the new top rate, which would lower the bracket gain." if abs(pte5) < 0.5 else ""}</p></div>
+""", "revenue")
+
+    qcat = [QUINTILE_LABEL.get(r["quintile"], r["quintile"]) for r in q]
+    s3 = section("Who Pays More and Who Pays Less", f"""
+{lead("Most households pay a little less.", f"The lower rates on income between about $29,000 and $48,000 of taxable income for joint filers reach most working households. In tax year {Y}, the middle 20 percent of households save an average of {dollars(-q_mid['avg_per_hh_bracket_change'])} and the next 20 percent {dollars(-q[3]['avg_per_hh_bracket_change'])}. Households with income under {cut_ceiling} save {millions(-sum(r['total_bracket_$M'] for r in k_bottom))} in all.")}
+<p>The increase falls on the top. Households with income above $1 million pay an average of {dollars(k_1m['avg_per_hh_bracket_change'])} more, and the top 20 percent as a group pay {millions(q_top['total_bracket_$M'])} more. Figure 2 shows the average change for each fifth of households, and Table 3 by income.</p>
+{figure(2, f"Average Change in Income Tax per Household Under Act 24, Hawaiʻi (Tax Year {Y})",
+        diverging_bar_chart(qcat, [r["avg_per_hh_bracket_change"] for r in q], fmt=signed_dollars,
+                            label=f"Average change per household in tax year {Y}: " + "; ".join(f"{c} {signed_dollars(r['avg_per_hh_bracket_change'])}" for c, r in zip(qcat, q, strict=True)) + "."),
+        src_model + " Bracket changes only, before the behavioral response. Households are ranked by income; each group holds one fifth of households.")}
+{table(["Income (AGI)", "Households", "Average change", "Total ($ millions)"], krows,
+       caption=f"Table 3. Change in Income Tax From the Bracket Changes, by Income, Tax Year {Y}")}
+<p>The credit changes are not in these figures. They fall on the relatively few filers who claim the renewable energy, capital goods and research credits, not evenly across income groups, and the model estimates them in total rather than household by household.</p>
+""", "who-pays")
+
+    prows = [[str(y), m1(p[y]["A_act46_banked_by_2026"] + p[y]["B_act46_remaining_phaseins"]), m1(p[y]["C_act24_increment"]),
+              m1(p[y]["total_vs_pre_act46"])] for y in years]
+    s4 = section("Act 24 Against the Law Before Act 46", f"""
+{lead("Act 24 is small next to the tax cut it amended.", f"Act 46 of 2024 raised the standard deduction and widened the brackets in steps through {last}. Measured against the law before Act 46, it will cost the state about {millions(a46_last)} a year by {last} on this model’s static estimate. Act 24 recovers {millions(c_last)} of that, about {pct(100 * c_last / a46_last)} percent.{notes.ref(T_pre)}")}
+<p>This model’s estimate of Act 46’s cost runs 14 to 21 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
+{table(["Tax year", "Act 46", "Act 24", "Both laws"], prows,
+       caption="Table 4. Static Change in Income Tax Revenue Compared With Pre-Act 46 Law ($ Millions)")}
+<p class="ha-est__source">Negative numbers are revenue the state gives up. Brackets, standard deduction and personal exemption only; no behavioral response or credit changes.</p>
+""", "context")
+
+    base = manifest["inputs"]["tax_units_cache"]
+    s5 = section("How These Estimates Are Made", f"""
+{lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics.")}
+<p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. The credit changes are scored against projected claims under the old rules. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
+<ul class="ha-est__downloads">
+<li><a href="../data/act-24/fiscal_by_scenario.csv"><code>fiscal_by_scenario.csv</code></a>: revenue by tax year and scenario, with every component</li>
+<li><a href="../data/act-24/distribution_quintile.csv"><code>distribution_quintile.csv</code></a>: change by fifth of households, {Y} to {last}</li>
+<li><a href="../data/act-24/distribution_income_class.csv"><code>distribution_income_class.csv</code></a>: change by income class, {Y} to {last}</li>
+<li><a href="../data/act-24/vs_pre_act46.csv"><code>vs_pre_act46.csv</code></a>: Act 46 and Act 24 compared with pre-Act 46 law</li>
+<li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>
+</ul>
+""", "method")
+
+    endnotes = section("Endnotes", notes.html(), "endnotes")
+    body = hero + s1 + s2 + s3 + s4 + s5 + endnotes
+    desc = (f"Act 24 raises about {millions(tot['MID'])} over tax years {Y} to {last} compared with Act 46, "
+            f"from households above $1 million and narrower credits, while most households pay a little less.")
+    card = {
+        "slug": ACT24.slug,
+        "category": "current",
+        "eyebrow": "Income tax",
+        "title": "Act 24",
+        "text": "Hawaiʻi’s 2026 income tax law: lower rates for most households, a 13 percent top bracket, and narrower credits.",
+        "stat": millions(tot["MID"]),
+        "stat_label": f"more revenue over tax years {Y} to {last}",
+        "date": long_date(manifest["created_at"]),
+        "year": datetime.fromisoformat(manifest["created_at"]).year,
+    }
+    html_out = page(title="Act 24: Revenue and Distribution | Hawaiʻi Appleseed Estimates",
+                    description=desc, body=body, depth=1,
+                    year=datetime.fromisoformat(manifest["created_at"]).year)
+    return html_out, card
+
+
+# ---------------------------------------------------------------------------
 # hub
 # ---------------------------------------------------------------------------
 
-def build_index(cards: list[dict]) -> str:
-    items = "".join(f"""
+CATEGORIES = (
+    ("current", "Current policy",
+     "Laws already on the books: what they raise or cost, and who is affected."),
+    ("proposed", "Proposed policy",
+     "Options before the Legislature or in public debate, scored against current law."),
+)
+
+
+def _card(c: dict) -> str:
+    return f"""
 <a class="ha-est__card" href="{c['slug']}/">
 <p class="ha-est__eyebrow">{esc(c['eyebrow'])}</p>
 <h3>{esc(c['title'])}</h3>
@@ -497,16 +761,27 @@ def build_index(cards: list[dict]) -> str:
 <div class="ha-est__card-stat">{esc(c['stat'])}</div>
 <div class="ha-est__stat-label">{esc(c['stat_label'])}</div>
 <div class="ha-est__card-date">Model run {esc(c['date'])}</div>
-</a>""" for c in cards)
+</a>"""
+
+
+def build_index(cards: list[dict]) -> str:
+    groups = []
+    for key, heading, blurb in CATEGORIES:
+        mine = [c for c in cards if c["category"] == key]
+        if not mine:
+            continue
+        groups.append(f"""
+<section class="ha-est__group" id="{key}">
+<div class="ha-est__group-head"><h2>{heading}</h2><hr class="ha-est__h2-rule"><p>{blurb}</p></div>
+<div class="ha-est__cards">{"".join(_card(c) for c in mine)}
+</div></section>""")
     body = f"""
 <section class="ha-est__hero"><div class="ha-est__hero-inner">
 <p class="ha-est__eyebrow">Hawaiʻi Appleseed</p>
 <h1>Estimates</h1>
 <hr class="ha-est__hero-rule">
 <p class="ha-est__deck">Revenue and distributional estimates for Hawaiʻi tax and budget policy, from Hawaiʻi Appleseed’s open-source models. Every figure links to the data and code that produced it.</p>
-</div></section>
-<div class="ha-est__cards">{items}
-</div>"""
+</div></section>{"".join(groups)}"""
     return page(title="Estimates | Hawaiʻi Appleseed", body=body, depth=0, year=max(c["year"] for c in cards),
                 description="Revenue and distributional estimates for Hawaiʻi tax and budget policy from Hawaiʻi Appleseed.")
 
@@ -514,9 +789,11 @@ def build_index(cards: list[dict]) -> str:
 def build(out: Path = SITE) -> list[Path]:
     """Render every page from site/data into `out`. Returns the files written."""
     cg_html, cg_card = build_capital_gains()
+    a24_html, a24_card = build_act24()
     written = {
+        out / "act-24" / "index.html": a24_html,
         out / "capital-gains" / "index.html": cg_html,
-        out / "index.html": build_index([cg_card]),
+        out / "index.html": build_index([a24_card, cg_card]),
         out / ".nojekyll": "",
     }
     for path, text in written.items():
@@ -527,11 +804,14 @@ def build(out: Path = SITE) -> list[Path]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--import-runs", action="store_true", help="copy fresh outputs from runs/ into site/data/ first")
+    ap.add_argument("--import-runs", nargs="*", metavar="SLUG",
+                    help="copy fresh outputs from runs/ into site/data/ first "
+                         f"(all estimates, or only the named ones: {', '.join(e.slug for e in ESTIMATES)})")
     args = ap.parse_args()
-    if args.import_runs:
+    if args.import_runs is not None:
         for est in ESTIMATES:
-            import_runs(est)
+            if not args.import_runs or est.slug in args.import_runs:
+                import_runs(est)
     for p in build():
         print(f"wrote {p.relative_to(REPO)}")
 

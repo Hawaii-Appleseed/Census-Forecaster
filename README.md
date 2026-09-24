@@ -122,9 +122,13 @@ Published estimates are served from `site/` by GitHub Pages
 or refresh one after a model run:
 
 ```bash
-python forecast_cg_rate_options.py          # writes runs/cg_rate_options/ (gitignored)
-python scripts/build_site.py --import-runs  # copies outputs to site/data/, regenerates pages
+python forecast_cg_rate_options.py                        # writes runs/cg_rate_options/ (gitignored)
+python scripts/build_site.py --import-runs capital-gains  # copies outputs to site/data/, regenerates pages
 ```
+
+The Act 24 page (`act-24`) imports from `forecast_sb3125_enhanced.py --cd 2`
+and `forecast_act24_vs_pre_act46.py`. The home page groups estimates into
+current and proposed policy.
 
 Commit `site/` with the change. Pages are generated only from the committed
 `site/data/`, so prose, charts and downloadable CSVs always agree, and
