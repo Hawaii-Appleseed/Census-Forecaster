@@ -7,11 +7,67 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** August 21, 2026
+**Last updated:** September 24, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
 > **Maintenance note:** This document must be updated whenever forecast methodology changes — including parameter recalibration, new behavioral channels, tax treatment corrections, or data source changes. Update the relevant section(s) and the Results table before committing.
+
+---
+
+## CD2 rerun for the estimates site — September 24, 2026
+
+`forecast_sb3125_enhanced.py --cd 2` was rerun so its distributional tables
+could be published on the estimates site (`site/act-24/`). No methodology or
+parameter changed; the rerun picks up the monthly data refresh of September 23.
+**This table supersedes the August 3 CD2 table in Section 10** (cite these):
+
+**CD2 vs Act 46 baseline, post-behavioral ($M):**
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $125.0M | **$127.4M** | $148.8M | $121.2M |
+| 2028 | $139.5M | **$152.4M** | $184.4M | $151.8M |
+| 2029 | $155.7M | **$173.8M** | $212.2M | $174.3M |
+| 2030 | $179.6M | **$208.3M** | $252.0M | $210.5M |
+| 2031 | $188.3M | **$214.2M** | $268.6M | $218.1M |
+| **5-year total** | **$788.1M** | **$876.0M** | **$1,066.0M** | **$876.0M** |
+
+**MID by component ($M):**
+
+| Tax Year | REEC savings | CGEC savings | Credit total | Bracket (post-behav.) | **Total** |
+|----------|-------------:|-------------:|-------------:|------------------------:|----------:|
+| 2027 | $49.1M | $0.0M | $49.1M | $78.3M | **$127.4M** |
+| 2028 | $53.9M | $20.6M | $74.5M | $77.9M | **$152.4M** |
+| 2029 | $58.6M | $22.1M | $88.6M | $85.2M | **$173.8M** |
+| 2030 | $96.2M | $23.7M | $119.9M | $88.5M | **$208.3M** |
+| 2031 | $100.2M | $24.1M | $124.3M | $89.9M | **$214.2M** |
+
+MID moves −$1.0M over five years (−$0.1M to −$0.3M a year), all in the REEC
+baseline, which scales with the nominal-income path the refresh nudged. The
+bracket delta is unchanged to ±$0.03M.
+
+**Distributional outputs now persist with the run.** The quintile and
+AGI-class tables were written only to `/tmp`; they now also land in
+`runs/sb3125_cd2_enhanced/quintile.csv` and `bracket.csv`.
+
+**⚠️ Two caveats on those tables' credit columns, found while publishing:**
+
+1. **The credit loss is spread, not incident.** `distribute_reec_loss_to_filers`
+   gives every filer in an AGI bin an equal share of that bin's expected REEC
+   loss. Averages are fine, but the `pct_pay_more` / `pct_pay_less` columns are
+   computed on bracket change + that spread, so a household with no solar claim
+   and no bracket change counts as "paying more" (e.g. 100% of households under
+   $10K, 85% of Q1). Those shares are an artifact; do not cite them.
+2. **The distributional module scores credits with the CD1 static overlay**
+   (`reec_individual_credit_loss`, cap through 2030, sunset 2031), not CD2's
+   vintage model. That is why the CD2 quintile table is identical to the CD1
+   one in Section 10.
+
+The site therefore publishes **bracket change per household only**
+(`avg_per_hh_bracket_change`, `total_bracket_$M`) and reports credit savings in
+aggregate. Fixing both would mean attributing the CD2 vintage-model loss to
+claimant households, not bins.
 
 ---
 
@@ -1623,6 +1679,8 @@ Year-by-year (MID, $M):
 ---
 
 ### SB 3125 CD2 Results — August 3, 2026 (post CPI-correction rerun)
+
+> **Superseded** by the September 24, 2026 rerun at the top of this document (MID $876.0M; −$1.0M, data refresh only).
 
 Full re-run of `forecast_sb3125_enhanced.py --cd 2` (vintage carryforward
 model) on the corrected Hawaii CPI basis. Supersedes the May 14, 2026

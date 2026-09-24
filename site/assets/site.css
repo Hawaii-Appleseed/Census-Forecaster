@@ -104,6 +104,15 @@
 .ha-est__hbar-row { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
 .ha-est__hbar { display: block; height: 18px; border-radius: 0 3px 3px 0; flex: none; }
 .ha-est__hbar-val { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; margin-right: -64px; }
+/* diverging bars (single series around zero) */
+.ha-est__div-row { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; padding: 7px 0; }
+.ha-est__div-row + .ha-est__div-row { border-top: 1px solid var(--ha-rule); }
+.ha-est__div-track { position: relative; height: 22px; margin: 0 58px; }
+.ha-est__div-axis { position: absolute; top: -8px; bottom: -8px; width: 1px; background: rgba(47,62,70,.35); }
+.ha-est__div-bar { position: absolute; top: 2px; height: 18px; border-radius: 2px; }
+.ha-est__div-val { position: absolute; top: 1px; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ha-est__div-val--pos { padding-left: 6px; }
+.ha-est__div-val--neg { padding-right: 6px; }
 /* vertical columns */
 .ha-est__col-grid { display: flex; align-items: stretch; height: 250px; }
 .ha-est__col-slot { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -111,6 +120,10 @@
 .ha-est__col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 38%; max-width: 44px; }
 .ha-est__col-bar { display: block; width: 100%; border-radius: 3px 3px 0 0; }
 .ha-est__col-val { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; margin-bottom: 4px; }
+.ha-est__col--stack { width: 56%; max-width: 64px; }
+.ha-est__col-stack { width: 100%; display: flex; flex-direction: column; }
+.ha-est__col-stack .ha-est__col-seg { border-radius: 0; flex: none; }
+.ha-est__col-stack .ha-est__col-seg:first-child { border-radius: 3px 3px 0 0; }
 .ha-est__col-cat { text-align: center; font-size: 13px; font-weight: 600; padding-top: 8px; }
 /* Upright, unlike the main site: okina.css has no italic face, so a synthetic
    slant turns every ʻokina in a source line into something like a "1". */
@@ -131,7 +144,12 @@
 .ha-est tr.ha-est__row-em td { font-weight: 600; }
 
 /* ---- estimate cards (hub) ---- */
-.ha-est__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; max-width: 1000px; margin: 0 auto; padding: 48px 36px 72px; }
+.ha-est__group { padding: 56px 36px 8px; }
+.ha-est__group + .ha-est__group { border-top: 1px solid var(--ha-rule); }
+.ha-est__group-head { max-width: 1000px; margin: 0 auto; }
+.ha-est__group-head h2 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 0 0 12px; }
+.ha-est__group-head p { max-width: 620px; margin: 0; }
+.ha-est__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; max-width: 1000px; margin: 0 auto; padding: 28px 0 56px; }
 .ha-est a.ha-est__card {
   display: block; background: var(--ha-white); border: 1px solid var(--ha-rule); border-radius: 8px;
   padding: 26px 26px 22px; text-decoration: none; color: var(--ha-body); transition: transform .2s, border-color .2s;
@@ -164,12 +182,17 @@
   .ha-est__section { padding: 48px 20px 8px; }
   .ha-est__section h2 { font-size: 24px; }
   .ha-est__callout { padding: 20px; }
-  .ha-est__cards { padding: 36px 20px 56px; }
+  .ha-est__group { padding: 44px 20px 0; }
+  .ha-est__group-head h2 { font-size: 24px; }
+  .ha-est__cards { padding: 24px 0 44px; }
   .ha-est__footer { padding: 48px 20px 36px; }
   .ha-est th, .ha-est td { padding: 8px 9px; font-size: 13px; }
   .ha-est__chart { padding: 14px 14px; }
   .ha-est__hbar-group { grid-template-columns: 96px 1fr; gap: 10px; }
   .ha-est__hbar-cat { font-size: 12.5px; }
+  .ha-est__div-row { grid-template-columns: 96px 1fr; gap: 8px; }
+  .ha-est__div-track { margin: 0 46px; }
+  .ha-est__div-val { font-size: 12px; }
   .ha-est__hbar-bars { padding-right: 52px; }
   .ha-est__hbar-val { font-size: 12px; margin-right: -52px; }
   .ha-est__col-grid { height: 220px; }

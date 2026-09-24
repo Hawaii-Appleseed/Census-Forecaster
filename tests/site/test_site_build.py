@@ -33,8 +33,19 @@ def test_committed_site_matches_a_fresh_build(tmp_path):
             f"site/{rel} is stale; run `python scripts/build_site.py` and commit site/")
 
 
-def test_endnotes_numbered_in_reading_order():
-    text = (REPO / "site" / "capital-gains" / "index.html").read_text()
+ESTIMATE_PAGES = sorted((REPO / "site").glob("*/index.html"))
+
+
+def test_every_estimate_is_on_the_home_page():
+    home = (REPO / "site" / "index.html").read_text()
+    assert len(ESTIMATE_PAGES) == len(build_site.ESTIMATES)
+    for est in build_site.ESTIMATES:
+        assert f'href="{est.slug}/"' in home, est.slug
+
+
+@pytest.mark.parametrize("page", ESTIMATE_PAGES, ids=lambda p: p.parent.name)
+def test_endnotes_numbered_in_reading_order(page):
+    text = page.read_text()
     first_seen = []
     for n in re.findall(r'href="#note-(\d+)"', text):
         if n not in first_seen:
@@ -43,9 +54,11 @@ def test_endnotes_numbered_in_reading_order():
     assert len(set(re.findall(r'id="(ref-\d+)"', text))) == len(re.findall(r'id="ref-\d+"', text))
 
 
-def test_downloads_resolve():
-    page = REPO / "site" / "capital-gains" / "index.html"
-    for href in re.findall(r'href="(\.\./data/[^"]+)"', page.read_text()):
+@pytest.mark.parametrize("page", ESTIMATE_PAGES, ids=lambda p: p.parent.name)
+def test_downloads_resolve(page):
+    hrefs = re.findall(r'href="(\.\./data/[^"]+)"', page.read_text())
+    assert hrefs
+    for href in hrefs:
         assert (page.parent / href).resolve().exists(), href
 
 

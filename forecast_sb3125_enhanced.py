@@ -636,6 +636,16 @@ if __name__ == "__main__":
         all_brackets.to_csv(B_CSV, index=False)
         print(f"Saved: {Q_CSV}", flush=True)
         print(f"Saved: {B_CSV}", flush=True)
+        # Also keep them with the run: /tmp vanishes on reboot, and the
+        # estimates site (scripts/build_site.py) imports from RUN_DIR.
+        all_quintiles.to_csv(RUN_DIR / "quintile.csv", index=False)
+        all_brackets.to_csv(RUN_DIR / "bracket.csv", index=False)
+        write_run_manifest(
+            RUN_DIR,
+            script=f"forecast_sb3125_enhanced.py --cd {CD}",
+            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS},
+            inputs={"tax_units_cache": cache_provenance()},
+        )
 
         # Print TY 2027 quintile summary
         q27 = all_quintiles[all_quintiles["tax_year"] == 2027].copy()
