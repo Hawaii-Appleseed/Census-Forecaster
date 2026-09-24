@@ -364,7 +364,7 @@ def build_capital_gains() -> tuple[str, dict]:
 <h1>Closing the Gap</h1>
 <hr class="ha-est__hero-rule">
 <p class="ha-est__deck">What Hawaiʻi would raise by taxing capital gains at {pct(cap_new)} percent, or at the same rates as wages, now that Act 24 has raised the top rate on work to 13 percent.</p>
-<p class="ha-est__meta">Hawaiʻi Budget &amp; Policy Center · Model run {esc(long_date(manifest["created_at"]))} · Tax years {years[0]} to {last}</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {years[0]} to {last}</p>
 </div></section>
 <div class="ha-est__stats">
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(od["behavioral_M"])}</div><div class="ha-est__stat-label"><strong>Tax gains as ordinary income.</strong> Revenue in tax year {Y}, residents.</div></div>
@@ -500,7 +500,7 @@ def build_index(cards: list[dict]) -> str:
 </a>""" for c in cards)
     body = f"""
 <section class="ha-est__hero"><div class="ha-est__hero-inner">
-<p class="ha-est__eyebrow">Hawaiʻi Budget &amp; Policy Center</p>
+<p class="ha-est__eyebrow">Hawaiʻi Appleseed</p>
 <h1>Estimates</h1>
 <hr class="ha-est__hero-rule">
 <p class="ha-est__deck">Revenue and distributional estimates for Hawaiʻi tax and budget policy, from Hawaiʻi Appleseed’s open-source models. Every figure links to the data and code that produced it.</p>
