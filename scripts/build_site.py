@@ -603,14 +603,18 @@ def build_act24() -> tuple[str, dict]:
     q_mid = [r for r in q if r["quintile"] == "Q3"][0]
     k = [r for r in klass if int(r["tax_year"]) == Y]
     k_1m = [r for r in k if r["income_bracket"] == "$1M+"][0]
-    # Per-household figures use the bracket change only. The distribution module
-    # also spreads each income band's expected renewable-credit loss evenly over
-    # every filer in it, so every household picks up a few dollars and the
-    # module's pay-more/pay-less shares count them all as paying more, which is
-    # not what happens: only solar claimants lose credit. (It also scores credits
-    # with the CD1 overlay, not CD2's.) Credit changes are reported in aggregate.
-    k_bottom = [r for r in k if r["avg_per_hh_bracket_change"] <= 0]
-    cut_ceiling = k_bottom[-1]["income_bracket"].split("–")[-1].replace("K", ",000")   # e.g. "$350,000"
+    # Per-household credit changes are attributed to imputed claimants at DOTAX
+    # claim rates (quintile_analysis.attribute_credit_loss), so averages include
+    # them and the pay-more / pay-less shares count only claimants as losing.
+    hh_all = sum(r["household_count"] for r in q)
+
+    def hh_share(col):
+        return sum(r["household_count"] * r[col] for r in q) / hh_all
+
+    pay_less, pay_more, claimants = hh_share("pct_pay_less"), hh_share("pct_pay_more"), hh_share("pct_credit_claimant")
+    credit_hh_m = sum(r["total_credit_loss_$M"] for r in q)
+    loss_per_claimant = credit_hh_m * 1e6 / (hh_all * claimants / 100)
+    credit_Y = credit[Y]
 
     p = {int(r["tax_year"]): r for r in pre}
     a46_last = -(p[last]["A_act46_banked_by_2026"] + p[last]["B_act46_remaining_phaseins"])
@@ -623,6 +627,8 @@ def build_act24() -> tuple[str, dict]:
                '<a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=HB&amp;billnumber=2404&amp;year=2024">capitol.hawaii.gov</a>')
     T_dotax = ('Hawaiʻi Department of Taxation, Announcement No. 2026-06, on the Act 24 changes to the renewable '
                'energy technologies income tax credit, 2026. <a href="https://tax.hawaii.gov/">tax.hawaii.gov</a>')
+    T_claims = ('Hawaiʻi Department of Taxation, “Tax Credits Claimed by Hawaiʻi Taxpayers,” Tax Year 2023, '
+                'Tables 2, A-5 and A-6. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
     T_code = (f'Hawaiʻi Appleseed, <code>forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
               f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_sb3125_enhanced.py">github.com</a>')
     T_doc = (f'Hawaiʻi Appleseed, “SB 3125 (enacted as Act 24, SLH 2026) — Hawaii Income Tax Fiscal Impact Forecast,” '
@@ -645,12 +651,16 @@ def build_act24() -> tuple[str, dict]:
 <div class="ha-est__stats">
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(tot["MID"])}</div><div class="ha-est__stat-label"><strong>More revenue over five years,</strong> tax years {Y} to {last}, than Act 46 would have raised.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(mid[Y]["total_impact_$M"])}</div><div class="ha-est__stat-label">In <strong>tax year {Y},</strong> the first year the new brackets apply.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(-q_mid["avg_per_hh_bracket_change"])}</div><div class="ha-est__stat-label">Average tax cut for the <strong>middle 20 percent</strong> of households in {Y}.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(k_1m["avg_per_hh_bracket_change"])}</div><div class="ha-est__stat-label">Average increase for households with income <strong>above $1 million</strong> in {Y}.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{pct(pay_less)} percent</div><div class="ha-est__stat-label">Of households <strong>pay less</strong> income tax in {Y} than under Act 46.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(k_1m["avg_per_hh_total_change"])}</div><div class="ha-est__stat-label">Average increase for households with income <strong>above $1 million</strong> in {Y}.</div></div>
 </div>"""
 
-    krows = [[r["income_bracket"].replace("–", " to "), f"{r['household_count']:,.0f}",
-              signed_dollars(r["avg_per_hh_bracket_change"]), m1(r["total_bracket_$M"])] for r in k]
+    def dist_row(label, r):
+        return [label, f"{r['household_count']:,.0f}", signed_dollars(r["avg_per_hh_bracket_change"]),
+                signed_dollars(r["avg_per_hh_credit_loss"]), signed_dollars(r["avg_per_hh_total_change"]),
+                pct(r["pct_pay_less"]), pct(r["pct_pay_more"])]
+    dist_head = ["Households", "Rate changes", "Credit changes", "Total", "Percent paying less", "Percent paying more"]
+    krows = [dist_row(r["income_bracket"].replace("–", " to "), r) for r in k]
     s1 = section("What Act 24 Changed", f"""
 {lead("Act 24 rewrote the income tax brackets", f"that Act 46 of 2024 had scheduled for the rest of the decade.{notes.ref(T_act24)}{notes.ref(T_act46)} It cut two rates that most working households pay and raised the rates on income above $350,000 for joint filers ($262,500 for heads of household, $175,000 for single filers), adding a 13 percent bracket above $1 million ($750,000 and $500,000).")}
 <p>Table 1 shows the changes for joint filers. The lower-bracket cuts are the same in every year. The increases at the top grow in {Y + 2}, when Act 46 would have lowered those rates again and Act 24 holds them where they are.</p>
@@ -683,16 +693,18 @@ def build_act24() -> tuple[str, dict]:
 """, "revenue")
 
     qcat = [QUINTILE_LABEL.get(r["quintile"], r["quintile"]) for r in q]
+    qrows = [dist_row(QUINTILE_LABEL.get(r["quintile"], r["quintile"]), r) for r in q]
     s3 = section("Who Pays More and Who Pays Less", f"""
-{lead("Most households pay a little less.", f"The lower rates on income between about $29,000 and $48,000 of taxable income for joint filers reach most working households. In tax year {Y}, the middle 20 percent of households save an average of {dollars(-q_mid['avg_per_hh_bracket_change'])} and the next 20 percent {dollars(-q[3]['avg_per_hh_bracket_change'])}. Households with income under {cut_ceiling} save {millions(-sum(r['total_bracket_$M'] for r in k_bottom))} in all.")}
-<p>The increase falls on the top. Households with income above $1 million pay an average of {dollars(k_1m['avg_per_hh_bracket_change'])} more, and the top 20 percent as a group pay {millions(q_top['total_bracket_$M'])} more. Figure 2 shows the average change for each fifth of households, and Table 3 by income.</p>
+{lead("Most households pay a little less.", f"In tax year {Y}, {pct(pay_less)} percent of households owe less income tax under Act 24 than they would have under Act 46, mostly from the lower rates on income between about $29,000 and $48,000 of taxable income for joint filers. The middle 20 percent of households save an average of {dollars(-q_mid['avg_per_hh_total_change'])}.")}
+<p>The increase falls on the top. Households with income above $1 million pay an average of {dollars(k_1m['avg_per_hh_total_change'])} more, and the top 20 percent as a group pay {millions(q_top['total_change_$M'])} more. Figure 2 shows the average change for each fifth of households, and Tables 3 and 4 break it down.</p>
 {figure(2, f"Average Change in Income Tax per Household Under Act 24, Hawaiʻi (Tax Year {Y})",
-        diverging_bar_chart(qcat, [r["avg_per_hh_bracket_change"] for r in q], fmt=signed_dollars,
-                            label=f"Average change per household in tax year {Y}: " + "; ".join(f"{c} {signed_dollars(r['avg_per_hh_bracket_change'])}" for c, r in zip(qcat, q, strict=True)) + "."),
-        src_model + " Bracket changes only, before the behavioral response. Households are ranked by income; each group holds one fifth of households.")}
-{table(["Income (AGI)", "Households", "Average change", "Total ($ millions)"], krows,
-       caption=f"Table 3. Change in Income Tax From the Bracket Changes, by Income, Tax Year {Y}")}
-<p>The credit changes are not in these figures. They fall on the relatively few filers who claim the renewable energy, capital goods and research credits, not evenly across income groups, and the model estimates them in total rather than household by household.</p>
+        diverging_bar_chart(qcat, [r["avg_per_hh_total_change"] for r in q], fmt=signed_dollars,
+                            label=f"Average change per household in tax year {Y}: " + "; ".join(f"{c} {signed_dollars(r['avg_per_hh_total_change'])}" for c, r in zip(qcat, q, strict=True)) + "."),
+        src_model + " Rate and credit changes, before the behavioral response. Households are ranked by income; each group holds one fifth of households.")}
+<p>The credit changes fall on the households that claim the credits, not on everyone. At 2023 claim rates, about {pct(claimants, 1)} percent of households claim the renewable energy or capital goods credit, from {pct(q[0]['pct_credit_claimant'], 1)} percent of the lowest fifth to {pct(q_top['pct_credit_claimant'], 1)} percent of the top fifth.{notes.ref(T_claims)} In {Y} they lose an average of {dollars(loss_per_claimant)} each, {millions(credit_hh_m)} in all; for some, that outweighs the rate cut, which is why {pct(pay_more, 1)} percent of households pay more. The other {millions(credit_Y - credit_hh_m)} of the year’s credit savings falls on corporations and other business filers and is not shown here.</p>
+{table(["Household income"] + dist_head, qrows, caption=f"Table 3. Average Change in Income Tax by Fifth of Households, Tax Year {Y}")}
+{table(["Income (AGI)"] + dist_head, krows, caption=f"Table 4. Average Change in Income Tax by Income, Tax Year {Y}")}
+<p class="ha-est__source">Averages are over all households in each group, claimants or not. Credit changes are assigned to households by the Department of Taxation’s claim rates and average claims by income; a household’s chance of claiming sets its share. The department reports all claims above $200,000 of income as one class, so the credit change is the same for every income group above that. The 2031 figures, when no new renewable energy credits are allowed, are in the downloadable data.</p>
 """, "who-pays")
 
     prows = [[str(y), m1(p[y]["A_act46_banked_by_2026"] + p[y]["B_act46_remaining_phaseins"]), m1(p[y]["C_act24_increment"]),
@@ -701,18 +713,18 @@ def build_act24() -> tuple[str, dict]:
 {lead("Act 24 is small next to the tax cut it amended.", f"Act 46 of 2024 raised the standard deduction and widened the brackets in steps through {last}. Measured against the law before Act 46, it will cost the state about {millions(a46_last)} a year by {last} on this model’s static estimate. Act 24 recovers {millions(c_last)} of that, about {pct(100 * c_last / a46_last)} percent.{notes.ref(T_pre)}")}
 <p>This model’s estimate of Act 46’s cost runs 14 to 21 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
 {table(["Tax year", "Act 46", "Act 24", "Both laws"], prows,
-       caption="Table 4. Static Change in Income Tax Revenue Compared With Pre-Act 46 Law ($ Millions)")}
+       caption="Table 5. Static Change in Income Tax Revenue Compared With Pre-Act 46 Law ($ Millions)")}
 <p class="ha-est__source">Negative numbers are revenue the state gives up. Brackets, standard deduction and personal exemption only; no behavioral response or credit changes.</p>
 """, "context")
 
     base = manifest["inputs"]["tax_units_cache"]
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics.")}
-<p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. The credit changes are scored against projected claims under the old rules. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
+<p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
 <li><a href="../data/act-24/fiscal_by_scenario.csv"><code>fiscal_by_scenario.csv</code></a>: revenue by tax year and scenario, with every component</li>
-<li><a href="../data/act-24/distribution_quintile.csv"><code>distribution_quintile.csv</code></a>: change by fifth of households, {Y} to {last}</li>
+<li><a href="../data/act-24/distribution_quintile.csv"><code>distribution_quintile.csv</code></a>: change by fifth of households, {Y} to {last}, with shares paying more and less and credit claimants</li>
 <li><a href="../data/act-24/distribution_income_class.csv"><code>distribution_income_class.csv</code></a>: change by income class, {Y} to {last}</li>
 <li><a href="../data/act-24/vs_pre_act46.csv"><code>vs_pre_act46.csv</code></a>: Act 46 and Act 24 compared with pre-Act 46 law</li>
 <li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>

@@ -113,6 +113,10 @@ REEC_INDIVIDUAL_BY_AGI_BIN = [
 
 # §235-110.7 Capital Goods Excise Tax Credit (CGEC)
 CGEC_TOTAL_M = 34.608
+# Individual returns' share of CGEC claims (DOTAX TY2023 Table A-1: $9.353M of
+# $34.608M). Used only to attribute CGEC savings to households; the rest is
+# corporate / fiduciary and is not distributed.
+CGEC_INDIVIDUAL_SHARE = 9.353407 / 34.60779
 
 # §235-110.91 Tax Credit for Research Activities (TCRA)
 TCRA_TOTAL_M = 7.034
@@ -891,6 +895,8 @@ def simulate_reec_state_cost_path(
                 "end_stock_ind":  stock_ind,
                 "end_stock_corp": stock_corp,
                 "total":         ind_ref + corp_ref + ind_usage + corp_usage,
+                "ind_state_cost":  ind_ref + ind_usage,
+                "corp_state_cost": corp_ref + corp_usage,
                 "eligibility_share":  diag["eligibility_share"],
                 "pro_rata_factor":    diag["pro_rata_factor"],
                 "suppression_factor": diag["suppression_factor"],
@@ -1025,6 +1031,17 @@ def compute_credit_overlay(
             "reec_suppression_factor":       round(sim_bill["suppression_factor"], 4),
             "reec_ind_refundable_share":     round(sim_bill["ind_ref_share"], 4),
             "reec_interpretation":           interpretation,
+            # Individual-return share of the savings, for distributional
+            # attribution (quintile_analysis.attribute_credit_loss). The
+            # corporate pool's savings are not attributed to households.
+            "reec_individual_savings_$M":    round(max(
+                0.0, sim_baseline["ind_state_cost"] - sim_bill["ind_state_cost"]), 2),
+            # Share of an AGI-eligible claimant's certification the bill
+            # leaves in place this year: pro-rata cap x demand suppression
+            # while new vintages are capped, 0 once they are sunset.
+            "reec_eligible_retained_share":  round(
+                0.0 if target_year > REEC_SUNSET_LAST_VINTAGE
+                else sim_bill["pro_rata_factor"] * sim_bill["suppression_factor"], 4),
         }
     elif 2027 <= target_year <= 2030:
         # Cap binds on the eligible portion. Total revenue gain =
@@ -1094,6 +1111,7 @@ def compute_credit_overlay(
         # CGEC
         "cgec_baseline_$M":              round(cgec_baseline, 2),
         "cgec_savings_$M":               round(cgec_savings, 2),
+        "cgec_individual_savings_$M":    round(cgec_savings * CGEC_INDIVIDUAL_SHARE, 2),
         # TCRA
         "tcra_baseline_$M":              round(tcra_baseline, 2),
         "tcra_savings_$M":               round(tcra_savings, 2),
