@@ -51,23 +51,42 @@ bracket delta is unchanged to ±$0.03M.
 AGI-class tables were written only to `/tmp`; they now also land in
 `runs/sb3125_cd2_enhanced/quintile.csv` and `bracket.csv`.
 
-**⚠️ Two caveats on those tables' credit columns, found while publishing:**
+**Credit attribution fixed (same day, later).** Two caveats found while
+publishing these tables have been resolved in
+`tax_modeler.scenarios.quintile_analysis`:
 
-1. **The credit loss is spread, not incident.** `distribute_reec_loss_to_filers`
-   gives every filer in an AGI bin an equal share of that bin's expected REEC
-   loss. Averages are fine, but the `pct_pay_more` / `pct_pay_less` columns are
-   computed on bracket change + that spread, so a household with no solar claim
-   and no bracket change counts as "paying more" (e.g. 100% of households under
-   $10K, 85% of Q1). Those shares are an artifact; do not cite them.
-2. **The distributional module scores credits with the CD1 static overlay**
-   (`reec_individual_credit_loss`, cap through 2030, sunset 2031), not CD2's
-   vintage model. That is why the CD2 quintile table is identical to the CD1
-   one in Section 10.
+1. **The credit loss was spread, not incident.** The old
+   `distribute_reec_loss_to_filers` gave every filer in an AGI bin an equal
+   share of that bin's expected REEC loss, so the `pct_pay_more` /
+   `pct_pay_less` columns counted households with no solar claim as "paying
+   more" (100% of households under $10K, 85% of Q1). **Replaced by
+   `attribute_credit_loss`**: each tax unit gets its AGI class's DOTAX TY2023
+   claim probability (Table A-6 claims / Table 2 returns: REEC 0.38% under
+   $10K to 3.59% at $200K+; CGEC 0.18% to 2.01%) and, if it claims, its
+   class's average claim (A-5 / A-6) times the share the bill takes away (all
+   of it for AGI-ineligible claimants and after the sunset; 1 − the retained
+   pro-rata × suppression share for eligible claimants in cap years), scaled
+   to the year's individual-return savings. Averages use the expected loss;
+   pay-more / pay-less shares treat each household as a claimant with
+   probability q = 1 − Π(1 − q_unit), so non-claimants are never counted as
+   paying more. Claim data: `scripts/fetch_dotax_credit_claims.py` →
+   `tax_modeler/data/raw/dotax_credit_claims_by_agi.csv` (TY2018-2023).
+2. **The distributional module scored credits with the CD1 static overlay.**
+   It now takes the individual-pool REEC savings straight from the overlay it
+   is handed: the CD2 vintage simulation reports `reec_individual_savings_$M`
+   (individual refundable + stock usage, baseline − bill) and
+   `reec_eligible_retained_share`; the CD1 static path falls back to
+   `reec_individual_credit_loss`. CGEC's individual share
+   (`cgec_individual_savings_$M`, 27.0% per DOTAX TY2023 Table A-1) is now
+   attributed too. Corporate / fiduciary REEC and CGEC, and TCRA (~$1M on
+   individual returns, mostly suppressed), are not distributed.
 
-The site therefore publishes **bracket change per household only**
-(`avg_per_hh_bracket_change`, `total_bracket_$M`) and reports credit savings in
-aggregate. Fixing both would mean attributing the CD2 vintage-model loss to
-claimant households, not bins.
+Fiscal totals are unchanged (bit-identical `enhanced.csv`). Individual-return
+credit loss attributed to households: $27.2M of TY2027's $49.1M
+credit savings, $76.6M of TY2031's $124.3M. Timing approximation:
+in years after capped vintages, reduced carryforward drawdown from earlier
+certificates is attributed to that year's would-be claimants. The updated
+table is in Section 10 ("Distributional Impact — TY 2027 (MID)").
 
 ---
 
@@ -1599,14 +1618,14 @@ The top-income extra gap captures capital gains realization collapse and pass-th
 
 ## 9. Distributional Analysis
 
-**Script:** `forecast_sb3125_cd1_quintile.py`  
-**Output:** `/tmp/sb3125_cd1_quintile_2027_2031.csv`
+**Script:** `forecast_sb3125_enhanced.py --cd 2` (distributional pass, MID)  
+**Output:** `runs/sb3125_cd2_enhanced/quintile.csv` and `bracket.csv` (also `/tmp/sb3125_cd2_*_mid_2027_2031.csv`)
 
 Methodology follows CBO/Tax Policy Center standard distributional analysis:
 
 - **Population sorted by income** and divided into **5 equal-population quintiles** using cumulative weight percentiles (not equal income spans)
 - **Static incidence scoring**: per-unit tax is computed at each filer's projected income before ETI/migration adjustments — reflects who bears the statutory burden before behavioral avoidance
-- **Bracket change only**: REEC/CGEC/TCRA credit overlay savings are not attributable to individual filers and are excluded from the quintile breakdown
+- **Bracket change plus attributed credit loss** (September 24, 2026): the individual-return share of REEC and CGEC savings is assigned to imputed claimant households at DOTAX TY2023 claim rates by AGI class (`quintile_analysis.attribute_credit_loss`; see the note at the top of this document). Corporate credit savings and TCRA are not distributed. Pay-more / pay-less shares count only claimants as bearing credit losses.
 - **MID scenario only**
 
 Key finding: **Q5 (top 20%, income $102K+) bears more than 100% of the aggregate bracket revenue gain**, with Q1–Q4 receiving modest net benefits from the lower middle rates. The 13% bracket is the dominant force; the middle rate cuts (3.20%→2.50%, 5.50%→5.00%) offset approximately 15% of the Q5 gain.
@@ -1664,10 +1683,34 @@ Year-by-year (MID, $M):
 
 ### Distributional Impact — TY 2027 (MID)
 
-**Updated August 3, 2026.** The prior table's quintiles were filer-based bracket-only figures with income-range labels from an earlier, separate quintile run; the current pipeline (`forecast_sb3125_enhanced.py`'s native distributional module) reports **household**-based quintiles with the credit-cap loss broken out alongside the bracket change, and does not emit income-range boundaries per quintile — rather than approximate those from a different run, this table reports exactly what the current pipeline produces.
+**Updated September 24, 2026** — CD2 (enacted Act 24), with credit losses
+attributed to imputed claimants (Section 9). Supersedes the August 3 table,
+which was CD1's static credit overlay spread evenly across every filer in each
+AGI bin; its pay-more / pay-less shares (e.g. 85.1% of Q1 "paying more") were an
+artifact of that spread.
 
-| Quintile | Households | Bracket Δ ($M) | Credit-cap loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % pay more | % pay less |
-|----------|-----------:|---------------:|----------------------:|-------------:|---------------:|--------------------:|--------------:|-----------:|-----------:|
+| Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
+|----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
+| Q1 (bottom 20%) | 78,773 | −$0.4M | +$1.2M | +$0.8M | −$5 | +$15 | +$10 | 0.9% | 0.9% | 17.5% |
+| Q2 | 90,742 | −$4.6M | +$1.3M | −$3.3M | −$51 | +$15 | −$36 | 1.5% | 1.5% | 87.4% |
+| Q3 | 100,291 | −$7.9M | +$2.9M | −$4.9M | −$78 | +$29 | −$49 | 2.5% | 2.5% | 97.3% |
+| Q4 | 107,459 | −$9.8M | +$5.4M | −$4.5M | −$92 | +$50 | −$41 | 3.6% | 3.6% | 96.4% |
+| Q5 (top 20%) | 116,782 | +$107.7M | +$16.4M | +$124.1M | +$922 | +$141 | +$1,063 | 6.1% | 21.9% | 78.1% |
+
+**TY 2031 (MID)** — no new REEC certifications after TY2029, so every would-be
+claimant loses the full credit:
+
+| Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
+|----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
+| Q1 (bottom 20%) | 78,773 | −$0.2M | +$3.2M | +$3.0M | −$2 | +$40 | +$38 | 0.9% | 0.9% | 8.9% |
+| Q2 | 90,742 | −$4.4M | +$4.1M | −$0.4M | −$49 | +$45 | −$4 | 1.6% | 1.6% | 73.9% |
+| Q3 | 100,291 | −$11.2M | +$10.1M | −$1.2M | −$112 | +$100 | −$12 | 2.8% | 2.8% | 96.3% |
+| Q4 | 107,459 | −$14.9M | +$17.2M | +$2.4M | −$138 | +$160 | +$22 | 3.9% | 3.9% | 96.0% |
+| Q5 (top 20%) | 116,782 | +$163.2M | +$42.1M | +$205.3M | +$1,397 | +$360 | +$1,758 | 6.5% | 25.5% | 74.5% |
+
+*Negative Δ = household pays less. "Credit loss" is the individual-return REEC/CGEC savings attributed to households, in expectation (claim probability × loss if claiming); "% claimants" is the share of households imputed to claim REEC or CGEC. Static incidence: before ETI/migration response. Household counts use PUMS WGTP; $M totals use the calibrated filer weight.*
+
+----------|-----------:|---------------:|----------------------:|-------------:|---------------:|--------------------:|--------------:|-----------:|-----------:|
 | Q1 (bottom 20%) | 78,773 | −$0.4M | $1.0M | $0.6M | −$5 | $13 | $8 | 85.1% | 14.9% |
 | Q2 | 90,742 | −$4.6M | $1.0M | −$3.6M | −$51 | $11 | −$40 | 13.9% | 86.1% |
 | Q3 | 100,291 | −$7.9M | $2.1M | −$5.8M | −$78 | $21 | −$58 | 0.9% | 99.1% |

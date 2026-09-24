@@ -5,24 +5,48 @@ Computes bracket tax change and REEC credit savings impact per filer,
 bins into income quintiles (weight-cumulative, all filing statuses combined)
 and fixed income brackets, and returns summary DataFrames.
 
-Credit distribution methodology:
-  REEC savings fall on individual filers in two ways:
-    1. Ineligible-by-AGI filers (AGI > $175K single / $350K MFJ under CD1)
-       lose their entire REEC claim — allocated by DOTAX TY2023 Table A-5
-       ineligible claim amounts per AGI bin.
-    2. Eligible filers face a pro-rata cap reduction when total eligible
-       claims exceed $40M — allocated by their eligible claim weight.
-  Corporate / Other REEC, CGEC, and TCRA savings are not allocable to
-  individual filers and are reported as an unallocated corporate component.
+Credit distribution methodology (attribute_credit_loss):
+  A credit cut falls on the filers who claim the credit, not on everyone in
+  their income class. Each tax unit gets a claim probability for the
+  renewable energy technologies credit (REEC) and the capital goods excise
+  tax credit (CGEC) equal to its AGI class's DOTAX TY2023 claim rate (Table
+  A-6 claims / Table 2 returns, 0.4-3.6% for REEC), and a loss if it claims:
+  its class's average claim (A-5 / A-6), times the share the bill takes away
+  (all of it for AGI-ineligible claimants and after the sunset; 1 minus the
+  retained pro-rata share for eligible claimants in capped years). Losses are
+  scaled so they sum to the individual-return savings the credit overlay
+  reports for the year.
+
+  Averages and totals use the expected loss (claim probability x loss if
+  claiming), which is exact in expectation. Pay-more / pay-less shares treat
+  each household as a claimant household with probability q (tax change =
+  bracket change + its loss if claiming) and otherwise not (bracket change
+  only), so a household that claims nothing is never counted as paying more.
+
+  Corporate / fiduciary REEC and CGEC savings, and TCRA (individual claims
+  ~$1M, mostly suppressed in the DOTAX tables), are not attributed to
+  households.
+
+  Timing approximation: in years after capped vintages, part of the
+  vintage-model loss is reduced carryforward drawdown from earlier capped
+  certificates; it is attributed to that year's would-be claimants.
 """
 
 from __future__ import annotations
 
+import csv
 import warnings
+from functools import cache
+from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from typing import Optional
+
+# DOTAX claim counts / amounts / returns by AGI class, from
+# scripts/fetch_dotax_credit_claims.py. The claim-rate year matches _REEC_BINS.
+_CLAIMS_CSV = Path(__file__).resolve().parent.parent / "data" / "raw" / "dotax_credit_claims_by_agi.csv"
+CLAIM_PROFILE_YEAR = 2023
 
 # DOTAX TY2023 individual REEC by AGI bin (label, total_$M, eligible_share)
 # Source: DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers TY2023", Table A-5
@@ -230,94 +254,115 @@ def reec_individual_credit_loss(
     return total_ind_savings, ind_ineligible, ind_cap_reduction
 
 
-def distribute_reec_loss_to_filers(
-    tax_units: pd.DataFrame,
-    total_ind_savings_m: float,
-    ineligible_m: float,
-    eligible_cap_reduction_m: float,
-) -> np.ndarray:
-    """Distribute individual REEC credit loss to filers; return per-filer amounts ($).
+@cache
+def _claim_profile(credit: str, year: int = CLAIM_PROFILE_YEAR) -> tuple[np.ndarray, np.ndarray]:
+    """(claim rate, average claim in $) per _REEC_BINS AGI class for *credit*.
 
-    Distribution uses DOTAX TY2023 AGI bin claim weights. Each filer receives
-    a share proportional to their bin's REEC claim weight, divided by the
-    weighted filer count in that bin.
+    Claim rate = individual-return claims (DOTAX Table A-6) / individual
+    returns (Table 2); average claim = dollars claimed (A-5) / claims.
+    """
+    rows = [r for r in csv.DictReader(_CLAIMS_CSV.open())
+            if r["credit"] == credit and int(r["year"]) == year]
+    if len(rows) != len(_REEC_BINS):
+        raise ValueError(f"{_CLAIMS_CSV.name}: expected {len(_REEC_BINS)} {credit} rows for TY{year}")
+    claims = np.array([float(r["claims"] or 0) for r in rows])
+    amount = np.array([float(r["amount_$K"] or 0) * 1e3 for r in rows])
+    returns = np.array([float(r["returns"]) for r in rows])
+    rate = claims / returns
+    avg = np.divide(amount, claims, out=np.zeros_like(amount), where=claims > 0)
+    return rate, avg
+
+
+def attribute_credit_loss(
+    tax_units: pd.DataFrame,
+    *,
+    reec_individual_m: float,
+    reec_retained_share: float,
+    cgec_individual_m: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Attribute individual-return credit savings to imputed claimants.
+
+    Returns ``(expected_loss, claim_prob)`` per tax unit, in dollars and as a
+    probability. ``expected_loss`` sums (with ``weight``) to
+    ``reec_individual_m + cgec_individual_m`` million; ``claim_prob`` is the
+    chance the unit claims REEC or CGEC. See the module docstring.
 
     Parameters
     ----------
-    tax_units:
-        DataFrame with 'income' and 'weight' columns.
-    total_ind_savings_m:
-        Total individual-borne REEC savings ($M). Verified = ineligible + cap_reduction.
-    ineligible_m:
-        Portion from AGI-limit exclusion ($M). Allocated to above-threshold filers.
-    eligible_cap_reduction_m:
-        Portion from pro-rata cap ($M). Allocated to below-threshold filers.
+    reec_individual_m:
+        REEC savings on individual returns this year ($M), e.g. the credit
+        overlay's ``reec_individual_savings_$M``.
+    reec_retained_share:
+        Share of an AGI-eligible claimant's credit the bill leaves in place
+        (pro-rata cap x demand suppression; 0 once new credits are sunset).
+        AGI-ineligible claimants lose everything.
+    cgec_individual_m:
+        CGEC savings on individual returns this year ($M).
     """
-    n        = len(tax_units)
-    incomes  = tax_units["income"].to_numpy(dtype=float)
-    weights  = tax_units["weight"].to_numpy(dtype=float)
+    n = len(tax_units)
+    incomes = tax_units["income"].to_numpy(dtype=float)
+    weights = tax_units["weight"].to_numpy(dtype=float)
     statuses = tax_units["filing_status"].to_numpy()
+    b = _agi_bin_index(incomes)
 
-    if total_ind_savings_m <= 0:
-        return np.zeros(n, dtype=float)
+    # §235-12.5(a) as amended: $350K joint, $175K otherwise.
+    threshold = np.where(np.isin(statuses, ["married_filing_jointly", "qualifying_widow"]),
+                         350_000.0, 175_000.0)
+    lost_share = np.where(incomes > threshold, 1.0, 1.0 - float(reec_retained_share))
 
-    # AGI thresholds for eligibility under CD1:
-    #   MFJ → $350K, all others → $175K
-    agi_threshold = np.where(
-        np.isin(statuses, ["married_filing_jointly", "qualifying_widow"]),
-        350_000.0,
-        175_000.0,
+    def _scaled(prob, intensity, total_m):
+        denom = float((weights * prob * intensity).sum())
+        if total_m <= 0 or denom <= 0:
+            return np.zeros(n)
+        return intensity * (total_m * 1e6 / denom)
+
+    p_r, avg_r = _claim_profile("reec")
+    p_c, avg_c = _claim_profile("cgec")
+    pr, pc = p_r[b], p_c[b]
+    loss_r = _scaled(pr, avg_r[b] * lost_share, reec_individual_m)
+    loss_c = _scaled(pc, avg_c[b], cgec_individual_m)
+
+    expected = pr * loss_r + pc * loss_c
+    claim_prob = np.where(expected > 0, 1.0 - (1.0 - pr) * (1.0 - pc), 0.0)
+    return expected, claim_prob
+
+
+def _individual_credit_savings(credit_overlay: dict, year: int, scenario_params: dict) -> tuple[float, float, float]:
+    """(REEC individual $M, REEC retained share, CGEC individual $M) for *year*.
+
+    The CD2 vintage overlay reports the individual REEC pool directly; the
+    CD1 static overlay does not, so its figures come from
+    reec_individual_credit_loss.
+    """
+    cgec_m = float(credit_overlay.get("cgec_individual_savings_$M", 0.0) or 0.0)
+    if "reec_individual_savings_$M" in credit_overlay:
+        return (float(credit_overlay["reec_individual_savings_$M"]),
+                float(credit_overlay["reec_eligible_retained_share"]), cgec_m)
+    total_m, _inelig_m, cap_red_m = reec_individual_credit_loss(
+        target_year=year,
+        reec_demand_scenario=scenario_params["reec"],
+        reec_effective_claim_share=scenario_params["reec_eff_share"],
+        corp_subject_to_agi_limit=scenario_params.get("corp_agi_limit", False),
+        cgec_annual_growth=scenario_params.get("cgec_growth", 0.030),
+        reec_carryforward_utilization_m=scenario_params.get("reec_cf_m", 0.0),
     )
-    is_ineligible = incomes > agi_threshold
-    is_eligible   = ~is_ineligible
+    eligible_m = float(credit_overlay.get("reec_individual_eligible_$M", 0.0) or 0.0)
+    retained = 1.0 - cap_red_m / eligible_m if eligible_m > 0 else 1.0
+    return total_m, retained, cgec_m
 
-    bin_idx = _agi_bin_index(incomes)
 
-    # --- Ineligible loss allocation (above-AGI-limit filers) ----------------
-    # Ineligible DOTAX bin claim fractions: bins 0-4 are 100% eligible, so
-    # ineligible claims come only from bins 4 ($100K-$200K, 2.8% ineligible)
-    # and bin 5 ($200K+, 43.9% ineligible).
-    inelig_bin_weights = np.array([
-        b[1] * (1.0 - b[2]) for b in _REEC_BINS  # total_$M × ineligible_share
-    ])
-    inelig_total_weight = inelig_bin_weights.sum()
-
-    inelig_loss = np.zeros(n, dtype=float)
-    if inelig_total_weight > 0 and ineligible_m > 0:
-        # Pre-compute per-bin weighted sum of ineligible filers (vectorized)
-        inelig_bin_w_sum = np.array([
-            weights[(bin_idx == b) & is_ineligible].sum()
-            for b in range(len(_REEC_BINS))
-        ])
-        # Each ineligible filer gets (bin_claim_weight / total_weight) × total_$M / bin_pop_weight
-        per_bin_rate = np.where(
-            inelig_bin_w_sum > 0,
-            (inelig_bin_weights / inelig_total_weight) * ineligible_m * 1e6 / np.maximum(inelig_bin_w_sum, 1e-9),
-            0.0,
-        )
-        inelig_loss = np.where(is_ineligible, per_bin_rate[bin_idx], 0.0)
-
-    # --- Eligible cap-reduction allocation (below-AGI-limit filers) ---------
-    elig_bin_weights = np.array([
-        b[1] * b[2] for b in _REEC_BINS  # total_$M × eligible_share
-    ])
-    elig_total_weight = elig_bin_weights.sum()
-
-    elig_loss = np.zeros(n, dtype=float)
-    if elig_total_weight > 0 and eligible_cap_reduction_m > 0:
-        # Pre-compute per-bin weighted sum of eligible filers (vectorized)
-        elig_bin_w_sum = np.array([
-            weights[(bin_idx == b) & is_eligible].sum()
-            for b in range(len(_REEC_BINS))
-        ])
-        per_bin_rate_e = np.where(
-            elig_bin_w_sum > 0,
-            (elig_bin_weights / elig_total_weight) * eligible_cap_reduction_m * 1e6 / np.maximum(elig_bin_w_sum, 1e-9),
-            0.0,
-        )
-        elig_loss = np.where(is_eligible, per_bin_rate_e[bin_idx], 0.0)
-
-    return inelig_loss + elig_loss
+def _change_shares(change: np.ndarray, loss: np.ndarray, q: np.ndarray, wts: np.ndarray) -> tuple[float, float, float]:
+    """Weighted percent paying more / less / the same, where each unit is a
+    credit claimant with probability *q* and its tax change is *change* (the
+    bracket change) plus, if it claims, its loss if claiming (*loss* / *q*)."""
+    claim_change = change + np.divide(loss, q, out=np.zeros_like(loss), where=q > 0)
+    more = q * (claim_change > 0) + (1 - q) * (change > 0)
+    less = q * (claim_change < 0) + (1 - q) * (change < 0)
+    tot = wts.sum()
+    if tot <= 0:
+        return 0.0, 0.0, 0.0
+    m, l_ = float((wts * more).sum() / tot * 100), float((wts * less).sum() / tot * 100)
+    return m, l_, 100.0 - m - l_
 
 
 def _household_income_table(tax_units: pd.DataFrame) -> pd.DataFrame:
@@ -509,27 +554,23 @@ def generate_quintile_report(
         "cd1_tax":        cd1_net,
         "bracket_change": cd1_net - act46_net,
         "credit_loss":    np.zeros(len(projected), dtype=float),
+        "claim_prob":     np.zeros(len(projected), dtype=float),
         "hh_id": (
             projected["hh_id"].values if "hh_id" in projected.columns
             else np.arange(len(projected))
         ),
     })
 
-    # ── REEC credit loss distribution ─────────────────────────────────────────
+    # ── Credit loss, attributed to imputed claimants ──────────────────────────
     if scenario_params is not None:
-        year = baseline_cfg.year
-        total_ind_m, inelig_m, cap_red_m = reec_individual_credit_loss(
-            target_year=year,
-            reec_demand_scenario=scenario_params["reec"],
-            reec_effective_claim_share=scenario_params["reec_eff_share"],
-            corp_subject_to_agi_limit=scenario_params.get("corp_agi_limit", False),
-            cgec_annual_growth=scenario_params.get("cgec_growth", 0.030),
-            reec_carryforward_utilization_m=scenario_params.get("reec_cf_m", 0.0),
-        )
-        loss_arr = distribute_reec_loss_to_filers(
-            projected, total_ind_m, inelig_m, cap_red_m
+        reec_m, retained, cgec_m = _individual_credit_savings(
+            credit_overlay, baseline_cfg.year, scenario_params)
+        loss_arr, q_arr = attribute_credit_loss(
+            projected, reec_individual_m=reec_m, reec_retained_share=retained,
+            cgec_individual_m=cgec_m,
         )
         pu["credit_loss"] = loss_arr
+        pu["claim_prob"] = q_arr
 
     pu["total_change"] = pu["bracket_change"] + pu["credit_loss"]
     pu = pu[pu["weight"] > 0.01].copy()
@@ -579,6 +620,8 @@ def generate_quintile_report(
         s = wts.sum()
         return float((vals * wts).sum() / s) if s > 0 else 0.0
 
+    pu_sorted["log_no_claim"] = np.log1p(-pu_sorted["claim_prob"].clip(upper=1 - 1e-12))
+
     # ── Household-level DataFrame (one row per household) ─────────────────────
     # Sum tax changes across all filers in the same household; take the
     # household's quintile and weights from the first filer (shared within HH).
@@ -598,9 +641,12 @@ def generate_quintile_report(
             bracket_change=("bracket_change", "sum"),
             credit_loss=("credit_loss", "sum"),
             total_change=("total_change", "sum"),
+            log_no_claim=("log_no_claim", "sum"),
         )
         .reset_index()
     )
+    # A household claims if any of its tax units does.
+    hh_pu["claim_prob"] = 1.0 - np.exp(hh_pu.pop("log_no_claim"))
 
     def _hh_agg(g):
         """Quintile aggregation at the household level.
@@ -626,9 +672,13 @@ def generate_quintile_report(
             "total_bracket_$M":          (g["bracket_change"] * fw).sum() / 1e6,
             "total_credit_loss_$M":      (g["credit_loss"] * fw).sum() / 1e6,
             "total_change_$M":           (g["total_change"] * fw).sum() / 1e6,
-            "pct_pay_more":              hw[g["total_change"] > 0].sum() / hw_sum * 100,
-            "pct_pay_less":              hw[g["total_change"] < 0].sum() / hw_sum * 100,
-            "pct_no_change":             hw[g["total_change"] == 0].sum() / hw_sum * 100,
+            **dict(zip(("pct_pay_more", "pct_pay_less", "pct_no_change"), _change_shares(
+                g["bracket_change"].to_numpy(), g["credit_loss"].to_numpy(),
+                g["claim_prob"].to_numpy(), hw.to_numpy()), strict=True)),
+            "pct_credit_claimant":       (hw * g["claim_prob"]).sum() / hw_sum * 100,
+            "avg_credit_loss_per_claimant": (
+                (g["credit_loss"] * fw).sum() / (hw * g["claim_prob"]).sum()
+                if (hw * g["claim_prob"]).sum() > 0 else 0.0),
         })
 
     def _agg(g):
@@ -649,9 +699,13 @@ def generate_quintile_report(
             "total_bracket_$M":    (g["bracket_change"] * w).sum() / 1e6,
             "total_credit_loss_$M":(g["credit_loss"] * w).sum() / 1e6,
             "total_change_$M":     (g["total_change"] * w).sum() / 1e6,
-            "pct_pay_more":        w[g["total_change"] > 0].sum() / w.sum() * 100,
-            "pct_pay_less":        w[g["total_change"] < 0].sum() / w.sum() * 100,
-            "pct_no_change":       w[g["total_change"] == 0].sum() / w.sum() * 100,
+            **dict(zip(("pct_pay_more", "pct_pay_less", "pct_no_change"), _change_shares(
+                g["bracket_change"].to_numpy(), g["credit_loss"].to_numpy(),
+                g["claim_prob"].to_numpy(), w.to_numpy()), strict=True)),
+            "pct_credit_claimant": (w * g["claim_prob"]).sum() / w.sum() * 100,
+            "avg_credit_loss_per_claimant": (
+                (g["credit_loss"] * w).sum() / (w * g["claim_prob"]).sum()
+                if (w * g["claim_prob"]).sum() > 0 else 0.0),
         })
 
     # Quintiles: household-level (pct_pay_more = % of households, not filers)
