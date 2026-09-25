@@ -113,6 +113,7 @@ proposals. Self-contained analyses with their own entry guides:
 |---|---|
 | **RxKids Hawaiʻi** — cost of a prenatal/infant cash program | **[`RXKIDS_GUIDE.md`](RXKIDS_GUIDE.md)** → [`RXKIDS_METHODOLOGY.md`](RXKIDS_METHODOLOGY.md) |
 | SB 3125 CD1 — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) |
+| Act 163 EITC and food/excise expansions expiring after TY2027 | [`forecast_working_family_credits.py`](forecast_working_family_credits.py) · published on the estimates site |
 | Capital-gains rate options on Act 24 brackets | [`forecast_cg_rate_options.py`](forecast_cg_rate_options.py) · published on the estimates site |
 
 ### Estimates site
@@ -127,7 +128,8 @@ python scripts/build_site.py --import-runs capital-gains  # copies outputs to si
 ```
 
 The Act 24 page (`act-24`) imports from `forecast_sb3125_enhanced.py --cd 2`
-and `forecast_act24_vs_pre_act46.py`. The home page groups estimates into
+and `forecast_act24_vs_pre_act46.py`; the working-family credits page
+(`working-family-credits`) from `forecast_working_family_credits.py`. The home page groups estimates into
 current and proposed policy.
 
 Commit `site/` with the change. Pages are generated only from the committed

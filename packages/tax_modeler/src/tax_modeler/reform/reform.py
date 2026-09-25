@@ -350,10 +350,10 @@ def _ensure_baseline_benefits(
     # Hawaii state credits
     if "hi_eitc" in programs and "hi_eitc_amount" not in df.columns:
         from tax_modeler.credits.hi_eitc import compute_hi_eitc_for_units
-        df = compute_hi_eitc_for_units(df)
+        df = compute_hi_eitc_for_units(df, tax_year=tax_year)
     if "hi_food_excise" in programs and "hi_food_excise_amount" not in df.columns:
         from tax_modeler.credits.hi_food_excise import compute_hi_food_excise_for_units
-        df = compute_hi_food_excise_for_units(df)
+        df = compute_hi_food_excise_for_units(df, tax_year=tax_year)
     if "hi_renters" in programs and "hi_renters_amount" not in df.columns:
         from tax_modeler.credits.hi_renters import compute_hi_renters_for_units
         df = compute_hi_renters_for_units(df)
@@ -499,14 +499,15 @@ def _apply_benefit_overrides(
     if "hi_eitc" in overrides:
         from tax_modeler.credits.hi_eitc import compute_hi_eitc_for_units
         cf = compute_hi_eitc_for_units(
-            df, overrides=overrides["hi_eitc"], out_col="_cf_hi_eitc_amount"
+            df, tax_year=tax_year, overrides=overrides["hi_eitc"], out_col="_cf_hi_eitc_amount"
         )
         _record("hi_eitc", "hi_eitc_amount", cf["_cf_hi_eitc_amount"].to_numpy())
 
     if "hi_food_excise" in overrides:
         from tax_modeler.credits.hi_food_excise import compute_hi_food_excise_for_units
         cf = compute_hi_food_excise_for_units(
-            df, overrides=overrides["hi_food_excise"], out_col="_cf_hi_food_excise_amount"
+            df, tax_year=tax_year, overrides=overrides["hi_food_excise"],
+            out_col="_cf_hi_food_excise_amount"
         )
         _record(
             "hi_food_excise",

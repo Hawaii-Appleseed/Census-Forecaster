@@ -1,0 +1,51 @@
+{
+  "created_at": "2026-09-24T23:58:06+00:00",
+  "git_sha": "41be083",
+  "script": "forecast_working_family_credits.py",
+  "params": {
+    "years": [
+      2022,
+      2023,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031
+    ],
+    "poverty_year": 2028,
+    "calibration_year": 2023,
+    "eitc_rates": [
+      0.4,
+      0.2
+    ],
+    "takeup_eitc": 1.0446,
+    "takeup_food": 0.7198,
+    "dotax": {
+      "2022": {
+        "eitc_$M": 19.786,
+        "eitc_claims": 60903,
+        "food_$M": 24.961,
+        "food_claims": 208786
+      },
+      "2023": {
+        "eitc_$M": 77.054,
+        "eitc_claims": 84470,
+        "food_$M": 63.957,
+        "food_claims": 249806
+      }
+    }
+  },
+  "params_fingerprint": "e39f9751f8b93da4",
+  "inputs": {
+    "pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
+    "dotax": "Tax Credits Claimed by Hawai\u02bbi Taxpayers, TY2022-2023, Tables A-1/A-2"
+  },
+  "outputs": [
+    "by_family_type_ty2028.csv",
+    "calibration.csv",
+    "distribution_ty2028.csv",
+    "poverty_ty2028.csv",
+    "revenue_by_year.csv"
+  ],
+  "published_at": "2026-09-25T00:02:57+00:00"
+}

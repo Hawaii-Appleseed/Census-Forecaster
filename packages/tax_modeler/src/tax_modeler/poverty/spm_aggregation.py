@@ -86,6 +86,9 @@ _SUM_COLS: tuple[str, ...] = (
     "lfp_behavioral_resource_loss",
     "lfp_behavioral_snap_offset",
     "intensive_resource_loss",
+    # Act 163 sunset scenario: per-unit loss of the EITC and food/excise
+    # expansions (forecast_working_family_credits.py).
+    "act163_sunset_loss",
     # Counts
     "num_dependents",
     "num_qualifying_children",
