@@ -1,0 +1,37 @@
+{
+  "first_year": 2028,
+  "maui_share_of_sales_pay_less": 0.43368204745002803,
+  "maui_share_of_sales_pay_same": 0.4161218008593312,
+  "maui_share_of_sales_pay_more": 0.15019615169064077,
+  "maui_share_of_gain_from_nonowner": 0.9017492475115008,
+  "spotlight_3_4m": {
+    "nonowner": {
+      "sales_per_year": 51.75,
+      "avg_tax_now": 20553.9394701078,
+      "avg_tax_hd2": 84131.83851689093,
+      "share_of_maui_gain": 0.09032924610926386
+    },
+    "owner": {
+      "sales_per_year": 19.75,
+      "avg_tax_now": 16914.99027632802,
+      "avg_tax_hd2": 38980.66914665254,
+      "share_of_maui_gain": 0.01196454679119174
+    }
+  },
+  "breakeven": {
+    "owner": 2247000.0,
+    "nonowner": 2073000.0
+  },
+  "state_static_change_at_base_prices_$M": 151.48455440509608,
+  "theta_low": 0.4662079331855359,
+  "maui_residential_3m_plus_fy2025": 158.0,
+  "rest_of_state_3m_plus_2025": 328.0,
+  "maui_shaped_rest_of_state_multiple": 4.453,
+  "general_fund_breakeven_gain_$M": 107.0,
+  "maui_share_schedule_matched": 0.9728189800112087,
+  "maui_share_of_state_collections": {
+    "2023": 0.18881029392610602,
+    "2024": 0.26353392327355224,
+    "2025": 0.18339067103961684
+  }
+}
