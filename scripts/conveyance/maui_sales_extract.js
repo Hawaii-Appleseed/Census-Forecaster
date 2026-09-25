@@ -26,6 +26,19 @@
 //   maui_sales_bins_fy2023_2026.csv     fy,category,bin_lo,count,sum_price
 //   maui_sales_over_10m_fy2023_2026.csv fy,category,price
 //   maui_sales_totals_fy2016_2026.csv   fy,category,count,sum_price,sum_tax_recorded
+//
+// And, for the statewide housing-stock method (forecast_conveyance_sb3028.py
+// stock_method), each record of the assessment listing (land class 1, 2,
+// 10-12; value = land + building; owner-occupied = tax rate class 9 with an
+// exemption of $300,000 or less; fully exempt records dropped; improved =
+// building value > 0) and every FY2023-26 home sale joined to it:
+//   maui_residential_stock_2026.csv     value_lo,owner_occupied,improved,count,sum_value
+//   maui_sales_by_value_fy2023_2026.csv fy,category,value_lo,owner_occupied_now,improved,count,sum_price,sum_value
+//                                       (arm's-length only: price 0.5-2.5x assessed value)
+//   maui_multifamily_sales_fy2023_2026.csv fy,category,price,units
+// Buildings with 5+ dwelling units (State GIS dwelling layer) and non-condo
+// records worth $20M+ are left out of the first two; the 5+ unit sales are
+// listed in the third, which the forecast scores under HD2's per-unit rule.
 (async () => {
   const unzip = async (url) => {
     const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
@@ -97,4 +110,53 @@
   save('maui_sales_totals_fy2016_2026.csv', 'fy,category,count,sum_price,sum_tax_recorded\n' +
     [...totals.entries()].sort().map(([k, b]) => k + ',' + b.map(Math.round).join(',')).join('\n') + '\n');
   console.log('saved', bins.size, 'bins,', tops.length, '$10M+ sales,', totals.size, 'fiscal-year totals');
+
+  // ---- Housing stock and sales by assessed value (see header).
+  // Assessment layout (data_FULLASMT.pdf in the zip): TMK cols 1-13, land class 19-22,
+  // tax rate class 23-26, land value 27-39, land exemption 40-52, building value 53-65,
+  // building exemption 66-78.
+  const units = new Map();
+  for (let off = 0; ; ) {
+    const q = new URLSearchParams({where: "county='Maui' AND COUNT_Units>=5", outFields: 'TMK,COUNT_Units',
+      returnGeometry: 'false', resultOffset: off, resultRecordCount: 2000, orderByFields: 'OBJECTID', f: 'json'});
+    const d = await (await fetch('https://services1.arcgis.com/x4h61KaW16vFs7PM/arcgis/rest/services/tmk_state_2025_dwelling_data/FeatureServer/0/query?' + q)).json();
+    (d.features || []).forEach(x => units.set(String(x.attributes.TMK).slice(1), x.attributes.COUNT_Units));
+    if (!(d.features || []).length || !d.exceededTransferLimit) break; off += d.features.length;
+  }
+  const RES = new Set(['1', '2', '10', '11', '12']); const par = new Map();
+  assess.split(/\r?\n/).filter(l => l.length >= 79).forEach(l => {
+    const k = l.slice(1, 13), land = l.slice(18, 22).trim(), trc = l.slice(22, 26).trim();
+    const lv = +l.slice(26, 39), le = +l.slice(39, 52), bv = +l.slice(52, 65), be = +l.slice(65, 78);
+    const p = par.get(k) || {v: 0, b: 0, ex: 0, h: false, res: false};
+    p.v += lv + bv; p.b += bv; p.ex += le + be; if (trc === '9') p.h = true; if (RES.has(land)) p.res = true; par.set(k, p); });
+  for (const [k, p] of par) {
+    p.full = p.v > 0 && p.ex >= p.v; p.owner = p.h && p.ex > 0 && p.ex <= 3e5 && !p.full; p.imp = p.b > 0;
+    const cpr0 = k.slice(8) === '0000'; p.units = cpr0 ? (units.get(k.slice(0, 8)) || 0) : 0;
+    p.mf = p.units >= 5; p.big = cpr0 && !p.mf && p.v >= 2e7; }
+  const vedges = [0, 3e5, 6e5, 8e5, 1e6]; for (let x = 1.25e6; x <= 6e6 + 1; x += 2.5e5) vedges.push(Math.round(x));
+  for (let x = 6.5e6; x <= 1e7 + 1; x += 5e5) vedges.push(Math.round(x)); vedges.push(12.5e6, 15e6, 20e6, 30e6);
+  const vbin = v => { let lo = 0; for (const e of vedges) { if (v >= e) lo = e; else break; } return lo; };
+  const stock = new Map();
+  for (const p of par.values()) { if (!p.res || p.full || p.mf || p.big) continue;
+    const k = [vbin(p.v), +p.owner, +p.imp].join(','); const s = stock.get(k) || [0, 0]; s[0]++; s[1] += p.v; stock.set(k, s); }
+  const byVal = new Map(), mfSales = [];
+  for (const d of docs.values()) {
+    let t = one(d.taxes), v = one(d.prices); if (!(t > 0 && v > 0)) continue; if (t > v) [t, v] = [v, t];
+    const [y, m] = d.rd.split('/').map(Number); const fy = m >= 7 ? y + 1 : y; if (fy < 2023 || fy > 2026) continue;
+    const sched = within(t, v * rate(s1, v)) ? 1 : within(t, v * rate(s2, v)) ? 2 : 0;
+    const ps = [...new Set(d.parids)].map(q => par.get(q)); const known = ps.filter(Boolean);
+    const residential = known.length === ps.length && known.every(q => q.res);
+    const cat0 = sched === 2 ? 'nonowner' : sched === 1 && residential ? 'owner' : 'nonres';
+    const u = known.reduce((a, q) => a + (q.mf ? q.units : 0), 0);
+    if (u >= 5) { mfSales.push([fy, cat0, Math.round(v), u].join(',')); continue; }
+    if (cat0 === 'nonres' || known.length !== ps.length || known.some(q => q.full || q.big)) continue;
+    const val = known.reduce((a, q) => a + q.v, 0); const r = val > 0 ? v / val : 99; if (r < 0.5 || r > 2.5) continue;
+    const k = [fy, cat0, vbin(val), +known.some(q => q.owner), +known.some(q => q.imp)].join(',');
+    const o = byVal.get(k) || [0, 0, 0]; o[0]++; o[1] += v; o[2] += val; byVal.set(k, o); }
+  save('maui_residential_stock_2026.csv', 'value_lo,owner_occupied,improved,count,sum_value\n' +
+    [...stock.entries()].map(([k, s]) => k + ',' + s[0] + ',' + Math.round(s[1])).join('\n') + '\n');
+  save('maui_sales_by_value_fy2023_2026.csv', 'fy,category,value_lo,owner_occupied_now,improved,count,sum_price,sum_value\n' +
+    [...byVal.entries()].sort().map(([k, o]) => k + ',' + o[0] + ',' + Math.round(o[1]) + ',' + Math.round(o[2])).join('\n') + '\n');
+  save('maui_multifamily_sales_fy2023_2026.csv', 'fy,category,price,units\n' + mfSales.sort().join('\n') + '\n');
+  console.log('saved', stock.size, 'stock cells,', byVal.size, 'sales-by-value cells,', mfSales.length, 'multifamily sales');
 })();

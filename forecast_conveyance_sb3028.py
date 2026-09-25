@@ -26,26 +26,36 @@ the tax Maui recorded on home sales to within a few hundred dollars a year.
 
 Statewide: county by county
 ---------------------------
-No other county publishes sales with prices in bulk, so each county is built
-from official statewide data, with Maui's sales as the template:
+No other county publishes sales with prices, so each is built from official
+data with Maui's sales as the template:
 
-  - HD2's increase falls on the part of a home's price above about $2M, and
-    per dollar of that value it is nearly flat in price (4-6% for non-owner
-    buyers from $3M to $20M). So each county's increase on non-owner sales
-    is Maui's times the ratio of the county's non-owner residential value
-    above $2M to Maui's, from the 2026-27 property tax rolls (the counties'
-    tiered classes; rpt_residential_tiers_fy2027.csv, via value_above()).
-  - Owner-occupant sales the same way, with owner-occupied value above $2M
-    from ACS PUMS 2020-2024 (pums_owner_value_tail_2020_2024.csv), as ratios
-    to Maui's (whose tiers give its level).
-  - HD2's small cuts below ~$2.2M scale instead with each county's total home
-    sales value (Title Guaranty / Bureau of Conveyances, via DBEDT;
-    county_home_sales_tg_2015_2025.csv).
-  - Check: Oahu rebuilt from its MLS sales by price (Honolulu Board of
-    Realtors via the State Data Book), scaled to every recorded sale.
+  - Honolulu and Hawaii counties: their housing stock, home by home, times
+    Maui's sale rates. Maui's full assessment listing joined to every
+    FY2023-26 sale (maui_sales_extract.js) gives, per assessed-value bin and
+    owner-occupancy, arm's-length sales per home per year, the buyer mix
+    (owner/non-owner schedule), and sale price over assessed value
+    (maui_rates). Applied to each county's stock (parcel_stock_by_value.csv,
+    from scripts/conveyance/fetch_parcel_stock.py: Honolulu's RPAD tables on
+    the City's open data hub, one row per parcel or condo unit; Hawaii
+    County's parcel layer on the State GIS portal, condo projects split into
+    units) this gives synthetic sales to score. The same procedure applied to
+    Maui's own stock recovers ~79% of Maui's sale-by-sale change (it leaves
+    out nominal-price, new-construction and vacant-lot sales), so county
+    results are scaled by that calibration factor (stock_method).
+  - Kauai: no parcel values are published, so its increase is Maui's scaled
+    by Kauai's non-owner residential value above $2M from the 2026-27 tax-roll
+    tiers (value_above) and owner-occupied value above $2M from ACS PUMS
+    (county_bases / multipliers). This was the first statewide method for all
+    three counties and remains a sensitivity.
+  - HD2's small cuts below ~$2.2M: included in the stock method's synthetic
+    sales; for Kauai, scaled by home sales value (Title Guaranty via DBEDT).
+  - Checks: modeled home sales against Title Guaranty's recorded home sales
+    by county; Oahu's high end against its MLS sales (Honolulu Board of
+    Realtors via the State Data Book), and Oahu rebuilt from those MLS sales.
 
-The assumption doing the work is that high-end homes sell at Maui's rate in
-every county. Current-law collections statewide are DOTAX's.
+The assumption doing the work is that homes of a given value and occupancy
+sell as often, and to the same mix of buyers, as on Maui. Current-law
+collections statewide are DOTAX's.
 
 Behavioral response: sales volume falls by VOLUME_SEMI_ELASTICITY percent
 per percentage point of price added in tax (rises where HD2 cuts the tax).
@@ -53,7 +63,9 @@ per percentage point of price added in tax (rises where HD2 cuts the tax).
 Outputs (runs/conveyance_sb3028/):
   revenue_by_year.csv   FY2028-FY2031: current law, HD2 change, Maui and each
                         county, static and with the sales response
-  by_county.csv         FY2028: each county's bases, multipliers and change
+  by_county.csv         FY2028: each county's method, stock, bases and change
+  county_bands.csv      FY2028 prices: home sales a year by price band and buyer
+                        type (Honolulu, Hawaii from stock; Maui every sale)
   sensitivity.csv       FY2028 statewide change under alternative data choices
   maui_by_band.csv      Maui, average year: sales, tax now vs HD2, by price
                         band and purchaser category
@@ -114,14 +126,26 @@ DISPOSITION_HD2 = [("Land conservation fund", .05, 10.0), ("Rental housing revol
 # ─────────────────────────────────────────────────────────────────────────────
 # Maui
 
+def _bin_lo(price: float) -> int:
+    edges = [6e5, 8e5, 1e6, *np.arange(1.25e6, 6e6 + 1, 2.5e5), *np.arange(6.5e6, 1e7 + 1, 5e5)]
+    return 0 if price < 6e5 else int(max(e for e in edges if price >= e))
+
+
 def load_sales() -> pd.DataFrame:
-    """One row per bin (or per $10M+ sale): fy, category, count, mean price."""
+    """One row per bin (or per $10M+ sale): fy, category, count, mean price,
+    units. Sales of buildings with five or more dwelling units come out of
+    their bins as category "mf", scored under HD2's per-unit rule (score)."""
     b = pd.read_csv(DATA / "maui_sales_bins_fy2023_2026.csv")
+    mf = pd.read_csv(DATA / "maui_multifamily_sales_fy2023_2026.csv")
+    for r in mf.itertuples():
+        i = b.index[(b["fy"] == r.fy) & (b["category"] == r.category) & (b["bin_lo"] == _bin_lo(r.price))]
+        b.loc[i[0], ["count", "sum_price"]] -= (1, r.price)
+    b = b[b["count"] > 0].copy()
     b["price"] = b["sum_price"] / b["count"]
     t = pd.read_csv(DATA / "maui_sales_over_10m_fy2023_2026.csv").assign(count=1, bin_lo=10_000_000)
-    t["sum_price"] = t["price"]
-    return pd.concat([b[["fy", "category", "bin_lo", "count", "price"]],
-                      t[["fy", "category", "bin_lo", "count", "price"]]], ignore_index=True)
+    mf = mf.assign(category="mf", count=1, bin_lo=mf["price"].map(_bin_lo))
+    cols = ["fy", "category", "bin_lo", "count", "price", "units"]
+    return pd.concat([b.assign(units=1)[cols], t.assign(units=1)[cols], mf[cols]], ignore_index=True)
 
 
 def score(sales: pd.DataFrame, target_fy: int, *, elasticity: float = 0.0) -> pd.DataFrame:
@@ -129,6 +153,8 @@ def score(sales: pd.DataFrame, target_fy: int, *, elasticity: float = 0.0) -> pd
 
     *fy* may be fractional (a calendar year y is fiscal y + 0.5)."""
     s = sales.copy()
+    if "units" not in s:
+        s["units"] = 1
     s["price_t"] = s["price"] * (1 + PRICE_GROWTH) ** (target_fy - s["fy"])
     index = (1 + CPI_GROWTH) ** max(target_fy - 2027, 0)
     cur = np.zeros(len(s))
@@ -137,6 +163,13 @@ def score(sales: pd.DataFrame, target_fy: int, *, elasticity: float = 0.0) -> pd
         m = (s["category"] == cat).to_numpy()
         cur[m] = current_law_tax(s.loc[m, "price_t"].to_numpy(), cat)
         new[m] = hd2_tax(s.loc[m, "price_t"].to_numpy(), cat, index=index)
+    # Five or more units: schedule (1) on the whole price today; under HD2 the
+    # rate is set by the price per unit (a non-owner purchase), applied to the whole.
+    m = (s["category"] == "mf").to_numpy()
+    if m.any():
+        p, u = s.loc[m, "price_t"].to_numpy(), s.loc[m, "units"].to_numpy()
+        cur[m] = current_law_tax(p, "nonres")
+        new[m] = u * hd2_tax(p / u, "nonowner", index=index)
     s["tax_now"] = cur * s["count"]
     # Behavioral: sales volume responds to the change in tax as a share of price.
     d_pp = (new - cur) / s["price_t"].to_numpy() * 100
@@ -246,6 +279,81 @@ def county_change(comp: dict, mult: pd.DataFrame) -> pd.Series:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Statewide: each county's housing stock × Maui's sale rates
+
+# Rate bins: the extract's value bins, merged above $2M so each holds enough
+# Maui sales to estimate a rate.
+RATE_EDGES = [0, 3e5, 6e5, 8e5, 1e6, 1.25e6, 1.5e6, 1.75e6, 2e6, 2.5e6, 3e6, 3.5e6, 4e6, 5e6, 6e6, 8e6,
+              10e6, 15e6, 20e6]
+SALES_BASE_FY = 2024.5    # Maui's FY2023-26 sale prices, relative to 2026 assessed values
+STOCK_COUNTIES = ("Honolulu", "Hawaii")
+STOCK_GROUPS = {"Honolulu": ("residential",), "Hawaii": ("residential", "condo_unit", "ag_dwelling")}
+
+
+def _rate_bin(v) -> np.ndarray:
+    return np.array(RATE_EDGES)[np.searchsorted(RATE_EDGES, np.asarray(v, dtype=float), side="right") - 1]
+
+
+def maui_rates() -> pd.DataFrame:
+    """Maui, improved residential homes, per (value bin, owner-occupied now):
+    arm's-length sales per year per home by buyer category, and sale price
+    over assessed value. From Maui's full assessment listing joined to every
+    FY2023-26 sale (maui_sales_extract.js)."""
+    st = pd.read_csv(DATA / "maui_residential_stock_2026.csv").query("improved == 1")
+    sv = pd.read_csv(DATA / "maui_sales_by_value_fy2023_2026.csv").query("improved == 1")
+    n_years = sv["fy"].nunique()
+    st = st.assign(rb=_rate_bin(st["value_lo"])).groupby(["rb", "owner_occupied"])["count"].sum()
+    s = (sv.assign(rb=_rate_bin(sv["value_lo"])).rename(columns={"owner_occupied_now": "owner_occupied"})
+           .groupby(["rb", "owner_occupied", "category"])
+           .agg(n=("count", "sum"), p=("sum_price", "sum"), v=("sum_value", "sum")).reset_index())
+    s["sales_per_home"] = s["n"] / n_years / s.set_index(["rb", "owner_occupied"]).index.map(st).to_numpy()
+    s["price_ratio"] = s["p"] / s["v"]
+    return s[["rb", "owner_occupied", "category", "sales_per_home", "price_ratio"]]
+
+
+def stock_sales(stock: pd.DataFrame, rates: pd.DataFrame) -> pd.DataFrame:
+    """Synthetic sales (fy, category, count, price) for a county: its homes by
+    (value bin, owner-occupied) times Maui's rates for that cell."""
+    s = stock.assign(rb=_rate_bin(stock["value_lo"]), mean_value=stock["sum_value"] / stock["count"])
+    m = s.merge(rates, on=["rb", "owner_occupied"])
+    return pd.DataFrame({"fy": SALES_BASE_FY, "category": m["category"],
+                         "count": m["count"] * m["sales_per_home"], "price": m["mean_value"] * m["price_ratio"]})
+
+
+def county_stock(county: str, groups: tuple[str, ...] | None = None) -> pd.DataFrame:
+    if county == "Maui":
+        return pd.read_csv(DATA / "maui_residential_stock_2026.csv").query("improved == 1")
+    ps = pd.read_csv(DATA / "parcel_stock_by_value.csv")
+    groups = groups or STOCK_GROUPS[county]
+    return ps[(ps["county"] == county) & ps["group"].isin(groups) & (ps["improved"] == 1)]
+
+
+def stock_method(target_fy: float, elasticity: float, *, hawaii_groups: tuple[str, ...] | None = None) -> dict:
+    """HD2 change ($M) for Honolulu and Hawaii counties from their stock,
+    calibrated on Maui: the same procedure applied to Maui's own stock, over
+    Maui's sale-by-sale change, gives the factor (it covers sales the rates
+    leave out: nominal-price, new-construction and vacant-lot sales)."""
+    rates = maui_rates()
+    sales = load_sales()
+    raw = {c: components(stock_sales(county_stock(c, hawaii_groups if c == "Hawaii" else None), rates),
+                         target_fy, elasticity) for c in (*STOCK_COUNTIES, "Maui")}
+    exact = components(sales[sales["category"] != "mf"], target_fy, elasticity)    # like for like: no apartment buildings
+    k = (exact["hd2"] - exact["now"]) / (raw["Maui"]["hd2"] - raw["Maui"]["now"])
+    return {"calibration": k, **{c: k * (raw[c]["hd2"] - raw[c]["now"]) for c in STOCK_COUNTIES},
+            "raw": raw}
+
+
+def _nonowner_share(comp: dict, sm: dict, mult: pd.DataFrame) -> float:
+    """Share of the statewide increase (gains only) from non-owner buyers."""
+    non = comp["gain_nonowner"] + mult.loc["Kauai", "m_nonowner"] * comp["gain_nonowner"]
+    own = comp["gain_owner"] + mult.loc["Kauai", "m_owner"] * comp["gain_owner"]
+    for c in STOCK_COUNTIES:
+        non += sm["calibration"] * sm["raw"][c]["gain_nonowner"]
+        own += sm["calibration"] * sm["raw"][c]["gain_owner"]
+    return float(non / (non + own))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Check: Oahu from its MLS sales
 
 def _maui_nonowner_share(sales: pd.DataFrame, edges: list[float]) -> np.ndarray:
@@ -322,14 +430,21 @@ def run() -> None:
     cases = [("static", 0.0), ("behavioral", VOLUME_SEMI_ELASTICITY),
              ("behavioral_low_e", ELASTICITY_RANGE[0]), ("behavioral_high_e", ELASTICITY_RANGE[1])]
 
-    # Revenue by year: Maui exact; counties from Maui's components; current law from DOTAX.
-    rows, comp_cache = [], {}
+    def by_county_change(comp: dict, sm: dict) -> pd.Series:
+        """Maui sale by sale; Honolulu and Hawaii from their housing stock;
+        Kauai (no parcel values published) from its tax-roll tiers."""
+        return pd.Series({"Honolulu": sm["Honolulu"], "Hawaii": sm["Hawaii"],
+                          "Kauai": county_change(comp, mult)["Kauai"], "Maui": comp["hd2"] - comp["now"]})
+
+    # Revenue by year; current law from DOTAX.
+    rows, comp_cache, sm_cache = [], {}, {}
     for t in TARGET_YEARS:
         for label, e in cases:
             comp = comp_cache[(t, label)] = components(sales, t, e)
+            sm = sm_cache[(t, label)] = stock_method(t, e)
             base_now = [components(sales[sales["fy"] == b], t, e)["now"] * DOTAX_COLLECTIONS_M[b] / maui_recorded_m(b)
                         for b in STATE_BASE_FY]
-            ch = county_change(comp, mult)
+            ch = by_county_change(comp, sm)
             rows.append({"fy": t, "case": label, "maui_now_$M": comp["now"], "maui_hd2_$M": comp["hd2"],
                          "state_now_$M": float(np.mean(base_now)), "state_change_$M": ch.sum(),
                          **{f"change_{c.lower()}_$M": ch[c] for c in COUNTIES}})
@@ -338,12 +453,66 @@ def run() -> None:
 
     t0 = TARGET_YEARS[0]
     st, bh = comp_cache[(t0, "static")], comp_cache[(t0, "behavioral")]
+    sm_st, sm_bh = sm_cache[(t0, "static")], sm_cache[(t0, "behavioral")]
+    stock_summary = {}
+    for c in (*STOCK_COUNTIES, "Maui"):
+        stk = county_stock(c)
+        top = stk[stk["value_lo"] >= 2e6]
+        stock_summary[c] = {"homes": float(stk["count"].sum()), "homes_2m_plus": float(top["count"].sum()),
+                            "homes_2m_plus_not_owner_occupied": float(top.loc[top["owner_occupied"] == 0, "count"].sum())}
     by_county = bases.join(mult).assign(
-        change_static_fy2028_M=county_change(st, mult), change_behavioral_fy2028_M=county_change(bh, mult))
+        method=pd.Series({"Honolulu": "housing stock", "Hawaii": "housing stock", "Kauai": "tax-roll tiers",
+                          "Maui": "every sale"}),
+        homes=pd.Series({c: v["homes"] for c, v in stock_summary.items()}),
+        homes_2m_plus=pd.Series({c: v["homes_2m_plus"] for c, v in stock_summary.items()}),
+        homes_2m_plus_not_owner_occupied=pd.Series({c: v["homes_2m_plus_not_owner_occupied"]
+                                                    for c, v in stock_summary.items()}),
+        change_static_fy2028_M=by_county_change(st, sm_st), change_behavioral_fy2028_M=by_county_change(bh, sm_bh),
+        tiers_static_fy2028_M=county_change(st, mult), tiers_behavioral_fy2028_M=county_change(bh, mult))
     by_county.index.name = "county"
     by_county.to_csv(OUT_DIR / "by_county.csv")
 
-    # Oahu check: rebuilt from MLS sales, against the tax-roll build-up.
+    # Sales by price band, FY2028 prices, before any change in sales: Maui
+    # sale by sale; Honolulu and Hawaii from their stock (Maui-calibrated counts
+    # are not rescaled; the calibration applies to revenue).
+    band_edges = [0, 1e6, 2e6, 3e6, 4e6, 6e6, 1e7, np.inf]
+    band_labels = ["Under $1M", "$1M-$2M", "$2M-$3M", "$3M-$4M", "$4M-$6M", "$6M-$10M", "$10M+"]
+    rates = maui_rates()
+    band_rows = []
+    for c in (*STOCK_COUNTIES, "Maui"):
+        src = sales[sales["category"] != "nonres"] if c == "Maui" else stock_sales(county_stock(c), rates)
+        parts = [score(src[src["fy"] == b], t0).assign(w=1.0) for b in sorted(src["fy"].unique())]
+        scd = pd.concat(parts)
+        scd["band"] = pd.cut(scd["price_t"], band_edges, labels=band_labels, right=False)
+        n_b = len(parts)
+        g = (scd.groupby(["band", "category"], observed=True)
+                .agg(sales=("count", "sum"), tax_now=("tax_now", "sum"), tax_hd2=("tax_hd2_static", "sum")).reset_index())
+        g[["sales", "tax_now", "tax_hd2"]] /= n_b
+        band_rows.append(g.assign(county=c))
+    county_bands = pd.concat(band_rows)[["county", "band", "category", "sales", "tax_now", "tax_hd2"]]
+    county_bands.to_csv(OUT_DIR / "county_bands.csv", index=False)
+
+    # Checks: modeled home sales against Title Guaranty (recorded home sales),
+    # and Oahu's high end against its MLS sales.
+    tg = pd.read_csv(DATA / "county_home_sales_tg_2015_2025.csv").query("year in @TG_YEARS")
+    checks = {}
+    for c in (*STOCK_COUNTIES, "Maui"):
+        src = sales[sales["category"] != "nonres"] if c == "Maui" else stock_sales(county_stock(c), rates)
+        n_b = src["fy"].nunique()
+        t = tg[tg["county"] == c]
+        checks[c] = {"model_sales_per_year": float(src["count"].sum() / n_b),
+                     "model_value_$B": float((src["count"] * src["price"]).sum() / n_b / 1e9),
+                     "tg_sales_per_year": float(t["n_total"].mean()),
+                     "tg_value_$B": float((t["n_total"] * t["avg_total"]).mean() / 1e9),
+                     **{f"model_sales_{int(x / 1e6)}m_plus": float(src.loc[src["price"] >= x, "count"].sum() / n_b)
+                        for x in (2e6, 3e6, 5e6)}}
+    mls, _ = oahu_mls()
+    sf = mls[(mls["type"] == "sf")].groupby("band_lo")["sales"].sum() / len(OAHU_MLS_YEARS)
+    checks["Honolulu"]["mls_sf_sales_2m_plus"] = float(sf[sf.index >= 2e6].sum())
+    checks["Honolulu"]["mls_sf_sales_3m_plus"] = float(sf[sf.index >= 3e6].sum())
+    checks["Honolulu"]["mls_sf_sales_5m_plus"] = float(sf[sf.index >= 5e6].sum())
+
+    # Oahu check: rebuilt from MLS sales.
     oahu_target = bases.loc["Honolulu", "nonowner_above_2m_$B"] / (
         bases.loc["Honolulu", "nonowner_above_2m_$B"] + bases.loc["Honolulu", "owner_above_2m_$B"])
     oahu_check = {}
@@ -356,20 +525,31 @@ def run() -> None:
             (rows_o["count"] * rows_o["price"]).sum() / len(OAHU_MLS_YEARS) / 1e9)
 
     # Sensitivity, FY2028 statewide change.
-    alt = multipliers(county_bases(a_sf))
-    sens = [{"variant": "Central: tax-roll build-up", "static": county_change(st, mult).sum(),
-             "behavioral": county_change(bh, mult).sum()},
-            {"variant": "Honolulu tail from MLS single-family sales", "static": county_change(st, alt).sum(),
-             "behavioral": county_change(bh, alt).sum()}]
-    for tail, name in (("mls", "listed sales"), ("recorded", "recorded sales value")):
-        d_st = oahu_check[f"{tail}_static"] - county_change(st, mult)["Honolulu"]
-        d_bh = oahu_check[f"{tail}_behavioral"] - county_change(bh, mult)["Honolulu"]
-        sens.append({"variant": f"Oahu from MLS sales (condo tail fitted to {name})",
-                     "static": county_change(st, mult).sum() + d_st, "behavioral": county_change(bh, mult).sum() + d_bh})
+    central_st, central_bh = by_county_change(st, sm_st), by_county_change(bh, sm_bh)
+    no_ag = {lab: stock_method(t0, e, hawaii_groups=("residential", "condo_unit")) for lab, e in cases[:2]}
+
+    def swap(base: pd.Series, **repl) -> float:
+        return float(base.drop(list(repl)).sum() + sum(repl.values()))
+    sens = [{"variant": "Central estimate", "static": central_st.sum(), "behavioral": central_bh.sum()},
+            {"variant": "Without the Maui calibration",
+             "static": swap(central_st, Honolulu=sm_st["Honolulu"] / sm_st["calibration"],
+                            Hawaii=sm_st["Hawaii"] / sm_st["calibration"]),
+             "behavioral": swap(central_bh, Honolulu=sm_bh["Honolulu"] / sm_bh["calibration"],
+                                Hawaii=sm_bh["Hawaii"] / sm_bh["calibration"])},
+            {"variant": "Hawaii Island without homes on agricultural land",
+             "static": swap(central_st, Hawaii=no_ag["static"]["Hawaii"]),
+             "behavioral": swap(central_bh, Hawaii=no_ag["behavioral"]["Hawaii"])},
+            {"variant": "Oahu rebuilt from MLS sales (condos priced as listed)",
+             "static": swap(central_st, Honolulu=oahu_check["mls_static"]),
+             "behavioral": swap(central_bh, Honolulu=oahu_check["mls_behavioral"])},
+            {"variant": "Oahu rebuilt from MLS sales (condos priced to all recorded sales)",
+             "static": swap(central_st, Honolulu=oahu_check["recorded_static"]),
+             "behavioral": swap(central_bh, Honolulu=oahu_check["recorded_behavioral"])},
+            {"variant": "All three counties from tax-roll tiers (first statewide method)",
+             "static": county_change(st, mult).sum(), "behavioral": county_change(bh, mult).sum()}]
     for label, e in cases[2:]:
-        c = comp_cache[(t0, label)]
         sens.append({"variant": f"Sales response {e:g}% per point", "static": np.nan,
-                     "behavioral": county_change(c, mult).sum()})
+                     "behavioral": by_county_change(comp_cache[(t0, label)], sm_cache[(t0, label)]).sum()})
     sens = pd.DataFrame(sens)
     sens.to_csv(OUT_DIR / "sensitivity.csv", index=False)
 
@@ -396,8 +576,8 @@ def run() -> None:
     sc["d_per_sale"] = (sc["tax_hd2_static"] - sc["tax_now"]) / sc["count"]
     n = sc["count"].sum()
     spot = sc[(sc["price_t"] >= 3e6) & (sc["price_t"] < 4e6) & (sc["category"] != "nonres")]
-    at_base = [components(sales[sales["fy"] == b], b, 0.0) for b in MAUI_BASE_FY]   # no aging, no indexing
-    at_base = {k: float(np.mean([c[k] for c in at_base])) for k in at_base[0]}
+    # No aging, no indexing: each base year scored at its own prices and law.
+    at_base_list = [components(sales[sales["fy"] == b], b, 0.0) for b in MAUI_BASE_FY]
     summary = {
         "first_year": t0,
         "maui_share_of_sales_pay_less": float(sc.loc[sc["d_per_sale"] < -0.5, "count"].sum() / n),
@@ -416,10 +596,12 @@ def run() -> None:
         "breakeven": {c: breakeven_price(c) for c in ("owner", "nonowner")},
         # Like-for-like with the House Finance figure (~$150M): static, at the
         # base years' own prices and law (no aging, no indexing).
-        "state_static_change_at_base_prices_$M": float(county_change(at_base, mult).sum()),
-        "state_nonowner_share_of_increase": float(
-            (mult["m_nonowner"] * st["gain_nonowner"]).sum()
-            / ((mult["m_nonowner"] * st["gain_nonowner"]).sum() + (mult["m_owner"] * st["gain_owner"]).sum())),
+        "state_static_change_at_base_prices_$M": float(sum(
+            np.mean([by_county_change(at_b, stock_method(b, 0.0))[c] for at_b, b in zip(at_base_list, MAUI_BASE_FY, strict=True)])
+            for c in COUNTIES)),
+        "state_nonowner_share_of_increase": _nonowner_share(st, sm_st, mult),
+        "stock_calibration_factor": {"static": sm_st["calibration"], "behavioral": sm_bh["calibration"]},
+        "checks": checks,
         "alpha_honolulu_residential_a": a_hon,
         "alpha_oahu_sf_sales": a_sf,
         "oahu_nonowner_share_above_2m": float(oahu_target),
@@ -465,6 +647,9 @@ def run() -> None:
                                "volume_semi_elasticity": VOLUME_SEMI_ELASTICITY,
                                "elasticity_range": ELASTICITY_RANGE,
                                "alpha_honolulu_residential_a": round(a_hon, 3), "alpha_oahu_sf_sales": round(a_sf, 3),
+                               "rate_edges": RATE_EDGES, "sales_base_fy": SALES_BASE_FY,
+                               "stock_groups": STOCK_GROUPS,
+                               "stock_calibration_factor": round(sm_st["calibration"], 3),
                                "breakeven": {c: breakeven_price(c) for c in ("owner", "nonowner")},
                                "dotax_collections_m": DOTAX_COLLECTIONS_M},
                        inputs={"maui_sales": "County of Maui RPT Sales Data File (DocumentCenter/View/8070), "
@@ -477,7 +662,13 @@ def run() -> None:
                                             "(Honolulu RPAD, July 2026)",
                                "owner_values": "ACS PUMS 2020-2024 5-year housing file (VALP, ADJHSG)",
                                "oahu_mls": "Honolulu Board of Realtors MLS via State of Hawaii Data Book 2024, "
-                                           "Tables 21.33 and 21.34"})
+                                           "Tables 21.33 and 21.34",
+                               "maui_stock": "County of Maui RPT Full Assessment Listing as of 4/06/2026 "
+                                             "(DocumentCenter/View/8079), joined to the sales file",
+                               "parcel_stock": "Honolulu RPAD ASMTPITT table (City open data hub, CadastralTables/"
+                                               "FeatureServer/10, tax year 2026); Hawaii County parcels (State GIS "
+                                               "ParcelsZoning/MapServer/5, 4/27/2026); dwelling units per TMK "
+                                               "(tmk_state_2025_dwelling_data)"})
     pd.set_option("display.width", 220)
     print(rev.round(1).to_string(index=False))
     print(by_county.round(2).to_string())
