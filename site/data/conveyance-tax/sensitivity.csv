@@ -1,7 +1,9 @@
 variant,static,behavioral
-Central: tax-roll build-up,109.58287877866451,66.89457852959104
-Honolulu tail from MLS single-family sales,114.16282579824573,69.6751371152036
-Oahu from MLS sales (condo tail fitted to listed sales),105.49525417023568,64.80710514031199
-Oahu from MLS sales (condo tail fitted to recorded sales value),123.68839205492208,76.28335476698592
-Sales response 5% per point,,86.2068707904643
-Sales response 15% per point,,50.89322529765429
+Central estimate,115.42914565241992,69.52361574781847
+Without the Maui calibration,98.92399913669576,59.924042115338395
+Hawaii Island without homes on agricultural land,114.15473634700899,68.68233212899167
+Oahu rebuilt from MLS sales (condos priced as listed),106.17055898903838,63.93988506437538
+Oahu rebuilt from MLS sales (condos priced to all recorded sales),124.35824309860811,75.41488484864271
+All three counties from tax-roll tiers (first statewide method),108.88469040532794,66.35106091017751
+Sales response 5% per point,,90.19711600399428
+Sales response 15% per point,,52.53807711888281

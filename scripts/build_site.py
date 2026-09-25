@@ -98,6 +98,7 @@ CONVEYANCE = Estimate(
         "disposition.csv",
         "summary.json",
         "by_county.csv",
+        "county_bands.csv",
         "sensitivity.csv",
         "manifest.json",
     )},
@@ -979,6 +980,7 @@ def build_conveyance() -> tuple[str, dict]:
     disp = read_csv(d / "disposition.csv")
     cty = {r["county"]: r for r in read_csv(d / "by_county.csv")}
     sens = read_csv(d / "sensitivity.csv")
+    cb = read_csv(d / "county_bands.csv")
     s = json.loads((d / "summary.json").read_text())
     manifest = json.loads((d / "manifest.json").read_text())
     p = manifest["params"]
@@ -1048,6 +1050,12 @@ def build_conveyance() -> tuple[str, dict]:
             '<a href="https://dbedt.hawaii.gov/economic/qser/">dbedt.hawaii.gov</a>')
     T_hbr = ('Honolulu Board of Realtors, Multiple Listing Service records, in State of Hawaiʻi Data Book 2024, Tables 21.33 '
              'and 21.34. <a href="https://dbedt.hawaii.gov/economic/databook/db2024/">dbedt.hawaii.gov</a>')
+    T_hnl = ('City and County of Honolulu, Real Property Assessment Division, assessment tables (ASMTPITT), tax year '
+             '2026, on the City’s open data site. The Revenue-Modeling-TOD project uses the same tables. '
+             '<a href="https://honolulu-cchnl.opendata.arcgis.com/datasets/cchnl::asmtpitt-table">honolulu-cchnl.opendata.arcgis.com</a>')
+    T_gis = ('County of Hawaiʻi parcels with assessed values and homeowner status, April 27, 2026, and dwelling units by '
+             'parcel, June 2025, State of Hawaiʻi Statewide GIS Program. '
+             '<a href="https://geodata.hawaii.gov/arcgis/rest/services/ParcelsZoning/MapServer/5">geodata.hawaii.gov</a>')
     T_code = (f'Hawaiʻi Appleseed, <code>forecast_conveyance_sb3028.py</code>, Census-Forecaster model, commit '
               f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_conveyance_sb3028.py">github.com</a>')
 
@@ -1100,7 +1108,7 @@ def build_conveyance() -> tuple[str, dict]:
              for b in bands]
     s3 = section("Who Would Pay More", f"""
 {lead("Most sales would pay the same or less.", f"Maui is the one county that publishes every sale with its price and the conveyance tax paid.{notes.ref(T_maui)} Of its sales in recent years, {pct(100 * less)} percent would pay less under the draft and {pct(100 * same)} percent the same, mostly because they are nonresidential or sell for less than $600,000. The other {pct(100 * more)} percent would pay more. Chair Todd put the statewide share paying the same or less at 91 percent; Maui’s is lower because it has more expensive homes than the rest of the state, relative to its size (Table 4).")}
-<p>Nearly all of the new revenue would come from the top of the market. On Maui, sales above $4 million would provide {pct(100 * top_share)} percent of it, and buyers who will not make the home their main residence {pct(100 * s["maui_share_of_gain_from_nonowner"])} percent. Statewide, where more of the expensive homes are lived in by their owners, those buyers would provide {pct(100 * s["state_nonowner_share_of_increase"])} percent.</p>
+<p>Nearly all of the new revenue would come from the top of the market. On Maui, sales above $4 million would provide {pct(100 * top_share)} percent of it, and buyers who will not make the home their main residence {pct(100 * s["maui_share_of_gain_from_nonowner"])} percent. Statewide the share is about the same, {pct(100 * s["state_nonowner_share_of_increase"])} percent. Even on Oʻahu, where most homes worth $2 million or more are lived in by their owners, those homes sell less often than second homes and rentals, and their buyers pay the lower owner-occupant rates.</p>
 {figure(1, f"Change in Conveyance Tax by Sale Price, Maui County (Fiscal Year {Y} Prices)",
         diverging_bar_chart(div_cats, div_vals, fmt=lambda v: "$0" if abs(v) < 0.05 else f"{'+' if v > 0 else '−'}${abs(v):,.1f}M",
                             label="Change in Maui conveyance tax per year by sale price: " + "; ".join(f"{c} {'+' if v >= 0 else 'minus '}{abs(v):,.1f} million dollars" for c, v in zip(div_cats, div_vals, strict=True)) + "."),
@@ -1128,38 +1136,61 @@ def build_conveyance() -> tuple[str, dict]:
     # --- 5: revenue
     f3_series = [("Before fewer sales", C_SECOND, [cty[k]["change_static_fy2028_M"] for k in counties]),
                  ("With fewer sales", C_PRIMARY, [cty[k]["change_behavioral_fy2028_M"] for k in counties])]
-    crows = [[COUNTY_LABEL[k], f"{cty[k]['home_sales_$B']:,.1f}", f"{cty[k]['nonowner_above_2m_$B']:,.1f}",
-              f"{cty[k]['owner_above_2m_$B']:,.1f}", m1(cty[k]["change_static_fy2028_M"]),
+
+    def homes(k: str) -> str:
+        r = cty[k]
+        if isinstance(r["homes_2m_plus"], str):
+            return "Not published"
+        return f"{r['homes_2m_plus']:,.0f} ({pct(100 * r['homes_2m_plus_not_owner_occupied'] / r['homes_2m_plus'])} percent)"
+    METHOD = {"every sale": "Every sale", "housing stock": "Housing stock × Maui sale rates",
+              "tax-roll tiers": "Tax-roll value above $2M"}
+    crows = [[COUNTY_LABEL[k], METHOD[cty[k]["method"]], homes(k), m1(cty[k]["change_static_fy2028_M"]),
               m1(cty[k]["change_behavioral_fy2028_M"])] for k in counties]
-    crows.append(["State", f"{tot['home_sales_$B']:,.1f}", f"{tot['nonowner_above_2m_$B']:,.1f}", f"{tot['owner_above_2m_$B']:,.1f}",
-                  m1(tot["change_static_fy2028_M"]), m1(tot["change_behavioral_fy2028_M"])])
+    crows.append(["State", "", "", m1(tot["change_static_fy2028_M"]), m1(tot["change_behavioral_fy2028_M"])])
+    BAND = {"Under $1M": "Under $1 million", "$1M-$2M": "$1 million to $2 million", "$2M-$3M": "$2 million to $3 million",
+            "$3M-$4M": "$3 million to $4 million", "$4M-$6M": "$4 million to $6 million",
+            "$6M-$10M": "$6 million to $10 million", "$10M+": "$10 million and up"}
+    band_counties = [k for k in ("Honolulu", "Maui", "Hawaii") if any(x["county"] == k for x in cb)]
+
+    def band_cell(k: str, b: str) -> str:
+        rows_ = [x for x in cb if x["county"] == k and x["band"] == b]
+        n, non = sum(x["sales"] for x in rows_), sum(x["sales"] for x in rows_ if x["category"] == "nonowner")
+        return f"{n:,.0f} ({non:,.0f})"
+    brows2 = [[BAND[b]] + [band_cell(k, b) for k in band_counties] for b in BAND]
+    spot = {k: sum(x["sales"] for x in cb if x["county"] == k and x["band"] == "$3M-$4M") for k in band_counties}
     f4_series = [("With fewer sales", C_PRIMARY, [rev[(y, "behavioral")]["state_change_$M"] for y in years])]
     rrows = [[str(y), m1(rev[(y, "static")]["state_now_$M"]), m1(rev[(y, "static")]["state_change_$M"]),
               m1(rev[(y, "behavioral")]["state_change_$M"]),
               f'{m1(rev[(y, "behavioral_high_e")]["state_change_$M"])} to {m1(rev[(y, "behavioral_low_e")]["state_change_$M"])}']
              for y in years]
-    nonowner_share = maui["nonowner_above_2m_$B"] / tot["nonowner_above_2m_$B"]
     coll_multiple = sum(1 / v - 1 for v in shares.values()) / len(shares)       # rest of state vs Maui, by tax paid
-    roll_multiple = tot["nonowner_above_2m_$B"] / maui["nonowner_above_2m_$B"] - 1
+    parcel_multiple = ((cty["Honolulu"]["homes_2m_plus_not_owner_occupied"] + cty["Hawaii"]["homes_2m_plus_not_owner_occupied"])
+                       / maui["homes_2m_plus_not_owner_occupied"])
+    hon = cty["Honolulu"]
     s5 = section("What It Would Raise", f"""
 {lead("Statewide, the draft would raise", f"an estimated {millions(c)} more than current law in fiscal year {Y}, the first full year a bill passed in 2027 could reach. That is on top of about {millions(now)} the tax would raise anyway. Before accounting for fewer sales, the increase would be {millions(c_static)}.{notes.ref(T_code)}")}
 <p>Transfer taxes discourage sales. Toronto’s 1.1 percent land transfer tax cut sales of single-family homes by about 15 percent,{notes.ref(T_dachis)} and a 1-point cut in the United Kingdom’s transaction tax raised short-run sales activity by about 20 percent.{notes.ref(T_best)} The estimates assume sales fall {p["volume_semi_elasticity"]} percent for each point of the price the draft adds in tax, and rise where it cuts the tax. A response of {p["elasticity_range"][0]} to {p["elasticity_range"][1]} percent instead gives {millions(e_lo)} to {millions(e_hi)}.</p>
-<p>Maui County would provide the most, {millions(maui["change_behavioral_fy2028_M"])}, though it has only {pct(100 * maui["home_sales_$B"] / tot["home_sales_$B"])} percent of the state’s home sales by value. It has {pct(100 * nonowner_share)} percent of the state’s residential value above $2 million in homes their owners do not live in, which is where the draft collects (Figure 3 and Table 4). Oʻahu, with {pct(100 * cty["Honolulu"]["home_sales_$B"] / tot["home_sales_$B"])} percent of home sales, would provide {millions(cty["Honolulu"]["change_behavioral_fy2028_M"])}.</p>
+<p>Maui County would provide {millions(maui["change_behavioral_fy2028_M"])} and Oʻahu {millions(hon["change_behavioral_fy2028_M"])}, though Maui has only {pct(100 * maui["home_sales_$B"] / tot["home_sales_$B"])} percent of the state’s home sales by value to Oʻahu’s {pct(100 * hon["home_sales_$B"] / tot["home_sales_$B"])} percent. The difference is who owns the expensive homes. Of Maui’s {maui["homes_2m_plus"]:,.0f} homes worth $2 million or more, {pct(100 * maui["homes_2m_plus_not_owner_occupied"] / maui["homes_2m_plus"])} percent are not lived in by their owners; of Oʻahu’s {hon["homes_2m_plus"]:,.0f}, {pct(100 * hon["homes_2m_plus_not_owner_occupied"] / hon["homes_2m_plus"])} percent. Second homes and rentals sell more often and pay the higher rates (Figure 3 and Table 4).</p>
 {figure(3, f"Revenue Increase Under SB 3028 HD2 by County, Hawaiʻi (Fiscal Year {Y})",
         hbar_chart([COUNTY_LABEL[k] for k in counties], f3_series,
                    label=f"Revenue increase by county, fiscal year {Y}, before and after fewer sales: " + "; ".join(f"{COUNTY_LABEL[k]} {m1(cty[k]['change_static_fy2028_M'])} and {m1(cty[k]['change_behavioral_fy2028_M'])} million dollars" for k in counties) + "."),
         "Source: Hawaiʻi Appleseed estimates. Millions of dollars.", f3_series)}
-{table(["County", "Home sales a year ($B)", "Value above $2M, not owner-occupied ($B)", "Value above $2M, owner-occupied ($B)", "Increase, static ($M)", "Increase with fewer sales ($M)"],
+{table(["County", "Built from", "Homes worth $2M or more (not owner-occupied)", "Increase, static ($M)", "Increase with fewer sales ($M)"],
        crows, caption=f"Table 4. Revenue Increase by County, Fiscal Year {Y}", em_rows={len(crows) - 1})}
-<p class="ha-est__source">Home sales: every recorded sale of a single-family home or condominium, average of {min(p["tg_years"])} to {max(p["tg_years"])}.{notes.ref(T_tg)} Value above $2 million: the part of each home’s value above $2 million, summed; not owner-occupied from the 2026–27 property tax rolls,{notes.ref(T_rpt)} owner-occupied from the Census Bureau’s American Community Survey, set to the tax rolls’ level for Maui.{notes.ref(T_pums)}</p>
+<p class="ha-est__source">Homes: residential parcels and condominium units with a building, by 2026 assessed value; owner-occupied means a homeowner exemption. Oʻahu from the City’s assessment tables,{notes.ref(T_hnl)} Hawaiʻi Island from the county’s parcel records,{notes.ref(T_gis)} Maui from its assessment listing.{notes.ref(T_maui)} Kauaʻi publishes no values by parcel; its increase scales Maui’s by the value above $2 million on its property tax roll{notes.ref(T_rpt)} and in the American Community Survey.{notes.ref(T_pums)}</p>
+<p>The same records give the number of sales at each price. At fiscal year {Y} prices, about {spot.get("Honolulu", 0):,.0f} homes a year would sell for $3 million to $4 million on Oʻahu, {spot.get("Maui", 0):,.0f} on Maui and {spot.get("Hawaii", 0):,.0f} on Hawaiʻi Island (Table 5).</p>
+{table(["Sale price"] + [COUNTY_LABEL[k] for k in band_counties], brows2,
+       caption=f"Table 5. Home Sales a Year by Price, Fiscal Year {Y} Prices (Of Which to Buyers Who Will Not Live in the Home)",
+       em_rows={list(BAND).index("$3M-$4M")})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates. Maui counts every sale, fiscal years {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])}; Oʻahu and Hawaiʻi Island apply Maui’s sale rates to their homes. Before any change in the number of sales.</p>
 <p>Revenue grows faster than home prices, because as prices rise, more of each sale falls in the higher bands. Indexing the bands to consumer prices slows this but does not stop it while home prices rise faster, as the model assumes ({pct(100 * p["price_growth"])} percent a year against {pct(100 * p["cpi_growth"])} percent). By fiscal year {last} the increase reaches {millions(c_last)} (Figure 4).</p>
 {figure(4, f"Statewide Revenue Increase Under SB 3028 HD2 by Fiscal Year, Hawaiʻi ({Y} to {last})",
         column_chart([str(y) for y in years], f4_series,
                      label=f"Statewide revenue increase by fiscal year, with fewer sales: {m1(c)} million in {Y} rising to {m1(c_last)} million in {last}."),
         "Source: Hawaiʻi Appleseed estimates. Millions of dollars, after the change in the number of sales.")}
 {table(["Fiscal year", "Current law", "Increase, static", "Increase with fewer sales", "Range, sales response 15 to 5 percent"],
-       rrows, caption="Table 5. Statewide Conveyance Tax Revenue ($ Millions)", em_rows={0})}
-<div class="ha-est__callout"><p><strong>Checking against the House.</strong> Chair Todd said the draft would raise about $20 million a year less than the roughly $170 million of the House’s original proposal, which puts it near $150 million.{notes.ref(T_cb)} The House’s method is not public. Scored the same way, without a change in sales and at {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])} prices, this estimate comes to {millions(s["state_static_change_at_base_prices_$M"])}. A figure near $150 million follows if the other three counties together have about {coll_multiple:.0f} times Maui’s expensive homes, in proportion to the conveyance tax each pays now. Their property tax rolls show {roll_multiple:.1f} times Maui’s value above $2 million in homes not lived in by their owners.</p></div>
+       rrows, caption="Table 6. Statewide Conveyance Tax Revenue ($ Millions)", em_rows={0})}
+<div class="ha-est__callout"><p><strong>Checking against the House.</strong> Chair Todd said the draft would raise about $20 million a year less than the roughly $170 million of the House’s original proposal, which puts it near $150 million.{notes.ref(T_cb)} The House’s method is not public. Scored the same way, without a change in sales and at {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])} prices, this estimate comes to {millions(s["state_static_change_at_base_prices_$M"])}. A figure near $150 million follows if the other three counties together have about {coll_multiple:.0f} times Maui’s expensive homes, in proportion to the conveyance tax each pays now. Parcel records show Oʻahu and Hawaiʻi Island together with {parcel_multiple:.1f} times Maui’s count of homes worth $2 million or more that their owners do not live in.</p></div>
 """, "revenue")
 
     # --- 6: disposition
@@ -1171,34 +1202,40 @@ def build_conveyance() -> tuple[str, dict]:
     gf_high_loss = gf["current_law_$M"] - gf["hd2_high_$M"]
     s6 = section("Where the Money Would Go", f"""
 {lead("The draft also rewrites", f"who gets the money. Before any reaches the general fund, it would send 5 percent, up to $10 million, to the land conservation fund; 20 percent, up to $40 million, to the rental housing revolving fund; 30 percent, up to $60 million, to the Hawaiian home lands infrastructure and housing special fund; and 20 percent, up to $40 million, to transit-oriented development infrastructure.{notes.ref(T_bill)}")}
-<p>Those shares add up to 75 percent of all conveyance tax, including the tax on sales the draft leaves unchanged, until the funds reach their caps. The general fund therefore comes out ahead only if the draft raises more than about {millions(gf_be)} a year, more than this estimate. In fiscal year {Y} the general fund would receive {millions(gf["hd2_$M"])}, {millions(gf_loss)} less than under current law, while the four funds together would receive {millions(sum(x["hd2_$M"] for x in disp if x["fund"] != "General fund"))}. Even at the top of the range, the general fund would receive {millions(gf_high_loss)} less (Table 6).</p>
+<p>Those shares add up to 75 percent of all conveyance tax, including the tax on sales the draft leaves unchanged, until the funds reach their caps. The general fund therefore comes out ahead only if the draft raises more than about {millions(gf_be)} a year, more than this estimate. In fiscal year {Y} the general fund would receive {millions(gf["hd2_$M"])}, {millions(gf_loss)} less than under current law, while the four funds together would receive {millions(sum(x["hd2_$M"] for x in disp if x["fund"] != "General fund"))}. Even at the top of the range, the general fund would receive {millions(gf_high_loss)} less (Table 7).</p>
 {table(["Fund", "Current law", "SB 3028", "SB 3028, top of range"], drows,
-       caption=f"Table 6. Conveyance Tax by Fund, Fiscal Year {Y} ($ Millions)", em_rows={len(drows) - 2})}
+       caption=f"Table 7. Conveyance Tax by Fund, Fiscal Year {Y} ($ Millions)", em_rows={len(drows) - 2})}
 <p class="ha-est__source">Source: Hawaiʻi Revised Statutes §247-7; SB 3028 SD2 HD2 §4; Hawaiʻi Appleseed estimates, after the change in the number of sales. The top of the range assumes sales fall {p["elasticity_range"][0]} percent per point of added tax.</p>
 """, "funds")
 
     # --- 7: method + downloads
-    VARIANT = {"Central: tax-roll build-up": "Central estimate",
-               "Honolulu tail from MLS single-family sales": "Oʻahu’s high end shaped like its listed single-family sales",
-               "Oahu from MLS sales (condo tail fitted to listed sales)": "Oʻahu rebuilt from listed sales, condominiums priced as listed",
-               "Oahu from MLS sales (condo tail fitted to recorded sales value)": "Oʻahu rebuilt from listed sales, condominiums priced to match all recorded sales",
+    VARIANT = {"Central estimate": "Central estimate",
+               "Without the Maui calibration": "Oʻahu and Hawaiʻi Island without the Maui calibration",
+               "Hawaii Island without homes on agricultural land": "Hawaiʻi Island without homes on agricultural land",
+               "Oahu rebuilt from MLS sales (condos priced as listed)": "Oʻahu rebuilt from listed sales, condominiums priced as listed",
+               "Oahu rebuilt from MLS sales (condos priced to all recorded sales)": "Oʻahu rebuilt from listed sales, condominiums priced to match all recorded sales",
+               "All three counties from tax-roll tiers (first statewide method)": "All three counties from tax-roll value above $2 million (first revision)",
                "Sales response 5% per point": "Sales fall 5 percent per point of added tax",
                "Sales response 15% per point": "Sales fall 15 percent per point of added tax"}
     srows = [[esc(VARIANT[x["variant"]]), "" if isinstance(x["static"], str) else m1(x["static"]), m1(x["behavioral"])]
              for x in sens]
+    ck = s["checks"]
+    mf_n = sum(1 for x in band if x["category"] == "mf") and round(sum(x["sales"] for x in band if x["category"] == "mf") * len(p["maui_base_fy"]))
+    calib = s["stock_calibration_factor"]["static"]
     s7 = section("How These Estimates Are Made", f"""
 {lead("Because today’s two schedules differ,", f"the tax recorded on a Maui sale shows which one applied, and so whether the buyer could claim a homeowner exemption. Of sales with a price and tax in fiscal years {min(p['maui_base_fy'])} to {max(p['maui_base_fy'])}, {pct(100 * s['maui_share_schedule_matched'])} percent match one schedule to within half a percent; the rest are treated as nonresidential, whose tax the draft leaves alone. The county’s land-use codes separate owner-occupied homes from nonresidential property on the owner-occupant schedule. Applied to the sorted home sales, current law reproduces the tax Maui recorded on them to within a few hundred dollars a year. The model uses about {round(sales_per_year, -1):,.0f} sales a year in all.{notes.ref(T_maui)}")}
-<p>No other county publishes its sales with prices, so the other three are built from Maui’s results and official statewide data. The draft’s increase falls on the part of a home’s price above $2 million, and for buyers who will not live in the home it comes to a nearly steady 4 to 6 percent of that part at any price from $3 million to $20 million. Each county’s increase is therefore Maui’s, scaled by the county’s residential value above $2 million: for homes their owners do not live in, from the property tax rolls, which report how much value falls in each tax tier;{notes.ref(T_rpt)} for owner-occupied homes, from the American Community Survey.{notes.ref(T_pums)} The draft’s small cuts below about $2.2 million scale with each county’s total home sales instead.{notes.ref(T_tg)} The key assumption is that expensive homes sell as often in each county as they do on Maui. Each year’s sales are aged to future prices at {pct(100 * p["price_growth"])} percent a year and scored separately, and the results are averaged.</p>
-<p>As a check, Oʻahu is rebuilt a second way, from its multiple listing service sales by price, scaled up to every recorded sale.{notes.ref(T_hbr)} Before any change in sales, that gives {millions(oc["mls_static"])} to {millions(oc["recorded_static"])} for fiscal year {Y}, depending on how the unlisted sales in new condominium towers are priced, around the tax rolls’ {millions(cty["Honolulu"]["change_static_fy2028_M"])}. Table 7 shows the statewide estimate under these and the other choices that matter most.</p>
+<p>No other county publishes its sales with prices, so the other three are built from Maui’s. Joining every Maui sale to the county’s assessment listing shows how often homes of each assessed value sell, split by whether their owners live in them, which kind of buyer bought them, and at what price relative to the assessment. Oʻahu and Hawaiʻi Island publish the same kind of records home by home: the City’s assessment tables, which list every parcel and condominium unit with its value and exemptions,{notes.ref(T_hnl)} and Hawaiʻi County’s parcel records, whose condominium projects are split into units by their unit counts.{notes.ref(T_gis)} Applying Maui’s rates to those homes gives each county’s sales by price, which are then scored like Maui’s. Buildings of five or more units are left out of the rates and the counts, as are records worth $20 million or more that are not condominium units or known single homes, since most are apartment or resort properties. Applied to Maui’s own homes, the same rates recover {pct(100 / calib)} percent of Maui’s increase, because they also leave out sales at nominal prices, new construction and vacant lots, so the other two counties are scaled up to match. The key assumption is that homes of a given value and occupancy sell as often, and to the same kinds of buyers, as on Maui. Kauaʻi publishes no values by parcel, so its increase scales Maui’s by the value above $2 million on its property tax roll and in the American Community Survey.</p>
+<p>Two checks. On Oʻahu the model finds about {ck["Honolulu"]["model_sales_2m_plus"]:,.0f} sales a year of $2 million or more at recent prices, against {ck["Honolulu"]["mls_sf_sales_2m_plus"]:,.0f} single-family homes alone in the multiple listing service, before condominiums and unlisted sales.{notes.ref(T_hbr)} Rebuilt from those listed sales instead, Oʻahu’s increase before any change in sales is {millions(oc["mls_static"])} to {millions(oc["recorded_static"])}, depending on how the unlisted sales in new condominium towers are priced, around this estimate’s {millions(cty["Honolulu"]["change_static_fy2028_M"])}. Across all prices, the model finds fewer home sales on Oʻahu and Hawaiʻi Island than the Bureau of Conveyances records ({ck["Honolulu"]["model_sales_per_year"]:,.0f} against {ck["Honolulu"]["tg_sales_per_year"]:,.0f} a year on Oʻahu),{notes.ref(T_tg)} mostly among new and lower-priced homes, where the draft changes little. Table 8 shows the statewide estimate under the choices that matter most.</p>
 {table(["Variant", "Increase, static ($M)", "Increase with fewer sales ($M)"], srows,
-       caption=f"Table 7. Statewide Revenue Increase Under Alternative Choices, Fiscal Year {Y}", em_rows={0})}
-<p>Left out: the draft’s rule that apartment buildings be taxed unit by unit, which would lower their tax and so the estimate somewhat; long-term leases; a rush of sales before the law takes effect; any effect on prices; and Hawaiʻi Island condominiums outside its residential tax class, whose rolls give no values by tier. The sales behind the estimate, from {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])}, came in a slow market: the tax raised about {millions(sum(p["dotax_collections_m"][str(y)] for y in fy_base) / len(fy_base))} a year then, against {millions(p["dotax_collections_m"]["2022"])} in fiscal year 2022. In a stronger market both the tax and the increase would be larger. The full method and every parameter are in the source code.{notes.ref(T_code)}</p>
-<p>This page was revised on September 25, 2026 to build the statewide estimate county by county from the sources above. The first version scaled Maui’s results up by the conveyance tax each county group paid and gave $69 million to $118 million after fewer sales.</p>
+       caption=f"Table 8. Statewide Revenue Increase Under Alternative Choices, Fiscal Year {Y}", em_rows={0})}
+<p>Sales of apartment buildings with five or more units are scored under the draft’s rule that sets the rate by the price per unit, which lowers their tax; on Maui there were {mf_n} such sales in four years. Left out: long-term leases, a rush of sales before the law takes effect, and any effect on prices. The sales behind the estimate, from {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])}, came in a slow market: the tax raised about {millions(sum(p["dotax_collections_m"][str(y)] for y in fy_base) / len(fy_base))} a year then, against {millions(p["dotax_collections_m"]["2022"])} in fiscal year 2022. In a stronger market both the tax and the increase would be larger. The full method and every parameter are in the source code.{notes.ref(T_code)}</p>
+<p>This page was revised on September 25, 2026 to build the statewide estimate county by county. The first version scaled Maui’s results up by the conveyance tax each county group paid and gave $69 million to $118 million after fewer sales; a first revision, scaling by each county’s value above $2 million on its tax roll, gave $67 million (Table 8).</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
 <li><a href="../data/conveyance-tax/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: revenue by fiscal year, statewide and by county, current law and SB 3028, static and with fewer sales</li>
-<li><a href="../data/conveyance-tax/by_county.csv"><code>by_county.csv</code></a>: each county’s home sales, value above $2 million and increase</li>
-<li><a href="../data/conveyance-tax/sensitivity.csv"><code>sensitivity.csv</code></a>: the alternatives in Table 7</li>
+<li><a href="../data/conveyance-tax/by_county.csv"><code>by_county.csv</code></a>: each county’s method, homes, home sales and increase</li>
+<li><a href="../data/conveyance-tax/county_bands.csv"><code>county_bands.csv</code></a>: home sales a year and tax by price band and buyer type, by county</li>
+<li><a href="../data/conveyance-tax/sensitivity.csv"><code>sensitivity.csv</code></a>: the alternatives in Table 8</li>
 <li><a href="../data/conveyance-tax/maui_by_band.csv"><code>maui_by_band.csv</code></a>: Maui sales and tax by price band and buyer type</li>
 <li><a href="../data/conveyance-tax/examples.csv"><code>examples.csv</code></a>: tax on example sale prices under both laws</li>
 <li><a href="../data/conveyance-tax/disposition.csv"><code>disposition.csv</code></a>: revenue by fund, fiscal year {Y}</li>
