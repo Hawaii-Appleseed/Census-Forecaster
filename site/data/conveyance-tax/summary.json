@@ -22,12 +22,25 @@
     "owner": 2247000.0,
     "nonowner": 2073000.0
   },
-  "state_static_change_at_base_prices_$M": 151.48455440509608,
-  "theta_low": 0.4662079331855359,
-  "maui_residential_3m_plus_fy2025": 158.0,
-  "rest_of_state_3m_plus_2025": 328.0,
-  "maui_shaped_rest_of_state_multiple": 4.453,
-  "general_fund_breakeven_gain_$M": 107.0,
+  "state_static_change_at_base_prices_$M": 86.53403322563423,
+  "state_nonowner_share_of_increase": 0.8130780810267323,
+  "alpha_honolulu_residential_a": 2.68296452526575,
+  "alpha_oahu_sf_sales": 2.3859999999998527,
+  "oahu_nonowner_share_above_2m": 0.4718588175087067,
+  "oahu_check_$M": {
+    "mls_static": 25.172839438980027,
+    "mls_behavioral": 15.935765214645869,
+    "mls_recorded_value_$B": 9.01126659265236,
+    "recorded_static": 43.36597732366643,
+    "recorded_behavioral": 27.412014841319802,
+    "recorded_recorded_value_$B": 9.509200354579075
+  },
+  "tg_home_sales_years": [
+    2023,
+    2024,
+    2025
+  ],
+  "general_fund_breakeven_gain_$M": 106.9,
   "maui_share_schedule_matched": 0.9728189800112087,
   "maui_share_of_state_collections": {
     "2023": 0.18881029392610602,
