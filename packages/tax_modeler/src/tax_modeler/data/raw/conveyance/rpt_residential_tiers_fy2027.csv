@@ -1,0 +1,33 @@
+county,class,category,records,net_value_k,tier_lo,tier_hi,tier_value_k
+Honolulu,Residential A,nonowner,30603,48105908,0,1000000,29921924
+Honolulu,Residential A,nonowner,30603,48105908,1000000,,18183984
+Honolulu,Transient Vacation,nonowner,2048,1991150,0,800000,1363479
+Honolulu,Transient Vacation,nonowner,2048,1991150,800000,,627671
+Maui,Non Owner-Occupied,nonowner,14638,19405370,0,1000000,10226832
+Maui,Non Owner-Occupied,nonowner,14638,19405370,1000000,2500000,4657218
+Maui,Non Owner-Occupied,nonowner,14638,19405370,2500000,,4521320
+Maui,TVR-STRH,nonowner,13234,17903695,0,900000,9970166
+Maui,TVR-STRH,nonowner,13234,17903695,900000,3000000,5094467
+Maui,TVR-STRH,nonowner,13234,17903695,3000000,,2839062
+Maui,Long-Term Rental,nonowner,4350,3741921,0,1500000,3299786
+Maui,Long-Term Rental,nonowner,4350,3741921,1500000,3000000,279899
+Maui,Long-Term Rental,nonowner,4350,3741921,3000000,,162236
+Maui,Commercialized Res,nonowner,145,283167,0,1500000,192806
+Maui,Commercialized Res,nonowner,145,283167,1500000,3000000,61842
+Maui,Commercialized Res,nonowner,145,283167,3000000,,28520
+Maui,Owner-Occupied,owner,28387,24283026,0,1500000,21330942
+Maui,Owner-Occupied,owner,28387,24283026,1500000,4500000,2408934
+Maui,Owner-Occupied,owner,28387,24283026,4500000,,543151
+Hawaii,Residential,nonowner,37093,18057208,0,2000000,10254493
+Hawaii,Residential,nonowner,37093,18057208,2000000,4000000,2244077
+Hawaii,Residential,nonowner,37093,18057208,4000000,,5558638
+Hawaii,Apartment,nonowner,8727,8251898,0,,8251898
+Hawaii,Homeowner,owner,45162,15052724,0,,15052724
+Kauai,Non Owner-Occupied,nonowner,8340,10680600,0,1300000,6810104
+Kauai,Non Owner-Occupied,nonowner,8340,10680600,1300000,2000000,1066446
+Kauai,Non Owner-Occupied,nonowner,8340,10680600,2000000,,2804050
+Kauai,Vacation Rental,nonowner,3969,6789971,0,1000000,3622575
+Kauai,Vacation Rental,nonowner,3969,6789971,1000000,2500000,1951243
+Kauai,Vacation Rental,nonowner,3969,6789971,2500000,,1216153
+Kauai,Owner-Occupied,owner,11550,6439902,0,,6439902
+Kauai,Owner-Occupied Mixed Use,owner,2073,1632366,0,,1632366

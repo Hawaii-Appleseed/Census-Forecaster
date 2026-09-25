@@ -83,6 +83,49 @@ def hd2_tax(price, category: str, index: float = 1.0) -> np.ndarray:
     return cliff_tax(price, CURRENT_1)     # nonresidential: unchanged
 
 
+def value_above(tiers: list[tuple[float, float]], t: float, alpha: float | None = None) -> float:
+    """Total value above *t* in a property-tax class, from its tier values.
+
+    County tax rolls report, for tiered classes, how much of the class's value
+    falls in each band (e.g. Maui non-owner-occupied: the part of each
+    parcel's value up to $1M, $1M-$2.5M, above $2.5M). *tiers* is a list of
+    (lower bound, value in the band); the value above any bound is the sum of
+    the bands above it. Between or beyond bounds the value above t is
+    interpolated as a Pareto tail, log-linear in t, which is exact for a
+    Pareto distribution. With a single interior bound, *alpha* (the Pareto
+    index) must be given.
+    """
+    bounds = sorted(lo for lo, _ in tiers if lo > 0)
+    above = {b: sum(v for lo, v in tiers if lo >= b) for b in bounds}
+    if t in above:
+        return float(above[t])
+    if not bounds:
+        raise ValueError("class has no tiers above zero")
+    if len(bounds) == 1:
+        if alpha is None:
+            raise ValueError("one tier bound: pass alpha")
+        b1, slope = bounds[0], alpha - 1
+    else:
+        # the two bounds bracketing t, or the nearest two when t is outside them
+        i = int(np.clip(np.searchsorted(bounds, t) - 1, 0, len(bounds) - 2))
+        b1, b2 = bounds[i], bounds[i + 1]
+        slope = np.log(above[b1] / above[b2]) / np.log(b2 / b1)
+    return float(above[b1] * (t / b1) ** -slope)
+
+
+def pareto_alpha_grouped(bands: list[tuple[float, float, float]], x_min: float) -> float:
+    """Maximum-likelihood Pareto index for counts in price bands above *x_min*.
+
+    *bands*: (lower, upper or inf, count), all lower bounds >= x_min.
+    """
+    grid = np.arange(1.05, 5.0, 0.001)
+    ll = np.zeros_like(grid)
+    for lo, hi, n in bands:
+        p = (lo / x_min) ** -grid - (0.0 if np.isinf(hi) else (hi / x_min) ** -grid)
+        ll += n * np.log(np.maximum(p, 1e-300))
+    return float(grid[np.argmax(ll)])
+
+
 def breakeven_price(category: str) -> float:
     """Price below which HD2 owes less than current law (residential), in the
     $2M-$4M band where current law is a flat 0.50% / 0.60%."""

@@ -133,7 +133,8 @@ and `forecast_act24_vs_pre_act46.py`; the working-family credits page
 (`working-family-credits`) from `forecast_working_family_credits.py`; the
 conveyance tax page (`conveyance-tax`) from `forecast_conveyance_sb3028.py`,
 whose Maui sales input is refreshed by hand with
-`scripts/conveyance/maui_sales_extract.js` (see its header). The home page groups estimates into
+`scripts/conveyance/maui_sales_extract.js` (see its header) and whose ACS
+owner-value table is rebuilt by `scripts/conveyance/pums_owner_tail.py`. The home page groups estimates into
 current and proposed policy.
 
 Commit `site/` with the change. Pages are generated only from the committed

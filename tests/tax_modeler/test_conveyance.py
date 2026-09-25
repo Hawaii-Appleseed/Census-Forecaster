@@ -10,6 +10,8 @@ from tax_modeler.conveyance import (
     current_law_tax,
     hd2_tax,
     marginal_tax,
+    pareto_alpha_grouped,
+    value_above,
 )
 
 
@@ -64,3 +66,31 @@ def test_breakevens_match_house_finance_description():
 def test_cpi_index_raises_brackets():
     assert float(hd2_tax(3.5e6, "owner", index=1.1)) < float(hd2_tax(3.5e6, "owner"))
     assert float(hd2_tax(3.5e6, "owner", index=0.9)) == float(hd2_tax(3.5e6, "owner"))   # upward only
+
+
+def test_value_above_reads_tiers_and_interpolates_a_pareto_tail():
+    # Maui non-owner-occupied, tax year 2026-27 ($): bands up to $1M, $1M-$2.5M, above $2.5M.
+    tiers = [(0, 10_226_832e3), (1e6, 4_657_218e3), (2.5e6, 4_521_320e3)]
+    assert value_above(tiers, 2.5e6) == pytest.approx(4_521_320e3)
+    assert value_above(tiers, 1e6) == pytest.approx(9_178_538e3)
+    v2 = value_above(tiers, 2e6)
+    assert 4_521_320e3 < v2 < 9_178_538e3
+    # exact for a Pareto tail: value above t = N * x_m**a * t**(1-a) / (a-1)
+    a, n, xm = 2.5, 1000, 1e6
+    def pareto_above(t):
+        return n * xm**a * t ** (1 - a) / (a - 1)
+    pts = [(0, 0.0), (1e6, pareto_above(1e6) - pareto_above(3e6)), (3e6, pareto_above(3e6))]
+    assert value_above(pts, 2e6) == pytest.approx(pareto_above(2e6))
+    assert value_above(pts, 5e6) == pytest.approx(pareto_above(5e6))
+    assert value_above([(0, 0.0), (1e6, pareto_above(1e6))], 2e6, alpha=a) == pytest.approx(pareto_above(2e6))
+    with pytest.raises(ValueError):
+        value_above([(0, 1.0), (1e6, 1.0)], 2e6)
+
+
+def test_pareto_alpha_grouped_recovers_the_index():
+    a = 2.4
+    edges = [1e6, 2e6, 3e6, 4e6, 5e6, np.inf]
+    n = 100_000
+    bands = [(lo, hi, n * ((lo / 1e6) ** -a - (0 if np.isinf(hi) else (hi / 1e6) ** -a)))
+             for lo, hi in zip(edges[:-1], edges[1:], strict=True)]
+    assert pareto_alpha_grouped(bands, 1e6) == pytest.approx(a, abs=0.002)
