@@ -646,7 +646,7 @@ class TaxUnitConstructor:
                     adults.loc[adult_id], 
                     hh_group, 
                     hh_data, 
-                    list(deps), 
+                    sorted(deps),
                     filing_status='married_filing_separately'
                 )
                 
@@ -672,7 +672,7 @@ class TaxUnitConstructor:
             # Get all available dependents using set operations
             deps1 = dependents.get(adult1_id, set())
             deps2 = dependents.get(adult2_id, set())
-            available_deps = list((deps1 | deps2) - claimed_dependents)
+            available_deps = sorted((deps1 | deps2) - claimed_dependents)
             
             logger.debug(f"  Potential dependents: {len(deps1 | deps2)}, Available: {len(available_deps)}")
             
@@ -692,8 +692,11 @@ class TaxUnitConstructor:
         # Create a list to store potential HoH filers
         potential_hoh = []
         
-        # First pass: Identify potential HoH filers
-        for adult_id in remaining_adult_ids:
+        # First pass: Identify potential HoH filers. Iterate in ID order: these
+        # are sets of person-ID strings, whose order follows PYTHONHASHSEED, and
+        # when two adults could claim the same child the first one processed
+        # wins -- so set order made tax units (and poverty counts) vary by run.
+        for adult_id in sorted(remaining_adult_ids):
             # An adult already claimed as someone's dependent is not a filer.
             if adult_id in claimed_dependents:
                 continue
@@ -701,8 +704,8 @@ class TaxUnitConstructor:
             if adult_deps:  # Only consider adults with unclaimed dependents
                 potential_hoh.append((adult_id, adult_deps))
 
-        # Sort potential HoH by number of dependents (most first)
-        potential_hoh.sort(key=lambda x: len(x[1]), reverse=True)
+        # Sort potential HoH by number of dependents (most first), ties by ID
+        potential_hoh.sort(key=lambda x: (-len(x[1]), x[0]))
 
         # Process HoH filers
         for adult_id, deps in potential_hoh:
@@ -713,7 +716,7 @@ class TaxUnitConstructor:
                 adults.loc[adult_id],
                 hh_group,
                 hh_data,
-                list(deps)
+                sorted(deps)
             )
 
             if tax_unit and tax_unit['filing_status'] == 'head_of_household':
@@ -739,13 +742,13 @@ class TaxUnitConstructor:
         def _filer_order_key(aid: str):
             is_designated = aid in designated_adult_deps
             n_deps = len(dependents.get(aid, set()))
-            return (is_designated, -n_deps)
+            return (is_designated, -n_deps, aid)     # ID breaks ties deterministically
 
         for adult_id in sorted(remaining_adult_ids, key=_filer_order_key):
             if adult_id in processed_adults or adult_id in claimed_dependents:
                 continue
             adult = adults.loc[adult_id]
-            deps = list(dependents.get(adult_id, set()) - claimed_dependents)
+            deps = sorted(dependents.get(adult_id, set()) - claimed_dependents)
 
             # Don't force 'single' status - let _create_single_filer determine HoH eligibility
             tax_unit = self._create_single_filer(
@@ -771,7 +774,7 @@ class TaxUnitConstructor:
             # Create a list of (tax_unit_idx, dependent_id) pairs that can be claimed
             assignments = []
             
-            for dep_id in unclaimed_deps:
+            for dep_id in sorted(unclaimed_deps):
                 dependent = hh_group.loc[dep_id]
                 
                 # Find the first tax unit that can claim this dependent

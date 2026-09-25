@@ -94,17 +94,17 @@ class HawaiiTaxCredits:
         if agi < 50000 or agi > 300000:
             return 0
         
-        # Random chance of claiming (2% of eligible filers)
-        if np.random.random() < 0.02:
-            # Average credit amount varies by income
-            if agi < 100000:
-                return 1500
-            elif agi < 200000:
-                return 2500
-            else:
-                return 3500
-        
-        return 0
+        # ~2% of eligible filers claim. Applied as an expected value (every
+        # eligible filer gets 2% of the amount) rather than an unseeded
+        # per-call coin flip, which made results vary run to run; aggregate
+        # dollars are unchanged. Same smoothing as credits/hi_renters.py.
+        claim_rate = 0.02
+        if agi < 100000:
+            return claim_rate * 1500
+        elif agi < 200000:
+            return claim_rate * 2500
+        else:
+            return claim_rate * 3500
     
     def child_dependent_care_credit(self, agi: float, filing_status: str,
                                     num_dependents: int = 0,
@@ -204,17 +204,16 @@ class HawaiiTaxCredits:
         if agi > threshold:
             return 0
         
-        # Assume 30% of low-income filers are renters
-        if np.random.random() < 0.30:
-            # Credit amount based on income
-            if agi < 15000:
-                return 150
-            elif agi < 25000:
-                return 100
-            else:
-                return 50
-        
-        return 0
+        # Assume 30% of low-income filers are renters. Expected value, not an
+        # unseeded coin flip (see renewable_energy_credit); matches the
+        # deterministic take-up smoothing in credits/hi_renters.py.
+        renter_share = 0.30
+        if agi < 15000:
+            return renter_share * 150
+        elif agi < 25000:
+            return renter_share * 100
+        else:
+            return renter_share * 50
     
     def calculate_total_credits(self, agi: float, filing_status: str,
                                num_dependents: int = 0,

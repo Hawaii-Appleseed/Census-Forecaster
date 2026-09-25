@@ -56,11 +56,7 @@ Outputs (runs/working_family_credits/):
 """
 from __future__ import annotations
 
-import argparse
-import json
 import logging
-import os
-import subprocess
 import sys
 import time
 import warnings
@@ -146,10 +142,7 @@ def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dic
     }
 
 
-def run(quiet: bool = False) -> None:
-    if quiet:                                   # seed_spread child: report via JSON only
-        import builtins
-        builtins.print = lambda *a, **k: None
+def run() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     print("Loading PUMS population...", flush=True)
@@ -344,50 +337,6 @@ def _print_summary(rev: pd.DataFrame, cal: pd.DataFrame) -> None:
     print(rev[cols].to_string(index=False, float_format=lambda v: f"{v:,.1f}"))
 
 
-HASH_SEED = "0"
-
-
-def seed_spread(n: int) -> None:
-    """Re-run under other hash seeds and record the poverty spread.
-
-    Household and SPM-unit construction depend on Python's per-process hash
-    order, so SPM poverty counts move with PYTHONHASHSEED (revenue barely
-    does). The published run pins seed 0; this measures how much it matters.
-    """
-    rows = []
-    for seed in range(1, n + 1):
-        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
-        out = subprocess.run([sys.executable, __file__, "--poverty-json"], env=env,
-                             capture_output=True, text=True, check=True).stdout
-        rows.append({"hash_seed": seed, **json.loads(out.strip().splitlines()[-1])})
-        print(f"  hash seed {seed}: {rows[-1]['persons_into_poverty']:,.0f} persons, "
-              f"{rows[-1]['children_into_poverty']:,.0f} children", flush=True)
-    pd.DataFrame(rows).to_csv(OUT_DIR / "poverty_seed_spread.csv", index=False)
-
-
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--seed-spread", type=int, default=4, metavar="N",
-                    help="also rerun under N other hash seeds (default 4; 0 to skip)")
-    ap.add_argument("--poverty-json", action="store_true", help=argparse.SUPPRESS)
-    args = ap.parse_args()
     logging.disable(logging.WARNING)
-    # tax_modeler.adjustments.hawaii_credits draws unseeded np.random for two
-    # small legacy credits inside the base state-tax calculation.
-    np.random.seed(20260924)
-    if args.poverty_json:                     # child process for seed_spread
-        OUT_DIR = OUT_DIR / "_seed_run"
-        run(quiet=True)
-        p = pd.read_csv(OUT_DIR / f"poverty_ty{POVERTY_YEAR}.csv").iloc[0]
-        sys.stdout.write(json.dumps({k: float(p[k]) for k in (
-            "persons_into_poverty", "children_into_poverty",
-            "poverty_rate_renewed", "poverty_rate_expired")}) + "\n")
-        sys.exit(0)
-    if os.environ.get("PYTHONHASHSEED") != HASH_SEED:
-        # Pin the hash seed for the published numbers (see seed_spread).
-        os.execve(sys.executable, [sys.executable, *sys.argv],
-                  {**os.environ, "PYTHONHASHSEED": HASH_SEED})
     run()
-    if args.seed_spread:
-        print(f"\nPoverty under {args.seed_spread} other hash seeds:", flush=True)
-        seed_spread(args.seed_spread)

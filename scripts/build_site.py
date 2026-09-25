@@ -85,7 +85,6 @@ WORKING_FAMILIES = Estimate(
         "distribution_ty2028.csv",
         "by_family_type_ty2028.csv",
         "poverty_ty2028.csv",
-        "poverty_seed_spread.csv",
         "manifest.json",
     )},
     stamp=("manifest.json",),
@@ -776,7 +775,6 @@ def build_working_families() -> tuple[str, dict]:
     dist = read_csv(d / "distribution_ty2028.csv")
     fam = read_csv(d / "by_family_type_ty2028.csv")
     pov = read_csv(d / "poverty_ty2028.csv")[0]
-    spread = read_csv(d / "poverty_seed_spread.csv")
     manifest = json.loads((d / "manifest.json").read_text())
     notes = Notes()
 
@@ -784,13 +782,11 @@ def build_working_families() -> tuple[str, dict]:
     years = [y for y in sorted(rev) if y >= Y]
     last = years[-1]
     r = rev[Y]
-    persons = [pov["persons_into_poverty"]] + [s["persons_into_poverty"] for s in spread]
-    kids = [pov["children_into_poverty"]] + [s["children_into_poverty"] for s in spread]
+    persons = pov["persons_into_poverty"]
+    kids = pov["children_into_poverty"]
 
-    def rng(vals, step=100):
-        lo, hi = min(vals), max(vals)
-        lo, hi = int(lo // step * step), int(-(-hi // step) * step)
-        return f"{lo:,} to {hi:,}"
+    def about(v: float) -> str:          # survey-based counts: nearest hundred
+        return f"{round(v, -2):,.0f}"
 
     losing_hh = sum(g["households"] * g["pct_households_losing"] / 100 for g in dist)
     single_parent = next(g for g in fam if g["group"] == "Single parent")
@@ -826,7 +822,7 @@ def build_working_families() -> tuple[str, dict]:
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label"><strong>Less for working families</strong> in tax year {Y}, and what renewal would cost the state.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">Households that <strong>lose part of a credit</strong> in {Y}.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">Average loss for a <strong>single-parent household</strong> that loses.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{rng(persons, 100).split(" to ")[0]}+</div><div class="ha-est__stat-label">More people in <strong>poverty</strong>, including more than {rng(kids, 100).split(" to ")[0]} children.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">More people in <strong>poverty</strong>, including about {about(kids)} children.</div></div>
 </div>"""
 
     food_rows = [
@@ -880,8 +876,8 @@ def build_working_families() -> tuple[str, dict]:
 
     hoh_r, hoh_e = pov["poverty_rate_renewed_head_of_household"], pov["poverty_rate_expired_head_of_household"]
     s4 = section("More Families in Poverty", f"""
-{lead("Losing the expansions pushes", f"an estimated {rng(persons)} more people below the poverty line in {Y}, {rng(kids)} of them children, and deepens poverty for families already below it by {millions(pov['poverty_gap_increase_$M'])}. The state poverty rate rises from {pct(100 * pov['poverty_rate_renewed'], 1)} percent to {pct(100 * pov['poverty_rate_expired'], 1)} percent. For single parents and their children it rises from {pct(100 * hoh_r, 1)} percent to {pct(100 * hoh_e, 1)} percent.")}
-<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. The range reflects how the count moves with small, arbitrary choices in how the model groups people into families; the lower number is the more cautious one. The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
+{lead("Losing the expansions pushes", f"an estimated {about(persons)} more people below the poverty line in {Y}, about {about(kids)} of them children, and deepens poverty for families already below it by {millions(pov['poverty_gap_increase_$M'])}. The state poverty rate rises from {pct(100 * pov['poverty_rate_renewed'], 1)} percent to {pct(100 * pov['poverty_rate_expired'], 1)} percent. For single parents and their children it rises from {pct(100 * hoh_r, 1)} percent to {pct(100 * hoh_e, 1)} percent.")}
+<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred. The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
 """, "poverty")
 
     vrows = [
@@ -901,7 +897,7 @@ def build_working_families() -> tuple[str, dict]:
 <li><a href="../data/working-family-credits/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: both credits by tax year, renewed and expired, with claimants</li>
 <li><a href="../data/working-family-credits/distribution_ty2028.csv"><code>distribution_ty2028.csv</code></a>: loss by fifth of households</li>
 <li><a href="../data/working-family-credits/by_family_type_ty2028.csv"><code>by_family_type_ty2028.csv</code></a>: loss by family type</li>
-<li><a href="../data/working-family-credits/poverty_ty2028.csv"><code>poverty_ty2028.csv</code></a> and <a href="../data/working-family-credits/poverty_seed_spread.csv"><code>poverty_seed_spread.csv</code></a>: poverty estimates and their range</li>
+<li><a href="../data/working-family-credits/poverty_ty2028.csv"><code>poverty_ty2028.csv</code></a>: poverty with the expansions renewed and expired</li>
 <li><a href="../data/working-family-credits/calibration.csv"><code>calibration.csv</code></a>: claim rates and the checks in Table 5</li>
 <li><a href="../data/working-family-credits/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
 </ul>
@@ -910,7 +906,7 @@ def build_working_families() -> tuple[str, dict]:
     endnotes = section("Endnotes", notes.html(), "endnotes")
     body = hero + s1 + s2 + s3 + s4 + s5 + endnotes
     desc = (f"When Act 163’s credit expansions expire after 2027, Hawaiʻi’s working families lose about "
-            f"{millions(r['total_loss_$M'])} a year and {rng(persons)} more people fall into poverty.")
+            f"{millions(r['total_loss_$M'])} a year and about {about(persons)} more people fall into poverty.")
     card = {
         "slug": WORKING_FAMILIES.slug,
         "category": "current",
