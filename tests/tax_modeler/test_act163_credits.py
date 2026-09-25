@@ -46,3 +46,17 @@ def test_food_excise_statutory_tables(income, status, deps, act163, prior):
     assert compute_hi_food_excise_for_units(u, tax_year=2025)["hi_food_excise_amount"].iloc[0] == act163
     assert compute_hi_food_excise_for_units(u, tax_year=2028)["hi_food_excise_amount"].iloc[0] == prior
     assert compute_hi_food_excise_for_units(u, tax_year=2022)["hi_food_excise_amount"].iloc[0] == prior
+
+
+@pytest.mark.parametrize("year,expected", [(2022, 3 * 35), (2025, 3 * 90), (2027, 3 * 90), (2028, 3 * 35)])
+def test_liability_and_legacy_paths_use_the_statute(year, expected):
+    """liability/hawaii.py (hi_low_income_credit) and the legacy
+    adjustments/hawaii_credits.py path both route through credits.hi_food_excise."""
+    from tax_modeler.adjustments.hawaii_credits import HawaiiTaxCredits
+    from tax_modeler.liability.hawaii import NO_ITEMIZING, calculate_hawaii_tax
+
+    unit = {"filing_status": "married_filing_jointly", "income": 46_000, "num_dependents": 1}
+    r = calculate_hawaii_tax(unit, tax_year=year, deduction_params=NO_ITEMIZING)
+    assert r["hi_low_income_credit"] == expected
+    assert r["hi_tax_liability"] == pytest.approx(r["hi_tax_before_credits"] - expected)
+    assert HawaiiTaxCredits(year).food_excise_tax_credit(46_000, "married_filing_jointly", 1) == expected

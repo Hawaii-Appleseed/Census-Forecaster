@@ -19,9 +19,11 @@ Qualified exemptions = filer + spouse (joint) + dependents. The statute's
 further limits (no extra exemption for age 65+ or disability; presence in
 Hawaii more than nine months) are not modeled.
 
-This supersedes an earlier linear phase-out approximation ($110 per
-exemption fading out over $30K-$50K single / $50K-$70K joint), which matched
-neither schedule.
+This supersedes three approximations that matched neither schedule: a linear
+phase-out ($110 per exemption fading out over $30K-$50K single / $50K-$70K
+joint) here and in adjustments/hawaii_credits.py, and a flat $110 per
+exemption below $20K / $30K in liability/hawaii.py. Both of those now call
+:func:`food_excise_credit`.
 
 Reform DSL (``Reform.benefit_overrides["hi_food_excise"]``):
 
@@ -105,6 +107,21 @@ def _per_exemption(agi: np.ndarray, schedule: Schedule, factor: float) -> np.nda
     ceilings = np.array([c for c, _ in schedule], dtype=float) * factor
     amounts = np.append(np.array([a for _, a in schedule], dtype=float), 0.0)
     return amounts[np.searchsorted(ceilings, agi, side="right")]
+
+
+def food_excise_credit(
+    agi: float,
+    filing_status: str,
+    n_exemptions: int,
+    tax_year: Optional[int] = None,
+    params: Optional[HawaiiFoodExciseParameters] = None,
+) -> float:
+    """Scalar §235-55.85 credit for one tax unit (the per-filer liability and
+    legacy credit paths). ``n_exemptions`` = filer + spouse + dependents."""
+    p = params or hawaii_food_excise_parameters(tax_year)
+    table = p.joint if filing_status in _JOINT_TABLE_STATUSES else p.single
+    per_ex = _per_exemption(np.array([max(float(agi), 0.0)]), table, p.income_threshold_factor)[0]
+    return float(per_ex * max(int(n_exemptions), 0) * p.amount_pct)
 
 
 def compute_hi_food_excise_for_units(

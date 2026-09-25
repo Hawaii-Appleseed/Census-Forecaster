@@ -31,55 +31,16 @@ class HawaiiTaxCredits:
     def food_excise_tax_credit(self, agi: float, filing_status: str,
                                num_dependents: int = 0) -> float:
         """
-        Hawaii Food/Excise Tax Credit (refundable).
-        
-        This is the largest state credit, providing relief for low-income families
-        from the general excise tax burden.
-        
-        2024 amounts (approximate):
-        - Base: $110 per exemption
-        - Phase out starts at higher income levels
+        Hawaii refundable food/excise tax credit (HRS §235-55.85).
+
+        Statutory table for ``self.year`` (Act 163's for TY2023-2027, the
+        prior table otherwise), via tax_modeler.credits.hi_food_excise.
+        Exemptions: filer + spouse (joint) + dependents.
         """
-        # Income thresholds by filing status (2024)
-        phase_out_start = {
-            'single': 30000,
-            'married_filing_jointly': 50000,
-            'head_of_household': 40000,
-            'married_filing_separate': 25000,
-        }
-        
-        phase_out_end = {
-            'single': 50000,
-            'married_filing_jointly': 70000,
-            'head_of_household': 60000,
-            'married_filing_separate': 35000,
-        }
-        
-        # Get thresholds for this filing status
-        start = phase_out_start.get(filing_status, 30000)
-        end = phase_out_end.get(filing_status, 50000)
-        
-        # Base credit per exemption
-        base_credit_per_exemption = 110
-        
-        # Number of exemptions (filer + dependents)
-        num_exemptions = 1 + num_dependents
-        if filing_status == 'married_filing_jointly':
-            num_exemptions += 1  # Add spouse
-        
-        # Calculate base credit
-        base_credit = base_credit_per_exemption * num_exemptions
-        
-        # Apply phase out
-        if agi <= start:
-            return base_credit
-        elif agi >= end:
-            return 0
-        else:
-            # Linear phase out
-            phase_out_pct = (agi - start) / (end - start)
-            return base_credit * (1 - phase_out_pct)
-    
+        from tax_modeler.credits.hi_food_excise import food_excise_credit
+        n_exemptions = 1 + num_dependents + (filing_status == 'married_filing_jointly')
+        return food_excise_credit(agi, filing_status, n_exemptions, self.year)
+
     def renewable_energy_credit(self, agi: float, filing_status: str) -> float:
         """
         Renewable Energy Technologies Income Tax Credit.

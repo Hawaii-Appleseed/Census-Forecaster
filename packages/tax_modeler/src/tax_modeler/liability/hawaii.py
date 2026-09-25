@@ -183,16 +183,9 @@ class HawaiiTaxParameters:
         ],
     })
 
-    # Low-income tax refund / credit (Hawaii Form N-11, Schedule X)
-    # Refundable credit for filers below income thresholds.
-    # Simplified: $110 per exemption if Hawaii AGI <= $20,000 (single) / $30,000 (joint/HoH)
-    low_income_credit_per_exemption: float = 110
-    low_income_threshold: Dict[str, float] = field(default_factory=lambda: {
-        'single':                    20_000,
-        'married_filing_jointly':    30_000,
-        'married_filing_separately': 20_000,
-        'head_of_household':         30_000,
-    })
+    # The refundable food/excise tax credit (HRS §235-55.85; reported as
+    # ``hi_low_income_credit``) is computed from the statutory schedules in
+    # tax_modeler.credits.hi_food_excise, year-aware. It is not a parameter here.
 
 
 HAWAII_2023 = HawaiiTaxParameters()
@@ -418,7 +411,7 @@ def calculate_hawaii_tax(
             - hi_personal_exemptions: Total personal exemption amount
             - hi_taxable_income: Taxable income after deductions/exemptions
             - hi_tax_before_credits: Tax from bracket calculation (CG cap applied)
-            - hi_low_income_credit: Low-income refundable credit
+            - hi_low_income_credit: Refundable food/excise tax credit (§235-55.85)
             - hi_tax_liability: Net Hawaii tax (may be negative if credit exceeds liability)
             - hi_cg_cap_savings: Tax reduction from CG cap (0 when cap not applied)
     """
@@ -506,12 +499,10 @@ def calculate_hawaii_tax(
 
     result['hi_tax_before_credits'] = tax_before_credits
 
-    # Low-income refundable credit (Schedule X, TY2023 thresholds)
-    threshold = params.low_income_threshold.get(filing_status, 20_000)
-    if agi <= threshold:
-        low_income_credit = num_exemptions * params.low_income_credit_per_exemption
-    else:
-        low_income_credit = 0.0
+    # Refundable food/excise tax credit (HRS §235-55.85), statutory table for
+    # the tax year: Act 163's for TY2023-2027, the prior table otherwise.
+    from tax_modeler.credits.hi_food_excise import food_excise_credit  # noqa: PLC0415
+    low_income_credit = food_excise_credit(agi, filing_status, num_exemptions, tax_year)
     result['hi_low_income_credit'] = low_income_credit
 
     # Net liability (can be negative = refund due to low-income credit)

@@ -15,7 +15,51 @@
 
 ---
 
-## Deterministic legacy credits — September 24, 2026 (supersedes the table below)
+## Statutory food/excise credit in the tax calculator — September 24, 2026 (supersedes the tables below)
+
+The refundable food/excise tax credit (HRS §235-55.85) was modeled three
+different ways, none matching the statute: a flat $110 per exemption below
+$20K/$30K AGI in `liability/hawaii.py` (netted into `hi_tax_liability` as
+`hi_low_income_credit`), and a $110 linear phase-out over $30K-$50K single /
+$50K-$70K joint in both `adjustments/hawaii_credits.py` (inside
+`TaxCalculator`) and `credits/hi_food_excise.py`. All three now use the
+statutory tables in `credits/hi_food_excise`: Act 163's (up to $220 per
+exemption, to $40K single / $60K joint) for TY2023-2027 and the prior table
+(up to $110, to $30K / $50K) from TY2028, when Act 163 is repealed.
+
+**Levels move; the Act 24 delta barely does.** The credit is refundable and
+identical under both laws, so it cancels in the difference. The Act 46
+baseline rises $76M over TY2027-2031 (MID; the statutory table from TY2028
+pays less than the old approximation). The delta moves **−$0.7M over five
+years** (at most $0.2M a year), through the synthetic $1M+ tail, whose weights
+are rescaled to a tax target that includes the credit. Capital-gains options:
+at most $0.02M per figure.
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $124.9M | **$124.5M** | $146.0M | $120.5M |
+| 2028 | $139.6M | **$152.6M** | $183.6M | $150.4M |
+| 2029 | $154.3M | **$173.0M** | $210.7M | $173.4M |
+| 2030 | $179.6M | **$206.7M** | $252.0M | $209.1M |
+| 2031 | $188.4M | **$213.3M** | $267.7M | $217.2M |
+| **5-year total** | **$786.8M** | **$870.1M** | **$1,059.8M** | **$870.6M** |
+
+**MID by component ($M):**
+
+| Tax Year | REEC savings | CGEC savings | Credit total | Bracket (post-behav.) | **Total** |
+|----------|-------------:|-------------:|-------------:|------------------------:|----------:|
+| 2027 | $49.1M | $0.0M | $49.1M | $75.4M | **$124.5M** |
+| 2028 | $53.9M | $20.6M | $74.5M | $78.0M | **$152.6M** |
+| 2029 | $58.6M | $22.1M | $88.6M | $84.4M | **$173.0M** |
+| 2030 | $96.2M | $23.7M | $119.9M | $86.9M | **$206.7M** |
+| 2031 | $100.2M | $24.1M | $124.3M | $89.0M | **$213.3M** |
+
+The Section 10 distribution tables are updated in place; quintile boundaries
+shift slightly with the rescaled tail (Q1 78,773 → 81,005 households).
+
+---
+
+## Deterministic legacy credits — September 24, 2026 (superseded above)
 
 `adjustments/hawaii_credits.py` drew unseeded `np.random.random()` for two small
 legacy credits inside `TaxCalculator`'s per-filer credit loop: a 2% "claims the
@@ -1729,46 +1773,38 @@ Year-by-year (MID, $M):
 ### Distributional Impact — TY 2027 (MID)
 
 **Updated September 24, 2026** — CD2 (enacted Act 24), with credit losses
-attributed to imputed claimants (Section 9). Supersedes the August 3 table,
-which was CD1's static credit overlay spread evenly across every filer in each
-AGI bin; its pay-more / pay-less shares (e.g. 85.1% of Q1 "paying more") were an
-artifact of that spread.
+attributed to imputed claimants (Section 9) and the statutory food/excise
+credit in the tax calculator (see the top of this document). Supersedes the
+August 3 table, which was CD1's static credit overlay spread evenly across
+every filer in each AGI bin; its pay-more / pay-less shares (e.g. 85.1% of Q1
+"paying more") were an artifact of that spread.
 
 | Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
 |----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
-| Q1 (bottom 20%) | 78,773 | −$0.4M | +$1.2M | +$0.8M | −$5 | +$15 | +$10 | 0.9% | 0.9% | 17.5% |
-| Q2 | 90,742 | −$4.6M | +$1.3M | −$3.3M | −$51 | +$15 | −$36 | 1.5% | 1.5% | 87.4% |
-| Q3 | 100,291 | −$7.9M | +$2.9M | −$4.9M | −$78 | +$29 | −$49 | 2.5% | 2.5% | 97.3% |
-| Q4 | 107,459 | −$9.8M | +$5.4M | −$4.5M | −$92 | +$50 | −$41 | 3.6% | 3.6% | 96.4% |
-| Q5 (top 20%) | 116,782 | +$107.7M | +$16.4M | +$124.1M | +$922 | +$141 | +$1,063 | 6.1% | 21.9% | 78.1% |
+| Q1 (bottom 20%) | 81,005 | −$0.4M | +$1.1M | +$0.7M | −$5 | +$14 | +$9 | 0.9% | 0.9% | 18.4% |
+| Q2 | 89,419 | −$4.7M | +$1.3M | −$3.3M | −$52 | +$15 | −$37 | 1.5% | 1.5% | 88.4% |
+| Q3 | 100,606 | −$7.9M | +$3.0M | −$4.9M | −$78 | +$29 | −$49 | 2.5% | 2.5% | 97.3% |
+| Q4 | 106,687 | −$9.8M | +$5.4M | −$4.4M | −$92 | +$50 | −$41 | 3.6% | 3.6% | 96.4% |
+| Q5 (top 20%) | 116,330 | +$107.6M | +$16.3M | +$123.9M | +$925 | +$141 | +$1,065 | 6.1% | 21.9% | 78.1% |
 
 **TY 2031 (MID)** — no new REEC certifications after TY2029, so every would-be
 claimant loses the full credit:
 
 | Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
 |----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
-| Q1 (bottom 20%) | 78,773 | −$0.2M | +$3.2M | +$3.0M | −$2 | +$40 | +$38 | 0.9% | 0.9% | 8.9% |
-| Q2 | 90,742 | −$4.4M | +$4.1M | −$0.4M | −$49 | +$45 | −$4 | 1.6% | 1.6% | 73.9% |
-| Q3 | 100,291 | −$11.2M | +$10.1M | −$1.2M | −$112 | +$100 | −$12 | 2.8% | 2.8% | 96.3% |
-| Q4 | 107,459 | −$14.9M | +$17.2M | +$2.4M | −$138 | +$160 | +$22 | 3.9% | 3.9% | 96.0% |
-| Q5 (top 20%) | 116,782 | +$163.2M | +$42.1M | +$205.3M | +$1,397 | +$360 | +$1,758 | 6.5% | 25.5% | 74.5% |
+| Q1 (bottom 20%) | 81,005 | −$0.2M | +$3.1M | +$2.9M | −$3 | +$39 | +$36 | 0.9% | 0.9% | 9.8% |
+| Q2 | 89,419 | −$4.5M | +$4.1M | −$0.5M | −$51 | +$45 | −$5 | 1.6% | 1.6% | 75.0% |
+| Q3 | 100,606 | −$11.3M | +$10.2M | −$1.1M | −$112 | +$101 | −$11 | 2.8% | 2.8% | 96.3% |
+| Q4 | 106,687 | −$14.8M | +$17.2M | +$2.4M | −$138 | +$161 | +$23 | 3.9% | 3.9% | 96.0% |
+| Q5 (top 20%) | 116,330 | +$162.7M | +$41.9M | +$204.6M | +$1,398 | +$360 | +$1,759 | 6.5% | 25.6% | 74.4% |
 
 *Negative Δ = household pays less. "Credit loss" is the individual-return REEC/CGEC savings attributed to households, in expectation (claim probability × loss if claiming); "% claimants" is the share of households imputed to claim REEC or CGEC. Static incidence: before ETI/migration response. Household counts use PUMS WGTP; $M totals use the calibrated filer weight.*
-
-----------|-----------:|---------------:|----------------------:|-------------:|---------------:|--------------------:|--------------:|-----------:|-----------:|
-| Q1 (bottom 20%) | 78,773 | −$0.4M | $1.0M | $0.6M | −$5 | $13 | $8 | 85.1% | 14.9% |
-| Q2 | 90,742 | −$4.6M | $1.0M | −$3.6M | −$51 | $11 | −$40 | 13.9% | 86.1% |
-| Q3 | 100,291 | −$7.9M | $2.1M | −$5.8M | −$78 | $21 | −$58 | 0.9% | 99.1% |
-| Q4 | 107,459 | −$9.8M | $3.8M | −$6.0M | −$92 | $35 | −$56 | 3.4% | 96.6% |
-| Q5 (top 20%) | 116,782 | +$107.7M | $17.8M | +$125.5M | +$922 | $152 | +$1,075 | 62.8% | 37.2% |
-
-*Negative Δ = filer pays less / State collects less. "Credit-cap loss" is the household's imputed share of REEC/CGEC/TCRA savings — a cost to filers who would otherwise have claimed those credits, hence it adds (not subtracts) to the household's total change in all quintiles. Q1's positive total despite a negative bracket change reflects a small credit-cap loss exceeding its (near-zero) bracket savings.*
 
 ---
 
 ### SB 3125 CD2 Results — August 3, 2026 (post CPI-correction rerun)
 
-> **Superseded** by the September 24, 2026 rerun at the top of this document (MID $876.0M; −$1.0M, data refresh only).
+> **Superseded** by the September 24, 2026 sections at the top of this document (current MID: $870.1M).
 
 Full re-run of `forecast_sb3125_enhanced.py --cd 2` (vintage carryforward
 model) on the corrected Hawaii CPI basis. Supersedes the May 14, 2026

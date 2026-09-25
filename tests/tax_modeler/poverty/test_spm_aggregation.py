@@ -266,3 +266,30 @@ def test_multi_puma_within_household_raises():
     ])
     with pytest.raises(DataValidationError, match="PUMA"):
         aggregate_to_spm_units(tu, persons)
+
+
+def test_food_excise_credit_counted_once_at_spm_grain():
+    """hi_low_income_credit must survive aggregation so compute_spm_resources
+    can un-net it from hi_tax_liability when hi_food_excise_amount is also
+    present. Before it was carried, the SPM frame counted the credit twice."""
+    from tax_modeler.poverty.spm import compute_spm_resources
+
+    persons = _persons([
+        {"SERIALNO": "H3", "SPORDER": 1, "AGEP": 35, "PWGTP": 10, "WGTP": 10,
+         "spm_unit_id": "H3_primary"},
+    ])
+    tu = _tax_units([
+        {"filer_id": "tu1", "SERIALNO": "H3", "PUMA": "0100", "tenure": "renter",
+         "county": "Honolulu", "house_district": 1, "senate_district": 1,
+         "total_cash_income": 25_000, "hi_tax_before_credits": 400.0,
+         "hi_low_income_credit": 55.0, "hi_tax_liability": 345.0,
+         "hi_food_excise_amount": 140.0, "spm_unit_id": "H3_primary", "hh_weight": 10},
+    ])
+    spm = aggregate_to_spm_units(tu, persons)
+    assert spm.iloc[0]["hi_low_income_credit"] == 55.0
+    with_food, _ = compute_spm_resources(spm, federal_tax_fallback=False)
+    without_food, _ = compute_spm_resources(
+        spm.drop(columns=["hi_food_excise_amount", "hi_low_income_credit"]),
+        hi_food_excise_col=None, federal_tax_fallback=False)
+    # With the dedicated column: 25,000 - 400 + 140. Without: 25,000 - 345.
+    assert with_food["spm_resources"].iloc[0] - without_food["spm_resources"].iloc[0] == pytest.approx(140 - 55)

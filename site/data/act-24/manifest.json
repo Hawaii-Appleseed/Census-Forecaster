@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-09-25T00:49:27+00:00",
-  "git_sha": "781cc46",
+  "created_at": "2026-09-25T01:22:30+00:00",
+  "git_sha": "b70ca4e",
   "script": "forecast_sb3125_enhanced.py --cd 2",
   "params": {
     "cd": "2",
@@ -90,5 +90,5 @@
     "fiscal_tidy.csv",
     "quintile.csv"
   ],
-  "published_at": "2026-09-25T00:55:46+00:00"
+  "published_at": "2026-09-25T01:33:42+00:00"
 }
