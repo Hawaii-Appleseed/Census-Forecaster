@@ -115,6 +115,7 @@ proposals. Self-contained analyses with their own entry guides:
 | SB 3125 CD1 — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) |
 | Act 163 EITC and food/excise expansions expiring after TY2027 | [`forecast_working_family_credits.py`](forecast_working_family_credits.py) · published on the estimates site |
 | Capital-gains rate options on Act 24 brackets | [`forecast_cg_rate_options.py`](forecast_cg_rate_options.py) · published on the estimates site |
+| Conveyance tax restructuring (SB 3028 HD2, 2026) | [`CONVEYANCE_TAX_SCOPE.md`](CONVEYANCE_TAX_SCOPE.md) → [`forecast_conveyance_sb3028.py`](forecast_conveyance_sb3028.py) · published on the estimates site |
 
 ### Estimates site
 
@@ -129,7 +130,10 @@ python scripts/build_site.py --import-runs capital-gains  # copies outputs to si
 
 The Act 24 page (`act-24`) imports from `forecast_sb3125_enhanced.py --cd 2`
 and `forecast_act24_vs_pre_act46.py`; the working-family credits page
-(`working-family-credits`) from `forecast_working_family_credits.py`. The home page groups estimates into
+(`working-family-credits`) from `forecast_working_family_credits.py`; the
+conveyance tax page (`conveyance-tax`) from `forecast_conveyance_sb3028.py`,
+whose Maui sales input is refreshed by hand with
+`scripts/conveyance/maui_sales_extract.js` (see its header). The home page groups estimates into
 current and proposed policy.
 
 Commit `site/` with the change. Pages are generated only from the committed
