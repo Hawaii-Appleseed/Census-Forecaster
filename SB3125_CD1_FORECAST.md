@@ -15,12 +15,57 @@
 
 ---
 
+## Deterministic legacy credits — September 24, 2026 (supersedes the table below)
+
+`adjustments/hawaii_credits.py` drew unseeded `np.random.random()` for two small
+legacy credits inside `TaxCalculator`'s per-filer credit loop: a 2% "claims the
+renewable energy credit" draw ($1,500-$3,500) and a 30% "is a renter" draw for
+the renters credit ($50-$150). Results were nonetheless stable run to run,
+because `analysis/puma_imputation.py` reseeds NumPy's global generator per unit
+before these draws — so every published number embedded one arbitrary draw.
+Both are now expected values (2% × amount, 30% × amount), matching the
+deterministic take-up smoothing in `credits/hi_renters.py`. No other method or
+parameter changed.
+
+The credits enter the Act 46 baseline and Act 24 alike, but they are
+nonrefundable and capped by each system's liability, and they shift the
+marginal rates the ETI response is computed from, so the delta moves:
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $125.0M | **$124.6M** | $146.0M | $120.6M |
+| 2028 | $139.7M | **$152.6M** | $183.6M | $150.5M |
+| 2029 | $154.4M | **$173.2M** | $210.8M | $173.6M |
+| 2030 | $179.8M | **$206.9M** | $252.2M | $209.2M |
+| 2031 | $188.6M | **$213.5M** | $267.9M | $217.4M |
+| **5-year total** | **$787.5M** | **$870.8M** | **$1,060.5M** | **$871.3M** |
+
+**MID by component ($M):**
+
+| Tax Year | REEC savings | CGEC savings | Credit total | Bracket (post-behav.) | **Total** |
+|----------|-------------:|-------------:|-------------:|------------------------:|----------:|
+| 2027 | $49.1M | $0.0M | $49.1M | $75.5M | **$124.6M** |
+| 2028 | $53.9M | $20.6M | $74.5M | $78.1M | **$152.6M** |
+| 2029 | $58.6M | $22.1M | $88.6M | $84.6M | **$173.2M** |
+| 2030 | $96.2M | $23.7M | $119.9M | $87.0M | **$206.9M** |
+| 2031 | $100.2M | $24.1M | $124.3M | $89.2M | **$213.5M** |
+
+MID 5-year: **$876.0M → $870.8M (−$5.3M, −0.6%)**, all in the bracket channel
+(credit overlay unchanged to the cent). The static bracket delta rises $3.2M
+over five years ($498.8M → $502.1M) while the ETI/migration offset grows
+$8.5M ($−79.1M → $−87.6M). LOW −$0.6M, HIGH −$5.5M, RECESSION −$4.7M. The Act
+46 baseline level moves by −$2.4M to +$0.6M a year. Unchanged: the distributional tables (quintile and AGI class,
+bit-identical) and every capital-gains-options output
+(`forecast_cg_rate_options.py`, rerun and bit-identical).
+
+---
+
 ## CD2 rerun for the estimates site — September 24, 2026
 
 `forecast_sb3125_enhanced.py --cd 2` was rerun so its distributional tables
 could be published on the estimates site (`site/act-24/`). No methodology or
 parameter changed; the rerun picks up the monthly data refresh of September 23.
-**This table supersedes the August 3 CD2 table in Section 10** (cite these):
+**Superseded by "Deterministic legacy credits" above** (MID $870.8M); this table superseded the August 3 CD2 table in Section 10:
 
 **CD2 vs Act 46 baseline, post-behavioral ($M):**
 
