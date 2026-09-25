@@ -49,6 +49,11 @@ _SUM_COLS: tuple[str, ...] = (
     "hi_agi",
     # Taxes (subtracted from SPM resources)
     "hi_tax_liability",
+    # The food/excise credit netted into hi_tax_liability. Carried so
+    # compute_spm_resources can un-net it when a dedicated
+    # hi_food_excise_amount is also present (its F3 de-duplication); without
+    # it the SPM-unit frame counted that credit twice.
+    "hi_low_income_credit",
     "federal_tax_liability",
     "payroll_tax",
     "hi_state_tax",

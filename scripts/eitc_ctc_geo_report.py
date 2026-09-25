@@ -139,8 +139,11 @@ def _build_units_for_tax_year(
         # Direct compute at the construction year.
         out = compute_base_tax(units, tax_year=tax_year)
 
-    # HI EITC depends on federal eitc_amount; recompute either way.
-    out = compute_hi_eitc_for_units(out)
+    # HI EITC depends on federal eitc_amount; recompute either way, at the
+    # tax year's law (20% non-refundable through TY2022; 40% refundable
+    # TY2023-2027; 20% refundable from TY2028). Without the year it used the
+    # 40% default, so the TY2022 backtest overstated the state EITC ~3x.
+    out = compute_hi_eitc_for_units(out, tax_year=tax_year)
     return out
 
 
@@ -312,6 +315,9 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
                    help="Apply IRS-anchored take-up imputation for EITC + ACTC (default off).")
     p.add_argument("--takeup-year", type=int, default=2022,
                    help="IRS caseload year for take-up benchmark (default 2022).")
+    p.add_argument("--reweight-eitc-by-children", action=argparse.BooleanOptionalAction, default=None,
+                   help="Lift short 1-/2-child EITC buckets to IRS Hawaii counts before take-up "
+                        "(default: on for real PUMS, off for the fixture).")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -340,12 +346,25 @@ def main(argv: Optional[list] = None) -> int:
         base_units, tax_year=args.tax_year, project=project_required,
     )
 
-    # 3. Optional take-up imputation.
+    # 3. Lift the short 1-/2-child EITC buckets to IRS Hawaii counts, as the
+    #    poverty pipeline does by default (scripts/poverty_impact_report.py
+    #    _apply_eitc_reweight). Without it real-PUMS runs produce ~62k EITC
+    #    claimants against IRS's 84k (TY2022). Off for the synthetic fixture,
+    #    whose few thousand weighted filers cannot be scaled to state counts.
+    reweight = (args.reweight_eitc_by_children if args.reweight_eitc_by_children is not None
+                else (args.pums_data_dir is not None and not args.use_fixture))
+    if reweight:
+        from tax_modeler.calibration.eitc_reweight import reweight_eitc_eligibles_by_children
+        units, info = reweight_eitc_eligibles_by_children(units)
+        LOG.info("EITC by-children reweight: tax-unit weight %.0f -> %.0f",
+                 info["total_weight_before"], info["total_weight_after"])
+
+    # 4. Optional take-up imputation.
     if args.apply_takeup:
         from tax_modeler.pipeline import apply_credit_takeup
         units = apply_credit_takeup(units, year=args.takeup_year, programs=("eitc", "actc"))
 
-    # 4. Aggregate at four geography levels.
+    # 5. Aggregate at four geography levels.
     by_state = _aggregate(units, group_col=None)
     by_county = _aggregate(units, group_col="county")
     by_hd = _aggregate(units, group_col="house_district")

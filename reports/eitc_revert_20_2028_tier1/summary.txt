@@ -4,72 +4,72 @@ HI state EITC revert: 40% → 20% of federal (TY 2025 parameters)
 
 Per-quintile average tax change (per filer, $/year):
 quintile  n_filers_weighted  avg_income  share_affected_pct  avg_tax_change_$  aggregate_tax_change_$M
-      Q1      164633.960007      5328.0                29.2             61.68                   10.154
-      Q2      164586.639938     29304.0                12.8            106.87                   17.589
-      Q3      165217.059838     55356.0                 9.0             29.54                    4.881
-      Q4      164869.699965     94929.0                 0.0              0.00                    0.000
-      Q5      164835.299846    225266.0                 0.0              0.00                    0.000
+      Q1      151533.313772      9312.0                27.4             84.47                   12.801
+      Q2      151607.227818     33307.0                17.6            142.40                   21.589
+      Q3      151642.528132     57732.0                10.8             31.53                    4.781
+      Q4      150732.700060     97591.0                 0.0              0.00                    0.000
+      Q5      152559.070016    232622.0                 0.0              0.00                    0.000
 
-Aggregate state revenue gain (= taxpayer loss): $32.6M
+Aggregate state revenue gain (= taxpayer loss): $39.2M
 
 SPM poverty (Hawaii, all persons):
-  Baseline rate                       :   10.71%
-  Revert rate (static)                :   10.83%
-  Change (static)                     :   +0.12 pp
-  Additional persons in poverty       :      1,615
-  Additional poverty gap              : $     +6.4M
+  Baseline rate                       :   10.26%
+  Revert rate (static)                :   10.37%
+  Change (static)                     :   +0.11 pp
+  Additional persons in poverty       :      1,521
+  Additional poverty gap              : $     +7.4M
 
   + LFP behavioral channel (single-mother extensive margin):
-    Revert rate (incl. behavioral)    :   10.93%
-    Change (incl. behavioral)         :   +0.22 pp
-    Additional persons (incl. beh.)   :      2,916
-    Additional poverty gap (incl. beh): $    +13.4M
-    → behavioral CHANNEL ADDS         :     +1,301 persons, $+7.0M gap
+    Revert rate (incl. behavioral)    :   10.55%
+    Change (incl. behavioral)         :   +0.29 pp
+    Additional persons (incl. beh.)   :      3,935
+    Additional poverty gap (incl. beh): $    +16.5M
+    → behavioral CHANNEL ADDS         :     +2,414 persons, $+9.1M gap
 
 Single-mother proxy (HoH composition: 1 adult + ≥1 child):
-  Weighted persons in HoH units       :     43,259
-  Baseline HoH poverty rate           :   24.70%
-  Static revert HoH rate              :   24.88%
-  Additional HoH persons (static)     :         82
-  Behavioral revert HoH rate          :   26.71%
-  Additional HoH persons (behavioral) :        870
+  Weighted persons in HoH units       :     47,790
+  Baseline HoH poverty rate           :   20.53%
+  Static revert HoH rate              :   20.83%
+  Additional HoH persons (static)     :        144
+  Behavioral revert HoH rate          :   22.53%
+  Additional HoH persons (behavioral) :        958
 
 Children newly in poverty (SPM-unit n_children weighted):
-  static                                      :        566
-  + behavioral                                :      1,245
+  static                                      :        675
+  + behavioral                                :      1,742
 
 HI EITC take-up calibration (1A):
-  Pre-calibration claimers (weighted) :     84,050
-  Post-calibration claimers (weighted):     84,050
-  Pre-calibration HI EITC dollars     : $     65.2M
-  Post-calibration HI EITC dollars    : $     65.2M
+  Pre-calibration claimers (weighted) :     84,554
+  Post-calibration claimers (weighted):     84,554
+  Pre-calibration HI EITC dollars     : $     78.3M
+  Post-calibration HI EITC dollars    : $     78.3M
   Filers dropped (smallest credits)   :       0.0%
 
 LFP behavioral diagnostics (extensive margin, 1B/1C precursor):
   Elasticity (η)                      : 0.50
   Δlog(combined federal+HI EITC)      : +0.1542
   Per-filer exit probability          :  0.0771
-  Affected HoH filers (weighted)      :     30,012
-  Expected LFP exits (weighted)       :      2,313
-  Raw extensive resource loss         : $    64.64M
+  Affected HoH filers (weighted)      :     34,837
+  Expected LFP exits (weighted)       :      2,685
+  Raw extensive resource loss         : $    74.58M
 
 SNAP cascading offset (1B):
-  Aggregate SNAP gain (LFP exits)     : $     8.35M
-  Avg SNAP gain per exit              : $    3,610/yr
+  Aggregate SNAP gain (LFP exits)     : $     9.54M
+  Avg SNAP gain per exit              : $    3,551/yr
 
 Intensive-margin (hours) response (1C):
   Elasticity (phase-in only)          : 0.15
-  Affected phase-in filers (weighted) :      8,379
-  Avg |Δhours|                        :    1.05%
-  Aggregate intensive resource loss   : $     0.94M
+  Affected phase-in filers (weighted) :      9,854
+  Avg |Δhours|                        :    1.03%
+  Aggregate intensive resource loss   : $     1.01M
 
 Bootstrap 90% CI (250 replicates, seed=42):
   hi_eitc_revert_20:
-    persons newly poor p5/p50/p95  :      664 /    1,613 /    2,856
-    children newly poor p5/p50/p95 :      138 /      474 /    1,044
+    persons newly poor p5/p50/p95  :      424 /    1,333 /    2,719
+    children newly poor p5/p50/p95 :      190 /      571 /    1,238
   hi_eitc_revert_20_behavioral:
-    persons newly poor p5/p50/p95  :    1,561 /    2,846 /    4,554
-    children newly poor p5/p50/p95 :      569 /    1,233 /    1,898
+    persons newly poor p5/p50/p95  :    2,138 /    3,856 /    5,575
+    children newly poor p5/p50/p95 :      952 /    1,666 /    2,476
 
 Caveats:
 - TY 2025 federal EITC/CTC parameters used as TY 2028 proxy.

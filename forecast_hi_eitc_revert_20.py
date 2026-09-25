@@ -249,6 +249,11 @@ def main(argv: Optional[list] = None) -> int:
     project_required = args.tax_year != PUMS_CONSTRUCTION_YEAR
     units = pir._build_units_for_tax_year(base_units, args.tax_year, project=project_required)
 
+    # Lift the short 1-/2-child EITC buckets to IRS Hawaii counts before
+    # take-up, as poverty_impact_report does by default. Without it the
+    # federal EITC base runs ~25% short and the HI EITC ~$57M vs DOTAX's $77M.
+    if not args.use_fixture:
+        units = pir._apply_eitc_reweight(units)
     units = pir._apply_credit_takeup(units, tax_year=args.tax_year)
     units = pir._apply_hi_eitc(units, tax_year=args.tax_year)
 
