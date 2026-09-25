@@ -103,10 +103,10 @@ def test_hi_food_excise_phases_out_with_income(taxed_units):
         assert high_income_single["hi_food_excise_amount"].sum() == 0
 
 
-def test_hi_food_excise_per_exemption_override(taxed_units):
+def test_hi_food_excise_amount_override(taxed_units):
     base = compute_hi_food_excise_for_units(taxed_units)
     doubled = compute_hi_food_excise_for_units(
-        taxed_units, overrides={"per_exemption": 220.0}
+        taxed_units, overrides={"amount_pct": 2.0}
     )
     base_total = base["hi_food_excise_amount"].sum()
     if base_total == 0:
@@ -186,7 +186,7 @@ def test_reform_combined_hi_state_credits(taxed_units):
         name="hi_state_credits_expansion",
         benefit_overrides={
             "hi_eitc": {"rate_of_federal": 0.50},          # 40% → 50%
-            "hi_food_excise": {"per_exemption": 150.0},    # $110 → $150
+            "hi_food_excise": {"amount_pct": 1.5},         # +50%
             "hi_renters": {"amount_pct": 1.5},             # +50%
         },
     )

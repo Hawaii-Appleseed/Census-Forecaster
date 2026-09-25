@@ -1,31 +1,37 @@
 """Hawaii Refundable Food/Excise Tax Credit (HRS §235-55.85).
 
 The Food/Excise Tax Credit offsets the regressive burden of the Hawaii
-General Excise Tax (GET) on food and basic goods. It is the largest
-state-level refundable credit and is claimed per qualifying exemption
-with an AGI-based phase-out by filing status.
+General Excise Tax (GET) on food and basic goods. It is refundable and is
+claimed per qualified exemption, at a flat amount set by an AGI table.
 
-This module is a deterministic re-implementation of the existing
-:meth:`HawaiiTaxCredits.food_excise_tax_credit` in
-:mod:`tax_modeler.adjustments.hawaii_credits`, exposed via the
-Reform DSL with parameter overrides. Computation::
+Statutory schedules (§235-55.85(b); AGI is federal AGI, §235-55.85(g)):
 
-    base_credit  = per_exemption × n_exemptions
-    if agi <= phase_out_start: credit = base_credit
-    elif agi >= phase_out_end:  credit = 0
-    else: credit = base_credit × (1 − (agi − start) / (end − start))
+* **Act 163, SLH 2023** — taxable years 2023 through 2027. Act 163 is
+  repealed on December 31, 2027 and subsection (b) is reenacted as it read
+  before (L 2023, c 163, §5), so the earlier table returns for 2028 onward.
+* **Prior law** (L 2015, c 223) — taxable years before 2023 and from 2028.
 
-Number of exemptions = filer + (spouse if MFJ) + dependents.
+Computation::
+
+    credit = amount(AGI band, filing-status table) × qualified exemptions
+
+Qualified exemptions = filer + spouse (joint) + dependents. The statute's
+further limits (no extra exemption for age 65+ or disability; presence in
+Hawaii more than nine months) are not modeled.
+
+This supersedes an earlier linear phase-out approximation ($110 per
+exemption fading out over $30K-$50K single / $50K-$70K joint), which matched
+neither schedule.
 
 Reform DSL (``Reform.benefit_overrides["hi_food_excise"]``):
 
-  * ``per_exemption``         dollars per exemption (default 110)
-  * ``amount_pct``            multiplier on final credit (default 1.0)
-  * ``income_threshold_factor`` multiplier on phase-out boundaries (default 1.0)
+  * ``single`` / ``joint``    replacement tables: tuples of (AGI ceiling, amount)
+  * ``amount_pct``            multiplier on every amount (default 1.0)
+  * ``income_threshold_factor`` multiplier on every AGI ceiling (default 1.0)
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from typing import Mapping, Optional
 
 import numpy as np
@@ -33,36 +39,50 @@ import pandas as pd
 
 from tax_modeler.errors import ConfigError
 
+Schedule = tuple[tuple[float, float], ...]   # ((AGI ceiling, credit per exemption), ...)
 
-_DEFAULT_PHASE_OUT_START = {
-    "single": 30_000,
-    "married_filing_jointly": 50_000,
-    "head_of_household": 40_000,
-    "married_filing_separately": 25_000,
-}
-_DEFAULT_PHASE_OUT_END = {
-    "single": 50_000,
-    "married_filing_jointly": 70_000,
-    "head_of_household": 60_000,
-    "married_filing_separately": 35_000,
-}
+# §235-55.85(b) as amended by Act 163 (2023): "Under $15,000 ... $220" etc.
+ACT163_SINGLE: Schedule = (
+    (15_000, 220), (20_000, 200), (25_000, 170), (30_000, 140), (40_000, 110),
+)
+ACT163_JOINT: Schedule = ACT163_SINGLE + ((50_000, 90), (60_000, 70))
+
+# §235-55.85(b) before Act 163 (L 2015, c 223), reenacted from TY2028.
+PRIOR_SINGLE: Schedule = (
+    (5_000, 110), (10_000, 100), (15_000, 85), (20_000, 70), (30_000, 55),
+)
+PRIOR_JOINT: Schedule = PRIOR_SINGLE + ((40_000, 45), (50_000, 35))
+
+ACT163_FIRST_YEAR = 2023
+ACT163_LAST_YEAR = 2027           # repealed December 31, 2027
+
+# The "joint" table covers heads of household, surviving spouses, spouses
+# filing separately and married couples filing jointly.
+_JOINT_TABLE_STATUSES = frozenset({
+    "married_filing_jointly", "head_of_household", "married_filing_separately",
+    "qualifying_widow", "qualifying_surviving_spouse",
+})
 
 
 @dataclass(frozen=True)
 class HawaiiFoodExciseParameters:
-    per_exemption: float = 110.0
-    phase_out_start: Mapping[str, float] = field(
-        default_factory=lambda: dict(_DEFAULT_PHASE_OUT_START)
-    )
-    phase_out_end: Mapping[str, float] = field(
-        default_factory=lambda: dict(_DEFAULT_PHASE_OUT_END)
-    )
+    """Food/excise credit schedules. Defaults are the Act 163 (TY2023-2027) law."""
+
+    single: Schedule = ACT163_SINGLE
+    joint: Schedule = ACT163_JOINT
     amount_pct: float = 1.0
     income_threshold_factor: float = 1.0
 
 
-def hawaii_food_excise_parameters() -> HawaiiFoodExciseParameters:
-    return HawaiiFoodExciseParameters()
+def hawaii_food_excise_parameters(tax_year: Optional[int] = None) -> HawaiiFoodExciseParameters:
+    """Year-aware parameters: Act 163 for TY2023-2027, prior law otherwise.
+
+    With ``tax_year`` omitted, returns the Act 163 schedule (law in effect
+    when this was written, 2026).
+    """
+    if tax_year is None or ACT163_FIRST_YEAR <= tax_year <= ACT163_LAST_YEAR:
+        return HawaiiFoodExciseParameters()
+    return HawaiiFoodExciseParameters(single=PRIOR_SINGLE, joint=PRIOR_JOINT)
 
 
 def with_food_excise_overrides(
@@ -80,36 +100,43 @@ def with_food_excise_overrides(
     return replace(base, **dict(overrides))
 
 
+def _per_exemption(agi: np.ndarray, schedule: Schedule, factor: float) -> np.ndarray:
+    """Amount per exemption from a bracket table; 0 at or above the last ceiling."""
+    ceilings = np.array([c for c, _ in schedule], dtype=float) * factor
+    amounts = np.append(np.array([a for _, a in schedule], dtype=float), 0.0)
+    return amounts[np.searchsorted(ceilings, agi, side="right")]
+
+
 def compute_hi_food_excise_for_units(
     units: pd.DataFrame,
     *,
+    tax_year: Optional[int] = None,
     params: Optional[HawaiiFoodExciseParameters] = None,
     overrides: Optional[Mapping[str, object]] = None,
     out_col: str = "hi_food_excise_amount",
 ) -> pd.DataFrame:
-    """Compute the HI Food/Excise Tax Credit annual amount per tax unit."""
+    """Compute the HI Food/Excise Tax Credit per tax unit.
+
+    ``tax_year`` selects the statutory schedule when ``params`` is not given.
+    """
     p = with_food_excise_overrides(
-        params or hawaii_food_excise_parameters(), overrides
+        params or hawaii_food_excise_parameters(tax_year), overrides
     )
     df = units.copy()
 
-    income = df["income"].fillna(0).astype(float).to_numpy()
-    is_joint = (df["filing_status"] == "married_filing_jointly").to_numpy()
-    n_dep = df["num_dependents"].fillna(0).astype(int).to_numpy()
-    n_exemptions = 1 + is_joint.astype(int) + n_dep
-    base_credit = n_exemptions * p.per_exemption * p.amount_pct
+    agi = df["income"].fillna(0).astype(float).clip(lower=0).to_numpy()
+    status = df["filing_status"].to_numpy()
+    is_joint_table = np.isin(status, list(_JOINT_TABLE_STATUSES))
+    n_exemptions = (
+        1
+        + (status == "married_filing_jointly").astype(int)
+        + df["num_dependents"].fillna(0).astype(int).to_numpy()
+    )
 
-    starts = df["filing_status"].map(p.phase_out_start).fillna(
-        p.phase_out_start.get("single", 30_000)
-    ).to_numpy() * p.income_threshold_factor
-    ends = df["filing_status"].map(p.phase_out_end).fillna(
-        p.phase_out_end.get("single", 50_000)
-    ).to_numpy() * p.income_threshold_factor
-
-    # Linear phase-out
-    phase_pct = np.clip((income - starts) / np.maximum(ends - starts, 1e-9), 0.0, 1.0)
-    credit = base_credit * (1.0 - phase_pct)
-    credit = np.where(income >= ends, 0.0, credit)
-
-    df[out_col] = credit
+    per_ex = np.where(
+        is_joint_table,
+        _per_exemption(agi, p.joint, p.income_threshold_factor),
+        _per_exemption(agi, p.single, p.income_threshold_factor),
+    )
+    df[out_col] = per_ex * n_exemptions * p.amount_pct
     return df

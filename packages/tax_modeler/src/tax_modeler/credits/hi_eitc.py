@@ -1,9 +1,14 @@
 """Hawaii State Earned Income Tax Credit (HRS §235-55.75).
 
 Hawaii enacted a state EITC effective TY 2018 (Act 107, 2017) at 20% of
-the federal EITC, **non-refundable**. Act 209 (2023, HB 954) made the
-credit **refundable** and increased the rate to **40% of federal EITC**
-for tax years beginning after December 31, 2022.
+the federal EITC, **non-refundable**. Act 114 (2022, HB 2510) made it
+**refundable** and permanent from TY 2023, and Act 163 (2023) raised the rate
+to **40% of federal EITC** for tax years beginning after December 31, 2022.
+
+Act 163 is repealed on December 31, 2027 and §235-55.75(a) is reenacted as
+it read before (L 2023, c 163, §5): **refundable, 20% of federal**, from
+TY 2028. The 2026 session did not extend it (HB 2306's extension was not
+enacted; its companion SB 3125 became Act 24 without it).
 
 Calculation::
 
@@ -16,8 +21,8 @@ credits.
 
 Reform DSL (``Reform.benefit_overrides["hi_eitc"]``):
 
-  * ``rate_of_federal``    fraction of federal EITC (default 0.40 for TY 2023+)
-  * ``refundable``         True/False (default True for TY 2023+)
+  * ``rate_of_federal``    fraction of federal EITC (0.40 for TY 2023-2027, 0.20 otherwise)
+  * ``refundable``         True/False (True from TY 2023)
   * ``amount_pct``         multiplier on final credit (default 1.0)
 """
 from __future__ import annotations
@@ -33,7 +38,7 @@ from tax_modeler.errors import ConfigError
 
 @dataclass(frozen=True)
 class HawaiiEitcParameters:
-    """HI EITC parameters. Defaults reflect TY 2023+ law."""
+    """HI EITC parameters. Defaults reflect Act 163 (TY 2023-2027) law."""
 
     rate_of_federal: float = 0.40
     refundable: bool = True
@@ -43,17 +48,19 @@ class HawaiiEitcParameters:
 def hawaii_eitc_parameters(tax_year: Optional[int] = None) -> HawaiiEitcParameters:
     """Year-aware HI EITC parameters.
 
-    Act 107 (2017) introduced the credit at 20% of federal, non-refundable,
-    effective TY 2018. Act 209 (2023) raised the rate to 40% and made the
-    credit refundable, effective for "tax years beginning after December 31,
-    2022" — i.e. TY 2023 onward.
+    * TY 2018-2022: 20% of federal, non-refundable (Act 107, 2017).
+    * TY 2023-2027: 40% of federal, refundable (Act 114, 2022; Act 163, 2023).
+    * TY 2028 on:   20% of federal, refundable (Act 163 repealed 12/31/2027;
+      the Act 114 text is reenacted).
 
-    When ``tax_year`` is omitted, the function returns the post-Act 209
-    parameters (TY 2023+). Pre-2023 callers must pass an explicit year so
-    backtests don't overstate the credit.
+    When ``tax_year`` is omitted, returns the Act 163 parameters (law in
+    effect when this was written, 2026). Callers scoring other years must pass
+    the year so neither backtests nor post-2027 projections misstate the credit.
     """
-    if tax_year is None or tax_year >= 2023:
+    if tax_year is None or 2023 <= tax_year <= 2027:
         return HawaiiEitcParameters(rate_of_federal=0.40, refundable=True)
+    if tax_year >= 2028:
+        return HawaiiEitcParameters(rate_of_federal=0.20, refundable=True)
     return HawaiiEitcParameters(rate_of_federal=0.20, refundable=False)
 
 

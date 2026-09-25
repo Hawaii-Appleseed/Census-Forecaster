@@ -77,7 +77,20 @@ ACT24 = Estimate(
     },
     stamp=("manifest.json",),
 )
-ESTIMATES = (ACT24, CAPITAL_GAINS)
+WORKING_FAMILIES = Estimate(
+    slug="working-family-credits",
+    files={f: f"working_family_credits/{f}" for f in (
+        "revenue_by_year.csv",
+        "calibration.csv",
+        "distribution_ty2028.csv",
+        "by_family_type_ty2028.csv",
+        "poverty_ty2028.csv",
+        "poverty_seed_spread.csv",
+        "manifest.json",
+    )},
+    stamp=("manifest.json",),
+)
+ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS)
 
 
 def import_runs(est: Estimate) -> None:
@@ -753,6 +766,169 @@ def build_act24() -> tuple[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# Working-family credits page
+# ---------------------------------------------------------------------------
+
+def build_working_families() -> tuple[str, dict]:
+    d = DATA / WORKING_FAMILIES.slug
+    rev = {int(r["tax_year"]): r for r in read_csv(d / "revenue_by_year.csv")}
+    cal = {r["check"]: r for r in read_csv(d / "calibration.csv")}
+    dist = read_csv(d / "distribution_ty2028.csv")
+    fam = read_csv(d / "by_family_type_ty2028.csv")
+    pov = read_csv(d / "poverty_ty2028.csv")[0]
+    spread = read_csv(d / "poverty_seed_spread.csv")
+    manifest = json.loads((d / "manifest.json").read_text())
+    notes = Notes()
+
+    Y = 2028
+    years = [y for y in sorted(rev) if y >= Y]
+    last = years[-1]
+    r = rev[Y]
+    persons = [pov["persons_into_poverty"]] + [s["persons_into_poverty"] for s in spread]
+    kids = [pov["children_into_poverty"]] + [s["children_into_poverty"] for s in spread]
+
+    def rng(vals, step=100):
+        lo, hi = min(vals), max(vals)
+        lo, hi = int(lo // step * step), int(-(-hi // step) * step)
+        return f"{lo:,} to {hi:,}"
+
+    losing_hh = sum(g["households"] * g["pct_households_losing"] / 100 for g in dist)
+    single_parent = next(g for g in fam if g["group"] == "Single parent")
+    bottom = dist[0]
+    top = dist[-1]
+    five_year = sum(rev[y]["total_loss_$M"] for y in years)
+
+    T_act163 = ('Hawaiʻi State Legislature, Act 163, Session Laws of Hawaiʻi 2023, §§2, 3 and 5 (repeal and '
+                'reenactment on December 31, 2027).')
+    T_eitc = ('Hawaiʻi Revised Statutes §235-55.75, refundable earned income tax credit; as amended by Act 114 (2022) '
+              'and Act 163 (2023). <a href="https://law.justia.com/codes/hawaii/title-14/chapter-235/section-235-55-75/">law.justia.com</a>')
+    T_food = ('Hawaiʻi Revised Statutes §235-55.85, refundable food/excise tax credit; tables before and after Act 163. '
+              '<a href="https://law.justia.com/codes/hawaii/title-14/chapter-235/section-235-55-85/">law.justia.com</a>')
+    T_2026 = ('Hawaiʻi State Legislature, HB 2306 (2026), which would have extended the Act 163 expansions; '
+              'not enacted. Its companion, SB 3125, became Act 24 without the extension. '
+              '<a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=HB&amp;billnumber=2306&amp;year=2026">capitol.hawaii.gov</a>')
+    T_dotax = ('Hawaiʻi Department of Taxation, “Tax Credits Claimed by Hawaiʻi Taxpayers,” Tax Years 2022 and 2023, '
+               'Tables A-1 and A-2. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_working_family_credits.py">github.com</a>')
+
+    src_model = f"Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; tax year {Y}."
+
+    hero = f"""
+<section class="ha-est__hero"><div class="ha-est__hero-inner">
+<p class="ha-est__eyebrow">Current policy · Tax credits</p>
+<h1>Expiring Relief</h1>
+<hr class="ha-est__hero-rule">
+<p class="ha-est__deck">What Hawaiʻi’s working families lose when the 2023 expansions of the earned income tax credit and the food/excise tax credit expire after 2027, and what renewing them would cost.</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
+</div></section>
+<div class="ha-est__stats">
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label"><strong>Less for working families</strong> in tax year {Y}, and what renewal would cost the state.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">Households that <strong>lose part of a credit</strong> in {Y}.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">Average loss for a <strong>single-parent household</strong> that loses.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{rng(persons, 100).split(" to ")[0]}+</div><div class="ha-est__stat-label">More people in <strong>poverty</strong>, including more than {rng(kids, 100).split(" to ")[0]} children.</div></div>
+</div>"""
+
+    food_rows = [
+        ["Under $5,000", "$110", "$220"], ["$5,000 to $10,000", "$100", "$220"],
+        ["$10,000 to $15,000", "$85", "$220"], ["$15,000 to $20,000", "$70", "$200"],
+        ["$20,000 to $25,000", "$55", "$170"], ["$25,000 to $30,000", "$55", "$140"],
+        ["$30,000 to $40,000", "$45*", "$110"], ["$40,000 to $50,000", "$35*", "$90*"],
+        ["$50,000 to $60,000", "$0", "$70*"],
+    ]
+    s1 = section("What Act 163 Did", f"""
+{lead("In 2023 the Legislature doubled", f"Hawaiʻi’s two main tax credits for working families.{notes.ref(T_act163)} Act 163 raised the state earned income tax credit from 20 percent to 40 percent of the federal credit, which already went only to people who work.{notes.ref(T_eitc)} It also more than doubled the refundable food/excise tax credit, which offsets the general excise tax low-income households pay on groceries and other necessities, and extended it $10,000 further up the income scale.{notes.ref(T_food)}")}
+<p>Both expansions were temporary. Act 163 is repealed on December 31, 2027, and both credits return to their earlier form for tax year {Y}. A 2026 bill to extend them was not enacted.{notes.ref(T_2026)} The earned income tax credit stays refundable, but at 20 percent of the federal credit.</p>
+{table(["Income (AGI)", "Before and after 2027", "2023 to 2027"], food_rows,
+       caption="Table 1. Food/Excise Tax Credit per Exemption")}
+<p class="ha-est__source">Amounts per exemption (the filer, a spouse and each dependent). * Heads of household and married couples only; single filers’ credit ends at $30,000 before and after 2027, and at $40,000 from 2023 to 2027.</p>
+""", "act-163")
+
+    s2_series = [("Earned income tax credit", C_PRIMARY, [rev[y]["eitc_loss_$M"] for y in years]),
+                 ("Food/excise tax credit", C_SECOND, [rev[y]["food_loss_$M"] for y in years])]
+    fig1_label = "Credit dollars lost each year: " + ", ".join(f"{y} {m1(rev[y]['total_loss_$M'])} million" for y in years) + "."
+    rrows = [[str(y), m1(rev[y]["eitc_expanded_$M"]), m1(rev[y]["eitc_reverted_$M"]),
+              m1(rev[y]["food_expanded_$M"]), m1(rev[y]["food_reverted_$M"]), m1(rev[y]["total_loss_$M"])] for y in years]
+    s2 = section("What Families Lose", f"""
+{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}: {millions(r['eitc_loss_$M'])} from the earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)}")}
+<p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The earned income tax credit follows the federal credit, which is indexed.</p>
+{figure(1, f"Credit Dollars Working Families Lose Each Year, Hawaiʻi ({Y} to {last})",
+        stacked_column_chart([str(y) for y in years], s2_series, label=fig1_label),
+        "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model. Millions of dollars.", s2_series)}
+{table(["Tax year", "EITC, renewed", "EITC, expired", "Food/excise, renewed", "Food/excise, expired", "Lost"], rrows,
+       caption="Table 2. State Credits Paid With the Expansions Renewed and Expired ($ Millions)")}
+""", "revenue")
+
+    def drow(g, label=None):
+        return [label or g["group"], f"{g['households']:,.0f}", pct(g["pct_households_losing"]),
+                dollars(g["avg_loss_per_losing_household"]), m1(g["total_loss_$M"])]
+    fam_series = [("Average loss", C_PRIMARY, [g["avg_loss_per_losing_household"] for g in fam])]
+    labels = {"Lowest 20%": "Lowest 20 percent", "Second 20%": "Second 20 percent", "Middle 20%": "Middle 20 percent",
+              "Fourth 20%": "Fourth 20 percent", "Top 20%": "Top 20 percent"}
+    s3 = section("Who Loses", f"""
+{lead("The loss falls hardest on families with children", f"and the lowest incomes. In {Y}, {pct(bottom['pct_households_losing'])} percent of households in the lowest-income fifth lose part of a credit, an average of {dollars(bottom['avg_loss_per_losing_household'])} each, and that fifth bears {pct(100 * bottom['total_loss_$M'] / r['total_loss_$M'])} percent of the total. Single-parent households that lose give up {dollars(single_parent['avg_loss_per_losing_household'])} on average, as Figure 2 shows.")}
+{figure(2, f"Average Loss per Household That Loses a Credit, by Family Type, Hawaiʻi (Tax Year {Y})",
+        hbar_chart([g["group"] for g in fam], fam_series, fmt=lambda v: f"${v:,.0f}",
+                   label=f"Average loss per household that loses, tax year {Y}: " + "; ".join(f"{g['group']} {dollars(g['avg_loss_per_losing_household'])}" for g in fam) + "."),
+        src_model)}
+{table(["Family type", "Households", "Percent losing", "Average loss if losing", "Total ($ millions)"],
+       [drow(g) for g in fam], caption=f"Table 3. Loss by Family Type, Tax Year {Y}")}
+{table(["Household income", "Households", "Percent losing", "Average loss if losing", "Total ($ millions)"],
+       [drow(g, labels.get(g["group"])) for g in dist], caption=f"Table 4. Loss by Fifth of Households, Tax Year {Y}")}
+<p class="ha-est__source">Households are ranked by the combined income of everyone in them. Many Hawaiʻi households include several tax filers, so a grown child or grandparent with a low income can qualify on their own return in a household near the top of the ranking; that is why {pct(top['pct_households_losing'])} percent of the top fifth lose some credit.</p>
+""", "who-loses")
+
+    hoh_r, hoh_e = pov["poverty_rate_renewed_head_of_household"], pov["poverty_rate_expired_head_of_household"]
+    s4 = section("More Families in Poverty", f"""
+{lead("Losing the expansions pushes", f"an estimated {rng(persons)} more people below the poverty line in {Y}, {rng(kids)} of them children, and deepens poverty for families already below it by {millions(pov['poverty_gap_increase_$M'])}. The state poverty rate rises from {pct(100 * pov['poverty_rate_renewed'], 1)} percent to {pct(100 * pov['poverty_rate_expired'], 1)} percent. For single parents and their children it rises from {pct(100 * hoh_r, 1)} percent to {pct(100 * hoh_e, 1)} percent.")}
+<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. The range reflects how the count moves with small, arbitrary choices in how the model groups people into families; the lower number is the more cautious one. The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
+""", "poverty")
+
+    vrows = [
+        ["State EITC dollars, 2023", f"${cal['TY2023 EITC $M (fit)']['dotax']:,.1f}M", f"${cal['TY2023 EITC $M (fit)']['model']:,.1f}M", "Fitted"],
+        ["State EITC claims, 2023", f"{cal['TY2023 EITC claims']['dotax']:,.0f}", f"{cal['TY2023 EITC claims']['model']:,.0f}", "Check"],
+        ["Food/excise dollars, 2023", f"${cal['TY2023 food/excise $M (fit)']['dotax']:,.1f}M", f"${cal['TY2023 food/excise $M (fit)']['model']:,.1f}M", "Fitted"],
+        ["Food/excise claims, 2023", f"{cal['TY2023 food/excise claims']['dotax']:,.0f}", f"{cal['TY2023 food/excise claims']['model']:,.0f}", "Check"],
+        ["Food/excise dollars, 2022 (old table)", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['dotax']:,.1f}M", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['model']:,.1f}M", "Check"],
+        ["Food/excise claims, 2022 (old table)", f"{cal['TY2022 food/excise claims, prior table']['dotax']:,.0f}", f"{cal['TY2022 food/excise claims, prior table']['model']:,.0f}", "Check"],
+    ]
+    s5 = section("How These Estimates Are Made", f"""
+{lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
+<p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that 2023, the first year of the expansions, matches what the Department of Taxation actually paid, then holds that rate fixed.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, reproduces that year’s food/excise credit under the old table within 2 percent (Table 5).</p>
+{table(["Measure", "Department of Taxation", "Model", ""], vrows, caption="Table 5. Model Against Department of Taxation Records")}
+<h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
+<ul class="ha-est__downloads">
+<li><a href="../data/working-family-credits/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: both credits by tax year, renewed and expired, with claimants</li>
+<li><a href="../data/working-family-credits/distribution_ty2028.csv"><code>distribution_ty2028.csv</code></a>: loss by fifth of households</li>
+<li><a href="../data/working-family-credits/by_family_type_ty2028.csv"><code>by_family_type_ty2028.csv</code></a>: loss by family type</li>
+<li><a href="../data/working-family-credits/poverty_ty2028.csv"><code>poverty_ty2028.csv</code></a> and <a href="../data/working-family-credits/poverty_seed_spread.csv"><code>poverty_seed_spread.csv</code></a>: poverty estimates and their range</li>
+<li><a href="../data/working-family-credits/calibration.csv"><code>calibration.csv</code></a>: claim rates and the checks in Table 5</li>
+<li><a href="../data/working-family-credits/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
+</ul>
+""", "method")
+
+    endnotes = section("Endnotes", notes.html(), "endnotes")
+    body = hero + s1 + s2 + s3 + s4 + s5 + endnotes
+    desc = (f"When Act 163’s credit expansions expire after 2027, Hawaiʻi’s working families lose about "
+            f"{millions(r['total_loss_$M'])} a year and {rng(persons)} more people fall into poverty.")
+    card = {
+        "slug": WORKING_FAMILIES.slug,
+        "category": "current",
+        "eyebrow": "Tax credits",
+        "title": "Expiring Relief",
+        "text": "The 2023 expansions of the earned income and food/excise tax credits end after 2027. What families lose, and what renewal would cost.",
+        "stat": millions(r["total_loss_$M"]),
+        "stat_label": f"less for working families in tax year {Y}",
+        "date": long_date(manifest["created_at"]),
+        "year": datetime.fromisoformat(manifest["created_at"]).year,
+    }
+    html_out = page(title="Expiring Relief: Working Family Tax Credits | Hawaiʻi Appleseed Estimates",
+                    description=desc, body=body, depth=1,
+                    year=datetime.fromisoformat(manifest["created_at"]).year)
+    return html_out, card
+
+
+# ---------------------------------------------------------------------------
 # hub
 # ---------------------------------------------------------------------------
 
@@ -802,10 +978,12 @@ def build(out: Path = SITE) -> list[Path]:
     """Render every page from site/data into `out`. Returns the files written."""
     cg_html, cg_card = build_capital_gains()
     a24_html, a24_card = build_act24()
+    wf_html, wf_card = build_working_families()
     written = {
         out / "act-24" / "index.html": a24_html,
+        out / "working-family-credits" / "index.html": wf_html,
         out / "capital-gains" / "index.html": cg_html,
-        out / "index.html": build_index([a24_card, cg_card]),
+        out / "index.html": build_index([a24_card, wf_card, cg_card]),
         out / ".nojekyll": "",
     }
     for path, text in written.items():

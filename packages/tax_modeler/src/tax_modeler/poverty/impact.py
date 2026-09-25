@@ -11,7 +11,7 @@ and re-computes them under one or more counterfactual scenarios:
 
   Partial-reduction scenarios:
     * ``hi_eitc_revert_20`` — Hawaii state EITC rate cut from 40% (Act
-      209, 2023 current law) back to 20% of federal — i.e. ``hi_eitc_amount
+      163, 2023) back to 20% of federal — i.e. ``hi_eitc_amount
       × 0.5``.
     * ``hi_eitc_revert_20_behavioral`` — same static cut plus the
       extensive-margin single-mother LFP exit response per Meyer &
@@ -19,6 +19,11 @@ and re-computes them under one or more counterfactual scenarios:
       column precomputed via
       :func:`tax_modeler.scenarios.eitc_labor_response.apply_hi_eitc_lfp_response`
       before SPM-unit aggregation.
+    * ``act163_sunset`` — Act 163 (2023) expires after TY2027: the Hawaii
+      EITC falls from 40% to 20% of federal and the food/excise credit
+      returns to its pre-2023 table. Subtracts the precomputed
+      ``act163_sunset_loss`` column (dollars per tax unit, take-up
+      adjusted; see ``forecast_working_family_credits.py``).
 
   Expansion / new-credit scenarios:
     * ``expanded_ctc_2021`` — federal CTC replaced with the ARPA 2021
@@ -134,7 +139,7 @@ _DEFAULT_SCENARIOS: tuple[str, ...] = (
     "hi_ctc_1000",
 )
 
-_HI_EITC_CURRENT_RATE = 0.40  # Act 209 (2023) — 40% of federal, refundable.
+_HI_EITC_CURRENT_RATE = 0.40  # Act 163 (2023) — 40% of federal, refundable, TY2023-2027.
 
 # Per-child HI CTC scenarios are encoded directly in the scenario name:
 # ``hi_ctc_300`` → $300/child, ``hi_ctc_650`` → $650/child, etc. The
@@ -147,6 +152,7 @@ _HI_CTC_SCENARIO_RE = re.compile(r"^hi_ctc_(\d+)$")
 _REMOVAL_LIKE_SCENARIOS: frozenset[str] = frozenset({
     "hi_eitc_revert_20",
     "hi_eitc_revert_20_behavioral",
+    "act163_sunset",
 })
 
 # Filing-status values used for the by_household_type disaggregation.
@@ -260,6 +266,13 @@ def _scenario_resources(
         intensive = _col("intensive_resource_loss")
         behavioral = np.maximum(lfp_loss - snap_offset + intensive, 0.0)
         return baseline_resources - static - behavioral
+    if scenario == "act163_sunset":
+        if "act163_sunset_loss" not in units.columns:
+            raise KeyError(
+                "scenario='act163_sunset' requires column 'act163_sunset_loss' "
+                "(per-unit loss of both Act 163 credit expansions)."
+            )
+        return baseline_resources - units["act163_sunset_loss"].fillna(0).to_numpy(dtype=float)
     if scenario == "no_credits":
         return baseline_resources - (eitc + ctc + hi_eitc)
     if scenario == "expanded_ctc_2021":
