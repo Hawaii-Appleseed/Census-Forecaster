@@ -1,17 +1,22 @@
 variant,static,behavioral
-Central estimate,118.69788231220905,79.07882217404688
-Without calibration to each county's sales by price,111.99568626565505,73.8248308889036
-County sales by price at the low end of the market data,100.12319838889995,66.54137567743379
-County sales by price at the high end of the market data,147.355209336097,98.12721725631032
-Oahu from its own ownership turnover (1.63x Maui's rates at $4M+),132.86617713983412,88.11648665466174
-No spread of sale prices around assessed value,118.68055787148785,79.607770208191
-Hawaii Island homeowner values as assessed (capped),119.4248294791644,79.55008583951263
-Kauai from tax-roll value above $2M,117.66401608619515,78.02567248025372
-Sales fall 4% per point of added tax,,87.33630216330216
-Sales fall 10% per point of added tax,,64.3300027715209
-"Sales fall 6% per point for owner-occupants, 8% for other buyers",,72.0289177674136
-No sales of entities in place of homes,,88.97420501053197
-Half of entity-held sales of $4M+ sold as entities,,69.18306443864353
-10% of other buyers at $4M+ claim the owner-occupant rates,,76.67051800046465
-First year after a rush of sales before the law takes effect,,70.76991970771942
-"Previous assumptions: sales fall 10% per point, no entity sales",,72.6641896744752
+Central estimate,118.69788231220905,77.71573320559155
+Without calibration to each county's sales by price,111.99568626565505,72.94871620305537
+County sales by price at the low end of the market data,100.12319838889995,65.45813477180975
+County sales by price at the high end of the market data,147.355209336097,96.40047372164031
+Oahu from its own ownership turnover (1.63x Maui's rates at $4M+),132.86617713983412,86.7589576677004
+No spread of sale prices around assessed value,118.68055787148785,78.19994139073465
+Hawaii Island homeowner values as assessed (capped),119.4248294791644,78.16472836106794
+Kauai from tax-roll value above $2M,117.66401608619515,76.7876074465998
+Sales fall 4% per point of added tax,,85.30610824066457
+Sales fall 10% per point of added tax,,64.35433584837648
+Other buyers respond 30% more than owner-occupants,,71.90560438503772
+"Developer sales respond at once, like others",,73.44998481115498
+No fall in recorded prices,,80.77934101209658
+Recorded prices fall 1.5% per point of added tax,,71.58366711666498
+No shift to the owner-occupant rates,,79.36356609931165
+6% of other buyers per point of the gap move to the owner-occupant rates,,74.42005907674152
+No sales of entities in place of homes,,85.45998061545535
+Half of entity-held sales of $4M+ sold as entities,,66.09882419890477
+First year after a rush of sales before the law takes effect,,64.48631315097938
+"Third revision's single response: sales fall 6% per point, a quarter of entity sales escape",,79.07882217404688
+"Second revision's assumptions: sales fall 10% per point, no entity sales",,72.6641896744752
