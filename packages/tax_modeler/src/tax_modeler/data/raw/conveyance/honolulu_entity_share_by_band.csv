@@ -1,0 +1,4 @@
+band_lo,band_hi,homes_nonowner_occupied,entity_share_nonowner_occupied,homes_owner_occupied,entity_share_owner_occupied,resales_nonowner_occupied,resales_owner_occupied,developer_first_sales,seller_weighted_entity_share,seller_entity_share_resales,owndat_taxyr,owndat_pulled,resale_window_start,resale_window_end
+4000000,6000000,727,0.447,598,0.0368,106,45,70,0.2219,0.2217,2027,2026-09-25,2023-12-05,2026-09-25
+6000000,10000000,373,0.5228,175,0.0914,48,23,0,0.3831,0.3944,2027,2026-09-25,2023-12-05,2026-09-25
+10000000,inf,122,0.623,23,0.2174,18,1,0,0.6016,0.5789,2027,2026-09-25,2023-12-05,2026-09-25

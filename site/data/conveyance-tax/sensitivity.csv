@@ -1,9 +1,17 @@
 variant,static,behavioral
-Central estimate,115.42914565241992,69.52361574781847
-Without the Maui calibration,98.92399913669576,59.924042115338395
-Hawaii Island without homes on agricultural land,114.15473634700899,68.68233212899167
-Oahu rebuilt from MLS sales (condos priced as listed),106.17055898903838,63.93988506437538
-Oahu rebuilt from MLS sales (condos priced to all recorded sales),124.35824309860811,75.41488484864271
-All three counties from tax-roll tiers (first statewide method),108.88469040532794,66.35106091017751
-Sales response 5% per point,,90.19711600399428
-Sales response 15% per point,,52.53807711888281
+Central estimate,118.69788231220905,79.07882217404688
+Without calibration to each county's sales by price,111.99568626565505,73.8248308889036
+County sales by price at the low end of the market data,100.12319838889995,66.54137567743379
+County sales by price at the high end of the market data,147.355209336097,98.12721725631032
+Oahu from its own ownership turnover (1.63x Maui's rates at $4M+),132.86617713983412,88.11648665466174
+No spread of sale prices around assessed value,118.68055787148785,79.607770208191
+Hawaii Island homeowner values as assessed (capped),119.4248294791644,79.55008583951263
+Kauai from tax-roll value above $2M,117.66401608619515,78.02567248025372
+Sales fall 4% per point of added tax,,87.33630216330216
+Sales fall 10% per point of added tax,,64.3300027715209
+"Sales fall 6% per point for owner-occupants, 8% for other buyers",,72.0289177674136
+No sales of entities in place of homes,,88.97420501053197
+Half of entity-held sales of $4M+ sold as entities,,69.18306443864353
+10% of other buyers at $4M+ claim the owner-occupant rates,,76.67051800046465
+First year after a rush of sales before the law takes effect,,70.76991970771942
+"Previous assumptions: sales fall 10% per point, no entity sales",,72.6641896744752

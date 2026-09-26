@@ -1,4 +1,5 @@
-"""Hawaii conveyance tax (HRS chapter 247): current law and SB 3028 HD2 (2026).
+"""Hawaiʻi conveyance tax (HRS chapter 247): current law, SB 3028 HD2 (2026)
+and two benchmark bills.
 
 Current law, HRS §247-2 (last amended L 2009, c 59), is a *cliff* schedule:
 once a price crosses a threshold, one rate applies to the whole price.
@@ -11,6 +12,29 @@ owner-occupant and other purchasers and a cap on the total, CPI-indexes the
 residential brackets from 2027, and leaves nonresidential property on the
 current schedule (1).
 
+No official revenue estimate exists for SB 3028, so two bills that have one
+are scored as benchmarks:
+  HB 2049 HD3 (2026; passed the House March 10, 2026; Rep. Evslin put the
+    increase at about $170M a year) has HD2's structure with steeper rates
+    from $600K (above $2M: owner 3.75-6.25%, non-owner 6.5-9.5%), the same
+    4% / 6% caps, brackets indexed from 2027, and nonresidential on the
+    current schedule (1).
+  HB 1410 HD2 (2025; DOTAX's table to House Finance, February 25, 2025,
+    implies +$58M in FY2026) makes schedule (1) marginal for owner-occupant
+    *and* nonresidential sales, adds a marginal schedule (2) for non-owner
+    purchases, has no cap, and indexes the brackets from 2026.
+BILLS maps each bill to its tax function and first indexed year.
+
+Both 2026 bills also CPI-index schedule (3), the cliff for property with no
+dwelling unit (§247-2(b) names (a)(1)-(3)). Nonresidential is left unindexed
+here, as in hd2_tax; on Maui's binned sales that is about $0.04M of $5.8M in
+FY2028.
+
+Bill texts (read September 25, 2026):
+  https://data.capitol.hawaii.gov/sessions/session2026/bills/SB3028_HD2_.HTM
+  https://data.capitol.hawaii.gov/sessions/session2026/bills/HB2049_HD3_.HTM
+  https://data.capitol.hawaii.gov/sessions/session2025/bills/HB1410_HD2_.HTM
+
 Categories used here:
   "owner"     residential, purchaser eligible for the homeowner exemption
   "nonowner"  residential (condo / single-family), purchaser ineligible
@@ -18,6 +42,7 @@ Categories used here:
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -34,9 +59,9 @@ CURRENT_2 = ((600e3, .0015), (1e6, .0025), (2e6, .0040), (4e6, .0060),
 @dataclass(frozen=True)
 class MarginalSchedule:
     """Marginal brackets: (lower bound, rate on the value above it), plus a cap
-    on the total as a share of price."""
+    on the total as a share of price (np.inf: no cap)."""
     brackets: tuple[tuple[float, float], ...]
-    cap: float
+    cap: float = np.inf
 
 
 # SB 3028 SD2 HD2, §247-2 as amended. The bill states each band as a base
@@ -52,6 +77,36 @@ HD2_NONOWNER = MarginalSchedule(
     cap=.06)
 HD2_FIRST_INDEX_YEAR = 2027   # brackets adjusted annually by Urban Hawaii CPI from 2027
 
+# HB 2049 HD3, §247-2(a)(1) and (2) as amended: HD2's form, steeper from $600K.
+# Printed bases: owner $600, $2,000, $8,000, $83,000, $168,000, $378,000;
+# non-owner $900, $2,900, $9,400, $139,400, $289,400, $639,400.
+# §247-2(c) caps the total at 4% / 6%; (b) indexes "for each taxable year
+# beginning after December 31, 2026".
+HB2049_HD3_OWNER = MarginalSchedule(
+    brackets=((0, .0010), (600e3, .0035), (1e6, .0060), (2e6, .0375),
+              (4e6, .0425), (6e6, .0525), (10e6, .0625)),
+    cap=.04)
+HB2049_HD3_NONOWNER = MarginalSchedule(
+    brackets=((0, .0015), (600e3, .0050), (1e6, .0065), (2e6, .0650),
+              (4e6, .0750), (6e6, .0875), (10e6, .0950)),
+    cap=.06)
+HB2049_HD3_FIRST_INDEX_YEAR = 2027
+
+# HB 1410 HD2, §247-2(a) as amended (the rates of SB 3028 as introduced).
+# Schedule (1), "except as provided in paragraph (2)", covers owner-occupant
+# and nonresidential sales; (2) covers a condominium, single-family residence
+# or agricultural land with a dwelling bought by a purchaser ineligible for the
+# homeowner exemption. Printed bases: (1) $600, $2,000, $8,000, $25,000,
+# $49,000, $119,000; (2) $900, $2,500, $9,000, $49,000, $99,000, $229,000.
+# No cap; (b) indexes "for each taxable year beginning after December 31, 2025".
+HB1410_HD2_1 = MarginalSchedule(
+    brackets=((0, .0010), (600e3, .0035), (1e6, .0060), (2e6, .0085),
+              (4e6, .0120), (6e6, .0175), (10e6, .0300)))
+HB1410_HD2_2 = MarginalSchedule(
+    brackets=((0, .0015), (600e3, .0040), (1e6, .0065), (2e6, .0200),
+              (4e6, .0250), (6e6, .0325), (10e6, .0410)))
+HB1410_HD2_FIRST_INDEX_YEAR = 2026
+
 
 def cliff_tax(price: np.ndarray, schedule=CURRENT_1) -> np.ndarray:
     price = np.asarray(price, dtype=float)
@@ -62,13 +117,14 @@ def cliff_tax(price: np.ndarray, schedule=CURRENT_1) -> np.ndarray:
 
 def marginal_tax(price: np.ndarray, schedule: MarginalSchedule, index: float = 1.0) -> np.ndarray:
     """Tax under a marginal schedule whose bracket bounds are scaled by *index*
-    (CPI adjustment; upward only in the bill)."""
+    (CPI adjustment; upward only in the bills)."""
     price = np.asarray(price, dtype=float)
     lows = np.array([lo for lo, _ in schedule.brackets]) * max(index, 1.0)
     rates = np.array([r for _, r in schedule.brackets])
     highs = np.append(lows[1:], np.inf)
     slices = np.clip(price[..., None] - lows, 0, highs - lows)
-    return np.minimum((slices * rates).sum(axis=-1), schedule.cap * price)
+    tax = (slices * rates).sum(axis=-1)
+    return tax if np.isinf(schedule.cap) else np.minimum(tax, schedule.cap * price)
 
 
 def current_law_tax(price, category: str) -> np.ndarray:
@@ -81,6 +137,28 @@ def hd2_tax(price, category: str, index: float = 1.0) -> np.ndarray:
     if category == "nonowner":
         return marginal_tax(price, HD2_NONOWNER, index)
     return cliff_tax(price, CURRENT_1)     # nonresidential: unchanged
+
+
+def hb2049_hd3_tax(price, category: str, index: float = 1.0) -> np.ndarray:
+    if category == "owner":
+        return marginal_tax(price, HB2049_HD3_OWNER, index)
+    if category == "nonowner":
+        return marginal_tax(price, HB2049_HD3_NONOWNER, index)
+    return cliff_tax(price, CURRENT_1)     # nonresidential: schedule (3), today's rates
+
+
+def hb1410_hd2_tax(price, category: str, index: float = 1.0) -> np.ndarray:
+    if category == "nonowner":
+        return marginal_tax(price, HB1410_HD2_2, index)
+    return marginal_tax(price, HB1410_HD2_1, index)   # owner and nonresidential
+
+
+# Bill name -> (tax function with hd2_tax's signature, first indexed taxable year).
+BILLS: dict[str, tuple[Callable[..., np.ndarray], int]] = {
+    "SB3028 HD2": (hd2_tax, HD2_FIRST_INDEX_YEAR),
+    "HB2049 HD3": (hb2049_hd3_tax, HB2049_HD3_FIRST_INDEX_YEAR),
+    "HB1410 HD2": (hb1410_hd2_tax, HB1410_HD2_FIRST_INDEX_YEAR),
+}
 
 
 def value_above(tiers: list[tuple[float, float]], t: float, alpha: float | None = None) -> float:
