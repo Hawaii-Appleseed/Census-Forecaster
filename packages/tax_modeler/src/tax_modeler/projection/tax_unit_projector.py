@@ -44,6 +44,7 @@ import logging
 from pathlib import Path
 from typing import Dict, NamedTuple, Optional
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,17 @@ def _resolve_geoid(county: str, geoid_map: Dict[str, str]) -> Optional[str]:
                 return _KALAWAO_FALLBACK
             return geoid
     return None
+
+
+def _deduction_params_for(target_year: int, county, geoid_lookup: dict[str, str]):
+    """Target-year itemized-deduction params for one county's units: the
+    county's own when it maps to a geoid, the state proxy when it is missing
+    or unmapped. Used by the projector's tax step and by
+    ``refresh_stale_hawaii_tax``, so the two always agree."""
+    from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
+
+    geoid = None if county is None or pd.isna(county) else _resolve_geoid(str(county), geoid_lookup)
+    return scale_deduction_params_for_target_year(target_year, geoid=geoid or _STATE_PROXY_GEOID)
 
 
 def _fetch_growth_factor(
@@ -518,23 +530,18 @@ def project_tax_units_forward(
         )
 
     # --- Recalculate Hawaii tax on scaled incomes (with scaled deductions) ---
+    # refresh_stale_hawaii_tax repeats this step for units whose income changes
+    # after projection; both take their params from _deduction_params_for.
     from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
-    from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
 
     if has_county:
         # Compute per-county scaled deduction params and recalculate each group.
-        county_ded_params: Dict[str, dict] = {}
-        for county in df["county"].dropna().unique():
-            geoid = _resolve_geoid(str(county), geoid_lookup)
-            if geoid is None:
-                geoid = _STATE_PROXY_GEOID
-            county_ded_params[county] = scale_deduction_params_for_target_year(
-                target_year, geoid=geoid
-            )
+        county_ded_params: Dict[str, dict] = {
+            county: _deduction_params_for(target_year, county, geoid_lookup)
+            for county in df["county"].dropna().unique()
+        }
         # Fallback params for null-county rows
-        fallback_ded = scale_deduction_params_for_target_year(
-            target_year, geoid=_STATE_PROXY_GEOID
-        )
+        fallback_ded = _deduction_params_for(target_year, None, geoid_lookup)
 
         groups = []
         # Named county groups
@@ -555,9 +562,7 @@ def project_tax_units_forward(
             )
         df = pd.concat(groups).sort_index()
     else:
-        state_ded = scale_deduction_params_for_target_year(
-            target_year, geoid=_STATE_PROXY_GEOID
-        )
+        state_ded = _deduction_params_for(target_year, None, geoid_lookup)
         df = calculate_hawaii_tax_for_units(df, tax_year=target_year, deduction_params=state_ded)
 
     # --- Recalculate CTC and EITC on scaled incomes --------------------------
@@ -628,4 +633,81 @@ def project_tax_units_forward(
     df["projection_base_year"] = anchor_year if anchor_year is not None else _DEFAULT_BASE_YEAR
     df["projection_method"] = method
 
+    return df
+
+
+# The columns calculate_hawaii_tax writes, refreshed together.
+_HAWAII_TAX_COLUMNS = (
+    "hi_agi", "hi_standard_deduction", "hi_itemized_deduction",
+    "hi_personal_exemptions", "hi_taxable_income", "hi_tax_before_credits",
+    "hi_low_income_credit", "hi_tax_liability", "hi_cg_cap_savings",
+)
+
+
+def refresh_stale_hawaii_tax(
+    tax_units_df: pd.DataFrame,
+    target_year: int,
+    geoid_map: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """Recompute Hawaiʻi tax on units whose income changed after projection.
+
+    :func:`project_tax_units_forward` computes each unit's ``hi_*`` columns on
+    its projected income, including the itemized deduction every reform scorer
+    reads. Steps that rescale income afterwards leave those columns stale:
+    ``apply_top_income_growth_premium`` blanks them on the rows it scales, and
+    ``apply_macro_recession_shock`` rescales every row without touching them.
+    Scoring the blanks as zero put every filer above $500K on the standard
+    deduction alone (TY2027: Act 24's static bracket gain $81.0M instead of
+    $58.1M), so call this after those steps and before scoring.
+
+    A unit is stale when its ``income`` no longer equals ``hi_agi`` (the AGI
+    its tax was computed on) or its ``hi_itemized_deduction`` is NaN. Stale
+    units are recomputed with the target-year deduction params the projector
+    uses (per county when a ``county`` column is present, the state proxy
+    otherwise), as if the income change had happened before the projector's
+    tax step; other units are returned untouched. Only the ``hi_*`` columns are
+    refreshed: the federal ``ctc_*`` / ``eitc_*`` columns are not read by the
+    Hawaiʻi scorers. Rows are matched by position, so the non-unique index the
+    projector's per-county concat leaves behind is safe.
+    """
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    df = tax_units_df.copy()
+    n = len(df)
+    if n == 0:
+        return df
+    income = df["income"].to_numpy(dtype=float)
+    hi_agi = (df["hi_agi"].to_numpy(dtype=float) if "hi_agi" in df.columns
+              else np.full(n, np.nan))
+    itemized = (df["hi_itemized_deduction"].to_numpy(dtype=float)
+                if "hi_itemized_deduction" in df.columns else np.full(n, np.nan))
+    stale = (income != hi_agi) | np.isnan(itemized)
+    if not stale.any():
+        return df
+
+    geoid_lookup = {**_HAWAII_COUNTY_GEOIDS, **(geoid_map or {})}
+    positions = np.flatnonzero(stale)
+    if "county" in df.columns:
+        keys = [None if pd.isna(c) else c for c in df["county"].to_numpy(dtype=object)[positions]]
+    else:
+        keys = [None] * len(positions)
+    groups: dict[object, list] = {}
+    for pos, key in zip(positions, keys, strict=True):
+        groups.setdefault(key, []).append(pos)
+
+    for key, pos in groups.items():
+        pos = np.asarray(pos)
+        fresh = calculate_hawaii_tax_for_units(
+            df.iloc[pos], tax_year=target_year,
+            deduction_params=_deduction_params_for(target_year, key, geoid_lookup),
+        )
+        for col in _HAWAII_TAX_COLUMNS:
+            if col not in fresh.columns:
+                continue
+            if col not in df.columns:
+                df[col] = np.nan
+            df.iloc[pos, df.columns.get_loc(col)] = fresh[col].to_numpy(dtype=float)
+
+    logger.info("refresh_stale_hawaii_tax: recomputed %d of %d units for TY %d",
+                len(positions), n, target_year)
     return df

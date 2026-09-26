@@ -79,16 +79,21 @@ def compute_quintile_breakdown(projected, baseline_cfg, scenario_cfg, calc, *, c
         if "synthetic_cg_share" in proj.columns
         else _np.zeros(len(proj))
     )
+    from tax_modeler.liability.hawaii import _count_exemptions
+
     base_tax, scen_tax = [], []
     ndep_col = proj.get("num_dependents") if hasattr(proj, "get") else proj["num_dependents"]
     for inc, fs, ndep, cg_share in zip(
         proj["income"], proj["filing_status"], ndep_col, cg_shares
     ):
         cg_inc = float(inc) * float(cg_share)
+        # Filer, spouse on a joint return, dependents (was dependents + 1,
+        # which dropped the spouse's exemption on every joint return).
+        n_ex = _count_exemptions(fs, int(ndep))
         b = calc.calculate_tax(inc, baseline_cfg, fs,
-                               num_exemptions=int(ndep) + 1, cg_income=cg_inc)
+                               num_exemptions=n_ex, cg_income=cg_inc)
         s = calc.calculate_tax(inc, scenario_cfg, fs,
-                               num_exemptions=int(ndep) + 1, cg_income=cg_inc)
+                               num_exemptions=n_ex, cg_income=cg_inc)
         base_tax.append(b["tax_liability"])
         scen_tax.append(s["tax_liability"])
 

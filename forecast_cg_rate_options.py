@@ -287,16 +287,20 @@ class Scorer:
     """Pre-credit Hawaii tax for one population under one bracket system."""
 
     def __init__(self, df: pd.DataFrame, cfg, calc):
+        from tax_modeler.config.tax_system_config import itemized_deductions
+        from tax_modeler.liability.hawaii import exemption_counts
+
         n = len(df)
         self.cfg = cfg
         self.status = df["filing_status"].to_numpy()
-        ex = (df["num_exemptions"].to_numpy(float) if "num_exemptions" in df.columns
-              else np.ones(n))
-        ex = np.where(np.isnan(ex), 1.0, ex)
+        # Same exemption count and deduction rules as TaxCalculator.unit_liabilities.
+        ex = np.nan_to_num(exemption_counts(df), nan=1.0)
         sd = np.empty(n)
         for fs in np.unique(self.status):
             sd[self.status == fs] = calc.get_standard_deduction(cfg.standard_deduction_year, fs)
-        itemized = df["hi_itemized_deduction"].fillna(0.0).to_numpy(float)
+        itemized = itemized_deductions(df)
+        if itemized is None:
+            itemized = np.zeros(n)
         self.subtract = np.maximum(sd, itemized) + ex * cfg.personal_exemption
         self.sched = {fs: calc._bracket_schedule(cfg, fs) for fs in np.unique(self.status)}
 

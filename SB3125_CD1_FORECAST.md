@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 24, 2026
+**Last updated:** September 25, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -15,7 +15,130 @@
 
 ---
 
-## Statutory food/excise credit in the tax calculator — September 24, 2026 (supersedes the tables below)
+## Scoring-path fixes — September 25, 2026 (supersedes the tables below)
+
+Three defects in the reform-scoring path, found while scoping a tax simulator
+(`TAX_SIMULATOR_SCOPE.md`). A pre-fix rerun on `main` reproduced the published
+Act 24 and capital-gains files byte for byte, and the calibrated base is
+unchanged (all 140 columns identical), so every change below is the fixes.
+
+1. **Itemized deductions dropped above $500K.** `apply_top_income_growth_premium`
+   blanks the `hi_*` tax columns of the units it rescales, so a stale value
+   cannot be used. `forecast_sb3125_enhanced.py` then scored without
+   recomputing, and `TaxCalculator` / `per_unit_tax` filled the blank itemized
+   deduction with 0: all 682 records at $500K+ (about 7,100 filers, itemizing
+   about $220K on average) were scored on the standard deduction alone,
+   against item 5 of the script's own docstring. New
+   `tax_unit_projector.refresh_stale_hawaii_tax` re-scores every unit whose
+   income changed after projection, with the projector's per-county
+   deduction params; it runs after the premium and after the RECESSION
+   shock, which rescales every filer without refreshing tax. The scorers now
+   raise on a NaN itemized deduction (`tax_system_config.itemized_deductions`)
+   instead of zero-filling it. `project_and_recalibrate` and
+   `forecast_act24_vs_pre_act46.py` already recomputed tax and were not
+   affected; `forecast_sb3125_static_quintile.py` uses no premium.
+2. **`per_unit_tax` ignored credits.** It read a `"total_credits"` key that
+   `HawaiiTaxCredits` never returns, so every distributional table and the
+   quintile-path COR factor were scored before credits (TY2027 Act 46:
+   $2,798.6M before credits vs $2,643.4M net). It is now
+   `TaxCalculator.unit_liabilities(...)["net"]`, the same per-unit tax
+   `compare_systems` sums, and it is no longer floored at zero: the bottom
+   fifth's average Act 46 tax is now a net refund (−$318 in TY2027) from the
+   refundable food/excise and renters credits. Revenue totals are unaffected.
+3. **One personal exemption per return.** Without a `num_exemptions` column
+   (absent on every projected frame) the scorers, the ETI marginal-rate
+   lookup and the capital-gains `Scorer` gave each return one exemption;
+   they now count filer, spouse on a joint return and dependents (weighted
+   mean 1.88), as `liability/hawaii.py` always did. Small for Act 24
+   (TY2027 static +$0.3M); a doubled exemption had scored at $34.6M instead
+   of $63.8M. Also fixed: the renters credit's misspelled
+   `married_filing_separate` key, and the static-quintile script's missing
+   spouse exemption.
+
+Nearly all of the Act 24 change is defect 1 (TY2027 MID static: −$22.9M from
+the deductions, +$0.3M from exemptions). Credit savings are unchanged.
+
+**CD2 vs Act 46 baseline, post-behavioral ($M):**
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $102.9M | **$102.8M** | $122.0M | $99.6M |
+| 2028 | $117.7M | **$128.0M** | $158.0M | $126.3M |
+| 2029 | $129.9M | **$145.3M** | $180.9M | $145.7M |
+| 2030 | $155.4M | **$178.2M** | $218.2M | $180.1M |
+| 2031 | $164.7M | **$184.5M** | $232.8M | $187.8M |
+| **5-year total** | **$670.6M** | **$738.9M** | **$911.9M** | **$739.5M** |
+
+MID 5-year: **$870.1M → $738.9M (−$131.2M, −15.1%)**; LOW −$116.2M, HIGH
+−$148.0M, RECESSION −$131.1M.
+
+**MID by component ($M):**
+
+| Tax Year | Act 46 baseline | Static bracket | ETI/migration | Bracket (post-behav.) | Credit total | **Total** |
+|----------|----------------:|---------------:|--------------:|----------------------:|-------------:|----------:|
+| 2027 | $2,456.4M | $58.4M | −$4.6M | $53.8M | $49.1M | **$102.8M** |
+| 2028 | $2,607.2M | $61.7M | −$8.2M | $53.5M | $74.5M | **$128.0M** |
+| 2029 | $2,465.0M | $70.7M | −$13.9M | $56.7M | $88.6M | **$145.3M** |
+| 2030 | $2,575.3M | $77.5M | −$19.1M | $58.4M | $119.9M | **$178.2M** |
+| 2031 | $2,652.8M | $85.1M | −$24.9M | $60.2M | $124.3M | **$184.5M** |
+| **5-year** | | **$353.3M** | **−$70.7M** | **$282.6M** | **$456.3M** | **$738.9M** |
+
+Was: static $501.4M, ETI −$87.6M, bracket $413.8M. The Act 46 baseline falls
+$187M in TY2027 ($2,643.4M → $2,456.4M), widening the gap to COR's TY2027
+projection ($2,874M) from 8% to 15%.
+
+**Distribution (TY2027, MID).** Households paying less: 78.0% → 76.1%. The
+second fifth's share falls from 88% to 79%: where a nonrefundable credit
+already covers a household's tax, a rate cut no longer lowers what it owes,
+and the pre-credit tables counted it as a winner. Households above $1M:
++$44,037 → +$35,636; $500K–$1M: +$2,384 → +$1,632 (96% pay more, was 100%).
+Section 10's tables are updated in place.
+
+**Act 24 vs pre-Act-46 law** (`forecast_act24_vs_pre_act46.py`, static):
+Act 46's cost by 2031 (A+B) falls from $1,174.2M to $1,129.7M, mostly
+defect 2 (households whose nonrefundable credits already cover their tax gain
+nothing from Act 46's cuts); Act 24's increment is $170.7M (15%). Against
+COR's own Act 46 estimate the model now runs **17–25% below** (was 14–22%;
+5-year 20.3%, was 17.2%). The reconciliation section's figures below are
+superseded by:
+
+| Tax Year | A: Act 46 banked ≤2026 | B: Act 46 remaining | C: Act 24 increment | **TOTAL vs pre-Act-46** | memo: vs frozen 2026 | COR (A+B) | % below COR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2027 | −533.1 | −227.8 | +76.8 | **−684.1** | −151.0 | −922.7 | 17.5% |
+| 2028 | −544.0 | −247.8 | +92.2 | **−699.6** | −155.6 | −1,052.6 | 24.8% |
+| 2029 | −553.4 | −492.0 | +121.4 | **−924.0** | −370.6 | −1,262.3 | 17.2% |
+| 2030 | −564.8 | −517.6 | +143.3 | **−939.1** | −374.2 | −1,347.5 | 19.7% |
+| 2031 | −574.8 | −554.9 | +170.7 | **−958.9** | −384.2 | −1,453.2 | 22.3% |
+| **5-year Σ** | **−2,770.2** | **−2,040.1** | **+604.5** | **−4,205.8** | **−1,435.6** | **−6,038.3** | **20.3%** |
+
+Against ITEP's ~$1.4B, the 2031 A+B of −$1,129.7M is ~19% below (was ~16%).
+
+**CD2 vs FY2026-frozen baseline** (`forecast_sb3125_vs_fy26base.py --cd 2`;
+supersedes the August 3 table in Section 10; pre-fix `main` gave −$1,862.7M):
+
+| Tax Year | Bracket effect | SD expansion | **Total** | ITEP estimate | Gap |
+|----------|---------------:|-------------:|----------:|---------------:|-----:|
+| 2027 | −$151.0M | −$32.4M | **−$183.4M** | −$227.0M | +$43.6M |
+| 2028 | −$139.8M | −$64.7M | **−$204.5M** | −$258.0M | +$53.5M |
+| 2029 | −$355.5M | −$82.4M | **−$437.9M** | −$534.0M | +$96.1M |
+| 2030 | −$343.7M | −$118.3M | **−$462.0M** | −$563.0M | +$101.0M |
+| 2031 | −$320.8M | −$173.3M | **−$494.1M** | −$622.0M | +$127.9M |
+| **5-year Σ** | **−$1,310.8M** | **−$471.1M** | **−$1,781.9M** | **−$2,204.0M** | **+$422.1M** |
+
+`forecast_act24_vs_pre_act46.py`'s tie-out constants now carry these totals.
+
+**CD2 sensitivity** (`forecast_sb3125_sensitivity.py --cd 2`, static;
+supersedes the August 3 table): MID 5-year $694.9M → **$697.2M** (LOW
+$664.8M, HIGH $796.7M); the script applies no premium, so only the exemption
+count moves it (+$0.4M to +$0.6M a year).
+
+**Capital-gains options** (`forecast_cg_rate_options.py`): exemption count
+only; no figure moves more than $0.21M (TY2027 Act 24, central: 9% cap
+$47.47M → $47.41M, ordinary rates $127.91M → $127.82M).
+
+---
+
+## Statutory food/excise credit in the tax calculator — September 24, 2026 (superseded above)
 
 The refundable food/excise tax credit (HRS §235-55.85) was modeled three
 different ways, none matching the statute: a flat $110 per exemption below
@@ -373,6 +496,11 @@ the unscaled bracket delta and is unaffected. The scale factor itself rises
 ---
 
 ## Reconciliation to ITEP's ~$1.4B Act 46 figure (added August 19, 2026)
+
+> **Figures superseded September 25, 2026** by "Scoring-path fixes" at the top
+> of this document: the pre-Act-46 table, the COR gap (now 17–25%) and the ITEP
+> gap (now ~19%) moved when per-unit tax began netting credits and counting
+> every exemption. The reasoning below is unchanged.
 
 **The problem.** Section 10's "CD2 vs FY2026-frozen baseline" table reports a
 5-year total of **−$1,854.5M** (2031: −$514.3M). ITEP's widely-cited estimate
@@ -1772,31 +1900,32 @@ Year-by-year (MID, $M):
 
 ### Distributional Impact — TY 2027 (MID)
 
-**Updated September 24, 2026** — CD2 (enacted Act 24), with credit losses
-attributed to imputed claimants (Section 9) and the statutory food/excise
-credit in the tax calculator (see the top of this document). Supersedes the
+**Updated September 25, 2026** — CD2 (enacted Act 24), after the
+scoring-path fixes (top of this document): top filers keep their itemized
+deductions, per-household tax is net of credits, and every exemption counts.
+Credit losses are attributed to imputed claimants (Section 9). Supersedes the
 August 3 table, which was CD1's static credit overlay spread evenly across
 every filer in each AGI bin; its pay-more / pay-less shares (e.g. 85.1% of Q1
 "paying more") were an artifact of that spread.
 
 | Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
 |----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
-| Q1 (bottom 20%) | 81,005 | −$0.4M | +$1.1M | +$0.7M | −$5 | +$14 | +$9 | 0.9% | 0.9% | 18.4% |
-| Q2 | 89,419 | −$4.7M | +$1.3M | −$3.3M | −$52 | +$15 | −$37 | 1.5% | 1.5% | 88.4% |
-| Q3 | 100,606 | −$7.9M | +$3.0M | −$4.9M | −$78 | +$29 | −$49 | 2.5% | 2.5% | 97.3% |
-| Q4 | 106,687 | −$9.8M | +$5.4M | −$4.4M | −$92 | +$50 | −$41 | 3.6% | 3.6% | 96.4% |
-| Q5 (top 20%) | 116,330 | +$107.6M | +$16.3M | +$123.9M | +$925 | +$141 | +$1,065 | 6.1% | 21.9% | 78.1% |
+| Q1 (bottom 20%) | 81,005 | −$0.4M | +$1.1M | +$0.7M | −$5 | +$14 | +$9 | 0.9% | 1.0% | 17.7% |
+| Q2 | 89,419 | −$4.0M | +$1.3M | −$2.6M | −$44 | +$15 | −$29 | 1.5% | 2.5% | 79.2% |
+| Q3 | 100,606 | −$7.6M | +$3.0M | −$4.7M | −$76 | +$29 | −$46 | 2.5% | 2.5% | 96.2% |
+| Q4 | 106,687 | −$9.6M | +$5.4M | −$4.3M | −$90 | +$50 | −$40 | 3.6% | 3.6% | 96.4% |
+| Q5 (top 20%) | 116,330 | +$83.5M | +$16.3M | +$99.8M | +$717 | +$141 | +$858 | 6.1% | 21.5% | 78.5% |
 
 **TY 2031 (MID)** — no new REEC certifications after TY2029, so every would-be
 claimant loses the full credit:
 
 | Quintile | Households | Bracket Δ ($M) | Credit loss ($M) | Total Δ ($M) | Avg/HH bracket | Avg/HH credit loss | Avg/HH total | % claimants | % pay more | % pay less |
 |----------|-----------:|---------------:|-----------------:|-------------:|---------------:|-------------------:|-------------:|------------:|-----------:|-----------:|
-| Q1 (bottom 20%) | 81,005 | −$0.2M | +$3.1M | +$2.9M | −$3 | +$39 | +$36 | 0.9% | 0.9% | 9.8% |
-| Q2 | 89,419 | −$4.5M | +$4.1M | −$0.5M | −$51 | +$45 | −$5 | 1.6% | 1.6% | 75.0% |
-| Q3 | 100,606 | −$11.3M | +$10.2M | −$1.1M | −$112 | +$101 | −$11 | 2.8% | 2.8% | 96.3% |
-| Q4 | 106,687 | −$14.8M | +$17.2M | +$2.4M | −$138 | +$161 | +$23 | 3.9% | 3.9% | 96.0% |
-| Q5 (top 20%) | 116,330 | +$162.7M | +$41.9M | +$204.6M | +$1,398 | +$360 | +$1,759 | 6.5% | 25.6% | 74.4% |
+| Q1 (bottom 20%) | 81,005 | −$0.2M | +$3.1M | +$2.9M | −$3 | +$39 | +$36 | 0.9% | 0.9% | 9.5% |
+| Q2 | 89,419 | −$4.0M | +$4.1M | +$0.1M | −$44 | +$45 | +$1 | 1.6% | 1.6% | 66.5% |
+| Q3 | 100,606 | −$10.9M | +$10.2M | −$0.7M | −$108 | +$101 | −$7 | 2.8% | 2.8% | 94.7% |
+| Q4 | 106,687 | −$14.5M | +$17.2M | +$2.7M | −$136 | +$161 | +$25 | 3.9% | 3.9% | 96.0% |
+| Q5 (top 20%) | 116,330 | +$124.2M | +$41.9M | +$166.0M | +$1,067 | +$360 | +$1,427 | 6.5% | 25.3% | 74.7% |
 
 *Negative Δ = household pays less. "Credit loss" is the individual-return REEC/CGEC savings attributed to households, in expectation (claim probability × loss if claiming); "% claimants" is the share of households imputed to claim REEC or CGEC. Static incidence: before ETI/migration response. Household counts use PUMS WGTP; $M totals use the calibrated filer weight.*
 

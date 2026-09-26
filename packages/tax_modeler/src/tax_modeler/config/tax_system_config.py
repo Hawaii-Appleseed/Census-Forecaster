@@ -346,6 +346,34 @@ class TaxSystemRegistry:
         )
 
 
+def itemized_deductions(tax_units: pd.DataFrame) -> np.ndarray | None:
+    """Each unit's itemized deduction, or ``None`` when the frame has none.
+
+    Scorers take ``max(standard deduction, itemized)``. A NaN here is an
+    error, not a zero: it marks a unit whose income changed after its tax was
+    computed. ``apply_top_income_growth_premium`` blanks the column on the
+    rows it scales, precisely so a stale value cannot be used, and filling
+    those blanks with 0 scored every filer above $500K on the standard
+    deduction alone, overstating their tax and the Act 24 bracket gain.
+    Recompute first with
+    ``tax_modeler.projection.tax_unit_projector.refresh_stale_hawaii_tax``
+    (projected frames) or ``tax_modeler.pipeline.compute_base_tax``.
+    """
+    if "hi_itemized_deduction" not in tax_units.columns:
+        return None
+    itemized = tax_units["hi_itemized_deduction"].to_numpy(dtype=float)
+    missing = np.isnan(itemized)
+    if missing.any():
+        raise ValueError(
+            f"hi_itemized_deduction is NaN on {int(missing.sum()):,} of "
+            f"{len(itemized):,} tax units: their income changed after tax was "
+            "computed (apply_top_income_growth_premium blanks the column on the "
+            "rows it scales). Recompute with tax_unit_projector."
+            "refresh_stale_hawaii_tax or pipeline.compute_base_tax before scoring."
+        )
+    return itemized
+
+
 class TaxCalculator:
     """Centralized tax calculation engine."""
     
@@ -615,51 +643,65 @@ class TaxCalculator:
             out[mask] = cum[idx] + (ti - floors[idx]) * rates[idx]
         return out
 
-    def calculate_revenue_vectorized(
+    def unit_liabilities(
         self,
         tax_units: pd.DataFrame,
         config: TaxSystemConfig,
         filing_status_col: str = 'filing_status',
         income_col: str = 'income',
-        weight_col: str = 'weight',
         num_exemptions_col: str = 'num_exemptions',
         num_dependents_col: str = 'num_dependents',
-    ) -> Dict[str, float]:
-        """Vectorized counterpart of :meth:`calculate_revenue` (~30-50× faster).
+    ) -> dict[str, np.ndarray]:
+        """Per-unit Hawaiʻi tax under ``config``: the one scoring kernel.
 
-        Computes per-filer tax in two numpy passes (full taxable + ordinary
-        taxable for the §235-16 CG cap), then runs the credit calculation in
-        the same per-filer Python loop as before. The per-filer tax loop
-        previously dominated runtime; eliminating it cuts the hot path by
-        roughly an order of magnitude. Surcharge handling is omitted — none
-        of the registered configs use ``surcharges`` in the SB 3125 forecast
-        path, and ``calculate_tax`` retains the original surcharge code for
-        backward compatibility.
+        Returns arrays aligned with ``tax_units``:
+
+        * ``before_credits`` — bracket tax with the §235-16 capital-gains cap;
+        * ``credits`` — refundable credits plus nonrefundable ones limited to
+          ``before_credits`` (``HawaiiTaxCredits``);
+        * ``child_care`` — the dependent-care credit within ``credits``;
+        * ``net`` — ``before_credits - credits``, negative when refundable
+          credits exceed the tax.
+
+        :meth:`calculate_revenue_vectorized` sums these, and
+        ``quintile_analysis.per_unit_tax`` returns ``net``, so the fiscal and
+        distributional paths cannot score the same unit differently. They used
+        to carry separate copies, and ``per_unit_tax``'s never subtracted
+        credits (it read a key the credit calculator does not return).
+
+        Exemptions come from ``num_exemptions_col`` when the frame has it, and
+        otherwise from the statutory count (filer, spouse on a joint return,
+        dependents). The deduction is ``max(standard, hi_itemized_deduction)``
+        (see :func:`itemized_deductions`, which rejects NaN). Rows whose
+        exemption count is NaN get no liability, and rows whose exemption or
+        dependent count is NaN get no credits, as in :meth:`calculate_revenue`.
+        Surcharges are not applied (no registered config in the forecast path
+        uses them); :meth:`calculate_tax` still does.
         """
         from tax_modeler.adjustments.hawaii_credits import HawaiiTaxCredits
+        from tax_modeler.liability.hawaii import statutory_exemption_counts
 
         n = len(tax_units)
         incomes = tax_units[income_col].to_numpy(dtype=float)
         statuses = tax_units[filing_status_col].to_numpy()
-        weights = tax_units[weight_col].to_numpy(dtype=float)
 
         # Preserve NaN handling consistent with the loop version: rows whose
         # exemptions/dependents are NaN should end up with zero liability and
         # zero credits (the loop's per-row try/except achieves this by
         # raising on int(NaN)). We track NaN masks and zero those rows out.
-        if num_exemptions_col in tax_units.columns:
-            raw_exemp = tax_units[num_exemptions_col].to_numpy(dtype=float)
-        else:
-            raw_exemp = np.ones(n, dtype=float)
-        nan_exemp = np.isnan(raw_exemp)
-        num_exemptions = np.where(nan_exemp, 1.0, raw_exemp)
-
         if num_dependents_col in tax_units.columns:
             raw_dep = tax_units[num_dependents_col].to_numpy(dtype=float)
         else:
             raw_dep = np.zeros(n, dtype=float)
         nan_dep = np.isnan(raw_dep)
         num_dependents = np.where(nan_dep, 0, raw_dep).astype(int)
+
+        if num_exemptions_col in tax_units.columns:
+            raw_exemp = tax_units[num_exemptions_col].to_numpy(dtype=float)
+        else:
+            raw_exemp = statutory_exemption_counts(statuses, raw_dep)
+        nan_exemp = np.isnan(raw_exemp)
+        num_exemptions = np.where(nan_exemp, 1.0, raw_exemp)
 
         # Per-filer effective deduction: max(filing-status SD, hi_itemized_deduction).
         # Column-name override was removed — always use the standard logic so callers
@@ -669,14 +711,8 @@ class TaxCalculator:
             sd_per_filer[statuses == fs] = self.get_standard_deduction(
                 config.standard_deduction_year, fs
             )
-        if "hi_itemized_deduction" in tax_units.columns:
-            itemized = (
-                tax_units["hi_itemized_deduction"]
-                .fillna(0.0).to_numpy(dtype=float)
-            )
-            deductions = np.maximum(sd_per_filer, itemized)
-        else:
-            deductions = sd_per_filer
+        itemized = itemized_deductions(tax_units)
+        deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
         exemption_amount = num_exemptions * config.personal_exemption
         taxable_full = np.maximum(0.0, incomes - deductions - exemption_amount)
@@ -734,7 +770,48 @@ class TaxCalculator:
             except Exception:
                 pass
 
-        net_liabilities = liabilities - total_credits
+        return {
+            'before_credits': liabilities,
+            'credits': total_credits,
+            'child_care': total_cdcc,
+            'net': liabilities - total_credits,
+        }
+
+    def calculate_revenue_vectorized(
+        self,
+        tax_units: pd.DataFrame,
+        config: TaxSystemConfig,
+        filing_status_col: str = 'filing_status',
+        income_col: str = 'income',
+        weight_col: str = 'weight',
+        num_exemptions_col: str = 'num_exemptions',
+        num_dependents_col: str = 'num_dependents',
+    ) -> Dict[str, float]:
+        """Vectorized counterpart of :meth:`calculate_revenue` (~30-50× faster).
+
+        Weighted totals of :meth:`unit_liabilities`, which computes per-filer
+        tax in two numpy passes (full taxable + ordinary taxable for the
+        §235-16 CG cap) and then runs the credit calculation in a per-filer
+        Python loop. The per-filer tax loop previously dominated runtime;
+        eliminating it cuts the hot path by roughly an order of magnitude.
+        Surcharge handling is omitted — none of the registered configs use
+        ``surcharges`` in the SB 3125 forecast path, and ``calculate_tax``
+        retains the original surcharge code for backward compatibility.
+        """
+        units = self.unit_liabilities(
+            tax_units, config,
+            filing_status_col=filing_status_col,
+            income_col=income_col,
+            num_exemptions_col=num_exemptions_col,
+            num_dependents_col=num_dependents_col,
+        )
+        liabilities = units['before_credits']
+        total_credits = units['credits']
+        total_cdcc = units['child_care']
+        net_liabilities = units['net']
+        incomes = tax_units[income_col].to_numpy(dtype=float)
+        weights = tax_units[weight_col].to_numpy(dtype=float)
+
         total_revenue_before = float(np.sum(liabilities * weights)) / 1e6
         total_credits_m = float(np.sum(total_credits * weights)) / 1e6
         total_cdcc_m = float(np.sum(total_cdcc * weights)) / 1e6
@@ -779,21 +856,25 @@ class TaxCalculator:
             Dict with revenue statistics (includes credit breakdown)
         """
         from tax_modeler.adjustments.hawaii_credits import HawaiiTaxCredits
+        from tax_modeler.liability.hawaii import statutory_exemption_counts
 
         liabilities = []
         weights = tax_units[weight_col].values
-
-        # Set default exemptions if column doesn't exist
-        if num_exemptions_col not in tax_units.columns:
-            num_exemptions = np.ones(len(tax_units))
-        else:
-            num_exemptions = tax_units[num_exemptions_col].values
 
         # Set default dependents if column doesn't exist
         if num_dependents_col not in tax_units.columns:
             num_dependents = np.zeros(len(tax_units))
         else:
             num_dependents = tax_units[num_dependents_col].values
+
+        # Without an exemptions column, count them as the statute does
+        # (filer, spouse on a joint return, dependents), not one per return.
+        if num_exemptions_col not in tax_units.columns:
+            num_exemptions = statutory_exemption_counts(
+                tax_units[filing_status_col].to_numpy(), num_dependents,
+            )
+        else:
+            num_exemptions = tax_units[num_exemptions_col].values
 
         # Per-filer effective deduction: max(filing-status SD, hi_itemized_deduction).
         # Column-name override was removed to eliminate the silent wrong-column pattern.
@@ -804,11 +885,8 @@ class TaxCalculator:
             _sd[_statuses == _fs] = self.get_standard_deduction(
                 config.standard_deduction_year, _fs
             )
-        if "hi_itemized_deduction" in tax_units.columns:
-            _itemized = tax_units["hi_itemized_deduction"].fillna(0.0).to_numpy(dtype=float)
-            deductions = np.maximum(_sd, _itemized)
-        else:
-            deductions = _sd
+        _itemized = itemized_deductions(tax_units)
+        deductions = _sd if _itemized is None else np.maximum(_sd, _itemized)
 
         # CG income for §235-16 cap: auto-detect synthetic_cg_share column.
         # Base PUMS units don't have it → 0 (cap not applied).

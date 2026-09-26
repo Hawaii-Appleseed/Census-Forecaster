@@ -75,9 +75,9 @@ MID_TOP_PREMIUM = 0.010
 
 from _forecast_common import CALIBRATED_PKL, TARGET_YEARS  # noqa: E402
 
-# Published vs-frozen-TY2026 totals from SB3125_CD1_FORECAST.md (Aug 3, 2026
-# corrected-CPI rerun), used as a tie-out check on the frozen column.
-PUBLISHED_VS_FROZEN = {2027: -191.9, 2028: -214.5, 2029: -454.3, 2030: -479.5, 2031: -514.3}
+# Published vs-frozen-TY2026 totals from SB3125_CD1_FORECAST.md (Sept 25, 2026 scoring-path
+# fixes rerun), used as a tie-out check on the frozen column.
+PUBLISHED_VS_FROZEN = {2027: -183.4, 2028: -204.5, 2029: -437.9, 2030: -462.0, 2031: -494.1}
 
 
 def _cfg_2017(yr: int) -> TaxSystemConfig:
