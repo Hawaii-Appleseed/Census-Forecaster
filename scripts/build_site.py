@@ -738,7 +738,7 @@ def build_act24() -> tuple[str, dict]:
               m1(p[y]["total_vs_pre_act46"])] for y in years]
     s4 = section("Act 24 Against the Law Before Act 46", f"""
 {lead("Act 24 is small next to the tax cut it amended.", f"Act 46 of 2024 raised the standard deduction and widened the brackets in steps through {last}. Measured against the law before Act 46, it will cost the state about {millions(a46_last)} a year by {last} on this model’s static estimate. Act 24 recovers {millions(c_last)} of that, about {pct(100 * c_last / a46_last)} percent.{notes.ref(T_pre)}")}
-<p>This model’s estimate of Act 46’s cost runs 14 to 21 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
+<p>This model’s estimate of Act 46’s cost runs 17 to 25 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
 {table(["Tax year", "Act 46", "Act 24", "Both laws"], prows,
        caption="Table 5. Static Change in Income Tax Revenue Compared With Pre-Act 46 Law ($ Millions)")}
 <p class="ha-est__source">Negative numbers are revenue the state gives up. Brackets, standard deduction and personal exemption only; no behavioral response or credit changes.</p>
