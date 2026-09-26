@@ -281,3 +281,38 @@ def test_committed_sources_record_every_raw_file():
         assert f["url"].startswith("https://") and len(f["sha256"]) == 64 and f["rows"] > 0 and f["obtained"]
     for name in ("sales", "assessment"):                      # not downloaded by the script: say how they were
         assert src[name]["obtained"] == mx.OBTAINED[src[name]["sha256"]] == mx.RESEARCH_ROUND
+
+
+def test_committed_developer_shares_and_history_are_consistent():
+    d = pd.read_csv(mx.OUT / "maui_developer_share_fy2023_2026.csv")
+    assert (d["developer_count"] <= d["count"]).all() and (d["developer_price"] <= d["sum_price"]).all()
+    assert list(d["band_hi"].iloc[:-1].astype(float)) == list(d["band_lo"].iloc[1:].astype(float))
+    h = pd.read_csv(mx.OUT / "maui_sales_history_fy2016_2026.csv")
+    tot = pd.read_csv(mx.OUT / "maui_sales_totals_fy2016_2026.csv")
+    assert h["count"].sum() == tot["count"].sum()                      # every priced, taxed document, once
+    assert set(h["kind"]) == {"bin", "top", "mf"}
+    assert (h.loc[h["kind"] == "top", "sum_price"] >= 10_000_000).all()
+
+
+def test_history_splits_every_document_once_on_the_fixture(fx):
+    _, _, s, t = fx
+    h = t["maui_sales_history_fy2016_2026.csv"]
+    assert h["count"].sum() == len(s) and "unmatched" not in set(h["category"])
+    mf = s[s["units"] >= mx.MULTIFAMILY_UNITS]
+    top = s[(s["units"] < mx.MULTIFAMILY_UNITS) & (mx._round(s["price"]) >= mx.TOP)]
+    assert sorted(h.loc[h["kind"] == "mf", "sum_price"]) == sorted(mx._round(mf["price"]))
+    assert (h.loc[h["kind"] == "mf", "units"].to_numpy() >= mx.MULTIFAMILY_UNITS).all()
+    assert sorted(h.loc[h["kind"] == "top", "sum_price"]) == sorted(mx._round(top["price"]))
+    assert (h.loc[h["kind"] == "bin", "bin_lo"] < mx.TOP).all() and (h["units"] >= 1).all()
+
+
+def test_developer_share_counts_code_8_home_sales_by_value():
+    base = pd.DataFrame({"category": ["owner", "nonowner", "nonowner", "nonres", "nonowner"],
+                         "units": [0, 0, 0, 0, 12], "price": [3e6, 5e6, 12e6, 12e6, 12e6],
+                         "validity": ["8", "0", "8", "8", "8"]})
+    d = mx.developer_share(base).set_index("band_lo")
+    assert d.loc[2_000_000, ["count", "developer_count", "developer_price"]].tolist() == [1, 1, 3_000_000]
+    assert d.loc[4_000_000, ["count", "developer_count", "developer_price"]].tolist() == [1, 0, 0]
+    # $10M+: the home sale counts; the nonresidential sale and the 12-unit building do not
+    assert d.loc[10_000_000, ["count", "developer_count", "sum_price", "developer_price"]].tolist() == [1, 1, 12_000_000,
+                                                                                                    12_000_000]

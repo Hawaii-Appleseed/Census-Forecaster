@@ -71,17 +71,31 @@ homes elsewhere; and official and sponsor estimates for related bills
 
 Behavior
 --------
-Sales volume falls VOLUME_SEMI_ELASTICITY percent per percentage point of price
-added in tax (rises where HD2 cuts the tax): 6, the UK Office for Budget
-Responsibility's figure for homes of GBP 1M+ after the UK moved from cliff to
-slice rates in 2014, close to estimates for Los Angeles' Measure ULA on
-single-family homes over $5M; range 4-10. Chapter 247 taxes documents that
-convey real property, not transfers of interests in entities that own it, so
-a share ENTITY_TAKEUP (25%, range 0-50%) of non-owner sales of $4M+ whose
-seller is an LLC, corporation or partnership (entity_share(), from Honolulu's
-owner roll: honolulu_entity_share_by_band.csv, scripts/conveyance/
-honolulu_entity_share.py) is assumed to escape HD2 by selling the entity
-instead.
+The response is modeled channel by channel (Behavior, score), each applied to
+the scored sales:
+  - volume: sales fall VOLUME_SEMI_ELASTICITY (6) percent per percentage point
+    of price added in tax, rise where HD2 cuts it (the UK OBR's steady state
+    for homes of GBP 1M+ after the 2014 move from cliff to slice rates; close
+    to Los Angeles' Measure ULA on single-family homes over $5M); a tenth more
+    in the first year; mildly convex, so small changes draw less;
+  - developers: developer first sales (Maui county validity code 8, by price
+    band) respond with a lag (none in years 1-2, full from year 5), as sold
+    and finished inventory still closes;
+  - price: the seller pays (HRS 247-4(a)), so the recorded price falls 0.5%
+    per point and HD2's tax is due on the lower price;
+  - buyer mix: 2% of non-owner purchases per point of the owner/non-owner gap
+    move to the owner-occupant schedule (capped at 25%);
+  - entities: chapter 247 taxes documents that convey real property, not
+    transfers of interests in entities that own it, so 20% (growing 7.5% of
+    itself a year) of non-owner sales of $4M+ whose seller is an LLC,
+    corporation or partnership (entity_share(): honolulu_entity_share_by_band
+    .csv, scripts/conveyance/honolulu_entity_share.py) escape by selling the
+    entity;
+  - timing (sensitivity only): sales pulled ahead of the effective date.
+The range is a Monte Carlo (simulate, N_DRAWS draws) over priors for every
+channel (PRIOR_NOTES) and each county's sales by price band: the 5th and
+95th percentiles. The draft is also scored on each past market, FY2016-26
+(market_cycle), from Maui's sales in every year.
 
 Outputs (runs/conveyance_sb3028/):
   revenue_by_year.csv   FY2028-FY2031: current law, HD2 change, Maui and each
@@ -98,6 +112,10 @@ Outputs (runs/conveyance_sb3028/):
                         band and purchaser category
   examples.csv          tax on example prices under both laws
   disposition.csv       where the money goes, FY2028 with the behavioral response
+  simulation_summary.csv / simulation_draws.csv
+                        Monte Carlo percentiles by fiscal year / every draw
+  market_cycle.csv      FY2016-26: the draft on each year's market, Maui and the
+                        state, static and central, own and FY2028 prices
   summary.json          shares of sales paying less / same / more; $3-4M
                         spotlight; breakevens; checks; benchmarks
   manifest.json
@@ -142,6 +160,12 @@ CPI_GROWTH = 0.03            # Urban Hawaii CPI 2.9%/yr 2015-25; drives HD2 brac
 DOTAX_COLLECTIONS_M = {2016: 66.083, 2017: 94.537, 2018: 100.603, 2019: 85.965, 2020: 61.110,
                        2021: 62.725, 2022: 188.418, 2023: 92.132, 2024: 97.411, 2025: 96.045}
 
+# DOTAX deposited almost nothing in April-May 2021 and $62.6M in September
+# 2021, so FY2022's reported collections include about $36M of FY2021 sales.
+# Re-timed by Maui's monthly recorded tax (March-September 2021), for
+# comparing collections with sales by fiscal year (market_cycle).
+DOTAX_COLLECTIONS_BY_SALE_M = {**DOTAX_COLLECTIONS_M, 2021: 99.0, 2022: 152.2}
+
 # Disposition, HRS §247-7 today and as HD2 would amend it: (share, cap $M).
 DISPOSITION_NOW = [("Land conservation fund", .10, 5.1), ("Rental housing revolving fund", .50, 38.0)]
 DISPOSITION_HD2 = [("Land conservation fund", .05, 10.0), ("Rental housing revolving fund", .20, 40.0),
@@ -157,27 +181,50 @@ PER_UNIT_BILLS = ("SB3028 HD2", "HB2049 HD3")   # 5+ units: rate set by the pric
 
 @dataclass(frozen=True)
 class Behavior:
-    """Responses to the new schedule.
+    """How buyers and sellers respond to the new schedule, channel by channel
+    (score). Each channel acts on the rows of a sale-level or synthetic sales
+    table; *year* of the law is 1 in EFFECTIVE_FY.
 
-    elasticity: percent fewer sales per percentage point of price added in tax
-      (one number, or one per category).
+    elasticity: lasting percent fewer sales per percentage point of price added
+      in tax (one number, or one per category), on count x exp(-e/100 x d),
+      where d is the added tax in points of price, bent by *curvature*:
+      d x (|d| / 3)^curvature (small changes draw less response).
+    nonowner_mult: the elasticity for non-owner buyers relative to others.
+    first_year: multiplier on the elasticity in year 1, before the market
+      settles.
+    developer_ramp: developer first sales (a price band's share from Maui's
+      county validity codes) respond with a lag, as presold and finished
+      inventory still closes: their elasticity relative to others by year of
+      the law (the last value holds after). None: no lag.
+    price_response: percent fall in the recorded price per point of added tax
+      (the seller pays, HRS §247-4(a)); the new tax is due on the lower price.
+    owner_shift: percent of non-owner purchases taxed at the owner-occupant
+      rates per point of the gap between the two (buyers who can move in, or
+      who claim they will), capped at OWNER_SHIFT_CAP.
     entity_takeup: share of entity-held non-owner sales of $4M+ that escape the
-      tax by selling the entity instead of the home (they pay nothing).
-    forestall: (months of sales pulled ahead of the effective date per point of
-      added tax, cap in months), for a first year only.
-    cert_shift: share of non-owner buyers at $4M+ who claim the owner-occupant
-      schedule.
+      tax by selling the entity instead of the home, growing by
+      *entity_growth* of itself each year of the law.
+    forestall: (months of sales pulled ahead of the effective date per point
+      of added tax, cap in months): year 1 only; those sales pay current law
+      the year before.
     """
     elasticity: float | dict = 0.0
+    nonowner_mult: float = 1.0
+    first_year: float = 1.0
+    curvature: float = 0.0
+    developer_ramp: tuple[float, ...] | None = None
+    price_response: float = 0.0
+    owner_shift: float = 0.0
     entity_takeup: float = 0.0
+    entity_growth: float = 0.0
     forestall: tuple[float, float] | None = None
-    cert_shift: float = 0.0
 
 
+EFFECTIVE_FY = 2028              # first fiscal year under the new rates (enacted in the 2027 session)
 VOLUME_SEMI_ELASTICITY = 6       # OBR (UK, GBP 1M+ homes) 6; LA Measure ULA single-family ~4-7
-ELASTICITY_RANGE = (4, 10)
-ENTITY_TAKEUP = 0.25
-ENTITY_TAKEUP_RANGE = (0.0, 0.5)
+OWNER_SHIFT_CAP = 0.25
+CURVATURE_REF = 3.0              # points of price at which curvature leaves the response unchanged
+DEVELOPER_RAMP = (0.0, 0.0, 0.5, 0.75, 1.0)
 
 
 @lru_cache(maxsize=1)
@@ -190,11 +237,49 @@ def entity_share() -> tuple[tuple[float, float], ...]:
     return tuple(zip(e["band_lo"].astype(float), e["seller_weighted_entity_share"].astype(float), strict=True))
 
 
+@lru_cache(maxsize=1)
+def developer_share() -> tuple[np.ndarray, np.ndarray]:
+    """(band edges, share of home-sale value that is developer first sales)
+    by price band, Maui FY2023-26 (county validity code 8)."""
+    d = pd.read_csv(DATA / "maui_developer_share_fy2023_2026.csv")
+    return (np.append(d["band_lo"].to_numpy(float), np.inf),
+            (d["developer_price"] / d["sum_price"]).to_numpy(float))
+
+
 STATIC = Behavior()
-CENTRAL = Behavior(VOLUME_SEMI_ELASTICITY, ENTITY_TAKEUP)
-LOW = Behavior(ELASTICITY_RANGE[1], ENTITY_TAKEUP_RANGE[1])     # least revenue
-HIGH = Behavior(ELASTICITY_RANGE[0], ENTITY_TAKEUP_RANGE[0])    # most revenue
-CASES = {"static": STATIC, "behavioral": CENTRAL, "behavioral_low": LOW, "behavioral_high": HIGH}
+# Central values: UK OBR steady state for GBP 1M+ homes and Measure ULA
+# single-family (6); year-1 overshoot (OBR lower bands); developer lag; the
+# recorded price falls 0.5% per point (OBR's buyer-paid -1.5 net of the tax);
+# 2% of non-owner purchases per point of gap move to the owner schedule;
+# entity take-up 20%, growing. Research notes: CONVEYANCE_TAX_SCOPE.md.
+CENTRAL = Behavior(elasticity=VOLUME_SEMI_ELASTICITY, first_year=1.1, curvature=0.125, developer_ramp=DEVELOPER_RAMP,
+                   price_response=0.5, owner_shift=2.0, entity_takeup=0.2, entity_growth=0.075)
+# The one-number response the page used before (a sensitivity).
+SIMPLE = Behavior(elasticity=VOLUME_SEMI_ELASTICITY, entity_takeup=0.25)
+# Monte Carlo priors (simulate): (name, sampler).
+N_DRAWS = 1000
+SEED = 20280701
+
+
+def draw_behaviors(n: int, seed: int = SEED) -> tuple[list[Behavior], np.random.Generator]:
+    """*n* draws of the behavioral parameters from their priors."""
+    rng = np.random.default_rng(seed)
+    out = []
+    for _ in range(n):
+        out.append(replace(
+            CENTRAL,
+            elasticity=float(VOLUME_SEMI_ELASTICITY * np.exp(0.38 * rng.standard_normal())),   # 5-95%: 3.2-11.2
+            nonowner_mult=float(np.exp(0.15 * rng.standard_normal())),
+            first_year=float(rng.uniform(1.0, 1.25)),
+            curvature=float(rng.uniform(0.0, 0.25)),
+            price_response=float(rng.triangular(-0.4, 0.5, 1.5)),
+            owner_shift=float(rng.triangular(0.0, 2.0, 6.0)),
+            entity_takeup=float(rng.triangular(0.0, 0.2, 0.5)),
+            entity_growth=float(rng.uniform(0.0, 0.15))))
+    return out, rng
+
+
+CASES = {"static": STATIC, "behavioral": CENTRAL}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -226,8 +311,27 @@ def load_sales() -> pd.DataFrame:
     return pd.concat([b.assign(units=1)[cols], t.assign(units=1)[cols], mf[cols]], ignore_index=True)
 
 
+def _taxes(tax_fn, p: np.ndarray, cat: np.ndarray, units: np.ndarray, index: float, bill: str) -> tuple[np.ndarray, np.ndarray]:
+    """(current-law, new-law) tax on each row at prices *p*."""
+    cur, new = np.zeros(len(p)), np.zeros(len(p))
+    for c in CATEGORIES:
+        m = cat == c
+        cur[m] = current_law_tax(p[m], c)
+        new[m] = tax_fn(p[m], c, index=index)
+    # Five or more units: schedule (1) on the whole price today; under HD2 the
+    # rate is set by the price per unit (a non-owner purchase), applied to the whole.
+    m = cat == "mf"
+    if m.any():
+        u = units[m]
+        cur[m] = current_law_tax(p[m], "nonres")
+        new[m] = u * tax_fn(p[m] / u, "nonowner", index=index) if bill in PER_UNIT_BILLS else tax_fn(p[m], "nonres", index=index)
+    return cur, new
+
+
 def score(sales: pd.DataFrame, target_fy: float, bh: Behavior = STATIC, bill: str = BILL) -> pd.DataFrame:
-    """Current-law and new-law tax for each base-year row aged to *target_fy*.
+    """Current-law and new-law tax for each base-year row aged to *target_fy*,
+    with the behavioral channels of *bh* (Behavior) in year target_fy -
+    EFFECTIVE_FY + 1 of the law (at least 1).
 
     *fy* may be fractional (a calendar year y is fiscal y + 0.5)."""
     s = sales.copy()
@@ -240,36 +344,50 @@ def score(sales: pd.DataFrame, target_fy: float, bh: Behavior = STATIC, bill: st
     # average; enacted in the 2027 session it would miss the first recompute
     # (due December 15, 2026), giving 0.5. One is the midpoint.
     index = (1 + CPI_GROWTH) ** max(target_fy - first_index, 0)
+    year = max(1, int(round(target_fy)) - EFFECTIVE_FY + 1)
     p, cat = s["price_t"].to_numpy(), s["category"].to_numpy()
-    cur, new = np.zeros(len(s)), np.zeros(len(s))
-    for c in CATEGORIES:
-        m = cat == c
-        cur[m] = current_law_tax(p[m], c)
-        new[m] = tax_fn(p[m], c, index=index)
-    # Five or more units: schedule (1) on the whole price today; under HD2 the
-    # rate is set by the price per unit (a non-owner purchase), applied to the whole.
-    m = cat == "mf"
-    if m.any():
-        u = s.loc[m, "units"].to_numpy()
-        cur[m] = current_law_tax(p[m], "nonres")
-        new[m] = u * tax_fn(p[m] / u, "nonowner", index=index) if bill in PER_UNIT_BILLS else tax_fn(p[m], "nonres", index=index)
-    top = (cat == "nonowner") & (p >= 4e6)
-    if bh.cert_shift:
-        new[top] = (1 - bh.cert_shift) * new[top] + bh.cert_shift * tax_fn(p[top], "owner", index=index)
-    s["tax_now"] = cur * s["count"]
-    # Behavioral: sales volume responds to the change in tax as a share of price.
-    d_pp = (new - cur) / p * 100
+    units = s["units"].to_numpy().astype(float)
+    cur, new = _taxes(tax_fn, p, cat, units, index, bill)
+    d_pp = (new - cur) / p * 100                      # added tax, points of price (static)
+    # Price: the seller pays, so part of the tax comes out of the recorded
+    # price, and the new tax is due on the lower price.
+    taxed = new
+    if bh.price_response:
+        p2 = p * (1 - bh.price_response * d_pp / 100)
+        taxed = _taxes(tax_fn, p2, cat, units, index, bill)[1]
+    else:
+        p2 = p
+    # Buyer mix: some non-owner purchases move to the owner schedule.
+    non = cat == "nonowner"
+    if bh.owner_shift and non.any():
+        own = np.zeros(len(p))
+        own[non] = tax_fn(p2[non], "owner", index=index)
+        gap = np.where(non, (taxed - own) / p2 * 100, 0.0)
+        shift = np.minimum(bh.owner_shift / 100 * np.maximum(gap, 0), OWNER_SHIFT_CAP)
+        taxed = np.where(non, (1 - shift) * taxed + shift * own, taxed)
+    # Volume: fewer sales where the tax rises, more where it falls.
     e = (np.array([bh.elasticity.get(c, 0.0) for c in cat]) if isinstance(bh.elasticity, dict)
-         else bh.elasticity)
-    n = s["count"].to_numpy() * np.exp(-e / 100 * d_pp)
-    if bh.forestall:
+         else np.where(cat == "nonres", 0.0, bh.elasticity))
+    e = e * np.where(non, bh.nonowner_mult, 1.0) * (bh.first_year if year == 1 else 1.0)
+    d = d_pp * (np.abs(d_pp) / CURVATURE_REF) ** bh.curvature if bh.curvature else d_pp
+    response = np.exp(-e / 100 * d)
+    if bh.developer_ramp is not None:
+        edges, dev = developer_share()
+        base_p = s["price"].to_numpy()             # the shares are of base-year sales, by their own prices
+        share = np.where(np.isin(cat, ["owner", "nonowner"]), dev[np.searchsorted(edges, base_p, side="right") - 1], 0.0)
+        ramp = bh.developer_ramp[min(year, len(bh.developer_ramp)) - 1]
+        response = (1 - share) * response + share * np.exp(-e * ramp / 100 * d)
+    n = s["count"].to_numpy() * response
+    if bh.forestall and year == 1:
         per_pp, cap = bh.forestall
         n = n * (1 - np.minimum(per_pp * np.maximum(d_pp, 0), cap) / 12)
     # Entity sales: the home stays with the LLC, the buyer buys the LLC, no deed.
-    share = np.select([p >= lo for lo, _ in entity_share()], [sh for _, sh in entity_share()], 0.0)
-    keep = 1 - bh.entity_takeup * share * (cat == "nonowner")
+    takeup = min(bh.entity_takeup * (1 + bh.entity_growth * (year - 1)), 0.9)
+    ent = np.select([p >= lo for lo, _ in entity_share()], [sh for _, sh in entity_share()], 0.0)
+    keep = 1 - takeup * ent * non
+    s["tax_now"] = cur * s["count"]
     s["count_hd2"] = n
-    s["tax_hd2"] = new * keep * n
+    s["tax_hd2"] = taxed * keep * n
     s["tax_hd2_static"] = new * s["count"]
     s["gains"] = new > cur
     return s
@@ -515,37 +633,49 @@ def weighted(syn: pd.DataFrame, w: np.ndarray) -> pd.DataFrame:
     return syn.assign(count=syn["count"] * w[_cal_band(syn["price"])])
 
 
-def stock_method(target_fy: float, bh: Behavior = STATIC, *, bill: str = BILL, calibrate: bool = True,
-                 mls_col: str = "mls_per_year", sigma: float = PRICE_SIGMA, oahu_turnover: float | None = None,
-                 hawaii_capped: bool = False) -> dict:
-    """Change ($M) for Honolulu, Hawaii and Kauai counties from their homes.
-
-    Each county's synthetic sales are weighted, band by band, to its recorded
-    home sales (band_weights); Maui's own synthetic sales weighted the same way
-    give the residual factor, Maui's exact change over its weighted synthetic
-    change, applied to every county. *oahu_turnover* multiplies Maui's rates
-    for Honolulu homes assessed at $4M+ and replaces Honolulu's band targets
-    with Maui's scale (a sensitivity from Oahu's own turnover)."""
+@lru_cache(maxsize=16)
+def calibrated_rows(calibrate: bool = True, mls_col: str = "mls_per_year", sigma: float = PRICE_SIGMA,
+                    oahu_turnover: float | None = None, hawaii_capped: bool = False) -> dict:
+    """The sales tables stock_method scores (they do not depend on the law or
+    on behavior): Maui's home sales, and for Maui and each other county its
+    synthetic sales, band weights and calibrated sales. Cached; do not modify."""
     rates, sales = maui_rates(), load_sales()
     homes = maui_homes(sales)
     rec = by_band(homes)
     mls = mls_targets(mls_col)
     syn_m = stock_sales(county_stock("Maui"), rates, sigma)
     w_m = band_weights(syn_m, None, syn_m, rec)
-    exact = components(homes, target_fy, bh, bill)
-    raw = {"Maui": components(weighted(syn_m, w_m), target_fy, bh, bill)}
-    k = (exact["hd2"] - exact["now"]) / (raw["Maui"]["hd2"] - raw["Maui"]["now"])
-    out = {"residual": k, "exact": exact, "raw": raw, "weights": {"Maui": w_m}, "synthetic": {"Maui": syn_m},
-           "calibrated": {}}
+    out = {"homes": homes, "weights": {"Maui": w_m}, "synthetic": {"Maui": syn_m},
+           "calibrated": {"Maui": weighted(syn_m, w_m)}}
     for c in STOCK_COUNTIES:
         own = c == "Honolulu" and oahu_turnover is not None
         syn = stock_sales(county_stock(c, hawaii_capped=hawaii_capped), scale_turnover(rates, oahu_turnover)
                           if own else rates, sigma)
         w = band_weights(syn, c if calibrate and not own else None, syn_m, rec, mls)
-        cal = weighted(syn, w)
-        raw[c] = components(cal, target_fy, bh, bill)
+        out["weights"][c], out["synthetic"][c], out["calibrated"][c] = w, syn, weighted(syn, w)
+    return out
+
+
+def stock_method(target_fy: float, bh: Behavior = STATIC, *, bill: str = BILL, rows: dict | None = None,
+                 **calibration) -> dict:
+    """Change ($M) for Honolulu, Hawaii and Kauai counties from their homes.
+
+    Each county's synthetic sales are weighted, band by band, to its recorded
+    home sales (band_weights); Maui's own synthetic sales weighted the same way
+    give the residual factor, Maui's exact change over its weighted synthetic
+    change, applied to every county. *calibration* goes to calibrated_rows
+    (e.g. oahu_turnover multiplies Maui's rates for Honolulu homes assessed at
+    $4M+ and replaces Honolulu's band targets with Maui's scale); *rows*
+    overrides its result."""
+    rows = rows or calibrated_rows(**calibration)
+    exact = components(rows["homes"], target_fy, bh, bill)
+    raw = {"Maui": components(rows["calibrated"]["Maui"], target_fy, bh, bill)}
+    k = (exact["hd2"] - exact["now"]) / (raw["Maui"]["hd2"] - raw["Maui"]["now"])
+    out = {"residual": k, "exact": exact, "raw": raw, "weights": rows["weights"], "synthetic": rows["synthetic"],
+           "calibrated": rows["calibrated"]}
+    for c in STOCK_COUNTIES:
+        raw[c] = components(rows["calibrated"][c], target_fy, bh, bill)
         out[c] = k * (raw[c]["hd2"] - raw[c]["now"])
-        out["weights"][c], out["synthetic"][c], out["calibrated"][c] = w, syn, cal
     return out
 
 
@@ -595,8 +725,8 @@ def implied_oahu_turnover(sm: dict, from_value: float = 4e6) -> float:
     def lift(syn: pd.DataFrame, cal: pd.DataFrame) -> float:
         top = syn["rb"] >= from_value
         return float(cal.loc[top, "count"].sum() / syn.loc[top, "count"].sum())
-    maui = sm["synthetic"]["Maui"]
-    return lift(sm["synthetic"]["Honolulu"], sm["calibrated"]["Honolulu"]) / lift(maui, weighted(maui, sm["weights"]["Maui"]))
+    return (lift(sm["synthetic"]["Honolulu"], sm["calibrated"]["Honolulu"])
+            / lift(sm["synthetic"]["Maui"], sm["calibrated"]["Maui"]))
 
 
 def benchmarks(sales: pd.DataFrame) -> dict:
@@ -671,6 +801,107 @@ def dotax_residual(sm_base: dict) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Uncertainty and the market cycle
+
+PRIOR_NOTES = {
+    "elasticity": "lognormal, median 6, sd of log 0.38 (5-95%: 3.2-11.2)",
+    "nonowner_mult": "lognormal, median 1, sd of log 0.15",
+    "first_year": "uniform 1.0-1.25",
+    "curvature": "uniform 0-0.25",
+    "price_response": "triangular -0.4, 0.5, 1.5",
+    "owner_shift": "triangular 0, 2, 6",
+    "entity_takeup": "triangular 0, 0.2, 0.5",
+    "entity_growth": "uniform 0-0.15",
+    "county sales by price": "triangular between the listing data's low, central and high counts, by county and band",
+}
+
+
+def simulate(sales: pd.DataFrame, n: int = N_DRAWS, years: list[int] = TARGET_YEARS, seed: int = SEED) -> pd.DataFrame:
+    """Monte Carlo: statewide change by fiscal year for *n* draws of the
+    behavioral parameters (draw_behaviors) and of each county's sales by price
+    band (between the listing data's low and high counts, triangular around
+    the central). One row per draw and year, with the draw's parameters."""
+    draws, rng = draw_behaviors(n, seed)
+    rows = calibrated_rows()
+    mid, lo, hi = mls_targets(), mls_targets("mls_low"), mls_targets("mls_high")
+    out = []
+    for i, bh in enumerate(draws):
+        cal = dict(rows["calibrated"])
+        for c in STOCK_COUNTIES:
+            scale = np.ones(len(CAL_EDGES) - 1)
+            for j in mid.columns:
+                scale[j] = rng.triangular(lo.loc[c, j], mid.loc[c, j], hi.loc[c, j]) / mid.loc[c, j]
+            cal[c] = cal[c].assign(count=cal[c]["count"] * scale[_cal_band(cal[c]["price"])])
+        for t in years:
+            comp = components(sales, t, bh)
+            sm = stock_method(t, bh, rows={**rows, "calibrated": cal})
+            ch = by_county_change(comp, sm)
+            out.append({"draw": i, "fy": t, "state_change_$M": float(ch.sum()),
+                        **{f"change_{c.lower()}_$M": float(ch[c]) for c in COUNTIES},
+                        **{k: getattr(bh, k) for k in ("elasticity", "nonowner_mult", "first_year", "curvature",
+                                                        "price_response", "owner_shift", "entity_takeup",
+                                                        "entity_growth")}})
+    return pd.DataFrame(out)
+
+
+def simulation_summary(sim: pd.DataFrame) -> pd.DataFrame:
+    q = [0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95]
+    g = sim.groupby("fy")["state_change_$M"]
+    return pd.concat([g.quantile(q).unstack().rename(columns=lambda x: f"p{int(round(x * 100)):02d}"),
+                      g.mean().rename("mean")], axis=1).reset_index()
+
+
+def simulation_drivers(sim: pd.DataFrame, fy: int) -> dict:
+    """Rank correlation of each drawn parameter with the statewide change."""
+    s = sim[sim["fy"] == fy]
+    r = s.drop(columns=["draw", "fy"]).rank()
+    return {k: float(r[k].corr(r["state_change_$M"])) for k in ("elasticity", "nonowner_mult", "first_year",
+                                                                  "curvature", "price_response", "owner_shift",
+                                                                  "entity_takeup", "entity_growth")}
+
+
+def load_sales_history() -> pd.DataFrame:
+    """Maui's sales in every fiscal year FY2016-26, as load_sales gives the
+    base years (maui_sales_history_fy2016_2026.csv)."""
+    h = pd.read_csv(DATA / "maui_sales_history_fy2016_2026.csv")
+    return h.assign(price=h["sum_price"] / h["count"], category=np.where(h["kind"] == "mf", "mf", h["category"]))[
+        ["fy", "category", "bin_lo", "count", "price", "units"]]
+
+
+def market_cycle(behaviors: dict[str, Behavior]) -> pd.DataFrame:
+    """The draft scored on each fiscal year's market, FY2016-26: Maui sale by
+    sale; the other three counties by the base years' ratio of their change to
+    Maui's, component by component (non-owner gains, owner gains, cuts).
+    Behavior at its lasting level (no first-year or developer effects). At each
+    year's own prices and law, and at FY2028 prices. Totals add DOTAX
+    collections re-timed by sale (DOTAX_COLLECTIONS_BY_SALE_M)."""
+    hist, sales = load_sales_history(), load_sales()
+    keys = ("gain_nonowner", "gain_owner", "cut")
+    out = {}
+    for label, bh in behaviors.items():
+        steady = replace(bh, first_year=1.0, developer_ramp=None)
+        for prices, target in (("own", None), ("fy2028", EFFECTIVE_FY)):
+            if target is None:
+                base = pd.DataFrame([components(sales[sales["fy"] == b], b, steady) for b in MAUI_BASE_FY]).mean()
+                sm = stock_method(SALES_BASE_FY, steady)
+            else:
+                base, sm = pd.Series(components(sales, target, steady)), stock_method(target, steady)
+            ratio = {k: sum(sm["residual"] * sm["raw"][c][k] for c in STOCK_COUNTIES) / base[k] for k in keys}
+            for y in sorted(hist["fy"].unique()):
+                m = components(hist[hist["fy"] == y], target or y, steady)
+                maui = m["hd2"] - m["now"]
+                out.setdefault(y, {"fy": y})
+                out[y][f"maui_change_{label}_{prices}_prices_$M"] = maui
+                out[y][f"state_change_{label}_{prices}_prices_$M"] = maui + sum(ratio[k] * m[k] for k in keys)
+    df = pd.DataFrame(list(out.values())).sort_values("fy")
+    df.insert(1, "dotax_collections_$M", df["fy"].map(DOTAX_COLLECTIONS_M))
+    df.insert(2, "dotax_collections_by_sale_$M", df["fy"].map(DOTAX_COLLECTIONS_BY_SALE_M))
+    for label in behaviors:
+        df[f"total_{label}_own_prices_$M"] = df["dotax_collections_by_sale_$M"] + df[f"state_change_{label}_own_prices_$M"]
+    return df.reset_index(drop=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 def run() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -691,6 +922,15 @@ def run() -> None:
             rows.append({"fy": t, "case": label, "maui_now_$M": comp["now"], "maui_hd2_$M": comp["hd2"],
                          "state_now_$M": state_now[t], "state_change_$M": ch.sum(),
                          **{f"change_{c.lower()}_$M": ch[c] for c in COUNTIES}})
+    # Uncertainty: Monte Carlo over the behavioral priors and the listing data.
+    sim = simulate(sales)
+    sim.to_csv(OUT_DIR / "simulation_draws.csv", index=False)
+    ssum = simulation_summary(sim)
+    ssum.to_csv(OUT_DIR / "simulation_summary.csv", index=False)
+    for t in TARGET_YEARS:
+        q = ssum.set_index("fy").loc[t]
+        for label, col in (("behavioral_low", "p05"), ("behavioral_median", "p50"), ("behavioral_high", "p95")):
+            rows.append({"fy": t, "case": label, "state_now_$M": state_now[t], "state_change_$M": float(q[col])})
     rev = pd.DataFrame(rows)
     rev.to_csv(OUT_DIR / "revenue_by_year.csv", index=False)
 
@@ -799,19 +1039,35 @@ def run() -> None:
             variant("No spread of sale prices around assessed value", sigma=0.0),
             variant("Hawaii Island homeowner values as assessed (capped)", hawaii_capped=True),
             {"variant": "Kauai from tax-roll value above $2M", **kauai_tiers},
-            behavior(f"Sales fall {ELASTICITY_RANGE[0]}% per point of added tax", replace(CENTRAL, elasticity=ELASTICITY_RANGE[0])),
-            behavior(f"Sales fall {ELASTICITY_RANGE[1]}% per point of added tax", replace(CENTRAL, elasticity=ELASTICITY_RANGE[1])),
-            behavior("Sales fall 6% per point for owner-occupants, 8% for other buyers",
-                     replace(CENTRAL, elasticity={"owner": 6.0, "nonowner": 8.0, "mf": 8.0})),
+            behavior("Sales fall 4% per point of added tax", replace(CENTRAL, elasticity=4.0)),
+            behavior("Sales fall 10% per point of added tax", replace(CENTRAL, elasticity=10.0)),
+            behavior("Other buyers respond 30% more than owner-occupants", replace(CENTRAL, nonowner_mult=1.3)),
+            behavior("Developer sales respond at once, like others", replace(CENTRAL, developer_ramp=None)),
+            behavior("No fall in recorded prices", replace(CENTRAL, price_response=0.0)),
+            behavior("Recorded prices fall 1.5% per point of added tax", replace(CENTRAL, price_response=1.5)),
+            behavior("No shift to the owner-occupant rates", replace(CENTRAL, owner_shift=0.0)),
+            behavior("6% of other buyers per point of the gap move to the owner-occupant rates",
+                     replace(CENTRAL, owner_shift=6.0)),
             behavior("No sales of entities in place of homes", replace(CENTRAL, entity_takeup=0.0)),
             behavior("Half of entity-held sales of $4M+ sold as entities", replace(CENTRAL, entity_takeup=0.5)),
-            behavior("10% of other buyers at $4M+ claim the owner-occupant rates", replace(CENTRAL, cert_shift=0.1)),
             behavior("First year after a rush of sales before the law takes effect",
-                     replace(CENTRAL, forestall=(0.25, 1.5))),
-            behavior("Previous assumptions: sales fall 10% per point, no entity sales",
-                     Behavior(10.0, 0.0))]
+                     replace(CENTRAL, forestall=(0.4, 2.0))),
+            behavior("Third revision's single response: sales fall 6% per point, a quarter of entity sales escape",
+                     SIMPLE),
+            behavior("Second revision's assumptions: sales fall 10% per point, no entity sales",
+                     Behavior(elasticity=10.0))]
     sens = pd.DataFrame(sens)
     sens.to_csv(OUT_DIR / "sensitivity.csv", index=False)
+
+    # The same draft in past markets, FY2016-26.
+    cycle = market_cycle({"static": STATIC, "central": CENTRAL})
+    cycle.to_csv(OUT_DIR / "market_cycle.csv", index=False)
+    # Total collections, static, FY2031: this draft and the House's HB 2049 HD3
+    # (the "up to $300 million a year" in Hawaii Appleseed's July 2026 blog is
+    # HB 2049 HD3's FY2031 total in its testimony table).
+    totals_2031 = {bill: float(state_now[2031] + by_county_change(components(sales, 2031, STATIC, bill),
+                                                                  stock_method(2031, STATIC, bill=bill)).sum())
+                   for bill in ("SB3028 HD2", "HB2049 HD3")}
 
     # Maui by band, first scored year, static and behavioral, averaged over base years.
     parts = [score(sales[sales["fy"] == b], t0, CENTRAL).assign(base_fy=b) for b in MAUI_BASE_FY]
@@ -858,7 +1114,17 @@ def run() -> None:
         "state_nonowner_share_of_increase": nonowner_share(st, sm_st),
         "calibration_residual": {"static": sm_st["residual"], "behavioral": sm_bh["residual"]},
         "price_sigma": {"used": PRICE_SIGMA, "fitted_on_maui": fitted_sigma},
-        "entity_takeup": ENTITY_TAKEUP,
+        "behavior_central": {k: v for k, v in vars(CENTRAL).items()},
+        "developer_share_of_value": dict(zip([f"{lo:.0f}" for lo in developer_share()[0][:-1]],
+                                             developer_share()[1].round(4).tolist(), strict=True)),
+        "simulation": {"draws": N_DRAWS, "seed": SEED, "priors": PRIOR_NOTES,
+                       "percentiles": ssum.set_index("fy").round(3).to_dict(orient="index"),
+                       "drivers_fy2029": simulation_drivers(sim, EFFECTIVE_FY + 1)},
+        "market_cycle": {"fy2022": cycle.set_index("fy").loc[2022].round(3).to_dict(),
+                         "fy2016_2026_mean_fy2028_prices": cycle.filter(like="fy2028_prices").mean().round(3).to_dict(),
+                         "fy2023_2026_mean_fy2028_prices": cycle[cycle["fy"] >= 2023].filter(like="fy2028_prices")
+                         .mean().round(3).to_dict()},
+        "totals_fy2031_static": totals_2031,
         "checks": checks,
         "benchmarks": benchmarks(sales),
         "tg_home_sales_years": TG_YEARS,
@@ -899,8 +1165,9 @@ def run() -> None:
                                "state_base_fy": STATE_BASE_FY, "tg_years": TG_YEARS, "tail_at": TAIL_AT,
                                "price_growth": PRICE_GROWTH, "cpi_growth": CPI_GROWTH,
                                "volume_semi_elasticity": VOLUME_SEMI_ELASTICITY,
-                               "elasticity_range": ELASTICITY_RANGE,
-                               "entity_takeup": ENTITY_TAKEUP, "entity_takeup_range": ENTITY_TAKEUP_RANGE,
+                               "behavior_central": {k: v for k, v in vars(CENTRAL).items()},
+                               "effective_fy": EFFECTIVE_FY, "n_draws": N_DRAWS, "seed": SEED,
+                               "priors": PRIOR_NOTES,
                                "entity_share": [list(x) for x in entity_share()],
                                "rate_edges": RATE_EDGES, "sales_base_fy": SALES_BASE_FY,
                                "stock_groups": STOCK_GROUPS, "price_sigma": PRICE_SIGMA,

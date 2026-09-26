@@ -36,13 +36,137 @@
   "state_nonowner_share_of_increase": 0.8824722992596614,
   "calibration_residual": {
     "static": 1.0330866520117676,
-    "behavioral": 1.0318014563601519
+    "behavioral": 1.032803665845539
   },
   "price_sigma": {
     "used": 0.25,
     "fitted_on_maui": 0.24
   },
-  "entity_takeup": 0.25,
+  "behavior_central": {
+    "elasticity": 6,
+    "nonowner_mult": 1.0,
+    "first_year": 1.1,
+    "curvature": 0.125,
+    "developer_ramp": [
+      0.0,
+      0.0,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "price_response": 0.5,
+    "owner_shift": 2.0,
+    "entity_takeup": 0.2,
+    "entity_growth": 0.075,
+    "forestall": null
+  },
+  "developer_share_of_value": {
+    "0": 0.0149,
+    "1000000": 0.0767,
+    "2000000": 0.0667,
+    "4000000": 0.0522,
+    "6000000": 0.1283,
+    "10000000": 0.2362
+  },
+  "simulation": {
+    "draws": 1000,
+    "seed": 20280701,
+    "priors": {
+      "elasticity": "lognormal, median 6, sd of log 0.38 (5-95%: 3.2-11.2)",
+      "nonowner_mult": "lognormal, median 1, sd of log 0.15",
+      "first_year": "uniform 1.0-1.25",
+      "curvature": "uniform 0-0.25",
+      "price_response": "triangular -0.4, 0.5, 1.5",
+      "owner_shift": "triangular 0, 2, 6",
+      "entity_takeup": "triangular 0, 0.2, 0.5",
+      "entity_growth": "uniform 0-0.15",
+      "county sales by price": "triangular between the listing data's low, central and high counts, by county and band"
+    },
+    "percentiles": {
+      "2028": {
+        "p05": 56.128,
+        "p10": 60.977,
+        "p25": 68.017,
+        "p50": 76.525,
+        "p75": 83.431,
+        "p90": 88.403,
+        "p95": 91.757,
+        "mean": 75.421
+      },
+      "2029": {
+        "p05": 59.9,
+        "p10": 65.206,
+        "p25": 71.697,
+        "p50": 80.489,
+        "p75": 86.836,
+        "p90": 92.451,
+        "p95": 96.209,
+        "mean": 79.114
+      },
+      "2030": {
+        "p05": 56.76,
+        "p10": 62.681,
+        "p25": 70.209,
+        "p50": 79.88,
+        "p75": 86.954,
+        "p90": 93.374,
+        "p95": 97.546,
+        "mean": 78.357
+      },
+      "2031": {
+        "p05": 56.036,
+        "p10": 62.063,
+        "p25": 70.122,
+        "p50": 80.434,
+        "p75": 88.022,
+        "p90": 95.062,
+        "p95": 99.622,
+        "mean": 78.795
+      }
+    },
+    "drivers_fy2029": {
+      "elasticity": -0.7649009849009849,
+      "nonowner_mult": -0.2500752700752701,
+      "first_year": 0.048144408144408145,
+      "curvature": -0.016572448572448575,
+      "price_response": -0.2192546552546553,
+      "owner_shift": -0.11828841428841429,
+      "entity_takeup": -0.396961272961273,
+      "entity_growth": -0.03779077379077379
+    }
+  },
+  "market_cycle": {
+    "fy2022": {
+      "dotax_collections_$M": 188.418,
+      "dotax_collections_by_sale_$M": 152.2,
+      "maui_change_static_own_prices_$M": 50.248,
+      "state_change_static_own_prices_$M": 172.903,
+      "maui_change_static_fy2028_prices_$M": 75.131,
+      "state_change_static_fy2028_prices_$M": 258.403,
+      "maui_change_central_own_prices_$M": 31.738,
+      "state_change_central_own_prices_$M": 109.255,
+      "maui_change_central_fy2028_prices_$M": 47.051,
+      "state_change_central_fy2028_prices_$M": 161.913,
+      "total_static_own_prices_$M": 325.103,
+      "total_central_own_prices_$M": 261.455
+    },
+    "fy2016_2026_mean_fy2028_prices": {
+      "maui_change_static_fy2028_prices_$M": 36.824,
+      "state_change_static_fy2028_prices_$M": 126.835,
+      "maui_change_central_fy2028_prices_$M": 23.619,
+      "state_change_central_fy2028_prices_$M": 81.381
+    },
+    "fy2023_2026_mean_fy2028_prices": {
+      "maui_change_static_fy2028_prices_$M": 34.323,
+      "state_change_static_fy2028_prices_$M": 118.698,
+      "maui_change_central_fy2028_prices_$M": 21.859,
+      "state_change_central_fy2028_prices_$M": 75.793
+    }
+  },
+  "totals_fy2031_static": {
+    "SB3028 HD2": 273.97683851940116,
+    "HB2049 HD3": 297.61889075433857
+  },
   "checks": {
     "Honolulu": {
       "model_home_sales_per_year": 9994.932009115908,
