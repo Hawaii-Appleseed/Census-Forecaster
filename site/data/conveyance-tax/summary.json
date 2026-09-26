@@ -1,81 +1,162 @@
 {
   "first_year": 2028,
-  "maui_share_of_sales_pay_less": 0.4346161031197459,
-  "maui_share_of_sales_pay_same": 0.41574817859144403,
-  "maui_share_of_sales_pay_more": 0.14963571828881,
-  "maui_share_of_gain_from_nonowner": 0.9024444165242628,
+  "maui_share_of_sales_pay_less": 0.42989505530868866,
+  "maui_share_of_sales_pay_same": 0.4230878320884939,
+  "maui_share_of_sales_pay_more": 0.14701711260281744,
+  "maui_share_of_gain_from_nonowner": 0.9184921611149195,
   "spotlight_3_4m": {
     "mf": {
       "sales_per_year": 0.75,
       "avg_tax_now": 18618.988898986667,
       "avg_tax_hd2": 5585.696669696001,
-      "share_of_maui_gain": -0.00026971749309857433
+      "share_of_maui_gain": -0.0002847962568205998
     },
     "nonowner": {
-      "sales_per_year": 51.5,
-      "avg_tax_now": 20548.874182098618,
-      "avg_tax_hd2": 84073.09241260399,
-      "share_of_maui_gain": 0.09026934186939752
+      "sales_per_year": 50.5,
+      "avg_tax_now": 20510.238909979224,
+      "avg_tax_hd2": 83623.7778079395,
+      "share_of_maui_gain": 0.0928608791996518
     },
     "owner": {
-      "sales_per_year": 19.5,
-      "avg_tax_now": 16891.638168371202,
-      "avg_tax_hd2": 38796.05416679321,
-      "share_of_maui_gain": 0.011785825541280754
+      "sales_per_year": 18.5,
+      "avg_tax_now": 16854.869300118837,
+      "avg_tax_hd2": 38511.305859683656,
+      "share_of_maui_gain": 0.01167286886076281
     }
   },
   "breakeven": {
     "owner": 2247000.0,
     "nonowner": 2073000.0
   },
-  "state_static_change_at_base_prices_$M": 91.1227020680844,
-  "state_nonowner_share_of_increase": 0.8899488654573179,
-  "stock_calibration_factor": {
-    "static": 1.351137247340751,
-    "behavioral": 1.3401696497212197
+  "pays_more_below_2m_from": {
+    "owner": 1801000.0,
+    "nonowner": 1681000.0
   },
+  "state_static_change_at_base_prices_$M": 93.53301319388592,
+  "state_nonowner_share_of_increase": 0.8824722992596614,
+  "calibration_residual": {
+    "static": 1.0330866520117676,
+    "behavioral": 1.0318014563601519
+  },
+  "price_sigma": {
+    "used": 0.25,
+    "fitted_on_maui": 0.24
+  },
+  "entity_takeup": 0.25,
   "checks": {
     "Honolulu": {
-      "model_sales_per_year": 7783.263467879021,
-      "model_value_$B": 7.647062206743554,
+      "model_home_sales_per_year": 9994.932009115908,
+      "model_value_$B": 8.789964622403302,
       "tg_sales_per_year": 10781.333333333334,
       "tg_value_$B": 9.527400513,
-      "model_sales_2m_plus": 456.00110002870963,
-      "model_sales_3m_plus": 123.851155030148,
-      "model_sales_5m_plus": 40.529064863688866,
-      "mls_sf_sales_2m_plus": 286.5,
-      "mls_sf_sales_3m_plus": 110.5,
-      "mls_sf_sales_5m_plus": 39.0
+      "model_sales_2m_plus": 516.8929242968386,
+      "model_sales_3m_plus": 199.6924699315665,
+      "model_sales_5m_plus": 54.87184758715359,
+      "model_sales_10m_plus": 9.078260869565172,
+      "tg_over_model": 1.0786800073777576
     },
     "Hawaii": {
-      "model_sales_per_year": 2049.7331697472814,
-      "model_value_$B": 1.667940068753847,
+      "model_home_sales_per_year": 3216.565599032253,
+      "model_value_$B": 2.8606712840065183,
       "tg_sales_per_year": 3853.0,
       "tg_value_$B": 2.763153937,
-      "model_sales_2m_plus": 106.58901813144176,
-      "model_sales_3m_plus": 54.10042328268798,
-      "model_sales_5m_plus": 36.85360651204011
+      "model_sales_2m_plus": 224.58954828091555,
+      "model_sales_3m_plus": 122.55260247459822,
+      "model_sales_5m_plus": 57.17030241027007,
+      "model_sales_10m_plus": 18.177536231884012,
+      "tg_over_model": 1.197861470992299
+    },
+    "Kauai": {
+      "model_home_sales_per_year": 931.5220585137306,
+      "model_value_$B": 1.2703174847302108,
+      "tg_sales_per_year": 762.6666666666666,
+      "tg_value_$B": 0.9787812733333334,
+      "model_sales_2m_plus": 143.7417193484182,
+      "model_sales_3m_plus": 76.36162617220883,
+      "model_sales_5m_plus": 27.066443823236266,
+      "model_sales_10m_plus": 3.9927536231884155,
+      "tg_over_model": 0.8187317301788027
     },
     "Maui": {
-      "model_sales_per_year": 2352.75,
-      "model_value_$B": 2.8148665295,
+      "model_home_sales_per_year": 2272.75,
+      "model_value_$B": 2.7014634145,
       "tg_sales_per_year": 1454.3333333333333,
       "tg_value_$B": 2.0749206283333335,
-      "model_sales_2m_plus": 286.5,
-      "model_sales_3m_plus": 152.0,
-      "model_sales_5m_plus": 62.75
-    }
+      "model_sales_2m_plus": 274.0,
+      "model_sales_3m_plus": 143.0,
+      "model_sales_5m_plus": 59.0,
+      "model_sales_10m_plus": 14.5,
+      "tg_over_model": 0.63990026766399
+    },
+    "dotax_residual": {
+      "dotax_less_maui_$M": 75.38750133333333,
+      "model_homes_current_law_$M": 48.2771049346655,
+      "current_law_scale": 0.9871167822924758,
+      "implied_nonresidential_share": 0.3596139402312396,
+      "maui_nonresidential_share": 0.23948661699012155
+    },
+    "oahu_turnover_vs_maui_rates": {
+      "<1M": {
+        "homes": 158273.0,
+        "oahu_resales_per_year": 5029.486676764077,
+        "at_maui_rates_per_year": 4771.360329065587,
+        "ratio": 1.0540991100852448,
+        "rel_se": 0.01855151464289778
+      },
+      "1-2M": {
+        "homes": 93565.0,
+        "oahu_resales_per_year": 1971.7279343371345,
+        "at_maui_rates_per_year": 2070.298726058305,
+        "ratio": 0.9523881310071411,
+        "rel_se": 0.02418330871297331
+      },
+      "2-4M": {
+        "homes": 12756.0,
+        "oahu_resales_per_year": 341.86067801140416,
+        "at_maui_rates_per_year": 334.6469333203488,
+        "ratio": 1.0215562850658184,
+        "rel_se": 0.05015928619272634
+      },
+      "4M+": {
+        "homes": 2013.0,
+        "oahu_resales_per_year": 81.55415092658588,
+        "at_maui_rates_per_year": 50.07343905563481,
+        "ratio": 1.628690828204829,
+        "rel_se": 0.08831201860368353
+      }
+    },
+    "oahu_turnover_4m_plus_implied_by_calibration": 1.0499561580034054
   },
-  "alpha_honolulu_residential_a": 2.68296452526575,
-  "alpha_oahu_sf_sales": 2.3859999999998527,
-  "oahu_nonowner_share_above_2m": 0.4718588175087067,
-  "oahu_check_$M": {
-    "mls_static": 25.169477044102806,
-    "mls_behavioral": 15.935736038885572,
-    "mls_recorded_value_$B": 9.01126659265236,
-    "recorded_static": 43.35716115367253,
-    "recorded_behavioral": 27.410735823152898,
-    "recorded_recorded_value_$B": 9.509200354579075
+  "benchmarks": {
+    "fy2028": {
+      "sb3028_hd2_$M": 118.69788231220905,
+      "hb2049_hd3_$M": 139.25075471331473,
+      "difference_$M": 20.552872401105688,
+      "ratio_hd2_over_hd3": 0.8524038706761818,
+      "house_level_ratio_hd2": 1.2637125202070372,
+      "house_level_ratio_hd3": 1.220819236132622
+    },
+    "base_prices": {
+      "sb3028_hd2_$M": 93.53301319388592,
+      "hb2049_hd3_$M": 109.89110760264973,
+      "difference_$M": 16.358094408763804,
+      "ratio_hd2_over_hd3": 0.8511426923831518,
+      "house_level_ratio_hd2": 1.6037118326238764,
+      "house_level_ratio_hd3": 1.5469859546296985
+    },
+    "share_same_or_less": {
+      "sb3028_hd2": 0.90032461213267,
+      "hb2049_hd3": 0.7840792895623906,
+      "house_sb3028_hd2": 0.91,
+      "house_hb2049": 0.75
+    },
+    "dotax_hb1410_hd2_fy2026": {
+      "dotax_increase_$M": 57.9,
+      "dotax_base_$M": 102.1,
+      "model_homes_$M": 24.33200277713173,
+      "model_nonresidential_scaled_$M": 15.840416618220548,
+      "dotax_over_model": 1.4412873526531664
+    }
   },
   "tg_home_sales_years": [
     2023,
@@ -83,10 +164,10 @@
     2025
   ],
   "general_fund_breakeven_gain_$M": 107.0,
-  "maui_share_schedule_matched": 0.9728189800112087,
+  "maui_share_schedule_matched": 0.9824146733478302,
   "maui_share_of_state_collections": {
-    "2023": 0.18881029392610602,
-    "2024": 0.26353392327355224,
-    "2025": 0.18339067103961684
+    "2023": 0.1836787978118352,
+    "2024": 0.2626484791245342,
+    "2025": 0.17614607735957105
   }
 }
