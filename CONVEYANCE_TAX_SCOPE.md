@@ -26,8 +26,7 @@ in-hand data. What changed:
 - The current-law baseline is DOTAX grown by the model rather than rescaled
   by Maui's recorded tax.
 
-**Before publishing, one decision is open: Title Guaranty's terms** (see
-below).
+Title Guaranty's reports are used with its permission (see below).
 
 The rest of this document is the original scope, kept for its reasoning.
 Goal: a "Proposed policy" estimate on the estimates site for restructuring
@@ -137,8 +136,11 @@ attention to the $3–4 million homes where the change bites hardest.
     house/condo shares. Kauaʻi uses the year-end shares.
   - Hawaiʻi Life luxury reports and List Sotheby's ($10M+ and the $6M split).
 
-**Title Guaranty's terms (open question).** The FNF Terms of Use (Aug 15,
-2021) bar three things:
+**Title Guaranty's terms and permission.** Hawaiʻi Appleseed has Title
+Guaranty's permission to use and publish data from these reports (confirmed
+2026-09-25), so the calibrated estimate is published as the central figure.
+Without that permission, the FNF Terms of Use (Aug 15, 2021) would bar three
+things:
 
 - "any robot, spider, or other automatic devise" [sic];
 - any process "(manual or automatic) to gather, extract, monitor, or copy
@@ -149,14 +151,9 @@ The research round downloaded 170 report PDFs automatically, six at a time
 under a browser User-Agent, before the terms were read. The local cache
 (`runs/conveyance_sb3028/mls_cache/`, gitignored) is a copy of that
 download. The committed script downloads nothing and prints no links, and
-the page cites the reports without a link. Hawaiʻi Appleseed should decide
-before publishing:
-
-- (a) ask Title Guaranty for permission;
-- (b) keep the calibration but not republish the counts (drop
-  `band_calibration.csv`'s MLS columns from the site);
-- (c) publish the uncalibrated fallback, the first sensitivity row: $73.8M
-  with the sales response, against $79.1M.
+the page cites the reports without a link. Without the calibration (the
+first sensitivity row), the estimate would be $73.8M with the sales
+response, against $79.1M.
 
 **Behavior** (`Behavior`, `score`).
 

@@ -36,7 +36,7 @@ Sources (read 2026-09-25):
     luxury reports, 2022 Q3-2026 Q2 (listsothebysrealty.com): houses at
     $2-3M, $3-5M, $5-10M and $10M+; condominiums at $1-2.5M, $2.5M+, $5M+.
 
-Title Guaranty's terms (an open question):
+Title Guaranty's terms and permission:
   The 170 reports in runs/conveyance_sb3028/mls_cache/ (gitignored) were not
   saved by hand. They are APFS clones (cp -c) of the research round's
   automated download, a script that fetched them with Python requests, six
@@ -47,12 +47,10 @@ Title Guaranty's terms (an open question):
   gather, extract, monitor, or copy any information" on it; and creating or
   publishing "any link to any page of the Sites". The download was
   automatic, and parsing the reports, by this script or by hand, extracts
-  their information. Whether these reports may be used, and this table and
-  the estimate calibrated to it published, is an open question for Hawaiʻi
-  Appleseed to settle: written permission from TG, or a fallback such as
-  the forecast without this calibration. This script downloads nothing and
-  carries no link to the site; if reports are missing it names the files
-  and stops.
+  their information. Hawaiʻi Appleseed has Title Guaranty's permission to
+  use and publish data from these reports (confirmed 2026-09-25). This
+  script still downloads nothing and carries no link to the site; if
+  reports are missing it names the files and stops.
 
 Method:
   1. Price-range charts are read from the drawn rectangles: fill colour ->
