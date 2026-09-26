@@ -34,7 +34,11 @@ Improvements over forecast_sb3125.py:
      standard and itemized via expected-value Pease-limited Hawaii rules)
      instead of a fixed-amount itemized-premium subtraction. This is the
      same deduction that drives ``hi_tax_liability`` upstream, so the
-     comparison is internally consistent.
+     comparison is internally consistent. Units whose income the premium or
+     the recession shock rescales are re-scored first
+     (``refresh_stale_hawaii_tax``); until September 2026 the premium's
+     blanked deductions were scored as zero, putting every filer above
+     $500K on the standard deduction.
 
   6. **Corporate REEC: §48E vs §25D split** — OBBBA terminated §25D
      (residential) but extended §48E (commercial). Corporate REEC
@@ -207,7 +211,9 @@ def run_one_scenario(
     import logging; logging.disable(logging.WARNING)
 
     from tax_modeler.pipeline import _compute_base_tax
-    from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
+    from tax_modeler.projection.tax_unit_projector import (
+        project_tax_units_forward, refresh_stale_hawaii_tax,
+    )
     from tax_modeler.config.tax_system_config import (
         TaxCalculator, TaxSystemRegistry, compare_systems,
     )
@@ -297,6 +303,12 @@ def run_one_scenario(
             projected = apply_macro_recession_shock(
                 projected, target_year=year, scenario=macro_shock,
             )
+
+        # 2e) Re-score the units whose income 2)-2d) changed. The premium blanks
+        #     their tax columns; left blank, every filer above $500K was scored
+        #     on the standard deduction alone (see SB3125_CD1_FORECAST.md,
+        #     "Scoring-path fixes").
+        projected = refresh_stale_hawaii_tax(projected, target_year=year)
 
         # 3) Pre-behavioral baseline + scenario revenue (static)
         baseline_cfg = TaxSystemRegistry.get_act46_system(year)
@@ -532,7 +544,9 @@ if __name__ == "__main__":
         import warnings; warnings.filterwarnings("ignore")
         import logging; logging.disable(logging.WARNING)
         from tax_modeler.pipeline import _compute_base_tax, _enrich_for_credits
-        from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
+        from tax_modeler.projection.tax_unit_projector import (
+            project_tax_units_forward, refresh_stale_hawaii_tax,
+        )
         from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
         from tax_modeler.scenarios.top_income_synthesis import (
             synthesize_top_filers, rescale_synthetic_tail_to_tax_target,
@@ -577,6 +591,8 @@ if __name__ == "__main__":
             projected_q = apply_top_income_growth_premium(
                 projected_q, target_year=yr, annual_premium=mid_sc["top_premium"],
             )
+            # Re-score the units the premium rescaled (see run_one_scenario, 2e).
+            projected_q = refresh_stale_hawaii_tax(projected_q, target_year=yr)
 
             base_cfg = TaxSystemRegistry.get_act46_system(yr)
             scen_cfg = get_scenario_system(yr)

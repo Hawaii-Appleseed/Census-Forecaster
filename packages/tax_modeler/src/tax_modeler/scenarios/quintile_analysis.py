@@ -97,10 +97,18 @@ def per_unit_tax(
     scales. See ``forecast_sb3125_cd1_vs_fy26base.py`` for the pattern.
 
     If ``hi_itemized_deduction`` is missing (legacy data, pre-Act-46 backtests),
-    falls back to scenario SD only. There is no longer a ``deduction_col``
-    override — that parameter previously caused silent bugs by forcing both
-    baseline and bill scenarios to share a pre-computed effective-deduction
-    column, hiding scenario-specific SD changes (e.g. HB 2306 ORIG SD freeze).
+    falls back to scenario SD only; a NaN in it raises (see
+    ``tax_system_config.itemized_deductions``). There is no longer a
+    ``deduction_col`` override — that parameter previously caused silent bugs
+    by forcing both baseline and bill scenarios to share a pre-computed
+    effective-deduction column, hiding scenario-specific SD changes (e.g.
+    HB 2306 ORIG SD freeze).
+
+    This is ``TaxCalculator.unit_liabilities(...)["net"]``, the same per-unit
+    tax ``compare_systems`` sums, so per-unit totals reproduce its revenue.
+    Until September 2026 this function kept its own copy of that math, which
+    read a ``"total_credits"`` key the credit calculator never returns: every
+    distributional table was scored before credits.
 
     Parameters
     ----------
@@ -113,92 +121,10 @@ def per_unit_tax(
 
     Returns
     -------
-    np.ndarray of shape (n,) — per-filer net liability (≥ 0).
+    np.ndarray of shape (n,) — per-filer net liability after credits;
+    negative where refundable credits exceed the tax, as in ``compare_systems``.
     """
-    from tax_modeler.adjustments.hawaii_credits import HawaiiTaxCredits
-
-    n        = len(tax_units)
-    incomes  = tax_units["income"].to_numpy(dtype=float)
-    statuses = tax_units["filing_status"].to_numpy()
-
-    raw_exemp = (
-        tax_units["num_exemptions"].to_numpy(dtype=float)
-        if "num_exemptions" in tax_units.columns
-        else np.ones(n, dtype=float)
-    )
-    nan_exemp = np.isnan(raw_exemp)
-    num_exemptions = np.where(nan_exemp, 1.0, raw_exemp)
-
-    raw_dep = (
-        tax_units["num_dependents"].to_numpy(dtype=float)
-        if "num_dependents" in tax_units.columns
-        else np.zeros(n, dtype=float)
-    )
-    nan_dep = np.isnan(raw_dep)
-    num_dependents = np.where(nan_dep, 0, raw_dep).astype(int)
-
-    # Effective deduction = max(scenario_SD_per_fs, itemized).
-    # The raw itemized column is populated upstream by calculate_hawaii_tax
-    # (when deduction_params was supplied during projection). Itemizers keep
-    # their itemized amount under any scenario; only non-itemizers see the
-    # scenario-specific SD. This is essential for SD-changing bills like
-    # HB 2306 ORIG, where applying the SD difference to itemizers would
-    # overstate the bill's revenue impact.
-    sd_per_filer = np.empty(n, dtype=float)
-    for fs in np.unique(statuses):
-        sd_per_filer[statuses == fs] = calc.get_standard_deduction(
-            config.standard_deduction_year, fs
-        )
-    if "hi_itemized_deduction" in tax_units.columns:
-        itemized = (
-            tax_units["hi_itemized_deduction"]
-            .fillna(0.0).to_numpy(dtype=float)
-        )
-        deductions = np.maximum(sd_per_filer, itemized)
-    else:
-        deductions = sd_per_filer
-
-    exemption_amount = num_exemptions * config.personal_exemption
-    taxable_full = np.maximum(0.0, incomes - deductions - exemption_amount)
-
-    cg_shares = (
-        tax_units["synthetic_cg_share"].fillna(0.0).to_numpy(dtype=float)
-        if "synthetic_cg_share" in tax_units.columns
-        else np.zeros(n, dtype=float)
-    )
-    cg_income   = np.maximum(0.0, incomes * cg_shares)
-    has_cg      = cg_income > 0
-    ordinary    = np.maximum(0.0, incomes - cg_income)
-    taxable_ord = np.maximum(0.0, ordinary - deductions - exemption_amount)
-
-    tax_full = calc._vectorized_bracket_tax(taxable_full, statuses, config)
-    if has_cg.any():
-        tax_ord     = calc._vectorized_bracket_tax(taxable_ord, statuses, config)
-        cg_uncapped = np.maximum(0.0, tax_full - tax_ord)
-        cg_capped   = np.minimum(cg_uncapped, cg_income * calc.HAWAII_CG_CAP_RATE)
-        pre_credit  = np.where(has_cg, tax_ord + cg_capped, tax_full)
-    else:
-        pre_credit = tax_full
-
-    pre_credit[nan_exemp] = 0.0
-
-    credit_calc = HawaiiTaxCredits(year=config.year)
-    credit_scen = getattr(config, "credit_scenario", None)
-    credits_arr = np.zeros(n, dtype=float)
-    skip = nan_exemp | nan_dep
-    for i in range(n):
-        if skip[i]:
-            continue
-        result = credit_calc.calculate_total_credits(
-            agi=float(incomes[i]),
-            filing_status=str(statuses[i]),
-            num_dependents=int(num_dependents[i]),
-            tax_before_credits=float(pre_credit[i]),
-            credit_scenario=credit_scen,
-        )
-        credits_arr[i] = result.get("total_credits", 0.0)
-
-    return np.maximum(0.0, pre_credit - credits_arr)
+    return calc.unit_liabilities(tax_units, config)["net"]
 
 
 def reec_individual_credit_loss(

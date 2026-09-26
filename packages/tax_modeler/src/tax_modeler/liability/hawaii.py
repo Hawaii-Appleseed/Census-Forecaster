@@ -524,6 +524,33 @@ def _count_exemptions(filing_status: str, num_dependents: int) -> int:
     return taxpayer_exemptions + num_dependents
 
 
+def statutory_exemption_counts(filing_status, num_dependents) -> np.ndarray:
+    """Vectorized ``_count_exemptions``: filer, spouse on a joint return, and
+    each dependent. A missing (NaN) dependent count counts as none."""
+    status = np.asarray(filing_status)
+    deps = np.nan_to_num(np.asarray(num_dependents, dtype=float), nan=0.0)
+    return 1.0 + (status == "married_filing_jointly") + deps
+
+
+def exemption_counts(tax_units: pd.DataFrame) -> np.ndarray:
+    """Personal exemptions per tax unit, for the frame-level tax scorers.
+
+    A ``num_exemptions`` column wins when the frame carries one (its NaNs are
+    passed through, for callers that treat them as missing data). Otherwise
+    each unit gets the statutory count ``calculate_hawaii_tax`` uses.
+
+    The scorers used to default to one exemption per return when the column was
+    absent, which it is on every projected frame: joint filers and filers with
+    dependents were under-exempted, and a change to the exemption amount scored
+    at about half its cost.
+    """
+    if "num_exemptions" in tax_units.columns:
+        return tax_units["num_exemptions"].to_numpy(dtype=float)
+    deps = (tax_units["num_dependents"].to_numpy(dtype=float)
+            if "num_dependents" in tax_units.columns else np.zeros(len(tax_units)))
+    return statutory_exemption_counts(tax_units["filing_status"].to_numpy(), deps)
+
+
 def _apply_brackets(taxable_income: float, brackets: List[Tuple[float, float]]) -> float:
     """
     Apply progressive tax brackets to taxable income.

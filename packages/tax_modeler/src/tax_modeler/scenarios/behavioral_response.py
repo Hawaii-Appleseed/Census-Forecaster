@@ -165,10 +165,16 @@ def _per_filer_marginal_rate(
     decimal rates aligned with ``df``.
 
     Effective deduction is ``max(filing-status SD, hi_itemized_deduction)``
-    when the ``hi_itemized_deduction`` column is present.
+    when the ``hi_itemized_deduction`` column is present (a NaN raises, as in
+    the revenue scorers). Exemptions come from ``exemption_count_col`` when
+    given, else the same count the revenue scorers use (``exemption_counts``:
+    a ``num_exemptions`` column, or filer + spouse + dependents).
 
     Filers with zero taxable income return MTR = 0.
     """
+    from tax_modeler.config.tax_system_config import itemized_deductions
+    from tax_modeler.liability.hawaii import exemption_counts
+
     incomes = df[income_col].to_numpy(dtype=float)
     statuses = df[fs_col].to_numpy()
     n = len(df)
@@ -178,16 +184,13 @@ def _per_filer_marginal_rate(
         sd_per_filer[statuses == fs] = calculator.get_standard_deduction(
             config.standard_deduction_year, fs
         )
-    if "hi_itemized_deduction" in df.columns:
-        itemized = df["hi_itemized_deduction"].fillna(0.0).to_numpy(dtype=float)
-        deductions = np.maximum(sd_per_filer, itemized)
-    else:
-        deductions = sd_per_filer
+    itemized = itemized_deductions(df)
+    deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
     if exemption_count_col and exemption_count_col in df.columns:
         exemption_count = df[exemption_count_col].fillna(1).to_numpy(dtype=int)
     else:
-        exemption_count = np.ones(n, dtype=int)
+        exemption_count = np.nan_to_num(exemption_counts(df), nan=1.0)
     exemption_amount = exemption_count * config.personal_exemption
 
     taxable = np.maximum(0.0, incomes - deductions - exemption_amount)

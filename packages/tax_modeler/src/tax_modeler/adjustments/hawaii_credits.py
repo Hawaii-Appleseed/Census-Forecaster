@@ -152,12 +152,13 @@ class HawaiiTaxCredits:
         
         For renters with low income.
         """
-        # Income thresholds
+        # Income thresholds. (The separate-filer key was once misspelled
+        # 'married_filing_separate', so separate filers fell to the 30K default.)
         max_income = {
             'single': 30000,
             'married_filing_jointly': 40000,
             'head_of_household': 35000,
-            'married_filing_separate': 20000,
+            'married_filing_separately': 20000,
         }
         
         threshold = max_income.get(filing_status, 30000)
