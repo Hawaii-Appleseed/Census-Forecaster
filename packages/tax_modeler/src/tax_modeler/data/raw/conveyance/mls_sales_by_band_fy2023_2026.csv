@@ -1,0 +1,17 @@
+county,band_lo,band_hi,mls_per_year,mls_low,mls_high,coverage_rel_maui,note
+Honolulu,1000000,3000000,2043.1,1810.0,2313.3,0.995,"TG monthly FY sums less land; coverage weights $1-2M x0.97 and $2-3M x1.10 by MLS count, rescaled for Maui vacant lots"
+Honolulu,3000000,6000000,130.4,100.6,167.8,1.059,"TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; coverage x1.05 (towers closing off the MLS), rescaled for Maui vacant lots"
+Honolulu,6000000,10000000,25.2,19.3,33.6,0.948,"TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; coverage x0.94, rescaled for Maui vacant lots"
+Honolulu,10000000,inf,9.0,8.3,10.2,0.96,"List Sotheby's houses + Hawaiʻi Life condos; coverage 1.06/1.27 (no vacant $10M+ lots), rescaled for Maui vacant lots"
+Hawaii,1000000,3000000,470.5,439.5,498.6,1.0,TG monthly FY sums less land (South Hilo rows of Jun 2026 included)
+Hawaii,3000000,6000000,66.8,53.6,90.8,1.0,"TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; high end +10% for resort sales"
+Hawaii,6000000,10000000,21.9,15.3,34.7,1.0,"TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; high end +10% for resort sales"
+Hawaii,10000000,inf,17.3,14.4,23.5,1.0,"Hawaiʻi Life charts, 2025 houses x0.75 to match its text; high = chart as drawn"
+Kauai,1000000,3000000,275.6,257.5,292.1,1.0,"TG year-end house/condo shares x counts, calendar-year blend (monthly charts unusable from Dec 2023)"
+Kauai,3000000,6000000,48.1,38.1,61.5,1.0,"TG year-end shares x counts and Hawaiʻi Life H1 2026, less $10M+, split at $6M by Hawaiʻi Life"
+Kauai,6000000,10000000,13.4,7.5,20.7,1.0,"TG year-end shares x counts and Hawaiʻi Life H1 2026, less $10M+, split at $6M by Hawaiʻi Life"
+Kauai,10000000,inf,3.8,3.1,4.3,1.0,Hawaiʻi Life charts (no condominium sales at $10M+)
+Maui,1000000,3000000,684.0,614.8,749.5,1.0,Maui's own MLS count (TG monthly FY sums less land); low/high = FY min/max
+Maui,3000000,6000000,88.8,67.8,120.0,1.0,"Maui's own MLS count; TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; low/high = FY min/max"
+Maui,6000000,10000000,20.4,15.6,27.6,1.0,"Maui's own MLS count; TG $3M+ less land and $10M+, split at $6M by Hawaiʻi Life; low/high = FY min/max"
+Maui,10000000,inf,13.8,7.0,19.0,1.0,"Maui's own MLS count, Hawaiʻi Life charts; low/high = FY min/max"

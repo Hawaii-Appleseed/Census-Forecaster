@@ -1,12 +1,34 @@
 # Conveyance Tax (SB 3028, 2026) — Scope
 
-**Status (2026-09-25): built and published** as the "Top of the Market" page
-(`site/conveyance-tax/`), from `forecast_conveyance_sb3028.py`. Revised twice
-on 2026-09-25 to build the statewide estimate county by county. The first
-version (2026-09-24) scaled Maui's results by conveyance collections and gave
-$69M–$118M after the sales response. The first revision scaled by tax-roll
-value above $2M and gave $67M. The current version, described in **As built**
-below, builds Oʻahu and Hawaiʻi Island from their housing stock, home by home.
+**Status (2026-09-25): built.** Published as the "Top of the Market" page
+(`site/conveyance-tax/`), from `forecast_conveyance_sb3028.py`. Revised three
+times on 2026-09-25:
+
+1. The first version (2026-09-24) scaled Maui's results by conveyance
+   collections and gave $69M–$118M after the sales response.
+2. The first revision scaled by tax-roll value above $2M and gave $67M.
+3. The second built Oʻahu and Hawaiʻi Island from their housing stock at
+   Maui's sale rates, with one Maui calibration factor (k = 1.35), and gave
+   $70M.
+
+The current version, described in **As built** below, uses only public or
+in-hand data. What changed:
+
+- Oʻahu, Hawaiʻi Island and Kauaʻi are each calibrated to their own sales by
+  price band.
+- Kauaʻi is built from its own parcel values.
+- Maui's extract is corrected:
+  - Land Court deeds covering several parcels now count once.
+  - Owner-occupancy no longer caps the exemption at $300K.
+  - Near-miss tax matches, undated rows and repeated prices are handled.
+- The sales response now comes from the UK and Los Angeles evidence, with an
+  allowance for sales of companies in place of homes.
+- The current-law baseline is DOTAX grown by the model rather than rescaled
+  by Maui's recorded tax.
+
+**Before publishing, one decision is open: Title Guaranty's terms** (see
+below).
+
 The rest of this document is the original scope, kept for its reasoning.
 Goal: a "Proposed policy" estimate on the estimates site for restructuring
 Hawaiʻi's conveyance tax the way the 2026 Legislature last had it, with
@@ -16,181 +38,249 @@ attention to the $3–4 million homes where the change bites hardest.
 
 | Piece | Where |
 |---|---|
-| Schedules (current §247-2 cliff; HD2 marginal with caps and CPI indexing); tier interpolation (`value_above`); grouped Pareto fit | `packages/tax_modeler/src/tax_modeler/conveyance.py`, tests in `tests/tax_modeler/test_conveyance.py` |
-| Maui sales, stock and sales-by-value inputs | `data/raw/conveyance/maui_*.csv`, produced by `scripts/conveyance/maui_sales_extract.js` (run in a browser on the county site) |
-| Oʻahu and Hawaiʻi County housing stock | `data/raw/conveyance/parcel_stock_by_value.csv`, from `scripts/conveyance/fetch_parcel_stock.py` (public ArcGIS REST) |
-| Kauaʻi and cross-check inputs | `county_home_sales_tg_2015_2025.csv`, `rpt_residential_tiers_fy2027.csv`, `pums_owner_value_tail_2020_2024.csv` (`scripts/conveyance/pums_owner_tail.py`), `oahu_mls_by_price.csv`, `oahu_mls_summary.csv` |
-| Scoring, county build-up, checks, disposition | `forecast_conveyance_sb3028.py` → `runs/conveyance_sb3028/`; tests in `tests/test_conveyance_forecast.py` |
+| Schedules (current §247-2 cliff; HD2 marginal with caps and CPI indexing; HB 2049 HD3 and HB 1410 HD2 as benchmarks, `BILLS`); tier interpolation (`value_above`) | `packages/tax_modeler/src/tax_modeler/conveyance.py`; tests `tests/tax_modeler/test_conveyance.py` |
+| Maui sales, stock, sales-by-value, value × price | `data/raw/conveyance/maui_*.csv`, `maui_sources.json`, from `scripts/conveyance/maui_sales_extract.py`; tests `tests/test_maui_sales_extract.py` |
+| Oʻahu, Hawaiʻi County and Kauaʻi housing stock | `parcel_stock_by_value.csv` (+ `_hawaii_capped`, `hawaii_homeowner_cap_factors.csv`), from `scripts/conveyance/fetch_parcel_stock.py` (public ArcGIS REST, completeness-checked); tests `tests/test_fetch_parcel_stock.py` |
+| MLS house and condo sales by price band and county, FY2023–26 | `mls_sales_by_band_fy2023_2026.csv`, `luxury_report_counts.csv`, from `scripts/conveyance/mls_sales_by_band.py` (reads a local PDF cache; see Title Guaranty's terms); tests `tests/test_mls_sales_by_band.py` |
+| Oʻahu ownership turnover check | `oahu_owner_turnover_cells_2023_2026.csv`, `maui_sale_composition_fy2023_2026.csv`, `oahu_turnover_review_tallies.csv`, from `scripts/conveyance/oahu_owner_turnover.py`; tests `tests/test_oahu_owner_turnover.py` |
+| Company-owned share of top non-owner sales | `honolulu_entity_share_by_band.csv`, from `scripts/conveyance/honolulu_entity_share.py`; tests `tests/test_honolulu_entity_share.py` |
+| Other inputs | `county_home_sales_tg_2015_2025.csv`, `rpt_residential_tiers_fy2027.csv`, `pums_owner_value_tail_2020_2024.csv` (`pums_owner_tail.py`). The old Oʻahu MLS tables (Data Book 21.33–21.34) were removed, superseded by the MLS band file. |
+| Scoring, county build-up, checks, benchmarks, disposition | `forecast_conveyance_sb3028.py` → `runs/conveyance_sb3028/`; tests `tests/test_conveyance_forecast.py` |
 | Page | `scripts/build_site.py` `build_conveyance()`; data in `site/data/conveyance-tax/` |
 
-**Maui: every sale.**
-- Only Maui publishes every recorded sale with price *and* conveyance tax paid
-  (the county's "RPT Sales Data File"). Honolulu publishes no bulk sales file.
-  The qPublic sales pages for all three other counties sit behind terms that
-  prohibit "robots, screen scraping or other data mining tools".
-- The tax paid identifies the schedule, so owner-occupancy is observed
-  (open question 5).
-- In FY2023–FY2026, 97% of priced, taxed documents match (1) or (2) within
-  0.5%. The rest are folded into nonresidential, which HD2 leaves unchanged.
-- Land-use codes split schedule-(1) sales into owner homes and nonresidential
-  property.
-- Bins align with every break point of both laws. Current law reproduces
-  Maui's recorded tax on home sales to within a few hundred dollars a year.
-- **Apartment buildings** (5+ dwelling units per the State GIS dwelling
-  layer; 17 sales in four years) are listed separately and scored under HD2's
-  per-unit rule: rate set by price ÷ units, applied to the whole price, as a
-  non-owner purchase. Today they pay schedule (1) on the whole price. The rule
-  cuts their tax (open question 4, answered).
+**Maui: every sale** (`maui_sales_extract.py`, pure Python).
 
-**Oʻahu and Hawaiʻi Island: housing stock × Maui's sale rates** (`stock_method`).
-- **Maui's rates.** Maui's full assessment listing (tax year 2026) is joined
-  to every FY2023–26 sale. Per assessed-value bin and current owner-occupancy
-  (homeowner exemption), this gives:
-  - arm's-length sales per home per year (price 0.5–2.5× assessed value);
-  - the buyer mix (schedule 1 or 2);
-  - price over assessed value.
-- **Oʻahu's stock.** The City's RPAD ASMTPITT table on its open data hub
-  (CadastralTables/FeatureServer/10, which the Revenue-Modeling-TOD project
-  also uses), one row per parcel or condo unit:
-  - residential = tax rate code 1;
-  - owner-occupied = an exemption of $300K or less, not Residential A or TVR;
-  - fully exempt records are dropped.
-- **Hawaiʻi County's stock.** The county parcel layer on the State GIS portal
-  (ParcelsZoning/MapServer/5, April 27, 2026; homeowner flag):
-  - condo projects (pittcode 200) are split into units using the dwelling
-    layer's unit counts, or the median value per unit where counts are
-    missing;
-  - homes on agricultural land with a building are included (sensitivity
-    without).
-- **Common rules for both counties' stock:**
-  - improved homes only (the bill treats vacant land as nonresidential);
-  - 5+ unit buildings and non-condo records of $20M+ (other than Honolulu
-    Residential A) are left out, and Maui's rates are built the same way.
-- **Calibration.** On Maui's own stock the method recovers 74% of Maui's
-  sale-by-sale change (k = 1.35). The gap is nominal-price, new-construction
-  and vacant-lot sales, and the $20M+ records left out. Oʻahu and Hawaiʻi are
-  scaled by k.
-- **Key assumption:** homes of a given value and occupancy sell as often, and
-  to the same kinds of buyer, as on Maui.
+- Only Maui publishes a file of every recorded sale with its price *and* the
+  conveyance tax paid (the "RPT Sales Data File"). The file is fixed-width
+  and is parsed by the header's positions.
+- **Multi-parcel deeds.** Rows are keyed by instrument number or Land Court
+  document number (the two are joined when a row has both), so a deed
+  covering several parcels counts once.
+  - The browser extractor counted each Land Court deed once per parcel at
+    the full price: in FY2023–26, 58 deeds were counted 204 times.
+  - That overstated the statewide estimate by about 4%.
+- **Schedule.** The schedule is the nearer of (1) and (2) when within 2% of
+  the tax. 98% of FY2023–26 documents match; the rest are nonresidential.
+- **Price and date.**
+  - Rows that disagree on price take the value the tax fits.
+  - Rows without a record date are dated by sale date.
+- **Owner-occupied** = homeowner tax class 9 with an exemption, not fully
+  exempt. The old $300K cap misclassified 1,783 homes with add-on
+  exemptions. With it removed, 66% of Maui's $2M+ homes are not
+  owner-occupied, not 69%.
+- **Vacant land.** Schedule-(1) purchases of residential land with no
+  building are nonresidential: HD2's §247-2(a)(3) keeps property with no
+  dwelling unit on schedule (1).
+- **CPR master records** are excluded from the stock.
+- **Apartment buildings** (5+ units) are scored under HD2's per-unit rule and
+  appear in exactly one file.
+- **How the raw files were obtained.** The county site answers Python
+  requests with HTTP 404. The research round fetched the two zips anyway
+  with a browser User-Agent before this was flagged. The cached files are
+  copies of that 2026-09-25 download, byte-identical to the county's
+  published files. `maui_sources.json` records this. The committed script
+  never poses as a browser: a refresh needs the zips saved from a browser.
 
-**Kauaʻi: tax-roll tiers.** Kauaʻi publishes no values by parcel. Its
-increase is Maui's scaled by Kauaʻi's non-owner residential value above $2M
-from the 2026–27 statewide valuation report tiers (`value_above`), and by
-owner-occupied value above $2M from ACS PUMS (`county_bases`). This was the
-first revision's method for all three counties and is now a sensitivity.
+**Oʻahu, Hawaiʻi Island, Kauaʻi: homes × Maui's sale rates, calibrated to each county's sales by price** (`stock_method`).
 
-**Checks:**
-- **Oʻahu's high end.** The model has 456 sales a year of $2M or more,
-  against 287 single-family MLS sales alone (condos and unlisted sales come on
-  top). At $3M+ it has 124 against 111, and at $5M+ 41 against 39.
-- **Oʻahu rebuilt from MLS bands** (HBR via Data Book 2024, scaled to Title
-  Guaranty counts, Pareto tails) gives $25M–$43M static. The stock method
-  gives $34M.
-- **All home sales.** The model finds fewer than Title Guaranty/BOC records:
-  7,783 against 10,781 a year on Oʻahu and 2,050 against 3,853 on Hawaiʻi
-  Island. The gap is mostly new and lower-priced homes, where HD2 changes
-  little.
-- **Hawaiʻi Island's top band.** $10M+ sales (24 a year at FY2028 prices) may
-  be high. A broker count found 14 in North Kona and South Kohala in 2025.
+- **Homes** (improved residential parcels and condo units, by assessed
+  value and homeowner exemption):
+  - *Oʻahu*: RPAD's ASMTPITT. CPR master records are excluded (533 homes,
+    $1.07B, which duplicated their units' value).
+  - *Hawaiʻi County*: the State GIS parcel layer.
+    - Condo projects are split into units. The owner units in each homeowner
+      project are set from its exemptions (share about 0.26).
+    - The county caps homeowner values (3% a year). Within a plat, owner
+      homes sit at 0.78× their non-owner neighbors, against 0.99 on Maui and
+      1.00 on Honolulu. Owner homes are therefore divided by zone × class
+      factors, f (`hawaii_homeowner_cap_factors.csv`).
+    - Condo units, which carry their project's average value, are divided by
+      s·f + 1 − s, where s is the project's owner share.
+    - Agricultural parcels with a building of $100K+ count as homes, here and
+      on Kauaʻi.
+  - *Kauaʻi*: the County's TY26_PropertyTaxData layer, at market value
+    (MODTOT). The improved flag comes from BUILDINGS_public, whose service
+    text reserves it for internal and partner use although the County lists
+    it publicly; the page discloses this. The layer matches the valuation
+    report: non-owner taxable above $2M is $2.83B against $2.80B.
+- **Maui's rates.** Per value bin × occupancy: arm's-length sales per home,
+  buyer mix, and price over assessed value. Developer first sales are
+  included.
+- **Price spread.** Each cell's sales are spread over 40 prices on a
+  mean-preserving lognormal with σ = 0.25, which best matches Maui's sales by
+  price band (fitted σ = 0.24). Results barely move with σ: $78.6–79.6M for
+  σ from 0 to 0.4.
+- **Calibration by price band** (`band_weights`):
+  - From $1M, each county's synthetic sales in each band ($1–3M, $3–6M,
+    $6–10M, $10M+) are scaled to MLS houses + condos × (Maui recorded home
+    sales ÷ Maui MLS) × the county's unlisted-share adjustment.
+  - The adjustment is 1 except on Oʻahu (1.00 / 1.06 / 0.95 / 0.96), for
+    tower closings off the MLS and near-absent vacant-lot sales.
+  - Below $1M, every county takes Maui's recorded ÷ synthetic scale (1.50).
+  - This brings in, in Maui's proportions, what the rates leave out: vacant
+    lots, and transfers under 0.5× or over 2.5× assessed value. The residual
+    (Maui exact ÷ Maui calibrated synthetic) is 1.03, against the old k of
+    1.35.
+- **What the calibration found.** Weights relative to Maui's:
 
-**Aging:**
-- Each base year (FY2023–26 for Maui) is aged separately to the target year
-  and the results are averaged.
-- Prices grow 4% a year.
-- HD2 brackets are indexed by 3% a year starting with 2027, upward only.
+  | County | $1–10M | $10M+ |
+  |---|---|---|
+  | Hawaiʻi Island | 1.3–1.9× Maui's rates | 0.84× |
+  | Oʻahu | 0.81× at $1–3M; 1.03–1.17× at $3–10M | 0.85× |
+  | Kauaʻi | 0.9–1.6× | 0.63× |
 
-**Behavioral response:**
-- Sales volume is multiplied by exp(−ε·Δpp), where Δpp is the change in tax
-  as points of price. It rises where HD2 cuts the tax.
-- ε = 10, with a range of 5–15.
-- Verified anchors:
-  - Toronto's 1.1% land transfer tax cut sales by about 15%, roughly 14 per
-    point (Dachis, Duranton & Turner, 2012).
-  - A 1-point cut in UK stamp duty raised short-run activity by about 20%
-    (Best & Kleven, 2018). Part of that is timing.
+  Hawaiʻi Island's $10M+ band was an old worry. Its MLS count is 17 a year,
+  and the model's recorded-equivalent figure is 18.
+- **Market inputs** (`mls_sales_by_band.py`):
+  - Title Guaranty's monthly Residential Sales Reports, parsed from the drawn
+    bars and summed by July–June fiscal year, less land using the year-end
+    house/condo shares. Kauaʻi uses the year-end shares.
+  - Hawaiʻi Life luxury reports and List Sotheby's ($10M+ and the $6M split).
 
-**Results (FY2028, $M), as published:**
+**Title Guaranty's terms (open question).** The FNF Terms of Use (Aug 15,
+2021) bar three things:
 
-| | Static | With sales response (ε = 10) |
+- "any robot, spider, or other automatic devise" [sic];
+- any process "(manual or automatic) to gather, extract, monitor, or copy
+  any information";
+- publishing links to the site.
+
+The research round downloaded 170 report PDFs automatically, six at a time
+under a browser User-Agent, before the terms were read. The local cache
+(`runs/conveyance_sb3028/mls_cache/`, gitignored) is a copy of that
+download. The committed script downloads nothing and prints no links, and
+the page cites the reports without a link. Hawaiʻi Appleseed should decide
+before publishing:
+
+- (a) ask Title Guaranty for permission;
+- (b) keep the calibration but not republish the counts (drop
+  `band_calibration.csv`'s MLS columns from the site);
+- (c) publish the uncalibrated fallback, the first sensitivity row: $73.8M
+  with the sales response, against $79.1M.
+
+**Behavior** (`Behavior`, `score`).
+
+- **Volume.** Sales fall ε = 6% per point of price added in tax (range
+  4–10), the same for all buyers:
+  - UK OBR (Oct 2017): 6 for £1M+ homes, from HMRC's analysis of the
+    Dec 2014 slab-to-slice reform, the same design change HD2 makes.
+  - Los Angeles Measure ULA, single-family homes: about 6.5 (Green et al.
+    2025); 7.5 raw and 4–5 net of bunching below $5M (RAND 2026).
+  - Toronto above $400K about 6 (not significant); Germany about 7.
+  - A buyer-type split (owner 6, non-owner 8) is a sensitivity only.
+- **Company sales.** HRS §247-1 taxes documents, and chapter 247 has no
+  controlling-interest rule. HB 1628 and SB 2044 (2024) and HB 1918 (2026)
+  died. The Tax Foundation of Hawaiʻi testified that for a sale of shares
+  "nothing is required to be reported to anyone."
+  - Companies own 45%, 52% and 62% of Oʻahu's non-owner-occupied homes at
+    $4–6M, $6–10M and $10M+.
+  - Weighted by who sells (Oʻahu's own resales and developer first sales),
+    the company share of sales is 22%, 38% and 60%.
+  - Central: 25% of those sales escape HD2 (range 0–50%). A
+    controlling-interest clause would remove this.
+- **Sensitivities only:**
+  - first-year forestalling (0.25 months of sales per point, cap 1.5);
+  - 10% of non-owner $4M+ buyers claiming the owner schedule.
+- **CPI indexing.** The bill indexes brackets by calendar year from 2027.
+  FY2028 gets one adjustment, the midpoint between the bill as written (1.5)
+  and a 2027 enactment that misses the first recompute (0.5).
+
+**Results (FY2028, $M):**
+
+| | Static | Central (ε 6, 25% company sales) |
 |---|---:|---:|
-| Maui County (every sale) | 36.2 | 22.2 |
-| Oʻahu (housing stock) | 34.4 | 21.5 |
-| Hawaiʻi Island (housing stock) | 29.1 | 16.3 |
-| Kauaʻi (tax-roll tiers) | 15.7 | 9.5 |
-| **State** | **115.4** | **69.5** (ε 15–5: 52.5–90.2) |
+| Maui County (every sale) | 34.3 | 22.8 |
+| Oʻahu | 34.4 | 23.6 |
+| Hawaiʻi Island | 34.0 | 21.8 |
+| Kauaʻi | 15.9 | 10.9 |
+| **State** | **118.7** | **79.1** (range 56.0–98.1) |
 
-- **Current law.** Current law statewide is $115.7M.
-- **Sensitivity** (FY2028, static / with response):
+- The range runs from ε 10 with 50% company sales to ε 4 with none.
+- FY2029: $81.1M.
+- Current law: $119.5M (DOTAX FY2023–25, grown by the model).
+- The general fund gets $26.8M less under HD2, which must raise more than
+  $107M before the general fund gains.
 
-  | Variant | Static | With response |
-  |---|---:|---:|
-  | Without the Maui calibration | 98.9 | 59.9 |
-  | Hawaiʻi Island without agricultural-land homes | 114.2 | 68.7 |
-  | Oʻahu rebuilt from MLS sales | 106.2–124.4 | 63.9–75.4 |
-  | All three counties from tax-roll tiers | 108.9 | 66.4 |
+**Sensitivity** (FY2028, static / central, $M):
 
-- **Sales a year of $3–4M homes, FY2028 prices:** Oʻahu 119, Maui 72,
-  Hawaiʻi Island 15.
-- **Where the money comes from.** Non-owner buyers supply 89% of the statewide
-  increase. Of homes worth $2M+, 69% on Maui are not owner-occupied, against
-  38% on Oʻahu. Those homes sell about twice as often on Maui (~4%/yr against
-  ~2%).
-- **Cross-check.** House Finance Chair Todd put the draft at about $20M below
-  the original House proposal's ~$170M, so about $150M (Civil Beat,
-  2026-04-10). This model, static at 2023–26 prices, gives $91M. The House's
-  method is not public.
-  - A figure near $150M follows only if the other counties hold about 4×
-    Maui's high end, in proportion to collections.
-  - Parcel records give Oʻahu and Hawaiʻi Island together 1.8× Maui's count
-    of $2M+ homes that are not owner-occupied.
-- **Breakevens.** $2.247M (owner) and $2.073M (other), matching Todd's
-  "about $2.3M / $2.1M".
-- **Who pays, on Maui:**
-  - 43% of sales pay less, 42% the same and 15% more. Todd said 91% of sales
-    statewide would pay the same or less; Maui's high end is heavier.
-  - Sales of $4M+ supply 88% of the gain.
-  - Non-owner buyers supply 90%.
-- **The $3–4M band on Maui:**
-  - About 52 non-owner and 20 owner sales a year.
-  - Average tax rises from $20.6K to $84.1K (non-owner) and from $16.9K to
-    $39.0K (owner).
-  - Only 10% of the gain.
-- **Market caveat.** The base period (2023–26) was a slow market. DOTAX
-  collections averaged about $95M, against $188M in FY2022.
+| Variant | Static | Central |
+|---|---:|---:|
+| Not calibrated to county sales (Maui rates and scale) | 112.0 | 73.8 |
+| MLS counts, low / high | 100.1 / 147.4 | 66.5 / 98.1 |
+| Oʻahu turnover from owner rolls (1.63× at $4M+) | 132.9 | 88.1 |
+| No price spread | 118.7 | 79.6 |
+| Hawaiʻi homeowner values capped | 119.4 | 79.6 |
+| Kauaʻi from tax-roll tiers | 117.7 | 78.0 |
+| ε 4 / ε 10 | | 87.3 / 64.3 |
+| ε 6 owner / 8 non-owner | | 72.0 |
+| Company sales 0% / 50% | | 89.0 / 69.2 |
+| 10% of non-owner $4M+ buyers claim owner rates | | 76.7 |
+| First year after a pre-effective-date rush | | 70.8 |
+| Previous assumptions (ε 10, no company sales) | | 72.7 |
 
-**Disposition (open question 2, answered).**
-- HD2 §4 sends, in order:
-  - 5% or $10M to land conservation;
-  - 20% or $40M to rental housing;
-  - 30% or $60M to the Hawaiian home lands infrastructure and housing special
-    fund;
-  - 20% or $40M to the TOD infrastructure subaccount of the dwelling unit
-    revolving fund.
-- That is 75% of *all* collections up to $150M of caps, so the general fund
-  gains only if HD2 raises more than about $107M a year.
-- **FY2028 general fund:**
-  - $46.3M under the central estimate, against $72.6M under current law
-    (−$26M).
-  - $55.9M even at ε = 5 (−$17M).
+**Checks** (`summary.json` → `checks`, `benchmarks`):
 
-**Open questions, answered:**
-1. No CD1 was printed (`SB3028_CD1_.HTM` returns 404). Conferees met April 28
-   to May 1 and the bill died.
-3. Scoring starts FY2028, the first full fiscal year after a 2027 enactment.
+- **Oʻahu's own turnover.** The frozen tax-year-2024 owner roll (Dec 2023)
+  is diffed against the live roll (Sept 25, 2026). Sale-like changes are
+  counted, excluding developer first sales, bulk buyers and lessee changes.
+  A hand review found 91–93% of them were real sales.
+  - Like for like against Maui's rates: <$1M 1.05, $1–2M 0.95, $2–4M 1.02,
+    $4M+ 1.63 (90% range about 1.38–1.88).
+  - Calibration to MLS by price implies only 1.05 at $4M+. Oʻahu's top
+    homes turn over more often but appear to sell lower relative to their
+    assessments. The owner-roll case is the upper sensitivity.
+- **DOTAX residual.** DOTAX collections less Maui's recorded tax averaged
+  $75.4M in FY2023–25.
+  - The model's current-law tax on home sales in the other three counties
+    is $48.3M, which leaves 36% to nonresidential sales, against Maui's 24%.
+  - At Maui's share, the modeled home sales would be about 19% short.
+- **House.** Scored the same way, before any change in sales:
+  - HB 2049 HD3 raises $20.6M more than SB 3028 HD2 in FY2028 ($16.4M at
+    base prices), against Chair Todd's "about $20M less".
+  - Same-or-less shares: 90% for HD2 against Todd's 91%; 78% for HD3
+    against Rep. Evslin's 75%.
+  - The House's levels are 1.26× this estimate (FY2028) and 1.60× at base
+    prices ($93.5M).
+- **DOTAX, HB 1410 HD2 (2025).** DOTAX's estimate of +$57.9M in FY2026 is
+  1.44× the model's $24.3M on homes plus about $15.8M nonresidential
+  (Maui's own change, scaled). This is a weak check.
+- **DOTAX, SB 362 SD1 (2023).** Its +$8.2M is less than Maui alone yields.
+  Excluded.
+- **Direction.** These checks all suggest the estimate is more likely low
+  than high.
+
+**Where the money comes from.**
+
+- Non-owner buyers supply 88% of the static increase.
+- Maui's $3–4M band:
+  - 50.5 non-owner and 18.5 owner sales a year.
+  - Average tax rises from $20.5K to $83.6K (non-owner) and from $16.9K to
+    $38.5K (owner).
+  - The band supplies 10% of Maui's gain.
+- The draft raises the tax on sales just under $2M: from $1.80M for
+  owner-occupants and $1.68M for other buyers, by up to $300 or $800.
+
+**Other estimates, provenance:**
+
+- "$270M+" (Appleseed infographic, April 2026) is a *total*: FY2027
+  collections under HB 2049 HD3 rates in Appleseed's 2026 testimony table
+  ($270.8M).
+- "$300M" traces to SB 678 (2023), a steeper cliff bill on all property:
+  the Feb 2024 Appleseed brief ($302.8M in total from 2022 sales) and
+  hitaxfairness ("extra $300–400M", unsourced). Neither measures SB 3028.
+- "$68.5M" for HB 2049 in advocacy testimony has no stated source.
 
 **Still left out:**
-- Leases.
-- Pre-effective-date timing.
-- Price capitalization.
-- Maui vacant residential lots. They pay schedule (1) today, so the model
-  counts them as owner sales, but HD2 treats them as nonresidential. They are
-  a small part of the owner-sales gain, which is itself 10% of Maui's gain.
 
-**Unverified or unsourced, not used:**
-- The Tax Foundation of Hawaiʻi figures below (~$100M/yr, ~1,000 sales over
-  $3M).
-- The "$68.5 million a year" for HB 2049 in 2026 advocacy testimony, which
-  has no stated source.
+- Leases.
+- HD2's vacation-rental clause (former TVRs taxed on schedule (2) whoever
+  buys), about +$0.5M static on Maui.
+- Maui homes on agricultural or other nonresidential land, which HD2 would
+  move to the residential schedules: about +$0.2M static on Maui, with an
+  upper bound of +$16.5M if every Maui nonresidential sale under $20M were a
+  non-owner home.
+- Any price response: about −$3M at −0.5% of price per point.
+- CPI indexing of schedule (3): about −$0.04M.
 
 ## The policy
 

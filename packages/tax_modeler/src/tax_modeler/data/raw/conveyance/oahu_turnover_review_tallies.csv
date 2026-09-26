@@ -1,0 +1,3 @@
+band,reviewed,judged_sales,precision
+<1M,80,74.0,0.925
+2M+,80,73.0,0.9125

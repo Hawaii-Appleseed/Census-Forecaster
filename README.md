@@ -132,10 +132,14 @@ The Act 24 page (`act-24`) imports from `forecast_sb3125_enhanced.py --cd 2`
 and `forecast_act24_vs_pre_act46.py`; the working-family credits page
 (`working-family-credits`) from `forecast_working_family_credits.py`; the
 conveyance tax page (`conveyance-tax`) from `forecast_conveyance_sb3028.py`,
-whose Maui sales input is refreshed by hand with
-`scripts/conveyance/maui_sales_extract.js` (see its header); its Oʻahu and
-Hawaiʻi County housing stock comes from `scripts/conveyance/fetch_parcel_stock.py`
-and its ACS owner-value table from `scripts/conveyance/pums_owner_tail.py`. The home page groups estimates into
+whose inputs are built by the scripts in `scripts/conveyance/` (see each
+header): Maui's sales and assessment listing by `maui_sales_extract.py`; the
+Oʻahu, Hawaiʻi County and Kauaʻi housing stock by `fetch_parcel_stock.py`;
+each county's MLS sales by price band by `mls_sales_by_band.py` (from a local
+cache of report PDFs; see its docstring on Title Guaranty's terms); the
+company-owned share of top sales by `honolulu_entity_share.py`; Oʻahu's ownership turnover check by
+`oahu_owner_turnover.py`; and the ACS owner-value table by `pums_owner_tail.py`.
+The home page groups estimates into
 current and proposed policy.
 
 Commit `site/` with the change. Pages are generated only from the committed
