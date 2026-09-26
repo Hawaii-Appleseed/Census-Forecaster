@@ -94,6 +94,14 @@ Output files:
                                           count,sum_price,sum_value (the improved sales of
                                           by_value, by price bin; $10M+ at 10,000,000)
   maui_multifamily_sales_fy2023_2026.csv  fy,category,price,units
+  maui_sales_history_fy2016_2026.csv      fy,kind,category,bin_lo,count,sum_price,units: every
+                                          fiscal year's sales as the forecast scores them (kind
+                                          "bin": price bins under $10M; "top": each $10M+ sale;
+                                          "mf": each 5+ unit sale), for scoring past markets
+  maui_developer_share_fy2023_2026.csv    band_lo,band_hi,count,developer_count,sum_price,
+                                          developer_price: home sales (owner and non-owner
+                                          schedules) and those the county codes as developer
+                                          sales (validity code 8), by price band
 
 This replaces maui_sales_extract.js, a browser-console script, and keeps its
 logic but for these changes: it split sales.csv on commas, so a recorded tax
@@ -152,6 +160,8 @@ MULTIFAMILY_UNITS = 5             # HD2 values these per unit
 LARGE_NON_CONDO = 20_000_000      # probable apartment/resort parcels without a unit count
 ARMS_LENGTH = (0.5, 2.5)          # price over assessed value
 TOP = 10_000_000                  # sales listed singly
+DEVELOPER = "8"                   # county validity code: developer sale
+DEVELOPER_BANDS = [0, 1e6, 2e6, 4e6, 6e6, 1e7, math.inf]
 
 # HRS §247-2 schedules (1) and (2): (price below, rate on the whole price).
 SCHEDULES = {1: ((6e5, .001), (1e6, .002), (2e6, .003), (4e6, .005), (6e6, .007), (1e7, .009), (math.inf, .010)),
@@ -561,11 +571,43 @@ def tables(s: pd.DataFrame, par: dict[str, Parcel]) -> dict[str, pd.DataFrame]:
                                                              sum_price="price", sum_value="value"),
         "maui_multifamily_sales_fy2023_2026.csv": base[mf].assign(
             price=lambda d: _round(d["price"]))[["fy", "category", "price", "units"]],
+        "maui_sales_history_fy2016_2026.csv": history(s),
+        "maui_developer_share_fy2023_2026.csv": developer_share(base),
     }
     return {name: df.sort_values([c for c in df.columns if c != "count" and not c.startswith("sum_")],
                                  key=lambda c: c.map(CATEGORIES.index) if c.name == "category" else c,
                                  ignore_index=True)
             for name, df in out.items()}
+
+
+def history(s: pd.DataFrame) -> pd.DataFrame:
+    """Every fiscal year's priced, taxed documents in the form the forecast
+    scores: price bins under $10M ("bin"), each $10M+ sale ("top") and each
+    sale of a 5+ unit building ("mf"), the last two aside from the bins."""
+    x = s.replace({"category": {"unmatched": "nonres"}}).assign(price=lambda d: _round(d["price"]))
+    mf = x["units"] >= MULTIFAMILY_UNITS
+    top = ~mf & (x["price"] >= TOP)
+    bins = _count_sum(x[~mf & ~top].assign(bin_lo=lambda d: _lo(PRICE_EDGES, d["price"])),
+                      ["fy", "category", "bin_lo"], sum_price="price").assign(kind="bin", units=1)
+    one = x[mf | top].assign(kind=np.where(mf[mf | top], "mf", "top"), bin_lo=lambda d: _lo(PRICE_EDGES, d["price"]),
+                             count=1, sum_price=lambda d: d["price"], units=lambda d: d["units"].clip(lower=1))
+    cols = ["fy", "kind", "category", "bin_lo", "count", "sum_price", "units"]
+    return pd.concat([bins[cols], one[cols]], ignore_index=True).sort_values(
+        ["fy", "kind", "category", "bin_lo", "sum_price"], ignore_index=True)
+
+
+def developer_share(base: pd.DataFrame) -> pd.DataFrame:
+    """FY2023+ home sales (owner and non-owner schedules) and those the county
+    codes as developer sales, by price band."""
+    h = base[base["category"].isin(["owner", "nonowner"]) & (base["units"] < MULTIFAMILY_UNITS)]
+    h = h.assign(band_lo=_lo(DEVELOPER_BANDS, h["price"]), dev=h["validity"] == DEVELOPER)
+    g = h.groupby("band_lo").agg(count=("price", "size"), developer_count=("dev", "sum"), sum_price=("price", "sum"),
+                                 developer_price=("price", lambda p: p[h.loc[p.index, "dev"]].sum())).reset_index()
+    g["band_hi"] = [str(int(h)) if math.isfinite(h) else "inf"
+                    for h in (DEVELOPER_BANDS[DEVELOPER_BANDS.index(lo) + 1] for lo in g["band_lo"])]
+    g[["sum_price", "developer_price"]] = g[["sum_price", "developer_price"]].map(lambda v: int(round(v)))
+    return g[["band_lo", "band_hi", "count", "developer_count", "sum_price", "developer_price"]].astype(
+        {"developer_count": int})
 
 
 def inputs(refresh: bool = False) -> tuple[dict[str, Path], Path, dict[str, str], list[dict[str, str]],

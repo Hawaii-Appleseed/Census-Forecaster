@@ -128,25 +128,151 @@ def test_behavior_cases_and_market_ranges_are_ordered():
 
     def total(bh, **kw):
         return fc.by_county_change(fc.components(sales, t, bh), fc.stock_method(t, bh, **kw)).sum()
-    c = {k: total(bh) for k, bh in fc.CASES.items()}
-    assert c["static"] > c["behavioral_high"] > c["behavioral"] > c["behavioral_low"] > 0
-    assert total(fc.STATIC, mls_col="mls_low") < c["static"] < total(fc.STATIC, mls_col="mls_high")
+    static, central = total(fc.STATIC), total(fc.CENTRAL)
+    assert static > central > 0
+    assert total(fc.STATIC, mls_col="mls_low") < static < total(fc.STATIC, mls_col="mls_high")
+    for channel in ("price_response", "owner_shift", "entity_takeup", "elasticity"):   # each channel costs revenue
+        assert total(replace(fc.CENTRAL, **{channel: 0.0})) > central
 
 
-def test_owner_certification_and_per_category_elasticity():
+def test_simulation_brackets_the_central_estimate():
+    sim = fc.simulate(fc.load_sales(), n=40, years=[fc.TARGET_YEARS[0]])
+    q = fc.simulation_summary(sim).iloc[0]
+    sales, t = fc.load_sales(), fc.TARGET_YEARS[0]
+    central = fc.by_county_change(fc.components(sales, t, fc.CENTRAL), fc.stock_method(t, fc.CENTRAL)).sum()
+    assert q["p05"] < central < q["p95"]
+    assert len(sim) == 40 and sim["elasticity"].between(1, 30).all()
+
+
+def test_owner_shift_and_per_category_elasticity():
     rows = pd.DataFrame({"fy": 2028, "category": ["nonowner", "nonowner", "owner"], "count": 1.0,
-                         "price": [3e6, 5e6, 5e6]})
+                         "price": [1.5e6, 5e6, 5e6]})
     base = fc.score(rows, 2028)
-    shift = fc.score(rows, 2028, fc.Behavior(cert_shift=0.5))
-    assert shift["tax_hd2"].iloc[0] == pytest.approx(base["tax_hd2"].iloc[0])        # under $4M: unchanged
+    shift = fc.score(rows, 2028, fc.Behavior(owner_shift=4.0))
+    assert shift["tax_hd2"].iloc[0] == pytest.approx(base["tax_hd2"].iloc[0], rel=0.2)   # small gap below $2M
     tax_fn, first_index = fc.BILLS[fc.BILL]
-    owner_tax = tax_fn(np.array([5e6]), "owner", index=(1 + fc.CPI_GROWTH) ** (2028 - first_index))[0]
-    assert shift["tax_hd2"].iloc[1] == pytest.approx(0.5 * base["tax_hd2"].iloc[1] + 0.5 * owner_tax)
+    idx = (1 + fc.CPI_GROWTH) ** (2028 - first_index)
+    own, non = tax_fn(np.array([5e6]), "owner", index=idx)[0], base["tax_hd2"].iloc[1]
+    s_ = min(0.04 * (non - own) / 5e6 * 100, fc.OWNER_SHIFT_CAP)
+    assert shift["tax_hd2"].iloc[1] == pytest.approx((1 - s_) * non + s_ * own)
+    assert shift["tax_hd2"].iloc[2] == pytest.approx(base["tax_hd2"].iloc[2])            # owner-occupant buyer
     split = fc.score(rows, 2028, fc.Behavior(elasticity={"owner": 0.0, "nonowner": 8.0}))
     assert split["count_hd2"].iloc[2] == pytest.approx(1.0) and split["count_hd2"].iloc[1] < 1.0
+
+
+def test_price_response_taxes_the_lower_price():
+    rows = pd.DataFrame({"fy": 2028, "category": ["nonowner"], "count": 1.0, "price": [5e6]})
+    base = fc.score(rows, 2028)
+    d_pp = (base["tax_hd2_static"] - base["tax_now"]).iloc[0] / 5e6 * 100
+    low = fc.score(rows, 2028, fc.Behavior(price_response=1.0))
+    tax_fn, first_index = fc.BILLS[fc.BILL]
+    idx = (1 + fc.CPI_GROWTH) ** (2028 - first_index)
+    assert low["tax_hd2"].iloc[0] == pytest.approx(tax_fn(np.array([5e6 * (1 - d_pp / 100)]), "nonowner", index=idx)[0])
+    assert low["tax_now"].iloc[0] == pytest.approx(base["tax_now"].iloc[0])             # today's tax is unchanged
+
+
+def test_developer_sales_respond_later_and_entities_grow():
+    rows = pd.DataFrame({"fy": 2028, "category": ["nonowner"], "count": 1.0, "price": [12e6]})
+    lag = fc.Behavior(elasticity=6.0, developer_ramp=fc.DEVELOPER_RAMP)
+    y1, y5 = fc.score(rows, fc.EFFECTIVE_FY, lag), fc.score(rows.assign(fy=2032), fc.EFFECTIVE_FY + 4, lag)
+    flat = fc.score(rows, fc.EFFECTIVE_FY, fc.Behavior(elasticity=6.0))
+    dev = fc.developer_share()[1][-1]
+    assert y1["count_hd2"].iloc[0] == pytest.approx((1 - dev) * flat["count_hd2"].iloc[0] + dev)   # no response yet
+    flat5 = fc.score(rows.assign(fy=2032), fc.EFFECTIVE_FY + 4, fc.Behavior(elasticity=6.0))
+    assert y5["count_hd2"].iloc[0] == pytest.approx(flat5["count_hd2"].iloc[0])                   # full response
+    grow = fc.Behavior(entity_takeup=0.2, entity_growth=0.1)
+    k1 = fc.score(rows, fc.EFFECTIVE_FY, grow)["tax_hd2"].iloc[0]
+    k3 = fc.score(rows.assign(fy=2030), fc.EFFECTIVE_FY + 2, grow)["tax_hd2"].iloc[0]
+    top = dict(fc.entity_share())[10e6]
+    assert k1 / fc.score(rows, fc.EFFECTIVE_FY)["tax_hd2"].iloc[0] == pytest.approx(1 - 0.2 * top)
+    assert k3 / fc.score(rows.assign(fy=2030), fc.EFFECTIVE_FY + 2)["tax_hd2"].iloc[0] == pytest.approx(1 - 0.24 * top)
+
+
+def test_sales_history_repeats_the_base_years():
+    hist, base = fc.load_sales_history(), fc.load_sales()
+    h = hist[hist["fy"] >= min(fc.MAUI_BASE_FY)]
+    for cat in ("owner", "nonowner", "nonres", "mf"):
+        a, b = h[h["category"] == cat], base[base["category"] == cat]
+        assert a["count"].sum() == pytest.approx(b["count"].sum())
+        assert (a["count"] * a["price"]).sum() == pytest.approx((b["count"] * b["price"]).sum(), rel=1e-6)
+    assert set(hist["fy"]) == set(range(2016, 2027))
 
 
 def test_draft_raises_the_tax_just_below_2_million():
     for c in ("owner", "nonowner"):
         assert fc.BILLS[fc.BILL][0](np.array([1.999e6]), c)[0] > fc.current_law_tax(np.array([1.999e6]), c)[0]
         assert 1.5e6 < fc.lower_breakeven(c) < 2e6
+
+
+def _count(bh, year: int, category: str = "nonowner", price: float = 12e6) -> tuple[float, float]:
+    """(count under bh, added tax in points) for one sale in year *year* of the law."""
+    fy = fc.EFFECTIVE_FY + year - 1
+    rows = pd.DataFrame({"fy": fy, "category": [category], "count": 1.0, "price": [price]})
+    st = fc.score(rows, fy)
+    d = (st["tax_hd2_static"] - st["tax_now"]).iloc[0] / price * 100
+    return fc.score(rows, fy, bh)["count_hd2"].iloc[0], d
+
+
+def test_each_channel_by_year_of_the_law():
+    assert fc.TARGET_YEARS[0] == fc.EFFECTIVE_FY == 2028
+    over = fc.Behavior(elasticity=6.0, first_year=1.2)
+    n1, d1 = _count(over, 1)
+    n2, d2 = _count(over, 2)
+    assert n1 == pytest.approx(np.exp(-0.06 * 1.2 * d1)) and n2 == pytest.approx(np.exp(-0.06 * d2))
+    dev = fc.developer_share()[1][-1]
+    lag = fc.Behavior(elasticity=6.0, developer_ramp=fc.DEVELOPER_RAMP)
+    for year, r in zip((1, 2, 3, 4, 5, 6), (0, 0, 0.5, 0.75, 1, 1), strict=True):
+        n, d = _count(lag, year)
+        assert n == pytest.approx((1 - dev) * np.exp(-0.06 * d) + dev * np.exp(-0.06 * r * d))
+    n, d = _count(fc.Behavior(elasticity=6.0, curvature=0.25), 2)
+    assert n == pytest.approx(np.exp(-0.06 * d * (abs(d) / fc.CURVATURE_REF) ** 0.25))
+    mult = fc.Behavior(elasticity=6.0, nonowner_mult=1.5)
+    n, d = _count(mult, 2)
+    assert n == pytest.approx(np.exp(-0.06 * 1.5 * d))
+    n, d = _count(mult, 2, category="owner")
+    assert n == pytest.approx(np.exp(-0.06 * d))                           # owner-occupant buyers: no multiplier
+    assert _count(fc.Behavior(elasticity=6.0), 2, category="nonres")[0] == pytest.approx(1.0)
+    c = fc.CENTRAL                                                          # the published central values
+    assert (c.elasticity, c.first_year, c.curvature, c.developer_ramp, c.price_response, c.owner_shift,
+            c.entity_takeup, c.entity_growth) == (6, 1.1, 0.125, fc.DEVELOPER_RAMP, 0.5, 2.0, 0.2, 0.075)
+
+
+def test_developer_shares_apply_to_base_year_sales():
+    # Value-weighted over Maui's base-year home sales, the looked-up share must
+    # equal the table's, whatever year the sales are aged to.
+    homes = fc.maui_homes(fc.load_sales())
+    tab = pd.read_csv(fc.DATA / "maui_developer_share_fy2023_2026.csv")
+    edges, dev = fc.developer_share()
+    share = dev[np.searchsorted(edges, homes["price"].to_numpy(), side="right") - 1]
+    w = homes["count"] * homes["price"]
+    assert (share * w).sum() / w.sum() == pytest.approx(tab["developer_price"].sum() / tab["sum_price"].sum(), rel=0.02)
+
+
+def test_simulation_draws_reach_every_county(monkeypatch):
+    sales = fc.load_sales()
+    sim = fc.simulate(sales, n=40, years=[2028])
+    for c in ("honolulu", "hawaii", "kauai", "maui"):
+        assert sim["elasticity"].rank().corr(sim[f"change_{c}_$M"].rank()) < -0.4
+    # Behavior fixed: Maui has no listing-data draw; the other counties spread
+    # around their central values.
+    monkeypatch.setattr(fc, "draw_behaviors", lambda n, seed=fc.SEED: ([fc.CENTRAL] * n, np.random.default_rng(seed)))
+    fixed = fc.simulate(sales, n=40, years=[2028])
+    central = fc.by_county_change(fc.components(sales, 2028, fc.CENTRAL), fc.stock_method(2028, fc.CENTRAL))
+    assert fixed["change_maui_$M"].std() < 1e-9
+    for c in ("Honolulu", "Hawaii", "Kauai"):
+        col = fixed[f"change_{c.lower()}_$M"]
+        assert col.std() > 0.3 and abs(col.median() - central[c]) < 0.15 * central[c]
+
+
+def test_market_cycle_repeats_the_estimate():
+    cyc = fc.market_cycle({"static": fc.STATIC, "central": fc.CENTRAL}).set_index("fy")
+    sales, hist = fc.load_sales(), fc.load_sales_history()
+    for lab, bh in (("static", fc.STATIC), ("central", replace(fc.CENTRAL, first_year=1.0, developer_ramp=None))):
+        ref = fc.by_county_change(fc.components(sales, fc.EFFECTIVE_FY, bh), fc.stock_method(fc.EFFECTIVE_FY, bh)).sum()
+        assert cyc.loc[2023:2026, f"state_change_{lab}_fy2028_prices_$M"].mean() == pytest.approx(ref, rel=1e-6)
+        for y in (2016, 2022):
+            m = fc.components(hist[hist["fy"] == y], y, bh)
+            assert cyc.loc[y, f"maui_change_{lab}_own_prices_$M"] == pytest.approx(m["hd2"] - m["now"], rel=1e-9)
+        tot = cyc[f"total_{lab}_own_prices_$M"] - cyc[f"state_change_{lab}_own_prices_$M"]
+        assert tot.loc[2022] == pytest.approx(fc.DOTAX_COLLECTIONS_BY_SALE_M[2022])     # collections timed by sale
+    assert cyc.loc[2022, "state_change_static_fy2028_prices_$M"] > cyc.loc[2022, "state_change_static_own_prices_$M"]

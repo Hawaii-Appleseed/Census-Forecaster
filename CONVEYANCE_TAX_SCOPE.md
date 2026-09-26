@@ -1,8 +1,8 @@
 # Conveyance Tax (SB 3028, 2026) — Scope
 
 **Status (2026-09-25): built.** Published as the "Top of the Market" page
-(`site/conveyance-tax/`), from `forecast_conveyance_sb3028.py`. Revised three
-times on 2026-09-25:
+(`site/conveyance-tax/`), from `forecast_conveyance_sb3028.py`. Revised
+four times on 2026-09-25 (HST):
 
 1. The first version (2026-09-24) scaled Maui's results by conveyance
    collections and gave $69M–$118M after the sales response.
@@ -10,9 +10,13 @@ times on 2026-09-25:
 3. The second built Oʻahu and Hawaiʻi Island from their housing stock at
    Maui's sale rates, with one Maui calibration factor (k = 1.35), and gave
    $70M.
+4. The third (2026-09-25, published) calibrated each county to its own sales by
+   price and gave $79.1M with a single response of sales.
 
-The current version, described in **As built** below, uses only public or
-in-hand data. What changed:
+The current version, described in **As built** below, models that response
+channel by channel with a Monte Carlo simulation, and scores the draft on every
+past market since FY2016. It uses only public or in-hand data. What changed
+across the third and fourth versions:
 
 - Oʻahu, Hawaiʻi Island and Kauaʻi are each calibrated to their own sales by
   price band.
@@ -21,8 +25,10 @@ in-hand data. What changed:
   - Land Court deeds covering several parcels now count once.
   - Owner-occupancy no longer caps the exemption at $300K.
   - Near-miss tax matches, undated rows and repeated prices are handled.
-- The sales response now comes from the UK and Los Angeles evidence, with an
-  allowance for sales of companies in place of homes.
+- The sales response comes from the UK and Los Angeles evidence, and is now
+  structural: volume, developer lag, price, buyer mix, company sales and
+  timing, each with a prior, and a 1,000-draw simulation for the range.
+- The draft is scored on each fiscal year's market, FY2016–26.
 - The current-law baseline is DOTAX grown by the model rather than rescaled
   by Maui's recorded tax.
 
@@ -152,68 +158,82 @@ under a browser User-Agent, before the terms were read. The local cache
 (`runs/conveyance_sb3028/mls_cache/`, gitignored) is a copy of that
 download. The committed script downloads nothing and prints no links, and
 the page cites the reports without a link. Without the calibration (the
-first sensitivity row), the estimate would be $73.8M with the sales
-response, against $79.1M.
+first sensitivity row), the estimate would be $72.9M with the sales
+response, against $77.7M.
 
-**Behavior** (`Behavior`, `score`).
+**Behavior** (`Behavior`, `score`, `simulate`). Research notes and every source
+read are in the session scratch (behav2/lit-structure, hawaii-experiments);
+the evidence, channel by channel:
 
-- **Volume.** Sales fall ε = 6% per point of price added in tax (range
-  4–10), the same for all buyers:
-  - UK OBR (Oct 2017): 6 for £1M+ homes, from HMRC's analysis of the
-    Dec 2014 slab-to-slice reform, the same design change HD2 makes.
-  - Los Angeles Measure ULA, single-family homes: about 6.5 (Green et al.
-    2025); 7.5 raw and 4–5 net of bunching below $5M (RAND 2026).
-  - Toronto above $400K about 6 (not significant); Germany about 7.
-  - A buyer-type split (owner 6, non-owner 8) is a sensitivity only.
-- **Company sales.** HRS §247-1 taxes documents, and chapter 247 has no
-  controlling-interest rule. HB 1628 and SB 2044 (2024) and HB 1918 (2026)
-  died. The Tax Foundation of Hawaiʻi testified that for a sale of shares
-  "nothing is required to be reported to anyone."
-  - Companies own 45%, 52% and 62% of Oʻahu's non-owner-occupied homes at
-    $4–6M, $6–10M and $10M+.
-  - Weighted by who sells (Oʻahu's own resales and developer first sales),
-    the company share of sales is 22%, 38% and 60%.
-  - Central: 25% of those sales escape HD2 (range 0–50%). A
-    controlling-interest clause would remove this.
-- **Sensitivities only:**
-  - first-year forestalling (0.25 months of sales per point, cap 1.5);
-  - 10% of non-owner $4M+ buyers claiming the owner schedule.
-- **CPI indexing.** The bill indexes brackets by calendar year from 2027.
-  FY2028 gets one adjustment, the midpoint between the bill as written (1.5)
-  and a 2027 enactment that misses the first recompute (0.5).
+| Channel | Central | Prior (Monte Carlo) | Evidence |
+|---|---|---|---|
+| Lasting volume response | ε = 6% per point of price added in tax | lognormal, median 6, sd log 0.38 (3.2–11.2) | OBR Oct 2017 (£1M+: 6.0 in year 1, year 2 and steady state, from the Dec 2014 slab-to-slice reform); Measure ULA single-family ≈6.5 (Green et al. 2025), 4.5–7.5 (RAND 2026); Germany 5.5–6.5 long run; Toronto >$400K ≈6 (ns). Lower: France, DC ≈0. Higher: Australia, mobility studies |
+| Non-owner buyers vs others | ×1.0 | lognormal, sd log 0.15 | No study compares buyer types at the same price and tax |
+| First year | ×1.1 | uniform 1.0–1.25 | OBR lower bands' year 1 ≈15% above steady state; £1M+ equal |
+| Curvature | d × (d/3)^0.125 | uniform 0–0.25 | Small changes show no lasting effect (DC, France); OBR ≈ ULA per point |
+| Developer first sales | none in years 1–2, then 0.5, 0.75, 1 | fixed | Maui SA code 8: 24% of $10M+ home-sale value, 13% at $6–10M; presold inventory closes; no grandfather clause |
+| Recorded price | −0.5% per point; tax on the lower price | triangular −0.4, 0.5, 1.5 | Seller pays (HRS §247-4(a)); OBR buyer-paid −1.5 ⇒ −0.5 gross; capitalization 0.6–0.8 |
+| Owner-schedule shift | 2% of non-owner purchases per point of gap (cap 25%) | triangular 0, 2, 6 | Only 41% of FY2014–23 $4M+ owner-schedule buyers still holding had a homeowner exemption in 2026 (Maui); Vancouver foreign-buyer tax; HD2's TVR clause limits it |
+| Company sales | 20% of company-seller $4M+ non-owner sales, growing 7.5% of itself a year | triangular 0, 0.2, 0.5; growth uniform 0–0.15 | No controlling-interest rule; TFH "nothing is required to be reported to anyone"; UK enveloping underestimated (OBR WP8) |
+| Timing (sensitivity) | 0.4 months of sales per point pulled ahead, cap 2 | — | OBR WP10 ≈1/pt; King County 0.4–0.85; NYC 2019 0.5–1.5 with equal payback; Maui 2005 and 2009 ≈1 month dip |
+| Market data | central MLS counts | triangular low–high by county and band | mls_sales_by_band |
 
-**Results (FY2028, $M):**
+- The simulation's drivers (rank correlation with FY2029): ε −0.76,
+  company sales −0.40, non-owner multiplier −0.25, price −0.22, owner
+  shift −0.12.
+- **Hawaiʻi's own evidence.** Maui's file cannot pin down ε:
+  - The 2009 (Act 59) and 2005 rate changes were too small, on too few
+    sales. The placebo spread is 125% per point.
+  - Sales do sort below today's $1M and $2M cliffs, but they are repriced
+    rather than lost; HD2 removes the cliffs.
+  - Forced sales (estates, divorce, foreclosure) are only 1–2% of $2M+
+    sales, so they need no separate channel.
 
-| | Static | Central (ε 6, 25% company sales) |
+**Results ($M):**
+
+| FY2028 | Static | Central (structural) |
 |---|---:|---:|
-| Maui County (every sale) | 34.3 | 22.8 |
-| Oʻahu | 34.4 | 23.6 |
-| Hawaiʻi Island | 34.0 | 21.8 |
-| Kauaʻi | 15.9 | 10.9 |
-| **State** | **118.7** | **79.1** (range 56.0–98.1) |
+| Maui County (every sale) | 34.3 | 22.5 |
+| Oʻahu | 34.4 | 23.0 |
+| Hawaiʻi Island | 34.0 | 21.7 |
+| Kauaʻi | 15.9 | 10.6 |
+| **State** | **118.7** | **77.7** |
 
-- The range runs from ε 10 with 50% company sales to ε 4 with none.
-- FY2029: $81.1M.
-- Current law: $119.5M (DOTAX FY2023–25, grown by the model).
-- The general fund gets $26.8M less under HD2, which must raise more than
-  $107M before the general fund gains.
+- **Path.** FY2029 $81.2M, FY2030 $80.9M, FY2031 $81.7M.
+  - The first-year overshoot lowers FY2028 by about $2M.
+  - The developer lag raises FY2028 and FY2029 by about $4.5M each; the lasting response alone gives $75.8M in FY2028.
+  - The path flattens after FY2029 as developer sales begin to respond and company sales grow.
+  - Static grows about 3.9% a year, near home prices.
+- **Simulation (1,000 draws), 5th–95th percentile.** FY2028 $56.1–91.8M (median $76.5M); FY2029 $59.9–96.2M; FY2031 $56.0–99.6M.
+- **Current law and disposition.** Current law is $119.5M in FY2028. The general fund gets $27.1M less.
+- **Past markets** (`market_cycle.csv`; Maui every sale, the state scaled by the base years' ratio by component). DOTAX's FY2021–22 collections are re-timed by sale: about $36M of FY2021 tax was deposited in FY2022, giving $99.0M and $152.2M against $62.7M and $188.4M reported.
+  - FY2022 at its own prices: +$173M static and +$109M with the response. Total collections are about $325M static and $261M with the response.
+  - At FY2028 prices: FY2022's market gives +$162M. The FY2016–26 average is +$81M and the FY2023–26 base +$76M (all with the response, at its lasting level).
+- **The "$300 million".**
+  - No DOTAX estimate near $300M exists. Checked: every 2025–26 conveyance measure's testimony and fiscal notes, and the Tax Review Commission.
+  - It is the "up to $300 million a year" for HB 2049 in Appleseed's July 14, 2026 blog. That is a *total*: the testimony table's FY2031 total ($302.6M).
+  - This model, static, puts HB 2049 HD3's FY2031 total at $297.6M and SB 3028 HD2's at $274.0M.
+  - The Feb 2024 brief's $302.8M is also a total, for SB 678 on 2022 sales. The Tax Fairness Coalition's "extra $300–400M" is an increase claimed for SB 678's steeper whole-price rates.
 
 **Sensitivity** (FY2028, static / central, $M):
 
 | Variant | Static | Central |
 |---|---:|---:|
-| Not calibrated to county sales (Maui rates and scale) | 112.0 | 73.8 |
-| MLS counts, low / high | 100.1 / 147.4 | 66.5 / 98.1 |
-| Oʻahu turnover from owner rolls (1.63× at $4M+) | 132.9 | 88.1 |
-| No price spread | 118.7 | 79.6 |
-| Hawaiʻi homeowner values capped | 119.4 | 79.6 |
-| Kauaʻi from tax-roll tiers | 117.7 | 78.0 |
-| ε 4 / ε 10 | | 87.3 / 64.3 |
-| ε 6 owner / 8 non-owner | | 72.0 |
-| Company sales 0% / 50% | | 89.0 / 69.2 |
-| 10% of non-owner $4M+ buyers claim owner rates | | 76.7 |
-| First year after a pre-effective-date rush | | 70.8 |
-| Previous assumptions (ε 10, no company sales) | | 72.7 |
+| Not calibrated to county sales (Maui rates and scale) | 112.0 | 72.9 |
+| MLS counts low / high | 100.1 / 147.4 | 65.5 / 96.4 |
+| Oʻahu turnover from owner rolls (1.63× at $4M+) | 132.9 | 86.8 |
+| No price spread | 118.7 | 78.2 |
+| Hawaiʻi homeowner values capped | 119.4 | 78.2 |
+| Kauaʻi from tax-roll tiers | 117.7 | 76.8 |
+| ε 4 / ε 10 | | 85.3 / 64.4 |
+| Non-owner buyers respond 30% more | | 71.9 |
+| Developer sales respond at once | | 73.4 |
+| Recorded prices do not fall / fall 1.5% per point | | 80.8 / 71.6 |
+| Owner-schedule shift 0 / 6% per point | | 79.4 / 74.4 |
+| Company sales 0% / 50% | | 85.5 / 66.1 |
+| First year after a pre-effective-date rush | | 64.5 |
+| Single response (third revision: ε 6, 25% company sales) | | 79.1 |
+| Second revision's assumptions (ε 10, no company sales) | | 72.7 |
 
 **Checks** (`summary.json` → `checks`, `benchmarks`):
 
@@ -276,7 +296,6 @@ response, against $79.1M.
   move to the residential schedules: about +$0.2M static on Maui, with an
   upper bound of +$16.5M if every Maui nonresidential sale under $20M were a
   non-owner home.
-- Any price response: about −$3M at −0.5% of price per point.
 - CPI indexing of schedule (3): about −$0.04M.
 
 ## The policy
