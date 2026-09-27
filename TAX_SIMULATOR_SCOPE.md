@@ -1,24 +1,25 @@
 # Tax Simulator (user-defined changes, income tax first) — Scope
 
 **Status (2026-09-27): v1 (Phases 0–5) built and published (PR #28); v2,
-the capital gains rate, built and not yet merged.** See
-[As built](#as-built-september-26-2026) for what shipped, where it departs
-from this scope, and the decisions taken, and
-[v2](#v2-capital-gains-september-27-2026) for the capital gains rate. v2
-scores capital gains on the capital-gains page's DOTAX-anchored base with the
-statutory alternative tax, while the Act 24 page keeps the model's own gains
-base, so the two pages no longer give the same figure for Act 24 itself
-(middle scenario, TY2027, after response: $52.4M against $46.4M). On
-September 27 the behavioral
-response was rescored for the simulator and the Act 24 pipeline alike
-(standard counterfactual, literature-consistent migration elasticity;
-`BEHAVIORAL_ACCOUNTING_REVIEW.md`, decision 8). The three engine defects
-below were fixed and Act 24 republished in PR #24 (MID five-year gain vs
-Act 46 $870.1M → $738.9M; see `SB3125_CD1_FORECAST.md`, "Scoring-path
-fixes"). Figures below that quote the pre-fix engine ($80.99M static,
-$75.44M after response for TY2027) are the old published values; the fixed
-engine gives $58.4M and $53.8M. The rest of this document is the scope as
-written before the build. Goal: a page on the estimates
+the capital gains rate, built and published (PR #29).** The simulator is
+live at `site/tax-simulator/`. See [As built](#as-built-september-26-2026)
+for what shipped, where it departs from this scope, and the decisions
+taken, and [v2](#v2-capital-gains-september-27-2026) for the capital gains
+rate. v2 scores capital gains on the capital-gains page's DOTAX-anchored
+base with the statutory alternative tax, while the Act 24 page keeps the
+model's own gains base, so the two pages no longer give the same figure for
+Act 24 itself (middle scenario, TY2027, after response: $52.4M against
+$46.4M). The three engine defects below were fixed and Act 24 republished
+in PR #24 (middle-scenario five-year gain vs Act 46 $870.1M → $738.9M; see
+`SB3125_CD1_FORECAST.md`, "Scoring-path fixes"). On September 27 the
+behavioral response was rescored for the simulator and the Act 24 pipeline
+alike (standard counterfactual, literature-consistent migration elasticity;
+`BEHAVIORAL_ACCOUNTING_REVIEW.md`, decision 8). That moved the Act 24 page's
+TY2027 bracket gain after response from $53.8M to $46.4M (static stays
+$58.4M) and its five-year gain from $738.9M to $726.4M. Where this document
+quotes the pre-fix engine ($80.99M static, $75.44M after response for
+TY2027) it says so. The rest of this document is the scope as written
+before the build. Goal: a page on the estimates
 site where anyone can change Hawaiʻi's income tax brackets, rates, standard
 deduction and personal exemption and see right away what the change raises or
 costs in tax years 2027–2031, and who pays more or less. The numbers come from
@@ -45,18 +46,18 @@ Working name: "tax simulator". The name is still open (decision 6).
   - Static change: +$80.99M
   - After behavioral response: +$75.44M
 
-  These are the published middle-scenario row. One full scoring took about
-  7 ms in Node.
-- **Three engine defects come first, and one is large.** The Act 24 scoring
-  path drops the itemized deduction of every filer above $500K. Restoring it
-  cuts TY2027's bracket gain from $80.99M to $58.10M static, and from $75.44M
-  to $53.49M after response. The published Act 24 page carries this today, and
-  the simulator would inherit it on the changes people will try most: top
-  rates. See Phase 0.
-- **Effort: about 12–16 days for v1.** v1 covers brackets, rates, standard
-  deduction and exemption; revenue by year with a range; who pays; and a
-  household calculator. Phase 0 (2–3 days) is worth doing even if the
-  simulator is never built.
+  These were the published middle-scenario row at the time, from the
+  pre-fix engine. One full scoring took about 7 ms in Node. The built kernel
+  is parity-tested against the fixed engine instead (see As built).
+- **Three engine defects had to be fixed first. Done in PR #24.** The largest
+  was that the Act 24 scoring path dropped the itemized deduction of every
+  filer above $500K. With all three fixed, TY2027's bracket gain is $58.4M
+  static and $53.8M after response, down from $80.99M and $75.44M, and the
+  five-year gain against Act 46 is $738.9M, down from $870.1M. See Phase 0.
+- **Effort, as scoped: about 10–13 days for v1** once Phase 0 was done. v1
+  covers brackets, rates, standard deduction and exemption; revenue by year
+  with a range; who pays; and a household calculator. v1 and v2 are now
+  built (PRs #28 and #29).
 
 ## As built (September 26, 2026)
 
@@ -504,10 +505,14 @@ lists and dispatches the registry scenarios.
   `data/raw/hawaii_tax_brackets_master_all.csv`. `Reform.from_dict` accepts
   only a registered `tax_system` name, so a schedule cannot be passed inline.
 
-## Phase 0 — engine defects to fix first
+## Phase 0 — engine defects (done, PR #24)
 
 Each was found while scoping and checked on the TY2027 middle-scenario
-population. All three sit in the scoring path the simulator will reuse.
+population. All three sit in the scoring path the simulator will reuse. All
+three were fixed and Act 24 republished in PR #24; `SB3125_CD1_FORECAST.md`
+("Scoring-path fixes") has the final figures. The numbers below are the
+measurements that motivated the fixes, each taken with only that defect
+corrected, so they do not add up to the final figures.
 
 **1. Itemized deductions dropped above $500K.**
 - `apply_top_income_growth_premium` blanks `hi_itemized_deduction` and the
@@ -534,10 +539,9 @@ This looks unintended, for two reasons:
 - `project_and_recalibrate` (which the capital-gains page uses) and
   `forecast_act24_vs_pre_act46.py` both recompute tax after the premium.
 
-`forecast_sb3125_static_quintile.py` uses the same pattern. Fixing it means
-re-running the Act 24 page and updating `SB3125_CD1_FORECAST.md` (the CLAUDE.md
-hard rule). TY2027's gain alone falls $22M, so the $870M five-year headline
-will fall too. The re-run will give the full amount.
+`forecast_sb3125_static_quintile.py` used the same pattern. The fix re-ran
+the Act 24 page and updated `SB3125_CD1_FORECAST.md`; the five-year headline
+fell from $870.1M to $738.9M.
 
 **2. `per_unit_tax` ignores credits.**
 - It reads `result.get("total_credits")`, but
@@ -795,16 +799,16 @@ spike, it already did.
 
 | Phase | Work | Days |
 |---|---|---:|
-| 0 | Fix the three defects; re-run Act 24; update `SB3125_CD1_FORECAST.md` and the page | 2–3 |
+| 0 | Fix the three defects; re-run Act 24; update `SB3125_CD1_FORECAST.md` and the page (done, PR #24) | — |
 | 1 | Inline schedules in `TaxSystemConfig` and `Reform`; generalize migration, the PTE shift and the effective year; `forecast_custom.py --spec` scoring against Act 24 | 2 |
 | 2 | Population export from the Act 24 run; import into `site/data/`; manifest; size budget | 1 |
 | 3 | `kernel.js`; golden-fixture generator; `node --test` in CI | 2 |
 | 4 | The page: editor, presets, results, distribution, household calculator, share and download, no-JS fallback, mobile, accessibility | 4–6 |
 | 5 | Methodology section, QA against the published pages, staff review | 1–2 |
-| **Total** | | **12–16** |
+| **Total after Phase 0** (all built, PR #28) | | **10–13** |
 
-Phases 0 and 1 are useful alone. They fix published numbers and let staff
-score any schedule from the command line.
+Phase 1 is useful on its own: `forecast_custom.py --spec` lets staff score
+any schedule from the command line.
 
 ## Risks
 
@@ -815,15 +819,13 @@ score any schedule from the command line.
   after a re-run. The data paths and links are versioned for this reason.
 - **A single number gets quoted out of context.** The page shows the range by
   default and carries the guardrail text above.
-- **Phase 0 lowers the published Act 24 figures.** That needs a decision, and a
-  note on the page when it is republished.
 - **Scope creep.** Credits and capital gains could delay v1. They are v2 and
   v3.
 
 ## Decisions needed
 
-1. Fix Phase 0 and republish Act 24 before the simulator (recommended), or
-   build against the current numbers?
+1. ~~Fix Phase 0 and republish Act 24 before the simulator, or build against
+   the current numbers?~~ Settled: fixed and republished first (PR #24).
 2. May the site add first-party JavaScript, on this page only?
 3. Behavioral response to rate cuts: keep none, as the model does today and as
    the published numbers assume, or make it symmetric?
