@@ -15,6 +15,81 @@
 
 ---
 
+## Tax simulator v2: capital gains — September 27, 2026 (results tables unchanged)
+
+The tax simulator now lets users change the rate of the alternative tax on
+net long-term capital gains (`TAX_SIMULATOR_SCOPE.md`, "v2: capital gains").
+The Act 24 pipeline is unchanged, and so is every table in this document.
+
+**Why nothing here moves.** This script, `forecast_act24_vs_pre_act46.py`
+and `forecast_sb3125_vs_fy26base.py` score the registry systems, which keep
+the stacked shortcut of Step 10a on the model's own gains base.
+- `TaxSystemConfig` gains `cg_alt_tax`: `"stacked"` (the default, Step 10a)
+  or `"statute"`, HRS §235-51(f) as written for schedules whose rates rise
+  with income (`liability/cg_alternative.py`), with
+  `capital_gains_rate_pct`; where a rate falls back below the gains rate,
+  the statute's income "taxed at a rate below" it is read as the floor of the
+  first bracket whose rate reaches it (`cap_floor`), and the simulator page
+  says so. The shortcut accepts only 7.25%.
+- `BehavioralParams.cg_beta` (2.6 / 2.0 / 1.6 for LOW / MID / HIGH; 0
+  static) drives a new `apply_realization_response`, which
+  `apply_behavioral_response` calls after migration. It does nothing unless
+  both systems use the statute and their gains rates differ, so it never
+  runs here.
+- The DOTAX anchoring moved from `forecast_cg_rate_options.py` to
+  `tax_modeler.calibration.cg_anchor` without change; that page's CSVs
+  rebuild byte for byte.
+- The simulator build still checks that scoring Act 24 against Act 46 on its
+  population, with the registry systems and the model's gains base,
+  reproduces every published LOW/MID/HIGH revenue row and the MID
+  distribution tables. It passes unchanged: on the model's gains base, the
+  registry systems score bitwise as they did before this change.
+
+**The simulator's capital gains now differ from this script's.** It scores
+the capital-gains page's DOTAX-anchored base (80 percent of the $400K+
+class's gains to $1M+ filers) with the statute. DOTAX anchors MID: the
+scale factor per DOTAX class and year makes MID's class totals DOTAX's.
+LOW and HIGH keep MID's factors, applied to their own classes (their own
+income ranks) and their own model gains, so their gains move with their top
+incomes (TY2027: $3,832.7M / $4,110.7M / $4,382.0M in LOW / MID / HIGH).
+DOTAX corrects how the model spreads gains across income classes, while
+LOW and HIGH express uncertainty about top incomes (tail shape and growth
+premium), and gains should move with that. On the model's own base the
+statute alone moves almost nothing: MID TY2027, the Act 46 baseline goes from
+$2,456.4259M to $2,456.4200M and Act 24's static gain stays at $58.3642M.
+The base moves it. The model's base holds about 17% too much at $1M+ and
+too little between $300K and $1M (by a factor of 2.0 to 2.8) against DOTAX
+in MID TY2027 (`meta.cg_anchor` in `site/data/tax-simulator/population.json`).
+Scored the simulator's way, Act 24's bracket change against Act 46 is
+(`site/data/tax-simulator/act24_on_anchored_base.json`, rewritten on every
+simulator build; this document's figures in brackets):
+
+| $M | LOW | **MID** | HIGH |
+|---|---:|---:|---:|
+| TY2027 static | 65.32 [60.26] | **64.55 [58.36]** | 65.88 [58.75] |
+| TY2027 post-behavioral | 45.10 [40.23] | **52.42 [46.37]** | 61.08 [54.01] |
+| 2027–2031 static | 376.72 [359.69] | **376.03 [353.32]** | 414.50 [388.47] |
+| 2027–2031 post-behavioral | 218.28 [202.35] | **292.60 [270.12]** | 379.93 [354.05] |
+
+The first v2 build pinned every scenario to DOTAX's totals, which pushed
+all of a scenario's extra top income into ordinary income and stretched
+the scenario pattern: five-year static, 341.84 / 376.03 / 453.55, ratios
+to MID of 0.91 / 1 / 1.21 against this document's 1.02 / 1 / 1.10. With
+MID's factors, as in the table, the ratios are 1.00 / 1 / 1.10.
+
+The yearly post-behavioral gap runs from +$1.53M to +$4.94M in LOW, +$3.04M
+to +$6.11M in MID and +$3.02M to +$7.07M in HIGH: the simulator is above
+this document in every scenario and year. The simulator's page states it.
+Re-basing this estimate on the anchored base is a separate, dated
+decision; it would change Section 10, the decomposition and Step 10a.
+
+**Corrections to this document.** The capital-gains cap is HRS §235-51(f),
+not §235-16; Step 10a and the other citations below now say so. Step 10a
+also said that PUMS units below $1M carry no gains share; in fact
+`calibration/cg_imputation.py` gives units from $100K to $1M one.
+
+---
+
 ## Behavioral accounting and migration elasticity — September 27, 2026 (supersedes the tables below)
 
 Two corrections to the behavioral response, made together.
@@ -1612,7 +1687,7 @@ All income-related columns (`income`, `agi`, `synthetic_total_income`, `earned_i
 | MID      | 1.5      | 1.2793 | 100.0%               |
 | HIGH     | 1.4      | 1.1001 | 100.0%               |
 
-k is larger for the LOW scenario (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail → higher initial tax capture). k values are also elevated by the §235-16 capital gains cap (Step 10a): correctly applying the 7.25% CG cap to synthetic filers reduces simulated tax below the $663M target, requiring a larger scaling factor to close the gap. Each scenario is independently calibrated to the same $663M DOTAX benchmark.
+k is larger for the LOW scenario (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail → higher initial tax capture). k values are also elevated by the §235-51(f) capital gains cap (Step 10a): correctly applying the 7.25% CG cap to synthetic filers reduces simulated tax below the $663M target, requiring a larger scaling factor to close the gap. Each scenario is independently calibrated to the same $663M DOTAX benchmark.
 
 ### Step 7 — Project to Target Year
 
@@ -1690,11 +1765,11 @@ Two configs are constructed for each year:
 
 The delta (SB 3125 CD1 minus Act 46) is the static bracket change before behavioral corrections.
 
-### Step 10a — Capital Gains Cap (Hawaii §235-16)
+### Step 10a — Capital Gains Cap (HRS §235-51(f))
 
 **Implementation:** `TaxCalculator.calculate_tax()` (both `tax_system_config.py` and `liability/hawaii.py`)
 
-Hawaii HRS §235-16 caps the tax rate on net long-term capital gains at **7.25%** of the gain. This is applied in the model using the "stack" method:
+HRS §235-51(f) caps the tax rate on net long-term capital gains at **7.25%** of the gain. This is applied in the model using the "stack" method:
 
 ```
 ordinary_tax      = brackets applied to (total_income − cg_income)
@@ -1703,9 +1778,11 @@ cg_tax_capped     = min(cg_tax_uncapped, cg_income × 7.25%)
 final_tax         = ordinary_tax + cg_tax_capped
 ```
 
-**SB 3125 CD1 does not change the §235-16 cap.** It remains 7.25% under both Act 46 and SB 3125 CD1. This means the 13% new bracket applies only to the *ordinary income* portion of $1M+ filer AGI — the CG portion is already taxed at a flat 7.25% and sees zero bracket delta from the bill.
+**SB 3125 CD1 does not change the §235-51(f) cap.** It remains 7.25% under both Act 46 and SB 3125 CD1. This means the 13% new bracket applies only to the *ordinary income* portion of $1M+ filer AGI — the CG portion is already taxed at a flat 7.25% and sees zero bracket delta from the bill.
 
-**Data source for CG share:** Synthetic $1M+ filers carry a `synthetic_cg_share` column (derived from IRS SOI Hawaii high-income composition data). Base PUMS units default to `cg_share=0` — ACS does not capture realized capital gains for sub-$1M filers, consistent with their negligible incidence there.
+**Data source for CG share:** Synthetic $1M+ filers carry a `synthetic_cg_share` column (derived from IRS SOI Hawaiʻi high-income composition data). ACS does not capture realized capital gains, so PUMS units from $100K to $1M get SOI-based shares (`calibration/cg_imputation.py`) and units below $100K get none. *(Corrected September 27, 2026: this said every PUMS unit below $1M had a share of 0.)*
+
+**The statute's own formula** (`liability/cg_alternative.py`, `TaxSystemConfig.cg_alt_tax = "statute"`) is the lower of the regular tax and the bracket tax on the greater of taxable income less the gain and the taxable income taxed below 7.25%, plus 7.25% of the rest. The stack method above is never below it and differs only for filers whose taxable income other than gains is below the point where the brackets reach 7.25% and whose total taxable income is above it. This script and every registry system keep the stack method; the tax simulator uses the statute on a DOTAX-anchored gains base (see "Tax simulator v2: capital gains — September 27, 2026").
 
 **Model impact:** Correctly applying the CG cap reduces the simulated baseline tax on synthetic filers, which in turn requires a larger tail_k in Step 6a to reach the $663M target. The cap also reduces the static bracket delta — income that was previously over-taxed at bracket rates is correctly taxed at 7.25%, leaving less incremental revenue when the 13% bracket applies only to the ordinary component.
 
@@ -1827,7 +1904,7 @@ PTE revenue loss = eligible_ordinary_income × rate_differential × pte_capture
 
 **Capital gains are excluded from the PTE election pool** for two independent reasons:
 1. CG income is not pass-through business income and is ineligible for HRS §235-110.93 election by statute.
-2. Even if theoretically eligible, electing PTE on CG income would be irrational: the PTE rate (9%) exceeds the §235-16 CG cap (7.25%), so any rational filer would pay the cap rate rather than elect PTE.
+2. Even if theoretically eligible, electing PTE on CG income would be irrational: the PTE rate (9%) exceeds the §235-51(f) CG cap (7.25%), so any rational filer would pay the cap rate rather than elect PTE.
 
 In practice, the model uses `synthetic_cg_share` to compute `ordinary_income = total_income × (1 − cg_share)`, and the PTE excess is computed on ordinary income only. This reduces the PTE offset by approximately 50% relative to using total income, consistent with the high CG share (~50%) of $1M+ filer income.
 
@@ -1957,7 +2034,7 @@ Four integrated scenarios: three behavioral sensitivity scenarios (no recession 
 | Per-filer effective deduction in compare_systems | Yes | **Yes** | Yes |
 | Macro shock | None | **None** | None |
 
-**Calibration anchor:** The model anchors to DOTAX's $663M baseline tax figure for $1M+ filers. The MID result ($629.6M) is ~7.5% below the official ~$680M estimate due to two corrections applied after the official score was produced: (1) §235-16 CG cap (7.25%) properly applied to synthetic $1M+ filers — reduces the bracket-delta contribution of capital gains income; (2) PTE election pool excludes CG income per statute and economic rationality (9% PTE > 7.25% CG cap) — reduces the PTE offset, which in turn reduces the net bracket gain. LOW reflects maximum plausible behavioral response (strong ETI, 90% PTE shift, severe OBBBA solar decay). HIGH reflects minimal behavioral response and optimistic demand assumptions.
+**Calibration anchor:** The model anchors to DOTAX's $663M baseline tax figure for $1M+ filers. The MID result ($629.6M) is ~7.5% below the official ~$680M estimate due to two corrections applied after the official score was produced: (1) §235-51(f) CG cap (7.25%) properly applied to synthetic $1M+ filers — reduces the bracket-delta contribution of capital gains income; (2) PTE election pool excludes CG income per statute and economic rationality (9% PTE > 7.25% CG cap) — reduces the PTE offset, which in turn reduces the net bracket gain. LOW reflects maximum plausible behavioral response (strong ETI, 90% PTE shift, severe OBBBA solar decay). HIGH reflects minimal behavioral response and optimistic demand assumptions.
 
 ### 8b. Recession Scenario
 
@@ -2347,7 +2424,7 @@ The **bracket delta** (SB 3125 CD1 minus Act 46) is robust to this level-shift �
 
 ## 11. Caveats and Limitations
 
-1. **PUMS income underreporting at the top.** The ACS PUMS understates income for very high earners even after Pareto synthesis. The Pareto approximation underweights income concentration above ~$10M. The raw synthesis recovers only ~65–80% of the IRS SOI $663M tax target when the §235-16 CG cap is correctly applied (lower than the pre-cap estimate because CG income is taxed at 7.25% rather than bracket rates, reducing simulated baseline tax). The gap is closed by the post-synthesis uniform tail scaling step (Step 6a), which brings the tax target ratio to 100.0% before projection (tail_k: LOW=1.575, MID=1.279, HIGH=1.100).
+1. **PUMS income underreporting at the top.** The ACS PUMS understates income for very high earners even after Pareto synthesis. The Pareto approximation underweights income concentration above ~$10M. The raw synthesis recovers only ~65–80% of the IRS SOI $663M tax target when the §235-51(f) CG cap is correctly applied (lower than the pre-cap estimate because CG income is taxed at 7.25% rather than bracket rates, reducing simulated baseline tax). The gap is closed by the post-synthesis uniform tail scaling step (Step 6a), which brings the tax target ratio to 100.0% before projection (tail_k: LOW=1.575, MID=1.279, HIGH=1.100).
 
 2. **Static credit overlay.** REEC and CGEC are scored as aggregate static overlays. The model does not simulate individual solar adoption behavior or capital investment timing at the filer level.
 

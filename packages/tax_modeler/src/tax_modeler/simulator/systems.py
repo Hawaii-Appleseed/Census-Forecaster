@@ -2,12 +2,15 @@
 
 A system is what the kernel needs to tax one unit: per filing status the
 bracket schedule ``[[floor, rate %], ...]`` and standard deduction, the
-personal exemption, and the tax year whose credit law applies
-(``HawaiiTaxCredits(year=...)``: the food/excise table changes after TY2027).
+personal exemption, the tax year whose credit law applies
+(``HawaiiTaxCredits(year=...)``: the food/excise table changes after TY2027),
+and ``capital_gains_rate``: the HRS §235-51(f) alternative tax rate in
+percent, or ``"ordinary"`` for none (``tax_modeler.liability.cg_alternative``).
 """
 from __future__ import annotations
 
 from tax_modeler.config.tax_system_config import CSV_STATUSES, TaxCalculator, TaxSystemConfig
+from tax_modeler.reform.income_tax_spec import CG_ORDINARY
 
 
 def system_to_json(config: TaxSystemConfig, calc: TaxCalculator | None = None) -> dict:
@@ -18,8 +21,15 @@ def system_to_json(config: TaxSystemConfig, calc: TaxCalculator | None = None) -
                          "is not modeled by the simulator")
     if config.surcharges:
         raise ValueError(f"{config.name}: surcharges are not modeled by the simulator")
+    if config.cg_alt_tax != "statute":
+        # The kernel implements the statutory alternative tax only; the
+        # stacked shortcut is kept for the registry systems' published runs.
+        raise ValueError(f"{config.name}: cg_alt_tax {config.cg_alt_tax!r} is not modeled by "
+                         "the simulator (use dataclasses.replace(config, cg_alt_tax='statute'))")
+    rate = config.capital_gains_rate_pct
     out = {"name": config.name, "credit_year": int(config.year),
            "personal_exemption": float(config.personal_exemption),
+           "capital_gains_rate": CG_ORDINARY if rate is None else float(rate),
            "brackets": {}, "standard_deduction": {}}
     for fs in CSV_STATUSES:
         b = calc.brackets_for(config, fs)

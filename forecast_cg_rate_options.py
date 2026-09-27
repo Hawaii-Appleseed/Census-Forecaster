@@ -29,7 +29,8 @@ MID projection as forecast_act24_vs_pre_act46.py.
 Capital-gains base: the model's own CG shares come from IRS SOI "net capital
 gain (less loss)", which includes short-term gains (already taxed at ordinary
 rates) and, above $1M, national tier shares. Against DOTAX that puts ~30% too
-much at the top and too little in the $200K-$400K range. So the base is
+much at the top and too little in the $200K-$400K range on this script's
+population ($400K+, TY2026; anchor_check.csv). So the base is
 re-anchored to DOTAX Table 21 (TY2022): resident net long-term capital gains
 eligible for the alternative rate, by Hawaii AGI class, grown to the tax year
 with the Hawaii-adjusted CBO capital-gains factor the projection itself uses.
@@ -39,10 +40,16 @@ class lines. The model's CG shares set the distribution within each class,
 except that TOP_SHARE_1M of the $400K+ class goes to $1M+ filers (see
 _TOP_SHARE_NOTE). Gains below the $100K class (3% of the total) are left
 unallocated: rates there are under 7.25%, so no option changes their tax.
+The anchoring (the DOTAX tables, cg_growth, rank_classes, anchor_nltcg) lives
+in tax_modeler.calibration.cg_anchor, shared with the tax simulator, which
+scores the same base for every plan.
 
 Tax: the statutory alternative tax rather than the min(bracket, 7.25% x gain)
-shortcut in TaxCalculator — bracket tax on max(TI - NCG, TI taxed below the cap
-rate) plus the cap rate on the rest, when that is lower than the regular tax.
+shortcut that TaxCalculator keeps for the registry systems ("stacked") —
+bracket tax on max(TI - NCG, TI taxed below the cap rate) plus the cap rate
+on the rest, when that is lower than the regular tax
+(tax_modeler.liability.cg_alternative.alternative_tax, which the simulator
+uses too).
 
 Behavioral response: realized gains fall by exp(-BETA x the rise in the state
 marginal rate on gains). The federal rate is unchanged and state tax is
@@ -84,6 +91,21 @@ logging.disable(logging.WARNING)
 import numpy as np
 import pandas as pd
 
+# The DOTAX-anchored gains base, shared with the tax simulator.
+from tax_modeler.calibration.cg_anchor import (
+    _CLASSES,
+    _TOP_SHARE_NOTE,
+    DOTAX_NLTCG_NONRES,
+    DOTAX_NLTCG_RES,
+    DOTAX_RETURNS_2022,
+    DOTAX_TOTAL_RETURNS_2022,
+    TOP_SHARE_1M,
+    TOP_SHARE_VARIANTS,
+    anchor_nltcg,
+    cg_growth,
+    rank_classes,
+)
+
 REPO = Path(__file__).parent
 OUT_DIR = REPO / "runs" / "cg_rate_options"
 
@@ -98,47 +120,8 @@ CAP_CURRENT = 0.0725                       # HRS §235-51(f)
 OPTIONS = {"cap9": 0.09, "ordinary": None}  # None = no alternative tax
 BETA = 2.0                                 # realization semi-elasticity, per unit of rate
 
-TOP_SHARE_1M = 0.80
-TOP_SHARE_VARIANTS = {"central": TOP_SHARE_1M, "low": 0.70, "model": None}
-_TOP_SHARE_NOTE = """
-DOTAX TY2022: the $1M+ class (1,824 returns) owed $662.6M before credits
-(Table A-8) on roughly $6.75B of taxable income (Table A-1's $400K+ class, less
-the $400K-$1M classes at their average AGI). Under the 2018 schedule that is
-~$725M at bracket rates, so the 3.75-point cap saved ~$62M, i.e. ~$1.66B of
-eligible gains — about 80% of the class's $2.21B (Table 21). The same arithmetic
-on the $400K-$1M classes gives ~$0.36B. The model's national-tier shares put
-~92% above $1M; 70% brackets the downside.
-"""
-
 # ITEP figures in the Nov 2025 blog post (TY2026, residents, Act 46 brackets).
 ITEP_TY2026_M = {"cap9": 44.0, "ordinary": 85.0}
-
-# DOTAX "Hawaiʻi Individual Income Tax Statistics" — "Income Eligible for the
-# Tax Rate on Net Long-Term Capital Gains by Hawaiʻi AGI Class" (Table 21 in the
-# TY2021-2022 editions, 22 in TY2019-2020, 23 in TY2018). $M.
-_CLASSES = ["lt100", "100_150", "150_200", "200_300", "300_400", "400p"]
-DOTAX_NLTCG_RES = {
-    2018: [119.384, 138.876, 130.851, 245.270, 152.521, 2069.080],
-    2019: [97.254, 118.064, 115.573, 195.801, 147.801, 3066.801],
-    2020: [99.694, 126.950, 127.985, 209.723, 166.122, 2675.089],
-    2021: [166.188, 210.106, 216.483, 379.069, 299.145, 4217.475],
-    2022: [88.198, 112.025, 126.019, 241.953, 216.944, 2210.277],
-}
-# Nonresidents; composite returns folded into the top class.
-DOTAX_NLTCG_NONRES = {
-    2018: [28.527, 30.638, 30.760, 51.728, 45.280, 402.242 + 11.727],
-    2019: [27.891, 31.872, 29.895, 68.824, 42.005, 355.744 + 11.248],
-    2020: [37.284, 25.539, 23.598, 50.837, 37.860, 333.100 + 2.645],
-    2021: [60.028, 52.293, 52.528, 110.191, 96.831, 906.710 + 12.951],
-    2022: [30.754, 39.167, 41.897, 96.572, 108.494, 900.309 + 208.326],
-}
-# DOTAX Table A-8 TY2022 resident returns by the same classes (the $100K-
-# class includes loss returns). Used to map classes onto income ranks.
-DOTAX_RETURNS_2022 = {
-    "100_150": 62_065, "150_200": 27_976, "200_300": 18_937, "300_400": 6_076,
-    "400_1m": 2_926 + 2_991 + 1_134, "1mp": 1_824,
-}
-DOTAX_TOTAL_RETURNS_2022 = 635_117
 
 # Chart palette: the navy / slate of the blog's figures, sampled from its PNGs.
 NAVY = "#2c304b"
@@ -204,81 +187,6 @@ def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
     return projected[projected["weight"] > 0.01].reset_index(drop=True)
 
 
-def cg_growth(yr: int) -> float:
-    """TY2022 -> *yr* capital-gains growth: CBO Jan 2025 x the Hawaii CAGR ratio."""
-    from tax_modeler.calibration.cbo_aging import (
-        DEFAULT_HAWAII_FACTORS,
-        load_cbo_rates,
-        net_growth_factor,
-    )
-    rates = load_cbo_rates("2025-01")
-    return net_growth_factor(rates.factor("capital_gains", yr),
-                             DEFAULT_HAWAII_FACTORS["capital_gains"])
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Capital-gains base anchored to DOTAX Table 21
-# ─────────────────────────────────────────────────────────────────────────────
-
-def rank_classes(df: pd.DataFrame) -> np.ndarray:
-    """DOTAX AGI class of each unit by weighted income rank (midpoint rule).
-
-    The $400K+ class is then split at $1M of target-year income: the synthetic
-    $1M+ tiers vs everyone else in the class.
-    """
-    inc = df["income"].to_numpy(float)
-    w = df["weight"].to_numpy(float)
-    order = np.argsort(-inc, kind="stable")
-    ws = w[order]
-    cum_mid = (np.cumsum(ws) - ws / 2) / w.sum()
-    top_down = [("400p", DOTAX_RETURNS_2022["400_1m"] + DOTAX_RETURNS_2022["1mp"]),
-                ("300_400", DOTAX_RETURNS_2022["300_400"]),
-                ("200_300", DOTAX_RETURNS_2022["200_300"]),
-                ("150_200", DOTAX_RETURNS_2022["150_200"]),
-                ("100_150", DOTAX_RETURNS_2022["100_150"])]
-    edges = np.cumsum([n for _, n in top_down]) / DOTAX_TOTAL_RETURNS_2022
-    lab_sorted = np.select([cum_mid <= e for e in edges], [c for c, _ in top_down],
-                           default="lt100")
-    labels = np.empty(len(df), dtype=object)
-    labels[order] = lab_sorted
-    labels[(labels == "400p") & (inc >= 1_000_000)] = "1mp"
-    labels[labels == "400p"] = "400_1m"
-    return labels
-
-
-def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
-    """Per-unit net long-term capital gain eligible for §235-51(f), $.
-
-    Returns (nltcg, labels, anchor_rows).
-    """
-    inc = df["income"].to_numpy(float)
-    w = df["weight"].to_numpy(float)
-    model_cg = inc * df["synthetic_cg_share"].fillna(0.0).to_numpy(float)
-    labels = rank_classes(df)
-    g = cg_growth(yr)
-    target = {c: v * g * 1e6 for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[2022], strict=True)}
-
-    groups = {c: [c] for c in ["100_150", "150_200", "200_300", "300_400"]}
-    if top_share_1m is None:
-        groups["400p"] = ["400_1m", "1mp"]
-    else:
-        groups["1mp"] = ["1mp"]
-        groups["400_1m"] = ["400_1m"]
-        target["1mp"] = target["400p"] * top_share_1m
-        target["400_1m"] = target["400p"] * (1 - top_share_1m)
-
-    nltcg = np.zeros(len(df))
-    rows = []
-    for grp, labs in groups.items():
-        m = np.isin(labels, labs)
-        have = float((model_cg[m] * w[m]).sum())
-        k = target[grp] / have if have > 0 else 0.0
-        nltcg[m] = model_cg[m] * k
-        rows.append({"tax_year": yr, "group": grp, "model_cg_M": have / 1e6,
-                     "dotax_target_M": target[grp] / 1e6, "scale": k})
-    return np.clip(nltcg, 0.0, np.maximum(inc, 0.0)), labels, rows
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Tax under §235-51(f) with a given alternative-tax rate
 # ─────────────────────────────────────────────────────────────────────────────
@@ -313,23 +221,16 @@ class Scorer:
         return np.maximum(0.0, income - self.subtract)
 
     def tax(self, income, nltcg, cap):
-        """Regular tax, or the §235-51(f) alternative tax at rate *cap* if lower."""
+        """Regular tax, or the §235-51(f) alternative tax at rate *cap* if lower
+        (``tax_modeler.liability.cg_alternative``, which the tax simulator's
+        ``TaxCalculator`` path uses too)."""
+        from tax_modeler.liability.cg_alternative import alternative_tax
+
         ti = self.taxable(income)
         out = np.zeros(len(ti))
         for fs, (floors, rates, cum) in self.sched.items():
             m = self.status == fs
-            regular, _ = self._bracket(ti[m], floors, rates, cum)
-            if cap is None:
-                out[m] = regular
-                continue
-            # "taxable income taxed at a rate below" the cap: the floor of the
-            # first bracket whose rate reaches it.
-            at_or_above = rates >= cap - 1e-12
-            below_cap_top = floors[np.argmax(at_or_above)] if at_or_above.any() else np.inf
-            ncg = np.clip(nltcg[m], 0.0, ti[m])
-            base = np.maximum(ti[m] - ncg, np.minimum(ti[m], below_cap_top))
-            alt = self._bracket(base, floors, rates, cum)[0] + cap * (ti[m] - base)
-            out[m] = np.minimum(regular, alt)
+            out[m] = alternative_tax(ti[m], nltcg[m], floors, rates, cum, cap)
         return out
 
     def marginal_rate(self, income):

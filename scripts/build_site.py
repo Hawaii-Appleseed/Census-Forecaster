@@ -15,16 +15,20 @@ that the committed HTML is exactly what the committed data produces.
 The .github/workflows/pages.yml workflow deploys site/ as-is; it does not build.
 
 Pages are static HTML with CSS bar charts: no JavaScript, no external
-requests beyond Google Fonts. Brand tokens are in site/assets/site.css.
+requests beyond Google Fonts. Brand tokens are in site/assets/site.css. The
+one exception is the tax simulator, which runs its model in the browser
+(site/assets/simulator/) and keeps a no-JavaScript table of its options.
 """
 from __future__ import annotations
 
 import argparse
 import contextlib
 import csv
+import gzip
 import html
 import json
 import shutil
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,6 +122,10 @@ TAX_SIMULATOR = Estimate(
         "population.json": "tax_simulator/web/population.json",
         "population.bin.gz": "tax_simulator/web/population.bin.gz",
         "presets_results.json": "tax_simulator/web/presets_results.json",
+        # the simulator's capital gains method next to the Act 24 and
+        # capital gains pages' published figures (build_simulator_population.py)
+        "act24_on_anchored_base.json": "tax_simulator/act24_on_anchored_base.json",
+        "cg_page_comparison.json": "tax_simulator/cg_page_comparison.json",
         "manifest.json": "tax_simulator/manifest.json",
     },
     stamp=("manifest.json",),
@@ -398,6 +406,14 @@ GROUPS_SHORT = {"Lowest 20%": "Lowest 20 percent", "Second 20%": "Second 20 perc
                 "Next 15%": "Next 15 percent", "Next 4%": "Next 4 percent", "Top 1%": "Top 1 percent"}
 
 
+T_HRS_ALT_TAX = (
+    'Hawaiʻi Revised Statutes §235-51(f), alternative tax on net capital gain. '
+    '<a href="https://www.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0051.htm">capitol.hawaii.gov</a>')
+T_DOTAX_STATS = (
+    'Hawaiʻi Department of Taxation, “Hawaiʻi Individual Income Tax Statistics,” tax years 2018 to 2022 editions, '
+    'Tables 21, A-1 and A-8. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
+
+
 def _rev(rows, year, law, option, variant="central"):
     for r in rows:
         if (int(r["tax_year"]), r["law"], r["option"], r["top_share"]) == (year, law, option, variant):
@@ -451,17 +467,13 @@ def build_capital_gains() -> tuple[str, dict]:
         'Hawaiʻi State Legislature, “SB 3125 SD1 HD1 CD2,” enacted as Act 24, Session Laws of Hawaiʻi 2026, '
         'May 21, 2026. <a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=SB&amp;billnumber=3125&amp;year=2026">'
         'capitol.hawaii.gov</a>')
-    T_hrs = (
-        'Hawaiʻi Revised Statutes §235-51(f), alternative tax on net capital gain. '
-        '<a href="https://www.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0051.htm">capitol.hawaii.gov</a>')
+    T_hrs = T_HRS_ALT_TAX
     T_blog = (
         'Thomas, Devin, “Hawaiʻi’s two-tier tax system: How the rich use a glaring loophole to pay less,” '
         'Hawaiʻi Appleseed Center for Law &amp; Economic Justice, November 13, 2025. '
         '<a href="https://www.hiappleseed.org/blog/hawaii-two-tier-tax-system-glaring-loophole-rich-pay-less">hiappleseed.org</a>. '
         'Its figures were produced by the Institute on Taxation and Economic Policy.')
-    T_dotax = (
-        'Hawaiʻi Department of Taxation, “Hawaiʻi Individual Income Tax Statistics,” tax years 2018 to 2022 editions, '
-        'Tables 21, A-1 and A-8. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
+    T_dotax = T_DOTAX_STATS
     T_code = (
         f'Hawaiʻi Appleseed, <code>forecast_cg_rate_options.py</code>, Census-Forecaster model, commit '
         f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_cg_rate_options.py">github.com</a>')
@@ -1387,15 +1399,51 @@ def _preset_totals(res: dict, scen: str) -> tuple[float, float]:
             sum(r["behavioral_$M"] for r in rows))
 
 
+def _difference_range(values: list[float]) -> str:
+    """Yearly differences in prose: 'from $6 million less to $13 million more'."""
+    lo, hi = min(values), max(values)
+    if lo < 0 < hi:
+        return f"from {millions(-lo)} less to {millions(hi)} more"
+    if lo >= 0:
+        return f"from {millions(lo)} to {millions(hi)} more"
+    return f"from {millions(-hi)} to {millions(-lo)} less"
+
+
 def build_tax_simulator() -> tuple[str, dict]:
     d = DATA / TAX_SIMULATOR.slug
     manifest = json.loads((d / "manifest.json").read_text())
+    if manifest["git_sha"].endswith("-dirty"):
+        # scripts/build_simulator_population.py ran on uncommitted code; the
+        # endnote below would cite a commit without it
+        print(f"WARNING: site/data/{TAX_SIMULATOR.slug}/manifest.json was built from uncommitted code "
+              f"(git_sha {manifest['git_sha']}); commit the code, rebuild the simulator data, "
+              f"re-import it, and rebuild the site before committing the pages", file=sys.stderr)
     meta = json.loads((d / "population.json").read_text())
     presets = json.loads((d / "presets_results.json").read_text())
     notes = Notes()
     years = meta["years"]
     Y0, Y1 = years[0], years[-1]
     run = manifest["created_at"]
+    n_test_plans = len(json.loads(gzip.decompress((REPO / TAX_SIMULATOR.extra[0][0]).read_bytes()))["cases"])
+
+    # Capital gains: the simulator's method (anchored gains, the statute's
+    # alternative tax, a realization response) against the two pages that
+    # publish capital gains figures.
+    cg_law = meta["current_law"][str(Y0)]["capital_gains_rate"]
+    beta = {k: meta["scenarios"][k]["cg_beta"] for k in ("low", "mid", "high")}
+    top_share = meta["cg_anchor"]["top_share"]
+    a24 = json.loads((d / "act24_on_anchored_base.json").read_text())["revenue"]
+    fis = read_csv(DATA / ACT24.slug / "fiscal_by_scenario.csv")
+    a24_page = {(r["scenario"], r["tax_year"]): _fiscal(fis, r["scenario"].upper(), r["tax_year"])["bracket_delta_post_$M"]
+                for r in a24}
+    a24_sim = {(r["scenario"], r["tax_year"]): r["behavioral_$M"] for r in a24}
+    a24_mid5 = sum(v for (sc, _), v in a24_sim.items() if sc == "mid")
+    a24_page_mid5 = sum(v for (sc, _), v in a24_page.items() if sc == "mid")
+    a24_gaps = [a24_sim[k] - a24_page[k] for k in a24_sim]
+    cg_ratios = [r["behavioral_vs_published"] for r in json.loads((d / "cg_page_comparison.json").read_text())["rows"]]
+    cg_p = json.loads((DATA / CAPITAL_GAINS.slug / "manifest.json").read_text())["params"]
+    nr = read_csv(DATA / CAPITAL_GAINS.slug / "nonresident_addon.csv")
+    nr_c9, nr_od = _nr(nr, Y0, "cap9", "behavioral"), _nr(nr, Y0, "ordinary", "behavioral")
 
     T_scope = (f'Hawaiʻi Appleseed, “Tax Simulator — Scope,” Census-Forecaster model. '
                f'<a href="{REPO_URL}/blob/main/TAX_SIMULATOR_SCOPE.md">github.com</a>')
@@ -1406,6 +1454,10 @@ def build_tax_simulator() -> tuple[str, dict]:
     T_code = (f'Hawaiʻi Appleseed, <code>site/assets/simulator/kernel.js</code> and <code>tax_modeler.simulator</code>, '
               f'Census-Forecaster model, commit <code>{esc(manifest["git_sha"])}</code>. '
               f'<a href="{REPO_URL}/tree/main/site/assets/simulator">github.com</a>')
+    T_cg_page = ('Hawaiʻi Appleseed, “Closing the Gap: Capital Gains Options,” Hawaiʻi Appleseed Estimates. '
+                 '<a href="../capital-gains/">On this site</a>')
+    T_a24_page = ('Hawaiʻi Appleseed, “Act 24: Revenue and Distribution,” Hawaiʻi Appleseed Estimates. '
+                  '<a href="../act-24/">On this site</a>')
 
     rows = []
     for name, res in presets.items():
@@ -1424,7 +1476,7 @@ def build_tax_simulator() -> tuple[str, dict]:
 <p class="ha-est__eyebrow">Try it yourself · Income tax</p>
 <h1>Tax Simulator</h1>
 <hr class="ha-est__hero-rule">
-<p class="ha-est__deck">Change Hawaiʻi’s income tax brackets, rates, standard deduction and personal exemption, and see what your version would raise or cost in tax years {Y0} to {Y1}, and who would pay more or less.</p>
+<p class="ha-est__deck">Change Hawaiʻi’s income tax brackets, rates, standard deduction, personal exemption and tax on capital gains, and see what your version would raise or cost in tax years {Y0} to {Y1}, and who would pay more or less.</p>
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · Compared with current law (Act 24)</p>
 </div></section>"""
 
@@ -1441,24 +1493,34 @@ def build_tax_simulator() -> tuple[str, dict]:
 
     s1 = section("How to Read These Numbers", f"""
 {lead("Every figure compares your plan with current law,", f"the income tax as Act 24 of 2026 left it, including the changes it already schedules: a new set of brackets in {Y0 + 2} and a standard deduction that rises in steps through {Y1}.{notes.ref(T_act24)} A plan that changes nothing scores zero.")}
-<p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them; the middle scenario uses the same assumptions as the Act 24 page.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
-<div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Capital gains keep the 7.25 percent alternative rate. Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
+<p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, filers whose rate on capital gains rises sell fewer investments, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them. Apart from capital gains, the middle scenario uses the same assumptions as the Act 24 page.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
+<div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income and, when the rate on capital gains falls, sold the same investments. Capital gains of nonresidents are not counted. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
 """, "reading")
+
+    s_cg = section("Capital Gains", f"""
+{lead("State law caps the tax on capital gains.", f"Net long-term capital gains are taxed at no more than {pct(cg_law, 2)} percent: a filer pays the lower of the regular tax and an alternative tax that applies the brackets to other income and {pct(cg_law, 2)} percent to the gains.{notes.ref(T_HRS_ALT_TAX)} The simulator computes that alternative tax as the statute defines it, for current law and for your plan. A different rate replaces {pct(cg_law, 2)} percent. Taxing gains as ordinary income drops the alternative tax, and so does a rate at or above every bracket rate. When a plan’s rates fall back below the gains rate as income rises, the statute can be read more than one way: the simulator counts only the income below the first bracket whose rate reaches the gains rate as income taxed below it, and says so with the results.")}
+<p>Who has the gains matters more than the formula. In the middle scenario, the simulator sets the gains of each income class to the Department of Taxation’s count of resident long-term gains eligible for the alternative tax, grown each year, as the capital gains page does.{notes.ref(T_DOTAX_STATS)}{notes.ref(T_cg_page)} The department’s top class is $400,000 and up; filers above $1 million get {pct(top_share * 100)} percent of its gains, that page’s central assumption. The low and high scenarios scale each class’s gains by the same factors as the middle one, so their gains rise and fall with their top incomes rather than being held to the department’s totals. Gains of filers with income under about $100,000 are left out: their bracket rates are below {pct(cg_law, 2)} percent, so under current law the alternative tax does not lower their tax.</p>
+<p>When the rate on a filer’s gains rises, the filer sells fewer investments. In the middle scenario, gains fall by about {beta['mid']:g} percent for each point the rate on them rises, as on the capital gains page; the low scenario uses {beta['low']:g} percent and the high scenario {beta['high']:g} percent. A lower rate on gains gets no response, and the gains rate moves no one away: only the top bracket rate does. Filers whose bracket rates rise report less income, gains included, as on the Act 24 page.</p>
+<p>The simulator counts Hawaiʻi residents only. Nonresidents who sell Hawaiʻi property or hold interests in Hawaiʻi businesses also pay the alternative tax on those gains. The capital gains page estimates that in tax year {Y0}, in a typical year for nonresident gains, they would add about {millions(nr_c9['typical_year_M'])} to a {pct(cg_p['options']['cap9'] * 100)} percent rate and {millions(nr_od['typical_year_M'])} to taxing gains as ordinary income; at tax year 2022 levels, when their gains spiked, {millions(nr_c9['ty2022_level_M'])} and {millions(nr_od['ty2022_level_M'])}. The simulator offers both of those options as starting points; its estimates for them run {pct(100 * (1 - max(cg_ratios)))} to {pct(100 * (1 - min(cg_ratios)))} percent below that page’s, which projects its own population.</p>
+<p>Capital gains are where the simulator and the Act 24 page differ. That page keeps the model’s own estimate of each filer’s gains, which puts more of them above $1 million and fewer between $300,000 and $1 million, and taxes them with a shortcut for the alternative tax.{notes.ref(T_a24_page)} Scored the simulator’s way, Act 24’s bracket changes raise {millions(a24_sim[('mid', Y0)])} in tax year {Y0} compared with Act 46, in the middle scenario after the behavioral response; the Act 24 page shows {millions(a24_page[('mid', Y0)])}. Over tax years {Y0} to {Y1} the two are {millions(a24_mid5)} and {millions(a24_page_mid5)}. Across the three scenarios the yearly difference runs {_difference_range(a24_gaps)}. The Act 24 page has not been re-estimated on this base; each model run reports the difference.</p>
+""", "capital-gains")
 
     s2 = section("How the Simulator Works", f"""
 {lead("The simulator scores your plan", f"on the population behind the Act 24 estimates: about {meta['n_units']:,} Hawaiʻi tax units built from Census Bureau survey data, calibrated to Department of Taxation statistics, with filers above $1 million added from IRS and state tax statistics and every unit projected to tax years {Y0} to {Y1}.")}
-<p>The projection is done once, when the model is run. The page then taxes each unit under current law and under your plan, in your browser, with the same arithmetic as the Python model. Automated tests check that the page gives the model’s answers: every revenue and distribution figure for about 30 test plans, including Act 24 itself, to within one part in a million, and the tax on a sample of units to a fraction of a cent.{notes.ref(T_code)} Nothing you enter leaves your browser; a shared link carries the plan in the address itself.{notes.ref(T_scope)}</p>
+<p>The projection is done once, when the model is run. The page then taxes each unit under current law and under your plan, in your browser, with the same arithmetic as the Python model. Automated tests check that the page gives the model’s answers: every revenue and distribution figure for {n_test_plans} test plans, including Act 24 itself, to within one part in a million, and the tax on a sample of units to a fraction of a cent.{notes.ref(T_code)} Nothing you enter leaves your browser; a shared link carries the plan in the address itself.{notes.ref(T_scope)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
 <li><a href="../data/{TAX_SIMULATOR.slug}/population.json"><code>population.json</code></a>: current law, the options above, the scenario assumptions and an index of the model data</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/population.bin.gz"><code>population.bin.gz</code></a>: the projected tax units the page scores (binary, described in <code>population.json</code>)</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/presets_results.json"><code>presets_results.json</code></a>: the model’s results for the options above, by year and scenario</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/act24_on_anchored_base.json"><code>act24_on_anchored_base.json</code></a>: Act 24 scored the simulator’s way, next to the Act 24 page’s figures</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/cg_page_comparison.json"><code>cg_page_comparison.json</code></a>: the capital gains page’s two options scored the simulator’s way, next to that page’s figures</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
 </ul>
 """, "method")
 
     endnotes = section("Endnotes", notes.html(), "endnotes")
-    body = hero + app + s1 + s2 + endnotes
+    body = hero + app + s1 + s_cg + s2 + endnotes
     extra_head = ('\n<link rel="stylesheet" href="../assets/simulator/simulator.css">'
                   '\n<script type="module" src="../assets/simulator/app.js"></script>')
     card = {
@@ -1466,14 +1528,14 @@ def build_tax_simulator() -> tuple[str, dict]:
         "category": "tools",
         "eyebrow": "Income tax",
         "title": "Tax Simulator",
-        "text": "Change the brackets, rates and deductions, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
+        "text": "Change the brackets, rates, deductions and tax on capital gains, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
         "stat": millions(top14_first),
         "stat_label": f"a year from a 14 percent top rate, for example (tax year {Y0})",
         "date": long_date(run),
         "year": datetime.fromisoformat(run).year,
     }
-    desc = ("Change Hawaiʻi’s income tax brackets, rates, standard deduction and personal exemption, and see "
-            "what your version would raise and who would pay more or less.")
+    desc = ("Change Hawaiʻi’s income tax brackets, rates, standard deduction, personal exemption and tax on capital "
+            "gains, and see what your version would raise and who would pay more or less.")
     html_out = page(title="Tax Simulator: Hawaiʻi Income Tax | Hawaiʻi Appleseed Estimates",
                     description=desc, body=body, depth=1, year=datetime.fromisoformat(run).year,
                     extra_head=extra_head)

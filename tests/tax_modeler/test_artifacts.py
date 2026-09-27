@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 
 import pandas as pd
 import pytest
 
 from tax_modeler.artifacts import (
     ARTIFACT_VERSION,
+    _git_sha,
     canonical_deduction_params_path,
     check_cache_sidecar,
+    git_sha_for_code,
     load_calibrated_base,
     load_canonical_deduction_params,
     params_fingerprint,
@@ -153,3 +157,43 @@ def test_git_sha_mismatch_warns_but_returns_meta(tmp_path, units_df, capsys):
     assert meta is not None  # never aborts — warning only
     assert meta["git_sha"] == "deadbeef"
     assert "was built at git deadbeef" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def test_git_sha_for_code_marks_uncommitted_code(tmp_path):
+    """The tax simulator's manifest cites the commit holding its code. Built
+    from uncommitted code, the bare HEAD SHA named a commit without it
+    (65e1a6e for the capital-gains kernel); the SHA now says -dirty."""
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com",
+                        "-c", "commit.gpgsign=false", *args],
+                       cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    (tmp_path / "code").mkdir()
+    (tmp_path / "code" / "kernel.js").write_text("v1\n")
+    (tmp_path / "data.json").write_text("{}\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "code")
+    head = _git_sha(tmp_path)
+    assert head not in ("", "unknown")
+    paths = ("code", "script.py")
+    assert git_sha_for_code(paths, cwd=tmp_path) == head
+    # data outside the code paths is what a rebuild writes: still clean
+    (tmp_path / "data.json").write_text('{"rebuilt": 1}\n')
+    assert git_sha_for_code(paths, cwd=tmp_path) == head
+    # an edited or a new file under the code paths is not in any commit
+    (tmp_path / "code" / "kernel.js").write_text("v2\n")
+    assert git_sha_for_code(paths, cwd=tmp_path) == head + "-dirty"
+    git("commit", "-q", "-am", "v2")
+    new_head = _git_sha(tmp_path)
+    assert new_head != head and git_sha_for_code(paths, cwd=tmp_path) == new_head
+    (tmp_path / "script.py").write_text("print()\n")
+    assert git_sha_for_code(paths, cwd=tmp_path) == new_head + "-dirty"
+    # paths are from the repository root, wherever git runs
+    assert git_sha_for_code(paths, cwd=tmp_path / "code") == new_head + "-dirty"
+
+
+def test_git_sha_for_code_outside_a_repository(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "no-repository"))
+    assert git_sha_for_code(("code",), cwd=tmp_path) == "unknown"

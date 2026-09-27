@@ -33,6 +33,11 @@ def test_write_and_read_manifest(tmp_path):
     assert m["created_at"] and m["git_sha"]
 
 
+def test_manifest_records_a_given_git_sha(tmp_path):
+    write_run_manifest(tmp_path, script="x.py", git_sha="abc1234-dirty")
+    assert read_run_manifest(tmp_path)["git_sha"] == "abc1234-dirty"
+
+
 def test_manifest_fingerprint_stable(tmp_path):
     a = write_run_manifest(tmp_path / "a", script="s", params={"x": 1, "y": 2})
     b = write_run_manifest(tmp_path / "b", script="s", params={"y": 2, "x": 1})

@@ -190,7 +190,7 @@ class HawaiiTaxParameters:
 
 HAWAII_2023 = HawaiiTaxParameters()
 
-# HRS §235-16: net long-term capital gains taxed at no more than 7.25%.
+# HRS §235-51(f): net long-term capital gains taxed at no more than 7.25%.
 # SB 3125 CD1 amends §235-51 (ordinary income brackets) only; the CG cap
 # is unchanged and applies under both Act 46 and SB 3125 CD1 baselines.
 HAWAII_CG_CAP_RATE = 0.0725
@@ -396,7 +396,7 @@ def calculate_hawaii_tax(
             For tax_year < 2024 (pre-Act-46), ``None`` is permitted and
             falls back to SD-only.
         cg_income: Net long-term capital gains included in ``income``.
-            When non-zero, the HRS §235-16 cap is applied: the incremental
+            When non-zero, the HRS §235-51(f) cap is applied: the incremental
             bracket tax attributable to CG income is limited to
             ``HAWAII_CG_CAP_RATE`` (7.25%) × ``cg_income``.  Defaults to 0
             (backward-compatible — all income treated as ordinary).
@@ -467,7 +467,7 @@ def calculate_hawaii_tax(
         income_for_real = agi - exemption_amount - (effective_ded - std_ded)
         tax_before_credits = hawaii_tax_real(income_for_real, tax_year, real_fs)
 
-        # ---- HRS §235-16 capital gains cap ----------------------------------
+        # ---- HRS §235-51(f) capital gains cap -------------------------------
         if cg_income > 0:
             ordinary_agi = max(0.0, agi - cg_income)
             income_for_real_ord = ordinary_agi - exemption_amount - (effective_ded - std_ded)
@@ -488,7 +488,7 @@ def calculate_hawaii_tax(
         brackets = params.brackets.get(filing_status, params.brackets['single'])
         tax_before_credits = _apply_brackets(taxable_income, brackets)
 
-        # ---- HRS §235-16 capital gains cap ----------------------------------
+        # ---- HRS §235-51(f) capital gains cap -------------------------------
         if cg_income > 0:
             ordinary_taxable = max(0.0, (agi - cg_income) - effective_ded - exemption_amount)
             ordinary_tax = _apply_brackets(ordinary_taxable, brackets)
@@ -610,7 +610,7 @@ def calculate_hawaii_tax_for_units(
     # validation accepts it for tax_year ≥ 2024 without a redundant error.
     inner_params: Any = normalized if normalized is not None else NO_ITEMIZING
 
-    # Derive per-unit capital gains income for the §235-16 cap.
+    # Derive per-unit capital gains income for the §235-51(f) cap.
     # synthetic_cg_share is set by UltraHighIncomeSynthesizerV2 for $1M+ rows;
     # base PUMS units don't have it, so they default to 0 (no cap applied).
     has_cg_share = "synthetic_cg_share" in tax_units_df.columns

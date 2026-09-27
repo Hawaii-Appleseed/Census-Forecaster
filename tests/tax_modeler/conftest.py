@@ -115,3 +115,30 @@ def sample_household_data() -> pd.DataFrame:
          "AGE": "8", "MAR": "6", "PINCP": "0", "ADJINC": "1000000"},
     ]
     return pd.DataFrame(data)
+
+
+# -----------------------------------------------------------------------------
+# The capital-gains page's scorer (forecast_cg_rate_options.py)
+# -----------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def cg_page():
+    """The capital-gains page's ``Scorer`` class, ``BETA`` and ``CAP_CURRENT``,
+    read from ``forecast_cg_rate_options.py`` without importing it: importing
+    the script turns warnings and logging off for the whole test process."""
+    import ast
+    import types
+
+    import numpy as np
+
+    path = Path(__file__).resolve().parents[2] / "forecast_cg_rate_options.py"
+    tree = ast.parse(path.read_text())
+    wanted = [n for n in tree.body
+              if (isinstance(n, ast.ClassDef) and n.name == "Scorer")
+              or (isinstance(n, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id in ("BETA", "CAP_CURRENT")
+                          for t in n.targets))]
+    ns: dict = {"np": np, "pd": pd}
+    exec(compile(ast.Module(body=wanted, type_ignores=[]), str(path), "exec"), ns)
+    return types.SimpleNamespace(Scorer=ns["Scorer"], BETA=ns["BETA"],
+                                 CAP_CURRENT=ns["CAP_CURRENT"])

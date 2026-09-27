@@ -18,6 +18,10 @@ household's summed change by one member's filer weight, the first member in
 household and year (``hhfw_<year>``), with the household-income fifth
 (``quint_<year>``) and the projected frame's row order (``order_<year>``), so
 the browser kernel and :func:`frame_for` reproduce the published tables.
+
+Capital gains: the arrays carry the model's own gains share (``cg``, the Act
+24 page's base). The simulator scores on the DOTAX-anchored base instead
+(:mod:`.gains`), which :func:`unit_arrays` applies by default.
 """
 from __future__ import annotations
 
@@ -226,9 +230,19 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
 # reconstruction for the Python pipeline
 # ---------------------------------------------------------------------------
 
-def unit_arrays(pop: Population, year: int, scenario: str = "mid") -> dict[str, np.ndarray]:
+GAINS_BASES = ("anchored", "model")
+
+
+def unit_arrays(pop: Population, year: int, scenario: str = "mid",
+                gains: str = "anchored") -> dict[str, np.ndarray]:
     """Canonical-order arrays for one (year, scenario): income, itemized
-    deduction, weight and capital-gains share with LOW/HIGH overrides applied."""
+    deduction, weight and capital-gains share with LOW/HIGH overrides applied.
+
+    ``gains``: ``"anchored"``, the simulator's DOTAX-anchored gains base
+    (:mod:`.gains`, computed and cached on first use), or ``"model"``, the
+    model's own shares, which the Act 24 page scores."""
+    if gains not in GAINS_BASES:
+        raise ValueError(f"gains: one of {GAINS_BASES}, not {gains!r}")
     a = pop.arrays
     agi = a[f"agi_{year}"].copy()
     item = a[f"item_{year}"].copy()
@@ -241,15 +255,21 @@ def unit_arrays(pop: Population, year: int, scenario: str = "mid") -> dict[str, 
         t = a[f"tail_{scenario}_idx"]
         weight[t] = a[f"tail_{scenario}_weight"]
         cg[t] = a[f"tail_{scenario}_cg"]
+    if gains == "anchored":
+        from .gains import anchored_share
+        cg = anchored_share(pop, year, scenario, cg)
     return {"income": agi, "hi_itemized_deduction": item, "weight": weight,
             "synthetic_cg_share": cg}
 
 
-def frame_for(pop: Population, year: int, scenario: str = "mid") -> pd.DataFrame:
+def frame_for(pop: Population, year: int, scenario: str = "mid",
+              gains: str = "anchored") -> pd.DataFrame:
     """The frame the pipeline scored for (year, scenario), in its row order,
-    with the columns the income tax scorers and ``generate_quintile_report`` read."""
+    with the columns the income tax scorers and ``generate_quintile_report``
+    read; ``gains`` as in :func:`unit_arrays` (``"model"`` is the frame the
+    Act 24 page scored)."""
     a = pop.arrays
-    u = unit_arrays(pop, year, scenario)
+    u = unit_arrays(pop, year, scenario, gains)
     order = a[f"order_{year}"]
     statuses = np.asarray(FILING_STATUSES)[a["fs"]]
     df = pd.DataFrame({

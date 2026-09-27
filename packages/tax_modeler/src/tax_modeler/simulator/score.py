@@ -3,8 +3,10 @@
 This is the reference the browser kernel (``site/assets/simulator/kernel.js``)
 must reproduce: it calls ``score_with_response`` and
 ``generate_quintile_report`` on frames rebuilt from the population, the same
-functions the Act 24 estimates use. Scoring Act 24 against Act 46 here
-reproduces the published Act 24 bracket figures and distribution tables.
+functions the Act 24 estimates use. Scoring the registry's Act 24 against
+Act 46 here on the model's own gains base (``gains="model"``) reproduces the
+published Act 24 bracket figures and distribution tables; specs are scored on
+the DOTAX-anchored base with the statutory capital-gains alternative tax.
 """
 from __future__ import annotations
 
@@ -49,6 +51,7 @@ def score_systems(
     scenarios: Iterable[str] = ("low", "mid", "high"),
     distribution_years: Iterable[int] = (),
     calculator: TaxCalculator | None = None,
+    gains: str = "anchored",
 ) -> dict:
     """Revenue for every (scenario, year), static and after the behavioral
     response, plus MID distribution tables for ``distribution_years``.
@@ -62,7 +65,10 @@ def score_systems(
     returned (the fall phases in too) still cost their tax, even in years
     when the plan equals current law. Money in $M; the distribution tables
     use ``generate_quintile_report``'s columns with ``act46``/``cd1``
-    renamed ``baseline``/``reform`` (``REPORT_NAMES``)."""
+    renamed ``baseline``/``reform`` (``REPORT_NAMES``).
+
+    ``gains``: the capital-gains base (``population.unit_arrays``): the
+    simulator's DOTAX-anchored base, or ``"model"``, the Act 24 page's."""
     calc = calculator or TaxCalculator()
     years = tuple(years or pop.years)
     path = top_rate_path(baseline_for, system_for, pop.years, calc)
@@ -71,7 +77,7 @@ def score_systems(
         params = SCENARIOS[s].behavioral_params
         for y in years:
             rev, _, diag = score_with_response(
-                frame_for(pop, y, s), params, target_year=y, baseline_cfg=baseline_for(y),
+                frame_for(pop, y, s, gains), params, target_year=y, baseline_cfg=baseline_for(y),
                 scenario_cfg=system_for(y), calculator=calc, top_rate_path=path)
             revenue.append({
                 "scenario": s, "tax_year": y,
@@ -81,7 +87,7 @@ def score_systems(
     distribution = {}
     for y in distribution_years:
         q, b, _ = generate_quintile_report(
-            frame_for(pop, y, "mid"), baseline_for(y), system_for(y), {}, calc,
+            frame_for(pop, y, "mid", gains), baseline_for(y), system_for(y), {}, calc,
             scenario_params=None, quintile_breaks=np.asarray(pop.meta["quintile_breaks"]),
             no_change_tolerance=NO_CHANGE_TOLERANCE)
         col = lambda r, c: float(r[REPORT_NAMES.get(c, c)])  # noqa: E731

@@ -88,7 +88,7 @@
 /* labels wrap to different heights; keep the inputs on one line */
 .ha-sim__household .ha-sim__field { justify-content: flex-end; }
 @container (min-width: 720px) {
-  .ha-sim__household { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
+  .ha-sim__household { grid-template-columns: repeat(3, 1fr); }
 }
 @container (max-width: 479px) {
   .ha-sim__household .ha-sim__field:first-child { grid-column: 1 / -1; }

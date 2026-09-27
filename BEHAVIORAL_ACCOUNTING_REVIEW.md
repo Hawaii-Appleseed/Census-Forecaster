@@ -298,6 +298,60 @@ about $726M MID; LOW $670.6M → about $620M), its Table 2 and Figure 1, the
 home-page card, the simulator's preset table, `presets_results.json` and the
 golden fixture.
 
+## Addendum: capital-gains realization (tax simulator v2, September 27, 2026)
+
+v2 of the tax simulator lets a plan change the rate of the alternative tax
+on net long-term capital gains, and adds a third behavioral channel for it,
+scored with the accounting above (`TAX_SIMULATOR_SCOPE.md`, "v2: capital
+gains").
+
+- **Order.** ETI, then migration, then realization, then the PTE estimate:
+  `apply_realization_response` in `behavioral_response.py`, called by
+  `apply_behavioral_response` and so by `score_with_response`, and mirrored
+  in `kernel.js`'s `behave`.
+- **Form.** The capital-gains page's (`forecast_cg_rate_options.score_option`).
+  With m a filer's bracket rate under the plan at taxable income before any
+  response, the rate on gains is τ(c) = min(m, c) under an alternative rate
+  c (m when gains are taxed as ordinary income), and d = max(0, τ(c₁) −
+  τ(c₀)), both τ on the plan's schedule. Gains after ETI and migration,
+  g = y·s, become g·exp(−β·d); income falls by the difference and the share
+  is recomputed.
+- **β.** 2.6 / 2.0 / 1.6 in the LOW / MID / HIGH revenue scenarios (the
+  strong / middle / weak response parameters, `BehavioralParams.cg_beta`),
+  0 when static: the capital-gains script's elasticity range of 0.5–0.8
+  divided by the combined top rate of about 31%. MID is that page's β of 2.
+- **Accounting.** Unchanged: the plan is scored on the responded incomes,
+  weights and gains, current law on the population as it is, Σ w′·T₁(y′, s′)
+  − Σ w·T₀(y, s).
+- **Scope.** It runs only when both systems use the statutory alternative
+  tax and their gains rates differ. The Act 24 pipeline's registry systems
+  keep the stacked shortcut, and a plan that changes only the brackets
+  leaves the gains rate alone, so everything above is unchanged. A cut in
+  the gains rate gets no response, and no one migrates because of the gains
+  rate.
+- **Overlap.** ETI scales income with the gains share held, so it already
+  shrinks gains when a filer's bracket rate rises. For a plan that raises
+  both the brackets and the gains rate, the two channels partly overlap.
+  That is left as it is and documented, not removed.
+- **Check.** For the capital-gains page's two options the simulator's path
+  matches `score_option` on the same records to 1.1e-14 (relative), and its
+  response ratios are within 0.0032 of the page's
+  (`site/data/tax-simulator/cg_page_comparison.json`).
+
+v2 also moves the simulator onto a DOTAX-anchored gains base, which moves
+the 14% top-rate preset of section 3 from $171.5M to $191.1M (MID, five
+years, with both fixes), and LOW from $140.0M to $156.6M and HIGH from
+$207.4M to $228.7M. DOTAX anchors MID; LOW and HIGH keep MID's scale
+factors, applied to their own income classes and model gains, so their
+gains move with their top incomes rather than being pinned to DOTAX's
+totals (`TAX_SIMULATOR_SCOPE.md`, v2 decision 3). That comes from the
+base, not from this channel: a bracket-only plan never triggers it. For a
+plan that changes only the gains rate, the range across scenarios now
+comes from top incomes as well as from β: the 9 percent preset's five-year
+static gain is $276.4M / $308.0M / $344.2M (LOW / MID / HIGH), against
+$306.9M / $308.0M / $309.9M when the first v2 build pinned every scenario
+to DOTAX, and $211.9M / $252.6M / $294.7M after the response.
+
 ## Also found, not part of this fix
 
 - **ETI.** Section 5a says the ETI is calibrated to Rauh & Shyu (2024), but

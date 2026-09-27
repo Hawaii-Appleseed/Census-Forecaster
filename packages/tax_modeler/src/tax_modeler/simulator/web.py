@@ -12,6 +12,14 @@ Two files:
 
 Money and weights stay float64, so the kernel reads exactly the values the
 Python reference scorer uses; codes and counts are packed small.
+
+Capital gains ship as the model's share (``cg``, ``tail_*_cg``) plus the
+DOTAX anchor (:mod:`.gains`): per year each unit's class code
+(``cgcls_<year>``, with LOW/HIGH overrides ``cgcls_<scenario>_<year>_idx`` /
+``_val``) and, in the metadata, each scenario-year's scale factors
+(``cg_anchor.k``; LOW's and HIGH's equal MID's, which DOTAX anchors). The
+kernel's share is ``min(1, cg x k[class])``, as
+:func:`.population.unit_arrays` computes it. Format 2 added these.
 """
 from __future__ import annotations
 
@@ -25,12 +33,21 @@ import numpy as np
 from tax_modeler.config.tax_system_config import TaxCalculator
 from tax_modeler.reform.income_tax_spec import FIRST_YEAR_RANGE, MAX_BRACKETS, MAX_FLOOR, current_law_system
 
+from .gains import ensure_gains_anchor
 from .population import Population
 from .presets import current_law_vintages, presets
 from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
-WEB_FORMAT_VERSION = 1
+WEB_FORMAT_VERSION = 2
+
+# The code behind the simulator's published data and page, relative to the
+# repository root. The run manifest records the commit that holds it
+# (artifacts.git_sha_for_code: "<sha>-dirty" while any of it is uncommitted),
+# and the page's endnote cites that commit.
+CODE_PATHS = ("packages/tax_modeler/src", "site/assets/simulator",
+              "scripts/build_simulator_population.py", "scripts/_forecast_common.py",
+              "forecast_cg_rate_options.py")
 
 # AGI classes of generate_quintile_report (right-open), for the kernel's table.
 AGI_CLASS_BREAKS = [10_000, 30_000, 60_000, 100_000, 175_000, 350_000, 500_000, 1_000_000]
@@ -58,12 +75,15 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
     for y in pop.years:
         out[f"agi_{y}"] = ("f8", a[f"agi_{y}"])
         out[f"item_{y}"] = ("f8", a[f"item_{y}"])
+        out[f"cgcls_{y}"] = ("u1", a[f"cgcls_{y}"])
         for k in SCENARIOS:
             if k == "mid":
                 continue
             out[f"ovr_{k}_{y}_idx"] = ("u4", a[f"ovr_{k}_{y}_idx"])
             out[f"ovr_{k}_{y}_agi"] = ("f8", a[f"ovr_{k}_{y}_agi"])
             out[f"ovr_{k}_{y}_item"] = ("f8", a[f"ovr_{k}_{y}_item"])
+            out[f"cgcls_{k}_{y}_idx"] = ("u4", a[f"cgcls_{k}_{y}_idx"])
+            out[f"cgcls_{k}_{y}_val"] = ("u1", a[f"cgcls_{k}_{y}_val"])
     for k in SCENARIOS:
         if k == "mid":
             continue
@@ -111,7 +131,8 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
         scen[k] = {"label": s.label, "alpha": s.alpha, "top_premium": s.top_premium,
                    "eti": p.eti, "migration_elast": p.migration_elast,
                    "migration_phase_in_years": p.migration_phase_in_years,
-                   "pte_capture": p.pte_capture}
+                   "pte_capture": p.pte_capture, "cg_beta": p.cg_beta}
+    anchor = ensure_gains_anchor(pop)
     agi0, weight = pop.arrays[f"agi_{years[0]}"], pop.arrays["weight"]
     return {
         "web_format_version": WEB_FORMAT_VERSION,
@@ -127,6 +148,11 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
         "quintile_labels": pop.meta["quintile_labels"],
         "agi_class_breaks": AGI_CLASS_BREAKS, "agi_class_labels": AGI_CLASS_LABELS,
         "scenarios": scen,
+        # The capital-gains base: scale factors by scenario, year and class
+        # code (classes[code]; k[0] = 0, gains below $100K unallocated). LOW
+        # and HIGH carry MID's factors, applied to their own classes.
+        "cg_anchor": {"top_share": anchor["top_share"], "classes": anchor["classes"],
+                      "k": anchor["k"]},
         "current_law": {str(y): system_to_json(current_law_system(y), calc) for y in years},
         "current_law_vintages": current_law_vintages(calc),
         "presets": presets(calc),
@@ -147,6 +173,7 @@ def write_web_files(pop: Population, directory, *, kernel_source: bytes = b"") -
     folded into the model version."""
     d = Path(directory)
     d.mkdir(parents=True, exist_ok=True)
+    ensure_gains_anchor(pop)
     blob, index = pack(_web_arrays(pop))
     meta = web_meta(pop, index)
     meta["model_version"] = model_version(pop, blob, meta, kernel_source)

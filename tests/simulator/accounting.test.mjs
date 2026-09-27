@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   decodePopulation, score, parseSpec, resolveSpec, unitArrays, prepareSystem, unitNetTaxes,
+  unitTax, behave, topRateChanges, householdTax,
 } from "../../site/assets/simulator/kernel.js";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -95,5 +96,139 @@ test("migrants from a temporary rise stay gone after the plan returns to current
   for (const r of res.revenue.filter((x) => x.tax_year >= 2029)) {
     assert.equal(r["static_$M"], 0, `${r.tax_year} static`);
     assert.ok(r["behavioral_$M"] < -1, `${r.tax_year} with response ${r["behavioral_$M"]}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// capital gains: the HRS §235-51(f) alternative tax and the realization
+// response (cg_alternative.alternative_tax, apply_realization_response)
+// ---------------------------------------------------------------------------
+
+const cgSpec = (name, rate, extra = {}) => ({ name, first_year: 2027,
+  income_tax: { capital_gains_rate: rate, ...extra } });
+const scoreSpec = (spec, p = pop, opts = {}) => score(p, resolveSpec(parseSpec(spec, meta), meta), opts);
+const FIELDS = ["baseline_$M", "reform_$M", "static_$M", "behavioral_$M", "filers_1m_post_response"];
+
+test("the alternative tax: hand cases", () => {
+  // brackets 2% / 6% from $10K / 10% from $50K, no deduction or exemption,
+  // so taxable income is AGI; 7.25% first reached at $50K (the model's
+  // test_cg_alternative hand cases)
+  const rows = [[0, 2], [10_000, 6], [50_000, 10]];
+  const sys = (rate) => ({ name: "hand", credit_year: 2027, personal_exemption: 0, capital_gains_rate: rate,
+    brackets: Object.fromEntries(["Single_Married_Separate", "Joint_Surviving_Spouse", "Head_of_Household"].map((k) => [k, rows])),
+    standard_deduction: { Single_Married_Separate: 0, Joint_Surviving_Spouse: 0, Head_of_Household: 0 } });
+  const before = (agi, gains, rate) => householdTax(sys(rate), meta.food_excise, { fs: "single", agi, cgShare: gains / agi }).before;
+  for (const [agi, gains, want] of [
+    [40_000, 20_000, 200 + 30_000 * 0.06],                              // below the rate's floor
+    [80_000, 50_000, 2_600 + 0.0725 * 30_000],                          // straddling it
+    [200_000, 50_000, 2_600 + 100_000 * 0.10 + 0.0725 * 50_000],        // above it
+    [30_000, 100_000, 200 + 20_000 * 0.06],                             // gains above taxable income
+    [70_000, 1_000_000, 2_600 + 0.0725 * 20_000],
+  ]) close(before(agi, gains, 7.25), want, `agi ${agi} gains ${gains}`, 1e-12);
+  // a rate at or above every bracket rate, or none: the regular tax
+  for (const rate of [10.5, 20, "ordinary"]) assert.equal(before(200_000, 50_000, rate), 2_600 + 150_000 * 0.10);
+  // rate 0: gains untaxed
+  assert.equal(before(200_000, 50_000, 0), 2_600 + 100_000 * 0.10);
+});
+
+test("current law's gains rate scores exactly zero", () => {
+  const res = scoreSpec(cgSpec("cg_7_25", 7.25), pop, { distributionYears: [2027] });
+  for (const r of res.revenue) {
+    assert.equal(r["static_$M"], 0, `${r.scenario} ${r.tax_year} static`);
+    assert.equal(r["behavioral_$M"], 0, `${r.scenario} ${r.tax_year} behavioral`);
+  }
+  for (const g of res.distribution[2027].income_class) assert.equal(g.pct_pay_more + g.pct_pay_less, 0);
+});
+
+test("a gains rate above every bracket rate is taxing gains as ordinary income", () => {
+  const a = scoreSpec(cgSpec("cg_20", 20)), b = scoreSpec(cgSpec("cg_ordinary", "ordinary"));
+  a.revenue.forEach((r, i) => {
+    for (const k of FIELDS) assert.equal(r[k], b.revenue[i][k], `${r.scenario} ${r.tax_year} ${k}`);
+  });
+});
+
+test("per unit, the statute is never above the regular tax or the old stacked shortcut", () => {
+  // stacked: the bracket tax on ordinary income plus the smaller of the
+  // bracket tax on the gains and rate x gains (v1's formula)
+  const stacked = (sys, fs, deps, agi, item, share) => {
+    const s = sys.byStatus[fs], ded = Math.max(s.sd, item), ex = (1 + (fs === 1 ? 1 : 0) + deps) * sys.pe;
+    const bt = (t) => { let i = 0; while (i + 1 < s.floors.length && s.floors[i + 1] <= t) i++; return s.cum[i] + (t - s.floors[i]) * s.rates[i]; };
+    const full = bt(Math.max(0, agi - ded - ex)), g = Math.max(0, agi * share);
+    if (!(g > 0)) return full;
+    const ord = bt(Math.max(0, Math.max(0, agi - g) - ded - ex));
+    return ord + Math.min(Math.max(0, full - ord), g * sys.cgRate);
+  };
+  for (const [y, rate] of [[2027, 7.25], [2031, 9]]) {
+    const base = meta.current_law[y];
+    const statute = prepareSystem({ ...base, capital_gains_rate: rate }, meta.food_excise);
+    const regular = prepareSystem({ ...base, capital_gains_rate: "ordinary" }, meta.food_excise);
+    const u = unitArrays(pop, y, "mid");
+    let binding = 0;
+    for (let i = 0; i < pop.n; i++) {
+      const args = [pop.arrays.fs[i], pop.arrays.deps[i], u.agi[i], u.item[i], u.cg[i]];
+      const t = unitTax(statute, ...args).before, r = unitTax(regular, ...args).before;
+      const st = stacked(statute, ...args);
+      // (up to rounding: the two formulas add the same pieces in a different order)
+      const tol = 1e-12 * Math.max(1, r);
+      assert.ok(t <= r + tol && t <= st + tol, `${y} unit ${i}: statute ${t}, regular ${r}, stacked ${st}`);
+      if (t < r - 1) binding++;
+    }
+    assert.ok(binding > 100, `${y}: the alternative tax binds for only ${binding} units`);
+  }
+});
+
+test("a plan that changes only the gains rate scores, and moves no one", () => {
+  // resolveSpec must not drop a gains-only plan as "no change"; the gains
+  // rate drives no migration, so weights are untouched
+  const res = scoreSpec(cgSpec("cg_9", 9));
+  for (const r of res.revenue) {
+    assert.ok(r["static_$M"] > 10, `${r.scenario} ${r.tax_year} static ${r["static_$M"]}`);
+    assert.ok(r["behavioral_$M"] < r["static_$M"] && r["behavioral_$M"] > 0, `${r.scenario} ${r.tax_year} with response`);
+  }
+  const systems = resolveSpec(parseSpec(cgSpec("cg_9", 9), meta), meta);
+  const base = prepareSystem(systems[2029].baseline, meta.food_excise);
+  const plan = prepareSystem(systems[2029].reform, meta.food_excise);
+  const path = meta.years.map((y) => ({ year: y, changes: topRateChanges(prepareSystem(systems[y].baseline, meta.food_excise),
+    prepareSystem(systems[y].reform, meta.food_excise)) }));
+  const u = unitArrays(pop, 2029, "mid");
+  const adj = behave(pop, base, plan, u, meta.scenarios.mid, 2029, path);
+  assert.equal(adj.weight, u.weight, "weights are the population's own");
+  assert.notEqual(adj.cg, u.cg, "gains respond");
+  // the response is the capital-gains page's: gains fall by exp(-beta x the
+  // rise in the rate on gains), and income falls by the gains not realized
+  const beta = meta.scenarios.mid.cg_beta;
+  let hit = 0;
+  for (let i = 0; i < pop.n; i++) {
+    if (adj.cg[i] === u.cg[i]) { assert.equal(adj.agi[i], u.agi[i]); continue; }
+    hit++;
+    const g0 = u.agi[i] * u.cg[i], g1 = adj.agi[i] * adj.cg[i];
+    const d = -Math.log(g1 / g0) / beta;                      // the rise in the rate on gains
+    assert.ok(d > 0 && d <= 0.09 - 0.0725 + 1e-9, `unit ${i}: rise ${d}`);
+    close(u.agi[i] - adj.agi[i], g0 - g1, `unit ${i} income`, 1e-6);
+  }
+  assert.ok(hit > 1000, `${hit} units realize fewer gains`);
+});
+
+test("a cut in the gains rate gets no response, so it scores the same both ways", () => {
+  for (const rate of [5, 0]) {
+    for (const r of scoreSpec(cgSpec(`cg_${rate}`, rate)).revenue) {
+      assert.ok(r["static_$M"] < 0);
+      assert.equal(r["behavioral_$M"], r["static_$M"], `${rate}% ${r.scenario} ${r.tax_year}`);
+    }
+  }
+});
+
+test("a plan that changes only the brackets leaves gains to ETI alone", () => {
+  // no realization response without a change in the gains rate: behave
+  // hands back the population's own gains shares
+  const top14 = meta.presets.find((p) => p.name === "top_rate_14");
+  const systems = resolveSpec(parseSpec(top14, meta), meta);
+  const path = meta.years.map((y) => ({ year: y, changes: topRateChanges(prepareSystem(systems[y].baseline, meta.food_excise),
+    prepareSystem(systems[y].reform, meta.food_excise)) }));
+  for (const s of ["low", "mid", "high"]) {
+    const u = unitArrays(pop, 2031, s);
+    const adj = behave(pop, prepareSystem(systems[2031].baseline, meta.food_excise),
+      prepareSystem(systems[2031].reform, meta.food_excise), u, meta.scenarios[s], 2031, path);
+    assert.equal(adj.cg, u.cg, s);
   }
 });

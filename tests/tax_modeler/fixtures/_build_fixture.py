@@ -15,7 +15,7 @@ Design notes
 The fixture has 50 households / ~120 persons drawn from a fixed seed.
 Income levels are chosen to span the four ITEP income bins (<$50K,
 $50K-$200K, $200K-$1M, $1M+) so the resulting tax-unit DataFrame
-exercises the bracket-walk math at every level, including the §235-16
+exercises the bracket-walk math at every level, including the §235-51(f)
 capital-gains cap.
 
 Filing status mix targets DOTAX 2022 proportions roughly:
