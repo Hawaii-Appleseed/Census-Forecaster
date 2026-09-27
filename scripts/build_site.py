@@ -51,6 +51,9 @@ class Estimate:
     slug: str
     files: dict[str, str]   # published name in site/data/<slug>/ -> source path under runs/
     stamp: tuple[str, ...] = ()   # JSON manifests to stamp with published_at on import
+    # repo-relative destination -> source under runs/, copied on import too
+    # (the simulator's golden fixtures, which must match its published data)
+    extra: tuple[tuple[str, str], ...] = ()
 
 
 CAPITAL_GAINS = Estimate(
@@ -109,18 +112,33 @@ CONVEYANCE = Estimate(
     )},
     stamp=("manifest.json",),
 )
-ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE)
+TAX_SIMULATOR = Estimate(
+    slug="tax-simulator",
+    files={
+        "population.json": "tax_simulator/web/population.json",
+        "population.bin.gz": "tax_simulator/web/population.bin.gz",
+        "presets_results.json": "tax_simulator/web/presets_results.json",
+        "manifest.json": "tax_simulator/manifest.json",
+    },
+    stamp=("manifest.json",),
+    extra=(("tests/simulator/golden.json.gz", "tax_simulator/golden.json.gz"),),
+)
+ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR)
 
 
 def import_runs(est: Estimate) -> None:
     runs = REPO / "runs"
-    missing = [src for src in est.files.values() if not (runs / src).exists()]
+    missing = [src for src in [*est.files.values(), *(s for _, s in est.extra)]
+               if not (runs / src).exists()]
     if missing:
         raise SystemExit(f"runs/ is missing {missing}; run the model first.")
     dst = DATA / est.slug
     dst.mkdir(parents=True, exist_ok=True)
     for name, src in est.files.items():
         shutil.copy2(runs / src, dst / name)
+    for dest, src in est.extra:
+        (REPO / dest).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(runs / src, REPO / dest)
     for name in est.stamp:
         manifest = json.loads((dst / name).read_text())
         manifest["published_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -307,7 +325,7 @@ def table(headers: list[str], rows: list[list[str]], *, caption: str, em_rows: s
 # page shell
 # ---------------------------------------------------------------------------
 
-def page(*, title: str, description: str, body: str, depth: int, year: int) -> str:
+def page(*, title: str, description: str, body: str, depth: int, year: int, extra_head: str = "") -> str:
     up = "../" * depth
     return f"""<!DOCTYPE html>
 {GENERATED}
@@ -322,7 +340,7 @@ def page(*, title: str, description: str, body: str, depth: int, year: int) -> s
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap">
 <link rel="stylesheet" href="{up}assets/okina.css">
-<link rel="stylesheet" href="{up}assets/site.css">
+<link rel="stylesheet" href="{up}assets/site.css">{extra_head}
 </head>
 <body class="ha-est">
 <header class="ha-est__nav"><div class="ha-est__nav-inner">
@@ -717,7 +735,7 @@ def build_act24() -> tuple[str, dict]:
     frows.append(["Total", m1(brk_static5), m1(eti5), m1(reec5 + cgec5 + tcra5), m1(tot["MID"]), m1(tot["LOW"]), m1(tot["HIGH"])])
     s2 = section("What It Raises", f"""
 {lead("Compared with Act 46,", f"Act 24 raises an estimated {millions(mid[Y]['total_impact_$M'])} in tax year {Y}, rising to {millions(mid[last]['total_impact_$M'])} by {last}, for {millions(tot['MID'])} over five years.{notes.ref(T_code)}")}
-<p>Two pieces add up to that total, shown in Figure 1. The bracket changes raise {millions(sum(brk.values()))} over the five years after accounting for high-income filers reporting less income when rates rise. The credit changes save the state {millions(reec5 + cgec5 + tcra5)}, most of it from the renewable energy credit ({millions(reec5)}). Credit savings jump in {years[3]}, the first year no new renewable energy credits are allowed.</p>
+<p>Two pieces add up to that total, shown in Figure 1. The bracket changes raise {millions(sum(brk.values()))} over the five years after accounting for filers whose rates rise reporting less income and a few of the highest earners moving away. The credit changes save the state {millions(reec5 + cgec5 + tcra5)}, most of it from the renewable energy credit ({millions(reec5)}). Credit savings jump in {years[3]}, the first year no new renewable energy credits are allowed.</p>
 {figure(1, f"Revenue Gain From Act 24 Compared With Act 46, Hawaiʻi ({Y} to {last})",
         stacked_column_chart([str(y) for y in years], s2_series,
                              label=fig1_label),
@@ -755,7 +773,7 @@ def build_act24() -> tuple[str, dict]:
     base = manifest["inputs"]["tax_units_cache"]
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics.")}
-<p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
+<p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. Each filer who moves costs the state all of the income tax they would have paid, not just the increase. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
 <li><a href="../data/act-24/fiscal_by_scenario.csv"><code>fiscal_by_scenario.csv</code></a>: revenue by tax year and scenario, with every component</li>
@@ -1358,11 +1376,117 @@ def build_conveyance() -> tuple[str, dict]:
 # hub
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Tax simulator (the one page that runs JavaScript; see TAX_SIMULATOR_SCOPE.md)
+# ---------------------------------------------------------------------------
+
+def _preset_totals(res: dict, scen: str) -> tuple[float, float]:
+    rows = [r for r in res["revenue"] if r["scenario"] == scen]
+    first = min(r["tax_year"] for r in rows if r["tax_year"] >= res["first_year"])
+    return (next(r["behavioral_$M"] for r in rows if r["tax_year"] == first),
+            sum(r["behavioral_$M"] for r in rows))
+
+
+def build_tax_simulator() -> tuple[str, dict]:
+    d = DATA / TAX_SIMULATOR.slug
+    manifest = json.loads((d / "manifest.json").read_text())
+    meta = json.loads((d / "population.json").read_text())
+    presets = json.loads((d / "presets_results.json").read_text())
+    notes = Notes()
+    years = meta["years"]
+    Y0, Y1 = years[0], years[-1]
+    run = manifest["created_at"]
+
+    T_scope = (f'Hawaiʻi Appleseed, “Tax Simulator — Scope,” Census-Forecaster model. '
+               f'<a href="{REPO_URL}/blob/main/TAX_SIMULATOR_SCOPE.md">github.com</a>')
+    T_act24 = ('Hawaiʻi State Legislature, “SB 3125 SD1 HD1 CD2,” enacted as Act 24, Session Laws of Hawaiʻi 2026. '
+               '<a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=SB&amp;billnumber=3125&amp;year=2026">capitol.hawaii.gov</a>')
+    T_doc = (f'Hawaiʻi Appleseed, “SB 3125 (enacted as Act 24, SLH 2026) — Hawaii Income Tax Fiscal Impact Forecast,” '
+             f'methodology and results. <a href="{REPO_URL}/blob/main/SB3125_CD1_FORECAST.md">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>site/assets/simulator/kernel.js</code> and <code>tax_modeler.simulator</code>, '
+              f'Census-Forecaster model, commit <code>{esc(manifest["git_sha"])}</code>. '
+              f'<a href="{REPO_URL}/tree/main/site/assets/simulator">github.com</a>')
+
+    rows = []
+    for name, res in presets.items():
+        if name == "current_law":
+            continue
+        f_mid, t_mid = _preset_totals(res, "mid")
+        # The scenarios are named for their effect on Act 24's gain; for other
+        # plans the middle can fall outside low-to-high, so span all three.
+        totals = [_preset_totals(res, s)[1] for s in ("low", "mid", "high")]
+        rows.append([esc(res["label"]), m1(f_mid), m1(t_mid), f"{m1(min(totals))} to {m1(max(totals))}"])
+    top14 = presets["top_rate_14"]
+    top14_first, _ = _preset_totals(top14, "mid")
+
+    hero = f"""
+<section class="ha-est__hero"><div class="ha-est__hero-inner">
+<p class="ha-est__eyebrow">Try it yourself · Income tax</p>
+<h1>Tax Simulator</h1>
+<hr class="ha-est__hero-rule">
+<p class="ha-est__deck">Change Hawaiʻi’s income tax brackets, rates, standard deduction and personal exemption, and see what your version would raise or cost in tax years {Y0} to {Y1}, and who would pay more or less.</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · Compared with current law (Act 24)</p>
+</div></section>"""
+
+    fallback = f"""
+<div class="ha-sim__fallback" id="sim-fallback">
+<noscript><div class="ha-est__callout"><p><strong>The simulator needs JavaScript.</strong> With it turned off you can still see what the model gives for a few options, below.</p></div></noscript>
+{table(["Option", f"First year ($M)", f"{Y0} to {Y1} ($M)", "Range across scenarios ($M)"], rows,
+       caption=f"Table 1. Change in Revenue Compared With Current Law, Middle Scenario With Behavioral Response")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, the model behind this page. Each option applies from tax year {Y0}.</p>
+</div>"""
+    app = f"""
+<div class="ha-sim" id="sim-app" data-data="../data/{TAX_SIMULATOR.slug}/">{fallback}
+</div>"""
+
+    s1 = section("How to Read These Numbers", f"""
+{lead("Every figure compares your plan with current law,", f"the income tax as Act 24 of 2026 left it, including the changes it already schedules: a new set of brackets in {Y0 + 2} and a standard deduction that rises in steps through {Y1}.{notes.ref(T_act24)} A plan that changes nothing scores zero.")}
+<p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them; the middle scenario uses the same assumptions as the Act 24 page.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
+<div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Capital gains keep the 7.25 percent alternative rate. Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
+""", "reading")
+
+    s2 = section("How the Simulator Works", f"""
+{lead("The simulator scores your plan", f"on the population behind the Act 24 estimates: about {meta['n_units']:,} Hawaiʻi tax units built from Census Bureau survey data, calibrated to Department of Taxation statistics, with filers above $1 million added from IRS and state tax statistics and every unit projected to tax years {Y0} to {Y1}.")}
+<p>The projection is done once, when the model is run. The page then taxes each unit under current law and under your plan, in your browser, with the same arithmetic as the Python model. Automated tests check that the page gives the model’s answers: every revenue and distribution figure for about 30 test plans, including Act 24 itself, to within one part in a million, and the tax on a sample of units to a fraction of a cent.{notes.ref(T_code)} Nothing you enter leaves your browser; a shared link carries the plan in the address itself.{notes.ref(T_scope)}</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
+<ul class="ha-est__downloads">
+<li><a href="../data/{TAX_SIMULATOR.slug}/population.json"><code>population.json</code></a>: current law, the options above, the scenario assumptions and an index of the model data</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/population.bin.gz"><code>population.bin.gz</code></a>: the projected tax units the page scores (binary, described in <code>population.json</code>)</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/presets_results.json"><code>presets_results.json</code></a>: the model’s results for the options above, by year and scenario</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
+</ul>
+""", "method")
+
+    endnotes = section("Endnotes", notes.html(), "endnotes")
+    body = hero + app + s1 + s2 + endnotes
+    extra_head = ('\n<link rel="stylesheet" href="../assets/simulator/simulator.css">'
+                  '\n<script type="module" src="../assets/simulator/app.js"></script>')
+    card = {
+        "slug": TAX_SIMULATOR.slug,
+        "category": "tools",
+        "eyebrow": "Income tax",
+        "title": "Tax Simulator",
+        "text": "Change the brackets, rates and deductions, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
+        "stat": millions(top14_first),
+        "stat_label": f"a year from a 14 percent top rate, for example (tax year {Y0})",
+        "date": long_date(run),
+        "year": datetime.fromisoformat(run).year,
+    }
+    desc = ("Change Hawaiʻi’s income tax brackets, rates, standard deduction and personal exemption, and see "
+            "what your version would raise and who would pay more or less.")
+    html_out = page(title="Tax Simulator: Hawaiʻi Income Tax | Hawaiʻi Appleseed Estimates",
+                    description=desc, body=body, depth=1, year=datetime.fromisoformat(run).year,
+                    extra_head=extra_head)
+    return html_out, card
+
+
 CATEGORIES = (
     ("current", "Current policy",
      "Laws already on the books: what they raise or cost, and who is affected."),
     ("proposed", "Proposed policy",
      "Options before the Legislature or in public debate, scored against current law."),
+    ("tools", "Try it yourself",
+     "Change the rules and get an estimate for your own version, from the same models."),
 )
 
 
@@ -1406,12 +1530,14 @@ def build(out: Path = SITE) -> list[Path]:
     a24_html, a24_card = build_act24()
     wf_html, wf_card = build_working_families()
     cv_html, cv_card = build_conveyance()
+    ts_html, ts_card = build_tax_simulator()
     written = {
         out / "act-24" / "index.html": a24_html,
         out / "working-family-credits" / "index.html": wf_html,
         out / "capital-gains" / "index.html": cg_html,
         out / "conveyance-tax" / "index.html": cv_html,
-        out / "index.html": build_index([a24_card, wf_card, cg_card, cv_card]),
+        out / "tax-simulator" / "index.html": ts_html,
+        out / "index.html": build_index([a24_card, wf_card, cg_card, cv_card, ts_card]),
         out / ".nojekyll": "",
     }
     for path, text in written.items():
