@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -30,6 +30,9 @@ from tax_modeler.config.tax_system_config import (
     compare_systems,
 )
 from tax_modeler.errors import ConfigError
+
+if TYPE_CHECKING:
+    from tax_modeler.reform.income_tax_spec import IncomeTaxSpec
 
 
 # Programs the Reform DSL recognizes under benefit_overrides.
@@ -70,6 +73,8 @@ TAX_SYSTEM_FACTORY_REGISTRY: dict[str, TaxSystemFactory] = {
     "hb2306_orig":       TaxSystemRegistry.get_hb2306_orig_system,
     "hb2306_hd1":        TaxSystemRegistry.get_hb2306_hd1_system,
     "ty2017":            lambda y: TaxSystemRegistry.get_2017_system(),
+    # Current law: Act 24 is the enacted SB 3125 CD2.
+    "act24":             TaxSystemRegistry.get_sb3125_cd2_system,
 }
 
 
@@ -128,6 +133,13 @@ class Reform:
     tax_system_factory: Optional[TaxSystemFactory] = None
     benefit_overrides: Optional[BenefitOverrides] = None
     metadata: Mapping = field(default_factory=lambda: MappingProxyType({}))
+    #: A user-defined income tax change (``income_tax:`` block). Sets the
+    #: scenario system and scores it against current law (Act 24), not Act 46
+    #: (``__post_init__`` fills both factories from it).
+    income_tax: Optional["IncomeTaxSpec"] = None
+    #: ``year -> TaxSystemConfig`` baseline this reform is scored against;
+    #: ``None`` keeps apply_reform's default (Act 46).
+    baseline_factory: Optional[TaxSystemFactory] = None
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -143,6 +155,14 @@ class Reform:
                 k: MappingProxyType(dict(v)) for k, v in self.benefit_overrides.items()
             })
             object.__setattr__(self, "benefit_overrides", frozen)
+        if self.income_tax is not None:
+            if self.tax_system_factory is None:
+                object.__setattr__(self, "tax_system_factory", self.income_tax.system_for)
+            elif self.tax_system_factory != self.income_tax.system_for:
+                raise ConfigError("Reform: income_tax sets the tax system; do not also pass "
+                                  "tax_system_factory")
+            if self.baseline_factory is None:
+                object.__setattr__(self, "baseline_factory", self.income_tax.baseline_for)
 
     @property
     def changes_taxes(self) -> bool:
@@ -165,7 +185,13 @@ class Reform:
         raise :class:`ConfigError`.
         """
         out: dict = {"name": self.name}
-        if self.tax_system_factory is not None:
+        if self.income_tax is not None:
+            spec = self.income_tax.to_dict()
+            spec_name = spec.pop("name")
+            if spec_name != self.name:           # e.g. a composed reform
+                out["income_tax_name"] = spec_name
+            out.update(spec)
+        elif self.tax_system_factory is not None:
             factory_name = _factory_to_name(self.tax_system_factory)
             if factory_name is None:
                 raise ConfigError(
@@ -191,6 +217,27 @@ class Reform:
         if "name" not in data:
             raise ConfigError("Reform.from_dict requires 'name' key")
         factory = None
+        if "income_tax" in data:
+            from tax_modeler.reform.income_tax_spec import IncomeTaxSpec
+
+            if data.get("tax_system"):
+                raise ConfigError("a reform takes either tax_system or income_tax, not both")
+            spec_keys = {"name", "label", "first_year", "income_tax", "behavior",
+                         "baseline", "model_version"}
+            unknown = set(data) - spec_keys - {"metadata", "benefit_overrides", "income_tax_name"}
+            if unknown:
+                raise ConfigError(f"reform with income_tax: unknown keys {sorted(unknown)}",
+                                  available=sorted(spec_keys | {"metadata", "benefit_overrides"}))
+            spec = IncomeTaxSpec.from_dict({**{k: v for k, v in data.items() if k in spec_keys},
+                                            "name": data.get("income_tax_name", data["name"])})
+            return cls(
+                name=str(data["name"]),
+                tax_system_factory=spec.system_for,
+                baseline_factory=spec.baseline_for,
+                income_tax=spec,
+                benefit_overrides=data.get("benefit_overrides"),
+                metadata=data.get("metadata") or {},
+            )
         if "tax_system" in data and data["tax_system"]:
             ts_name = str(data["tax_system"])
             if ts_name not in TAX_SYSTEM_FACTORY_REGISTRY:
@@ -244,10 +291,16 @@ class Reform:
             raise ConfigError("Reform.compose requires at least one reform")
         composed_name = name or "composed:" + "+".join(r.name for r in reforms)
         merged_factory: Optional[TaxSystemFactory] = None
+        merged_spec = None
+        merged_baseline: Optional[TaxSystemFactory] = None
         merged_overrides: dict[str, dict] = {}
         for r in reforms:
             if r.tax_system_factory is not None:
+                # The tax system and the baseline it is scored against travel
+                # together (an income_tax spec is scored against Act 24).
                 merged_factory = r.tax_system_factory
+                merged_spec = r.income_tax
+                merged_baseline = r.baseline_factory
             if r.benefit_overrides:
                 for prog, params in r.benefit_overrides.items():
                     merged_overrides[prog] = dict(params)
@@ -260,6 +313,8 @@ class Reform:
             tax_system_factory=merged_factory,
             benefit_overrides=merged_overrides or None,
             metadata=composed_meta,
+            income_tax=merged_spec,
+            baseline_factory=merged_baseline,
         )
 
 
@@ -554,7 +609,8 @@ def apply_reform(
         rather than the frozen 2024 default.
     baseline_factory:
         Optional ``year -> TaxSystemConfig`` factory for the baseline.
-        Defaults to ``TaxSystemRegistry.get_act46_system`` (current law).
+        Defaults to ``reform.baseline_factory`` (current law, Act 24, for an
+        ``income_tax`` spec), else ``TaxSystemRegistry.get_act46_system``.
     calculator:
         Optional pre-initialized :class:`TaxCalculator`. One is created
         if not supplied.
@@ -568,7 +624,8 @@ def apply_reform(
         :mod:`tax_modeler.metrics` to compute downstream poverty /
         distribution effects.
     """
-    base_factory = baseline_factory or TaxSystemRegistry.get_act46_system
+    base_factory = (baseline_factory or reform.baseline_factory
+                    or TaxSystemRegistry.get_act46_system)
     base_cfg = base_factory(year)
     scen_cfg = (
         reform.tax_system_factory(year) if reform.changes_taxes else base_cfg

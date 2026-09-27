@@ -44,6 +44,17 @@ jobs:
       - name: Run smoke tests
         run: uv run pytest -m smoke -v --tb=short
 
+      # The tax simulator's browser kernel against the Python model: golden
+      # fixtures and the population the page loads, both committed
+      # (tests/simulator/, site/data/tax-simulator/). No npm packages.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Tax simulator kernel parity
+        run: node --test tests/simulator/*.test.mjs
+
   test:
     needs: smoke
     runs-on: ubuntu-latest

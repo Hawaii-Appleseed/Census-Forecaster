@@ -18,8 +18,16 @@ Improvements over forecast_sb3125.py:
      also face rate increases under the bill, not just $1M+ filers.
      Saez/Slemrod/Giertz range: ETI=0.15 (low) / 0.25 (mid) / 0.40 (high).
 
-  2. **Migration response** — Young/Varner top-1% migration elasticity per pp
-     top-rate change. Phased in over 5 years from 2027.
+  2. **Migration response** — share of $1M+ filers who leave per pp of
+     top-rate change (0.001 / 0.0025 / 0.01; US state-tax evidence, see
+     BEHAVIORAL_ACCOUNTING_REVIEW.md). Phased in over 5 years from 2027.
+
+     Both responses are scored against Act 46 with nobody responding
+     (``behavioral_response.score_with_response``): only SB 3125 is scored
+     again on the responded population, so a filer who moves away costs
+     their whole Hawaii tax. Until September 27, 2026 Act 46 was re-scored
+     on the responded population too, which charged a migrant only the
+     rate increase.
 
   3. **PTE election shift** — Bill creates 4pp incentive for $1M+ pass-through
      income to elect PTE (9%) vs face individual 13%. Reported as a
@@ -66,10 +74,11 @@ CD2-only additions (gated by --cd 2):
   - Vintage carryforward simulation (model_carryforward_pool=True)
   - 11 extra diagnostic columns in output CSV
 
-Four integrated scenarios (three behavioral + one recession macro):
-    LOW       — eti=0.60, migration=0.15, pte=0.90, alpha=1.7, reec=obbba_severe
-    MID       — eti=0.40, migration=0.10, pte=0.70, alpha=1.5, reec=obbba_mid  [no recession]
-    HIGH      — eti=0.15, migration=0.05, pte=0.40, alpha=1.4, reec=pre_obbba
+Four integrated scenarios (three behavioral + one recession macro; PTE
+capture is 0 in all, Act 58):
+    LOW       — eti=0.60, migration=0.01,   alpha=1.7, reec=obbba_severe
+    MID       — eti=0.40, migration=0.0025, alpha=1.5, reec=obbba_mid  [no recession]
+    HIGH      — eti=0.15, migration=0.001,  alpha=1.4, reec=pre_obbba
     RECESSION — MID behavioral params + moderate recession macro shock
                 (−2.0% all-filer income in 2027, −3.5% top-income, partial
                 rebound 2028, back to baseline 2029+)
@@ -124,7 +133,7 @@ SCENARIOS = [
         "label":  "MID",
         "alpha":  1.5,
         "reec":   "obbba_mid",
-        "behav":  "mid",              # ETI=0.40, migr=0.10, pte=0.70
+        "behav":  "mid",              # ETI=0.40, migr=0.0025, pte=0
         "corp_agi_limit": False,
         "top_premium":     0.010,     # +1.0%/yr: IRS SOI 1.8pp – 0.8pp Hawaii haircut
         "reec_eff_share":  0.65,      # IRS §25D median full-year offset
@@ -210,28 +219,18 @@ def run_one_scenario(
     import warnings; warnings.filterwarnings("ignore")
     import logging; logging.disable(logging.WARNING)
 
-    from tax_modeler.pipeline import _compute_base_tax
-    from tax_modeler.projection.tax_unit_projector import (
-        project_tax_units_forward, refresh_stale_hawaii_tax,
-    )
-    from tax_modeler.config.tax_system_config import (
-        TaxCalculator, TaxSystemRegistry, compare_systems,
-    )
+    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+    from tax_modeler.scenarios.act24_population import build_units, project_units
     from tax_modeler.scenarios.sb3125_cd1_credits import (
         compute_credit_overlay,
         compute_dynamic_agi_eligibility_share,
     )
-    from tax_modeler.scenarios.top_income_synthesis import (
-        synthesize_top_filers, validate_top_synthesis,
-        rescale_synthetic_tail_to_tax_target,
-    )
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+    from tax_modeler.scenarios.top_income_synthesis import validate_top_synthesis
     from tax_modeler.scenarios.behavioral_response import (
         BehavioralParams,
-        apply_behavioral_response,
-        apply_top_income_growth_premium,
+        score_with_response,
+        top_rate_path,
     )
-    from tax_modeler.scenarios.macro_scenarios import apply_macro_recession_shock
     from tax_modeler.scenarios.quintile_analysis import cor_scale_factor_for_year
 
     get_scenario_system = (
@@ -263,14 +262,11 @@ def run_one_scenario(
               f"dyn_refundable={dynamic_refundable_share}", end="", flush=True)
     print(f"\n{'='*78}", flush=True)
 
-    # Synthesize fresh from the calibrated (no-synthesis) base.
-    # Re-score with the SAME deduction params the base was calibrated under —
-    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3).
-    units = synthesize_top_filers(base_calibrated, pareto_alpha=alpha)
-    units = impute_capital_gains_from_soi(units)    # Phase 3: CG rate cap for $100K-$1M filers
-    units = _compute_base_tax(units, deduction_params=ded_params, tax_year=cal_tax_year)
-    units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-    units = _compute_base_tax(units, deduction_params=ded_params, tax_year=cal_tax_year)
+    # Synthesize fresh from the calibrated (no-synthesis) base, re-scored with
+    # the SAME deduction params the base was calibrated under (C3). Shared with
+    # the tax simulator's population (tax_modeler.scenarios.act24_population).
+    units, tail_k = build_units(base_calibrated, alpha=alpha, ded_params=ded_params,
+                                cal_tax_year=cal_tax_year)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
           f"({100*v['filer_target_ratio']:.1f}%), ${v['tax_1m_plus_$M']:,.1f}M tax "
@@ -286,54 +282,37 @@ def run_one_scenario(
     # Plumbed into compare_systems so the bracket comparison reflects
     # realistic itemized behavior at the top of the distribution.
     calc = TaxCalculator()
+    # Each year's change in the top rate, from TY2027, when the bill takes
+    # effect: migration phases each change in from the year it starts.
+    path = top_rate_path(TaxSystemRegistry.get_act46_system, get_scenario_system,
+                         range(2027, max(target_years) + 1), calc)
     rows = []
     for year in target_years:
         t0 = time.perf_counter()
-        # 1) Standard projection (county B19013 income growth + per-filer
-        #    effective deduction populated as `hi_standard_deduction`).
-        projected = project_tax_units_forward(units, target_year=year, method="ensemble")
+        # 1-2) County B19013 projection with per-filer effective deductions,
+        #      the top-income growth premium, the recession shock (RECESSION
+        #      only), then re-scoring every unit whose income those changed
+        #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes").
+        projected = project_units(units, year=year, top_premium=top_premium,
+                                  macro_shock=macro_shock)
 
-        # 2) Top-income growth premium (corrects under-projection of top-1%)
-        projected = apply_top_income_growth_premium(
-            projected, target_year=year, annual_premium=top_premium,
-        )
-
-        # 2d) Macro recession shock (RECESSION scenario only; no-op for None)
-        if macro_shock is not None:
-            projected = apply_macro_recession_shock(
-                projected, target_year=year, scenario=macro_shock,
-            )
-
-        # 2e) Re-score the units whose income 2)-2d) changed. The premium blanks
-        #     their tax columns; left blank, every filer above $500K was scored
-        #     on the standard deduction alone (see SB3125_CD1_FORECAST.md,
-        #     "Scoring-path fixes").
-        projected = refresh_stale_hawaii_tax(projected, target_year=year)
-
-        # 3) Pre-behavioral baseline + scenario revenue (static)
+        # 3-5) Static scores, the behavioral response (per-filer ETI +
+        #      migration) and the PTE shift. Act 46 is scored once, on the
+        #      population before anyone responds; SB 3125 again on the
+        #      responded population (score_with_response).
         baseline_cfg = TaxSystemRegistry.get_act46_system(year)
         scenario_cfg = get_scenario_system(year)
-        cmp_static = compare_systems(
-            projected, baseline_cfg, scenario_cfg,
-            calculator=calc,
-        )
-        diff_static = float(cmp_static[cmp_static["system"] == "Difference"].iloc[0]["revenue_millions"])
-        baseline_static = float(cmp_static[cmp_static["system"] == baseline_cfg.name].iloc[0]["revenue_millions"])
-
-        # 4) Apply behavioral response (per-filer ETI + migration), recompute
-        adjusted, behav_diag = apply_behavioral_response(
+        revenue, _, behav_diag = score_with_response(
             projected, behav_params, target_year=year,
             baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calc,
+            top_rate_path=path,
         )
-        cmp_behav = compare_systems(
-            adjusted, baseline_cfg, scenario_cfg,
-            calculator=calc,
-        )
-        diff_behav = float(cmp_behav[cmp_behav["system"] == "Difference"].iloc[0]["revenue_millions"])
-
-        # 5) PTE election shift (revenue moves from individual to PTE form)
+        baseline_static = revenue["baseline_$M"]
+        diff_static = revenue["static_$M"]
+        # SB 3125 revenue lost to the response (ETI and migration), against static
+        diff_behav = revenue["reform_post_$M"] - baseline_static
         pte_shift = behav_diag["pte_revenue_loss_$M"]
-        bracket_delta_after_response = diff_behav - pte_shift
+        bracket_delta_after_response = revenue["behavioral_$M"]
 
         # 6) Credit-cap overlay
         if cd == "2":
@@ -543,18 +522,7 @@ if __name__ == "__main__":
         print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
         import warnings; warnings.filterwarnings("ignore")
         import logging; logging.disable(logging.WARNING)
-        from tax_modeler.pipeline import _compute_base_tax, _enrich_for_credits
-        from tax_modeler.projection.tax_unit_projector import (
-            project_tax_units_forward, refresh_stale_hawaii_tax,
-        )
         from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
-        from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers, rescale_synthetic_tail_to_tax_target,
-        )
-        from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-        from tax_modeler.scenarios.behavioral_response import (
-            apply_top_income_growth_premium,
-        )
         from tax_modeler.scenarios.sb3125_cd1_credits import (
             compute_credit_overlay,
             compute_dynamic_agi_eligibility_share,
@@ -569,12 +537,10 @@ if __name__ == "__main__":
 
         # Re-synthesize MID (same params as the parallel worker); re-score on
         # the calibration deduction basis (C3 fix — see run_one_scenario).
-        q_units = synthesize_top_filers(calibrated_base, pareto_alpha=mid_sc["alpha"])
-        q_units = _enrich_for_credits(q_units)           # adds total_cash_income for TCI quintile binning
-        q_units = impute_capital_gains_from_soi(q_units) # Phase 3: CG rate cap for $100K-$1M filers
-        q_units = _compute_base_tax(q_units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        q_units, _ = rescale_synthetic_tail_to_tax_target(q_units)
-        q_units = _compute_base_tax(q_units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
+        # enrich=True adds total_cash_income for TCI quintile binning.
+        from tax_modeler.scenarios.act24_population import build_units, project_units
+        q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"],
+                                 ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True)
 
         # Anchor quintile boundaries to the 2026 base-year income distribution
         # so Q1–Q5 membership is fixed across all projection years.
@@ -587,12 +553,7 @@ if __name__ == "__main__":
         bracket_frames  = []
 
         for yr in TARGET_YEARS:
-            projected_q = project_tax_units_forward(q_units, target_year=yr, method="ensemble")
-            projected_q = apply_top_income_growth_premium(
-                projected_q, target_year=yr, annual_premium=mid_sc["top_premium"],
-            )
-            # Re-score the units the premium rescaled (see run_one_scenario, 2e).
-            projected_q = refresh_stale_hawaii_tax(projected_q, target_year=yr)
+            projected_q = project_units(q_units, year=yr, top_premium=mid_sc["top_premium"])
 
             base_cfg = TaxSystemRegistry.get_act46_system(yr)
             scen_cfg = get_scenario_system(yr)
@@ -719,7 +680,7 @@ if __name__ == "__main__":
         print(f"BEHAVIORAL DECOMPOSITION (MID scenario, TY 2027):", flush=True)
         print("-" * 100, flush=True)
         print(f"  Static bracket delta:                   ${mid27['bracket_delta_static_$M']:>+8.2f}M", flush=True)
-        print(f"  ETI/migration response (income shrink): ${mid27['eti_response_$M']:>+8.2f}M", flush=True)
+        print(f"  Behavioral response (ETI + migration):  ${mid27['eti_response_$M']:>+8.2f}M", flush=True)
         print(f"  PTE election shift to entity tax:       ${mid27['pte_shift_$M']:>+8.2f}M", flush=True)
         print(f"  Post-behavioral bracket delta:          ${mid27['bracket_delta_post_$M']:>+8.2f}M", flush=True)
         cor_diag = (mid27['bracket_delta_cor_scaled_$M'] / mid27['bracket_delta_post_$M']

@@ -1,11 +1,19 @@
 # Tax Simulator (user-defined changes, income tax first) — Scope
 
-**Status (2026-09-26): scoped; Phase 0 done.** The three engine defects
-below were fixed and Act 24 republished in PR #24 (middle-scenario five-year
-gain vs Act 46 $870.1M → $738.9M; see `SB3125_CD1_FORECAST.md`,
-"Scoring-path fixes"). Where this document quotes the pre-fix engine
-($80.99M static, $75.44M after response for TY2027) it says so; the fixed
-engine gives $58.4M and $53.8M. Phases 1–5 not started. Goal: a page on the estimates
+**Status (2026-09-27): built and published (PR #28).** The simulator is
+live at `site/tax-simulator/`. See [As built](#as-built-september-26-2026)
+for what shipped, where it departs from this scope, and the decisions
+taken. The three engine defects below were fixed and Act 24 republished in
+PR #24 (middle-scenario five-year gain vs Act 46 $870.1M → $738.9M; see
+`SB3125_CD1_FORECAST.md`, "Scoring-path fixes"). On September 27 the
+behavioral response was rescored for the simulator and the Act 24 pipeline
+alike (standard counterfactual, literature-consistent migration elasticity;
+`BEHAVIORAL_ACCOUNTING_REVIEW.md`, decision 8). That moved TY2027's bracket
+gain after response from $53.8M to $46.4M (static stays $58.4M) and the
+five-year gain from $738.9M to $726.4M. Where this document quotes the
+pre-fix engine ($80.99M static, $75.44M after response for TY2027) it says
+so. The rest of this document is the scope as written before the build.
+Goal: a page on the estimates
 site where anyone can change Hawaiʻi's income tax brackets, rates, standard
 deduction and personal exemption and see right away what the change raises or
 costs in tax years 2027–2031, and who pays more or less. The numbers come from
@@ -45,6 +53,136 @@ Working name: "tax simulator". The name is still open (decision 6).
   brackets, rates, standard deduction and exemption; revenue by year with a
   range; who pays; and a household calculator.
 
+## As built (September 26, 2026)
+
+**What exists.**
+- **Engine (Phase 1).** `TaxSystemConfig` takes inline `brackets` and
+  `standard_deductions`. `TaxCalculator.brackets_for` and
+  `standard_deduction_for` are the single lookups every scoring path uses,
+  including the ETI marginal rate and `forecast_cg_rate_options.py`. The spec
+  lives in `reform/income_tax_spec.py` (`IncomeTaxSpec`, `load_spec`), and
+  `Reform.from_dict` accepts an `income_tax:` block scored against Act 24.
+  Migration and the PTE shift now read the top-rate change from the two
+  systems (`top_rate_changes`) instead of Act 24's constants. With Act 24 as
+  the reform they give bitwise the same numbers as before, and
+  `forecast_sb3125_enhanced.py` still reproduces the published Act 24 files
+  byte for byte. It now builds its population through
+  `scenarios/act24_population.py`, which the simulator shares.
+- **Command line.** `forecast_custom.py --spec <file>` (or
+  `run_scenario.py --spec <file>`) scores a YAML or JSON spec for the low,
+  middle and high scenarios, 2027–2031, and writes revenue, quintile and
+  income-class tables to `runs/custom/<name>/`. Examples:
+  `reforms/examples/*.yaml`.
+- **Population (Phase 2).** `scripts/build_simulator_population.py` builds
+  the scoring population into `runs/tax_simulator/` in about 10 minutes. It
+  stops unless the population, scored for Act 24 against Act 46, reproduces
+  the published Act 24 run (all three scenarios' revenue at the published
+  two decimals of $M, and the middle distribution to 1e-9). It also writes the web files,
+  the golden fixture and the presets' results. `scripts/build_site.py
+  --import-runs tax-simulator` copies them into `site/data/tax-simulator/` and
+  `tests/simulator/golden.json.gz`.
+- **Kernel (Phase 3).** `site/assets/simulator/kernel.js` runs in a module Web
+  Worker (`worker.js`). `tests/simulator/kernel.test.mjs` checks it against
+  the golden fixture: 29 plans (Act 24 vs Act 46, the presets, edge cases and
+  random schedules) for revenue in every scenario and year, the distribution
+  tables, a sample of records' tax before and after credits, 480 calculator
+  households, spec resolution, 55 invalid specs the model rejects and a set
+  of unusual valid ones it accepts. CI runs `node --test tests/simulator/*.test.mjs` in the
+  smoke job.
+- **Page (Phase 4).** `site/tax-simulator/`, "Tax Simulator", in a new "Try it
+  yourself" section on the home page. Editor state and share links are in
+  `plan.js`, which `tests/simulator/plan.test.mjs` tests in Node; the DOM is in
+  `app.js`. Without JavaScript the page shows the presets' precomputed results.
+
+**Where it departs from the scope.**
+- **Size: 2.35 MB gzipped, not 1.5 MB.** Money is stored as float64, not
+  float32, so the kernel matches Python exactly. The low and high scenarios
+  are stored as overrides of the middle one: only the records whose AGI,
+  itemized deduction, weight or gains share differ.
+- **The population ships projected values.** The kernel does not apply the
+  top-income premium itself. The build projects each scenario and year in
+  Python, which keeps one implementation of the projection.
+- **Parity is tighter than planned:** 1e-6 relative on every $M total and
+  1e-9 on each record's tax, not $0.01M and one cent.
+- **Speed.** A full scoring (3 scenarios × 5 years, two passes each for the
+  behavioral response, plus one year's distribution) takes about a quarter
+  of a second, in Node and in the browser (the first scoring after the page
+  loads is slower while the engine warms up). The spike's 7 ms was one
+  scoring.
+- **Controls.** Quick changes are number fields for the top rate and where it
+  starts, not sliders. The editor keeps current law's two bracket periods
+  (2027–28 and 2029 on); from a first year of 2029 or later only one applies.
+  All three behavioral scenarios are always shown, with static beside them,
+  rather than chosen with a radio button.
+- **Presets:** current law, Act 46's brackets, SB 3125 SD1, HB 2306 HD1, and
+  "top rate 14% (was 13%)", which is the scope's 1-point surcharge above $1M
+  joint.
+- **Downloads** are the spec as JSON (which `forecast_custom.py` accepts)
+  and the results as CSV, not YAML.
+- **One data version is hosted.** Data sit in `site/data/tax-simulator/`
+  rather than a folder per model version. The model version is the
+  calibrated base's date plus a hash of the population, its metadata and
+  `kernel.js`, so any rebuild that could change a result changes it. A link
+  made under an earlier version still opens, with a notice that the numbers
+  have been updated since.
+- **The range spans all three scenarios.** The scenarios are named for their
+  effect on Act 24's gain. For a rate cut such as the Act 46 preset, the
+  middle figure falls outside low-to-high, so the page shows the lowest and
+  highest of the three.
+- **Not in share links:** the distribution year and the calculator household.
+
+**Decisions taken** (numbered as in [Decisions needed](#decisions-needed);
+each was the recommended option):
+1. Phase 0 was fixed and Act 24 republished first (PR #24).
+2. First-party JavaScript on this page only. No CDN libraries; the rest of the
+   site stays free of JavaScript.
+3. Rate cuts get no behavioral response, as the model already does. The page
+   warns whenever a plan lowers the top rate.
+4. Migration keeps Act 24's tiers and scales with the change in the top
+   statutory rate. Rate cuts get none. Three refinements, none of which
+   moves Act 24's numbers: each rise phases in from the year it takes effect
+   (not from the plan's first year); the half tier starts no lower than
+   current law's top-bracket floor; and no group loses more than all of its
+   weight.
+5. v1 controls as listed; capital gains in v2, credits in v3.
+6. Name "Tax Simulator", slug `tax-simulator`, in a "Try it yourself"
+   section of the home page.
+7. **Still open:** the $1,200 personal exemption is not yet checked against
+   HRS §235-54. The page shows it as current law.
+8. **Resolved September 27, for this page and the Act 24 page together.**
+   The after-response figures had scored current law on the population
+   after it responded, so a filer who moved away cost only the rate increase
+   on their income. And the migration elasticity removed 20% of $1M+ filers
+   for a 2-point rise, about a hundred times the evidence. Both changed at
+   once (`BEHAVIORAL_ACCOUNTING_REVIEW.md`):
+   - the plan is now scored on the responded population and current law on
+     the population as it is (`score_with_response`, mirrored in
+     `kernel.js`);
+   - the migration elasticity is 0.01 / 0.0025 / 0.001 per point for the
+     low / middle / high scenarios, where it was 0.15 / 0.10 / 0.05.
+
+   Changing only the accounting would have made Act 24 lose money in the low
+   scenario.
+
+**Numbers for the presets** (change vs Act 24, $M, with response; as
+rescored on September 27, decision 8, with the September 26 figures in
+brackets):
+
+| Preset | TY2027, middle | 2027–2031, middle | 2027–2031, low / high |
+|---|---:|---:|---:|
+| Act 46's brackets | −58.6 [−58.4] | −356.2 [−353.7] | −364.1 / −389.5 [−360.2 / −388.6] |
+| SB 3125 SD1 | −43.2 [−42.9] | +440.7 [+460.1] | +417.9 / +429.1 [+447.0 / +436.4] |
+| HB 2306 HD1 | +223.3 [+230.4] | +1,830.1 [+1,883.6] | +1,787.4 / +1,866.2 [+1,867.7 / +1,886.2] |
+| Top rate 14% | +32.1 [+36.9] | +171.5 [+195.9] | +140.0 / +207.4 [+193.7 / +216.1] |
+
+The Act 46 row's static figure is Act 24's static gain with the sign
+reversed (−$58.36M in 2027). Its with-response figure differs from the Act 24
+page's, because scored this way round it is mostly a rate cut (decision 3):
+the response comes only from the lower brackets whose rates rise. Most of
+the September 27 change in these rows is the ETI's fuller accounting (the
+plan's rate on income reported away, not just the increase); migration
+matters only in the 14% row.
+
 ## What users can change, and what they get
 
 | Control | When | Notes |
@@ -53,7 +191,7 @@ Working name: "tax simulator". The name is still open (decision 6).
 | Standard deduction | v1 | The current-law schedule (it rises through 2031) or a flat amount by filing status |
 | Personal exemption | v1 | Only after Phase 0 defect 3 is fixed |
 | First tax year | v1 | 2027–2031. The user's schedule replaces current law from that year on, including Act 24's scheduled 2029 step |
-| Behavioral assumptions | v1 | Static, or the Act 24 page's low, middle and high scenarios. They pair taxable-income elasticity (ETI) 0.60 / 0.40 / 0.15 and migration elasticity 0.15 / 0.10 / 0.05 with that page's top-tail and top-income-growth assumptions |
+| Behavioral assumptions | v1 | Static, or the Act 24 page's low, middle and high scenarios. They pair taxable-income elasticity (ETI) 0.60 / 0.40 / 0.15 and migration elasticity 0.01 / 0.0025 / 0.001 (0.15 / 0.10 / 0.05 when this was scoped; see decision 8) with that page's top-tail and top-income-growth assumptions |
 | Capital gains alternative rate (7.25%) | v2 | Needs the capital-gains page's DOTAX-anchored gains base and its statutory alternative tax |
 | Credits (food/excise, EITC share of federal, dependent care) | v3 | Needs the working-family credits machinery (take-up calibrated to DOTAX claims) |
 
@@ -295,7 +433,8 @@ It runs for each year and scenario, about 15 scorings in all. Each takes about
    - ETI: each record whose marginal rate rises has its income multiplied by
      ((1 − t₁)/(1 − t₀))^ε.
    - Migration, generalized from the Act 24 form (decision 4).
-   - Then score again.
+   - Then score the plan again. Current law is not re-scored: nobody
+     responds to it, so a filer who moves away costs their whole tax.
 4. **Aggregate.**
    - Revenue by year.
    - Static distribution by household fifth and AGI class. As in
