@@ -277,13 +277,15 @@ def _individual_credit_savings(credit_overlay: dict, year: int, scenario_params:
     return total_m, retained, cgec_m
 
 
-def _change_shares(change: np.ndarray, loss: np.ndarray, q: np.ndarray, wts: np.ndarray) -> tuple[float, float, float]:
+def _change_shares(change: np.ndarray, loss: np.ndarray, q: np.ndarray, wts: np.ndarray,
+                   tolerance: float = 0.0) -> tuple[float, float, float]:
     """Weighted percent paying more / less / the same, where each unit is a
     credit claimant with probability *q* and its tax change is *change* (the
-    bracket change) plus, if it claims, its loss if claiming (*loss* / *q*)."""
+    bracket change) plus, if it claims, its loss if claiming (*loss* / *q*).
+    A change within *tolerance* dollars of zero counts as no change."""
     claim_change = change + np.divide(loss, q, out=np.zeros_like(loss), where=q > 0)
-    more = q * (claim_change > 0) + (1 - q) * (change > 0)
-    less = q * (claim_change < 0) + (1 - q) * (change < 0)
+    more = q * (claim_change > tolerance) + (1 - q) * (change > tolerance)
+    less = q * (claim_change < -tolerance) + (1 - q) * (change < -tolerance)
     tot = wts.sum()
     if tot <= 0:
         return 0.0, 0.0, 0.0
@@ -412,6 +414,7 @@ def generate_quintile_report(
     scenario_params: Optional[dict] = None,
     quintile_breaks: Optional[np.ndarray] = None,
     cor_scale_factor: Optional[float] = None,
+    no_change_tolerance: float = 0.0,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Produce per-filer quintile and bracket-breakdown analysis.
 
@@ -443,6 +446,12 @@ def generate_quintile_report(
         needs to be compared with ITEP or DOTAX figures that work off the
         official Hawaii Council on Revenues IIT baseline (see
         ``cor_scale_factor_for_year``).
+    no_change_tolerance:
+        Tax changes within this many dollars of zero count as no change in
+        the pay-more / pay-less shares. 0 (the default) counts any change;
+        the tax simulator uses half a cent, so floating-point noise from an
+        edit that leaves every tax unchanged (e.g. splitting a bracket) is
+        not reported as people paying more.
 
     Returns
     -------
@@ -600,7 +609,7 @@ def generate_quintile_report(
             "total_change_$M":           (g["total_change"] * fw).sum() / 1e6,
             **dict(zip(("pct_pay_more", "pct_pay_less", "pct_no_change"), _change_shares(
                 g["bracket_change"].to_numpy(), g["credit_loss"].to_numpy(),
-                g["claim_prob"].to_numpy(), hw.to_numpy()), strict=True)),
+                g["claim_prob"].to_numpy(), hw.to_numpy(), no_change_tolerance), strict=True)),
             "pct_credit_claimant":       (hw * g["claim_prob"]).sum() / hw_sum * 100,
             "avg_credit_loss_per_claimant": (
                 (g["credit_loss"] * fw).sum() / (hw * g["claim_prob"]).sum()
@@ -627,7 +636,7 @@ def generate_quintile_report(
             "total_change_$M":     (g["total_change"] * w).sum() / 1e6,
             **dict(zip(("pct_pay_more", "pct_pay_less", "pct_no_change"), _change_shares(
                 g["bracket_change"].to_numpy(), g["credit_loss"].to_numpy(),
-                g["claim_prob"].to_numpy(), w.to_numpy()), strict=True)),
+                g["claim_prob"].to_numpy(), w.to_numpy(), no_change_tolerance), strict=True)),
             "pct_credit_claimant": (w * g["claim_prob"]).sum() / w.sum() * 100,
             "avg_credit_loss_per_claimant": (
                 (g["credit_loss"] * w).sum() / (w * g["claim_prob"]).sum()

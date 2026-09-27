@@ -11,11 +11,16 @@ hike because high earners respond on multiple margins:
      state-level evidence).
 
   2. **Migration / domicile change** — They move to states with lower
-     or no income tax. Hawaii has the worst net out-migration of high
-     earners in the country (IRS SOI migration data). Young & Varner
-     (2011) estimate top-1% migration elasticity ≈ 0.10-0.15 per
-     percentage-point top-rate increase, with effects concentrated
-     among the very highest earners and growing over time.
+     or no income tax. The US evidence puts the effect of a state
+     top-rate increase on its millionaire population at roughly 0.1% to
+     0.5% per percentage point: Young & Varner (2011), whose New Jersey
+     semi-elasticities are in *percent* per point; Young, Varner, Lurie &
+     Prisinzano (2016); Cohen, Lai & Steindel (2015); Rauh & Shyu (2024),
+     an extra 0.8% of California's top bracket leaving once after a
+     3-point rise. Until September 27, 2026 this module used 0.05-0.15
+     as a *share* per point (10-30% of $1M+ filers for Act 24's 2
+     points), about a hundred times the evidence; see
+     BEHAVIORAL_ACCOUNTING_REVIEW.md.
 
   3. **Pass-through entity (PTE) election** — Hawaii's PTE election
      under HRS §235-110.93 lets pass-through businesses pay Hawaii
@@ -25,29 +30,39 @@ hike because high earners respond on multiple margins:
      S-corps and partnerships with $1M+ owners would elect.
 
 This module applies these three responses on top of the static
-microsimulation. They reduce the bracket-revenue estimate by an amount
-that scales with: (a) the size of the marginal rate change, (b) the
-income above the new threshold, and (c) the chosen elasticity values.
+microsimulation, and ``score_with_response`` scores them. The
+counterfactual is the baseline with nobody responding (the responses are
+to the scenario's rate increases), so only the scenario is scored again
+on the responded population: a filer who moves away costs their whole
+tax, and income reported away costs the scenario's rate on it. Until
+September 27, 2026 both systems were re-scored on the responded
+population, which charged a migrant only the rate increase.
 
-Three scenarios bracket the literature:
-    LOW       — eti=0.15, migration_elast=0.05, pte_capture=0.20  (modest)
-    MID       — eti=0.25, migration_elast=0.10, pte_capture=0.35  (default)
-    HIGH      — eti=0.40, migration_elast=0.15, pte_capture=0.50  (aggressive)
+Behavioral scenarios (``BehavioralParams``; the revenue scenario LOW uses
+``high``, MID ``mid``, HIGH ``low``). PTE capture is 0 in all three (Act 58):
+    low       — eti=0.15, migration_elast=0.001   (weak response)
+    mid       — eti=0.40, migration_elast=0.0025
+    high      — eti=0.60, migration_elast=0.01    (strong response)
 
 References:
   - Saez, Slemrod, Giertz (2012) "The Elasticity of Taxable Income with
     Respect to Marginal Tax Rates" J. Econ. Lit.
+  - Young, Varner (2011) "Millionaire Migration and State Taxation of Top
+    Incomes: Evidence from a Natural Experiment" National Tax Journal.
   - Young, Varner, Lurie, Prisinzano (2016) "Millionaire Migration and
-    Taxation of the Elite" American Sociological Review.
-  - Cohen, Lai, Steindel (2014) "State income taxes and team performance"
-    NJ Treasury working paper on millionaire migration.
+    Taxation of the Elite: Evidence from Administrative Data" American
+    Sociological Review.
+  - Cohen, Lai, Steindel (2015) "A Replication of 'Millionaire Migration
+    and State Taxation of Top Incomes'" Public Finance Review.
+  - Rauh, Shyu (2024) "Behavioral Responses to State Income Taxation of
+    High Earners: Evidence from California" AEJ: Economic Policy.
   - Hawaii DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year
     2023" (Dec 2025) for PTE base.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Dict, Mapping, Optional, Tuple
 import logging
 
 import numpy as np
@@ -98,25 +113,33 @@ class BehavioralParams:
     on Hawaii state grounds, and ``pte_capture`` is set to 0 across scenarios.
     """
     eti: float                 # Taxable income elasticity (Saez/Slemrod/Giertz range: 0.15-0.50)
-    migration_elast: float     # Top-1% migration elasticity per pp rate change (Young/Varner: 0.05-0.15)
+    migration_elast: float     # Share of $1M+ filers who leave per pp of top-rate increase, at full phase-in
     pte_capture: float         # Share of $1M+ pass-through income that elects PTE due to bill (Act 58: =0)
     migration_phase_in_years: int = 5  # Years to fully realize migration response
 
     @classmethod
     def low(cls) -> "BehavioralParams":
-        # Conservative for revenue: weak ETI, weak migration. PTE=0 (Act 58).
-        return cls(eti=0.15, migration_elast=0.05, pte_capture=0.0)
+        # Weak response: weak ETI; migration at the low end of the US
+        # evidence (Young & Varner 2011: ~0.04% per effective pp a year).
+        # PTE=0 (Act 58).
+        return cls(eti=0.15, migration_elast=0.001, pte_capture=0.0)
 
     @classmethod
     def mid(cls) -> "BehavioralParams":
-        # Calibrated MID: state-level ETI literature for top earners
-        # (Rauh/Shyu 2024). PTE=0 (Act 58 addback eliminates Hawaii arbitrage).
-        return cls(eti=0.40, migration_elast=0.10, pte_capture=0.0)
+        # MID ETI within Saez/Slemrod/Giertz. Migration near the middle of
+        # the US state-tax studies, rebased to the statutory top rate (Act 24
+        # raises $1M+ filers' average rate ~0.9 pp for its 2 pp): Rauh/Shyu
+        # 2024, Cohen/Lai/Steindel 2015, Young et al. 2016 (~0.002-0.005).
+        # PTE=0 (Act 58 addback eliminates Hawaii arbitrage).
+        return cls(eti=0.40, migration_elast=0.0025, pte_capture=0.0)
 
     @classmethod
     def high(cls) -> "BehavioralParams":
-        # Aggressive behavioral response (cap on revenue gain). PTE=0 (Act 58).
-        return cls(eti=0.60, migration_elast=0.15, pte_capture=0.0)
+        # Strong response. Migration at the upper end: New Jersey filers
+        # earning all their income in-state (Young & Varner 2011, not
+        # significant) and Young et al.'s flow cumulated over five years.
+        # PTE=0 (Act 58).
+        return cls(eti=0.60, migration_elast=0.01, pte_capture=0.0)
 
     @classmethod
     def static(cls) -> "BehavioralParams":
@@ -181,9 +204,7 @@ def _per_filer_marginal_rate(
 
     sd_per_filer = np.empty(n, dtype=float)
     for fs in np.unique(statuses):
-        sd_per_filer[statuses == fs] = calculator.get_standard_deduction(
-            config.standard_deduction_year, fs
-        )
+        sd_per_filer[statuses == fs] = calculator.standard_deduction_for(config, fs)
     itemized = itemized_deductions(df)
     deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
@@ -197,13 +218,9 @@ def _per_filer_marginal_rate(
 
     mtrs = np.zeros(n, dtype=float)
     for fs in np.unique(statuses):
-        brackets = calculator.get_brackets(
-            config.bracket_year, fs, scenario=config.bracket_scenario
-        )
+        brackets = calculator.brackets_for(config, fs)
         boundaries = brackets["income_min"].to_numpy(dtype=float)
-        rates_raw = brackets["rate"].to_numpy(dtype=float)
-        # CSV stores rates as percentages; normalize to decimal.
-        rates = rates_raw / 100.0 if rates_raw.max() > 1.0 else rates_raw
+        rates = brackets["rate_decimal"].to_numpy(dtype=float)
         mask = statuses == fs
         # searchsorted(side='right') returns idx with
         # boundaries[idx-1] <= taxable < boundaries[idx]; the bracket
@@ -241,7 +258,7 @@ def apply_eti_response(
     baseline_cfg, scenario_cfg : TaxSystemConfig
         The two systems whose bracket schedules define each filer's
         marginal rate. The bracket schedule is looked up via
-        ``calculator.get_brackets(year, status, scenario=...)``.
+        ``calculator.brackets_for(config, status)``.
     calculator : TaxCalculator
         Provides bracket lookup and standard-deduction lookup.
 
@@ -286,6 +303,45 @@ def apply_eti_response(
 # Migration: weight-reduction for top filers leaving Hawaii
 # ---------------------------------------------------------------------------
 
+_FRAME_STATUSES = ("single", "married_filing_jointly", "head_of_household",
+                   "married_filing_separately", "qualifying_widow")
+MIGRATION_FULL_TIER = 1_000_000   # AGI where the top-1% migration estimates apply
+
+
+def top_rate_changes(baseline_cfg, scenario_cfg, calculator) -> Dict[str, Tuple[float, float, float]]:
+    """Per filing status: (change in the top statutory rate in points,
+    scenario's top-bracket floor, baseline's top-bracket floor). Used to
+    generalize the migration and PTE responses beyond SB 3125's 11% -> 13%
+    and $1M/$750K/$500K; for Act 24 vs Act 46 the first two are exactly those
+    constants."""
+    out = {}
+    for fs in _FRAME_STATUSES:
+        base = calculator.brackets_for(baseline_cfg, fs)
+        scen = calculator.brackets_for(scenario_cfg, fs)
+        out[fs] = (
+            100.0 * (float(scen["rate_decimal"].iloc[-1]) - float(base["rate_decimal"].iloc[-1])),
+            float(scen["income_min"].iloc[-1]),
+            float(base["income_min"].iloc[-1]),
+        )
+    return out
+
+
+def _phased_rate_change(path: Mapping[int, Mapping[str, Tuple[float, ...]]], fs: str,
+                        target_year: int, phase_in_years: int) -> float:
+    """Top-rate change (points) in effect for migration in ``target_year``:
+    each year's increment phases in from the year it takes effect, so a
+    rise that starts in 2029 is in its first year in 2029 whenever the plan
+    itself starts. ``path`` maps each scored year to ``top_rate_changes``;
+    years before a plan starts have a change of 0. For a change that is
+    constant from the first year this is change x phase, the constant form."""
+    total, prev = 0.0, 0.0
+    for y in sorted(y for y in path if y <= target_year):
+        pp = path[y][fs][0]
+        total += (pp - prev) * min(1.0, (target_year - y + 1) / phase_in_years)
+        prev = pp
+    return total
+
+
 def apply_migration_response(
     df: pd.DataFrame,
     params: BehavioralParams,
@@ -296,12 +352,17 @@ def apply_migration_response(
     fs_col: str = "filing_status",
     weight_col: str = "weight",
     inplace: bool = False,
+    baseline_cfg=None,
+    scenario_cfg=None,
+    calculator=None,
+    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
 ) -> pd.DataFrame:
     """Reduce weights of $1M+ filers per migration elasticity, phased in.
 
-    The Young & Varner migration elasticity is per percentage-point top-rate
-    change. SB 3125 CD1 raises the top from 11% to 13% (2pp), so the long-run
-    out-migration share is 2 × migration_elast. We phase this in linearly
+    ``migration_elast`` is the share of $1M+ filers who leave per
+    percentage point of top-rate increase, at full phase-in. SB 3125 CD1
+    raises the top from 11% to 13% (2pp), so the long-run out-migration
+    share is 2 × migration_elast (MID: 0.5%). We phase this in linearly
     over `migration_phase_in_years` from `bill_effective_year`.
 
     Migration applies to filers above the *MFJ* threshold ($1M) since
@@ -309,6 +370,21 @@ def apply_migration_response(
     (HoH $750K, Single $500K) mostly capture upper-middle earners with
     weaker migration response — we apply a discounted rate (50%) for
     those between the lower threshold and $1M.
+
+    With ``baseline_cfg``/``scenario_cfg``/``calculator`` the response is
+    derived from the two schedules (the tax simulator's specs): each filing
+    status's change in the top statutory rate, full response at AGI at or
+    above max($1M, the scenario's top-bracket floor), half from the higher of
+    the scenario's and the baseline's top-bracket floors to $1M when that is
+    lower (so a top bracket moved down to middle incomes does not apply a
+    top-1% elasticity to them). Only increases move anyone (as with ETI), and
+    no group loses more than all of its weight. For Act 24 vs Act 46 this is
+    exactly the constant form below. Without them, the SB 3125 constants are
+    used.
+
+    ``top_rate_path`` ({year: top_rate_changes}) phases each year's change
+    in from the year it takes effect, instead of phasing the current change
+    from ``bill_effective_year`` (see ``_phased_rate_change``).
     """
     if params.migration_elast <= 0:
         return df if inplace else df.copy()
@@ -317,33 +393,43 @@ def apply_migration_response(
     out[weight_col] = out[weight_col].astype(float)
     out["_migration_factor"] = 1.0
 
-    rate_change_pp = (SB3125_CD1_TOP_RATE - ACT46_TOP_RATE) * 100.0  # 2.0
-    long_run_loss = params.migration_elast * rate_change_pp           # e.g. 0.10 × 2.0 = 0.20
-
     # Phase-in: linear from year 1 of effect to year N
     years_since_effect = max(0, target_year - bill_effective_year)
     phase_frac = min(1.0, (years_since_effect + 1) / params.migration_phase_in_years)
-    realised_loss = long_run_loss * phase_frac                        # e.g. 0.20 × 0.6 = 0.12
 
-    # Top tier ($1M+): full migration loss
-    mask_top = out[income_col] >= 1_000_000
-    out.loc[mask_top, weight_col] = out.loc[mask_top, weight_col] * (1.0 - realised_loss)
-    out.loc[mask_top, "_migration_factor"] = 1.0 - realised_loss
+    if baseline_cfg is None or scenario_cfg is None or calculator is None:
+        # SB 3125 constants: 11% -> 13% for every status, its thresholds.
+        rate_change_pp = (SB3125_CD1_TOP_RATE - ACT46_TOP_RATE) * 100.0  # 2.0
+        changes = {fs: (rate_change_pp, SB3125_TOP_THRESHOLDS.get(fs, MIGRATION_FULL_TIER), 0.0)
+                   for fs in _FRAME_STATUSES}
+    else:
+        changes = top_rate_changes(baseline_cfg, scenario_cfg, calculator)
 
-    # Upper tier ($500K-$1M MFJ etc): half the migration response
-    upper_loss = realised_loss * 0.5
-    for fs, threshold in SB3125_TOP_THRESHOLDS.items():
-        if threshold >= 1_000_000:
+    income = out[income_col].to_numpy(dtype=float)
+    status = out[fs_col].to_numpy()
+    factor = np.ones(len(out))
+    for fs, (rate_change_pp, floor, base_floor) in changes.items():
+        if top_rate_path is not None:
+            phased_pp = _phased_rate_change(top_rate_path, fs, target_year,
+                                            params.migration_phase_in_years)
+        else:
+            phased_pp = rate_change_pp * phase_frac if rate_change_pp > 0 else 0.0
+        if phased_pp <= 0:
             continue
-        mask_upper = ((out[fs_col] == fs) & (out[income_col] >= threshold)
-                      & (out[income_col] < 1_000_000))
-        if not mask_upper.any():
-            continue
-        out.loc[mask_upper, weight_col] = (
-            out.loc[mask_upper, weight_col] * (1.0 - upper_loss)
-        )
-        out.loc[mask_upper, "_migration_factor"] = 1.0 - upper_loss
+        # e.g. MID 0.0025 × 2.0 = 0.005 long run; × 0.6 phase-in = 0.003
+        realised_loss = params.migration_elast * phased_pp
+        is_fs = status == fs
+        # Top tier: full migration loss (never more than everyone)
+        factor[is_fs & (income >= max(MIGRATION_FULL_TIER, floor))] = max(0.0, 1.0 - realised_loss)
+        # Upper tier (e.g. single $500K-$1M): half the migration response
+        lower = max(floor, base_floor)
+        if lower < MIGRATION_FULL_TIER:
+            factor[is_fs & (income >= lower) & (income < MIGRATION_FULL_TIER)] = (
+                max(0.0, 1.0 - realised_loss * 0.5))
 
+    moved = factor != 1.0
+    out.loc[moved, weight_col] = out.loc[moved, weight_col] * factor[moved]
+    out.loc[moved, "_migration_factor"] = factor[moved]
     return out
 
 
@@ -358,8 +444,17 @@ def estimate_pte_election_shift_M(
     income_col: str = "income",
     fs_col: str = "filing_status",
     weight_col: str = "weight",
+    baseline_cfg=None,
+    scenario_cfg=None,
+    calculator=None,
 ) -> Dict[str, float]:
     """Estimate revenue *reduction* from PTE election under SB 3125 CD1.
+
+    With the two configs, the top-bracket floors and the gap to the PTE rate
+    come from the scenario's schedule instead of SB 3125's constants, for
+    filing statuses whose top rate rises (as with migration, a plan that
+    does not raise the top rate creates no new incentive). Every scenario
+    sets ``pte_capture`` to 0 (Act 58 addback), so this is zero.
 
     Mechanism: Pass-through owners with income above the new 13% threshold
     have a 4pp incentive (13% individual → 9% PTE) to elect the PTE. We assume:
@@ -395,7 +490,17 @@ def estimate_pte_election_shift_M(
         }
 
     PASS_THROUGH_SHARE = 0.20  # Hawaii IRS SOI 2022: partnership/S-corp = 12.6% of total income for $200K+ filers (~15% of ordinary income); national 0.40 overstates Hawaii's wage-heavy high-income mix
-    RATE_DIFFERENTIAL = SB3125_CD1_TOP_RATE - PTE_RATE  # 0.04 (13% − 9%)
+    if baseline_cfg is None or scenario_cfg is None or calculator is None:
+        thresholds = SB3125_TOP_THRESHOLDS
+        differential = {fs: SB3125_CD1_TOP_RATE - PTE_RATE for fs in thresholds}  # 0.04
+    else:
+        thresholds, differential = {}, {}
+        for fs, (pp, floor, _) in top_rate_changes(baseline_cfg, scenario_cfg, calculator).items():
+            if pp <= 0:          # no rise in the top rate, no new reason to elect
+                continue
+            scen = calculator.brackets_for(scenario_cfg, fs)
+            thresholds[fs] = floor
+            differential[fs] = max(0.0, float(scen["rate_decimal"].iloc[-1]) - PTE_RATE)
 
     # Ordinary income = total income minus capital gains.
     # synthetic_cg_share is set for $1M+ synthetic filers; base PUMS units
@@ -407,19 +512,21 @@ def estimate_pte_election_shift_M(
         ordinary_income = df[income_col]
 
     excess_income_total = 0.0
-    for fs, threshold in SB3125_TOP_THRESHOLDS.items():
+    loss_total = 0.0
+    for fs, threshold in thresholds.items():
         # Threshold check: use total income (bracket placement)
         mask = (df[fs_col] == fs) & (df[income_col] > threshold)
         if not mask.any():
             continue
         # Excess: ordinary income above threshold only
         excess_ordinary = (ordinary_income.loc[mask] - threshold).clip(lower=0)
-        excess = excess_ordinary * df.loc[mask, weight_col]
-        excess_income_total += float(excess.sum())
+        excess = float((excess_ordinary * df.loc[mask, weight_col]).sum())
+        excess_income_total += excess
+        loss_total += excess * differential[fs]
 
     pte_eligible = excess_income_total * PASS_THROUGH_SHARE
     pte_elected = pte_eligible * params.pte_capture
-    pte_loss_dollars = pte_elected * RATE_DIFFERENTIAL
+    pte_loss_dollars = loss_total * PASS_THROUGH_SHARE * params.pte_capture
 
     return {
         "pte_eligible_income_$M": pte_eligible / 1e6,
@@ -591,6 +698,7 @@ def apply_behavioral_response(
     income_col: str = "income",
     fs_col: str = "filing_status",
     weight_col: str = "weight",
+    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, float]]:
     """Apply ETI + migration adjustments and report the PTE shift.
 
@@ -621,12 +729,15 @@ def apply_behavioral_response(
         out, params, target_year=target_year,
         bill_effective_year=bill_effective_year,
         income_col=income_col, fs_col=fs_col, weight_col=weight_col, inplace=True,
+        baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calculator,
+        top_rate_path=top_rate_path,
     )
 
     # PTE shift estimated on the post-ETI / post-migration income base
     # (so we don't double-count income that already left)
     pte = estimate_pte_election_shift_M(
         out, params, income_col=income_col, fs_col=fs_col, weight_col=weight_col,
+        baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calculator,
     )
 
     # Report top-bracket diagnostics
@@ -642,3 +753,68 @@ def apply_behavioral_response(
         **pte,
     }
     return out, diag
+
+
+def top_rate_path(baseline_for, scenario_for, years, calculator) -> Dict[int, Dict[str, Tuple[float, float, float]]]:
+    """``top_rate_changes`` for each of ``years`` ({year: {status: ...}}),
+    for ``apply_migration_response``'s ``top_rate_path``: each change in the
+    top rate phases in from the year it takes effect. ``years`` must start
+    no later than the first year the scenario differs from the baseline."""
+    return {y: top_rate_changes(baseline_for(y), scenario_for(y), calculator) for y in years}
+
+
+def score_with_response(
+    df: pd.DataFrame,
+    params: BehavioralParams,
+    *,
+    target_year: int,
+    baseline_cfg,
+    scenario_cfg,
+    calculator,
+    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
+    bill_effective_year: int = 2027,
+) -> Tuple[Dict[str, float], pd.DataFrame, Dict[str, float]]:
+    """Revenue under both systems, static and after the behavioral response.
+
+    The counterfactual is the baseline with nobody responding: the responses
+    are to the scenario's rate increases, so after them only the scenario is
+    scored again::
+
+        static     = Σ w T_scen(y)   − Σ w T_base(y)
+        behavioral = Σ w′ T_scen(y′) − Σ w T_base(y) − PTE shift
+
+    A filer who moves away costs their whole tax, and income reported away
+    costs the scenario's rate on it (t1·dy). Until September 27, 2026 the
+    Act 24 pipeline and the tax simulator re-scored both systems on the
+    responded population, Σ w′(T_scen − T_base)(y′), which charged a migrant
+    only the rate increase (BEHAVIORAL_ACCOUNTING_REVIEW.md).
+
+    The one implementation for ``forecast_sb3125_enhanced.py`` and the tax
+    simulator's reference scorer (``tax_modeler.simulator.score``), which
+    ``site/assets/simulator/kernel.js`` mirrors.
+
+    Returns ``(revenue, adjusted, diag)``. ``revenue`` holds, in $M,
+    ``baseline_$M``, ``reform_$M``, ``static_$M``, ``reform_post_$M`` (the
+    scenario on the responded population) and ``behavioral_$M``;
+    ``adjusted`` is the responded population and ``diag`` the
+    ``apply_behavioral_response`` diagnostics.
+    """
+    from tax_modeler.config.tax_system_config import compare_systems
+
+    static = compare_systems(df, baseline_cfg, scenario_cfg, calculator=calculator)
+    baseline = float(static.iloc[0]["revenue_millions"])
+    adjusted, diag = apply_behavioral_response(
+        df, params, target_year=target_year, baseline_cfg=baseline_cfg,
+        scenario_cfg=scenario_cfg, calculator=calculator,
+        bill_effective_year=bill_effective_year, top_rate_path=top_rate_path,
+    )
+    reform_post = float(calculator.calculate_revenue_vectorized(
+        adjusted, scenario_cfg)["total_revenue_millions"])
+    revenue = {
+        "baseline_$M": baseline,
+        "reform_$M": float(static.iloc[1]["revenue_millions"]),
+        "static_$M": float(static.iloc[2]["revenue_millions"]),
+        "reform_post_$M": reform_post,
+        "behavioral_$M": reform_post - baseline - diag["pte_revenue_loss_$M"],
+    }
+    return revenue, adjusted, diag

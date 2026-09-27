@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 25, 2026
+**Last updated:** September 27, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -15,7 +15,141 @@
 
 ---
 
-## Scoring-path fixes — September 25, 2026 (supersedes the tables below)
+## Behavioral accounting and migration elasticity — September 27, 2026 (supersedes the tables below)
+
+Two corrections to the behavioral response, made together.
+`BEHAVIORAL_ACCOUNTING_REVIEW.md` has the analysis, sources and arithmetic.
+
+1. **Accounting.** After the response, the script scored Act 46 as well as
+   SB 3125 on the responded population: change = Σ w′(T₂₄ − T₄₆)(y′). The
+   standard counterfactual scores Act 46 on the population as it is:
+   change = Σ w′·T₂₄(y′) − Σ w·T₄₆(y).
+   - **What the old form did.** It charged a filer who moved away only the
+     rate increase on their income, about a tenth of their tax, and charged
+     income reported away only (t₁ − t₀)·Δy.
+   - **Where it came from.** The form arrived with the first behavioral
+     commit (`0894417`, May 2) with no stated rationale.
+   - **Now.** `behavioral_response.score_with_response` does the scoring for
+     this script and for the tax simulator, whose `kernel.js` mirrors it.
+2. **Migration elasticity.** The share of $1M+ filers who leave per point
+   of top-rate increase goes from 0.15 / 0.10 / 0.05 to **0.01 / 0.0025 /
+   0.001** (LOW / MID / HIGH). The old values read Young & Varner's percent
+   semi-elasticities as shares; section 5b has the evidence.
+
+Changing only the accounting would have taken the MID five-year total to
+$125.1M and LOW to −$215.0M, because the oversized elasticity would then
+cost each migrant's whole tax. With both corrections:
+
+**CD2 vs Act 46 baseline, post-behavioral ($M):**
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $89.9M | **$95.4M** | $119.4M | $92.4M |
+| 2028 | $105.7M | **$122.5M** | $156.5M | $120.9M |
+| 2029 | $119.3M | **$142.3M** | $181.2M | $142.7M |
+| 2030 | $146.6M | **$178.2M** | $220.3M | $180.1M |
+| 2031 | $158.0M | **$188.0M** | $237.1M | $191.6M |
+| **5-year total** | **$619.5M** | **$726.4M** | **$914.5M** | **$727.7M** |
+
+MID 5-year: **$738.9M → $726.4M (−$12.5M, −1.7%)**. LOW −$51.1M (−7.6%),
+HIGH +$2.7M, RECESSION −$11.8M.
+
+**MID by component ($M):**
+
+| Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
+|----------|----------------:|---------------:|--------------------:|----------------------:|-------------:|----------:|
+| 2027 | $2,456.4M | $58.4M | −$12.0M | $46.4M | $49.1M | **$95.4M** |
+| 2028 | $2,607.2M | $61.7M | −$13.7M | $48.0M | $74.5M | **$122.5M** |
+| 2029 | $2,465.0M | $70.7M | −$17.0M | $53.7M | $88.6M | **$142.3M** |
+| 2030 | $2,575.3M | $77.5M | −$19.1M | $58.3M | $119.9M | **$178.2M** |
+| 2031 | $2,652.8M | $85.1M | −$21.4M | $63.7M | $124.3M | **$188.0M** |
+| **5-year** | | **$353.3M** | **−$83.2M** | **$270.1M** | **$456.3M** | **$726.4M** |
+
+Was: behavioral −$70.7M, bracket $282.6M (the September 25 table below).
+
+**Where the response comes from (MID, five years).** Channels were scored
+separately on the simulator population, which reproduces this script:
+
+| | ETI alone | Migration alone | Interaction | Total |
+|---|---:|---:|---:|---:|
+| Now | −$67.8M | −$15.6M | +$0.2M | −$83.2M |
+| Was | −$8.2M | −$63.5M | +$1.0M | −$70.7M |
+
+The response is now mostly ETI, which is at full strength from 2027, while
+migration phased in over five years. So TY2027 falls ($102.8M → $95.4M)
+and TY2031 rises ($184.5M → $188.0M). In MID TY2031 there are 2,953 filers
+above $1M before any response and 2,860 after ETI (93 fall below $1M by
+reporting less income). Migration then removes 14 of them (0.5%) where it
+used to remove 572 (20%); `filers_1m_post_response` is 2,846, was 2,288.
+
+`eti_response_$M` keeps its name but now means SB 3125 revenue lost to the
+whole response (ETI and migration), against its static revenue.
+
+**Unchanged:**
+- static bracket figures, credits and the Act 46 baseline;
+- every distribution table, which is static;
+- the vs-pre-Act-46 and FY26-base tables;
+- the capital-gains options, whose scorer already used the standard
+  counterfactual and has no migration channel.
+
+The tax simulator's presets moved too; see `TAX_SIMULATOR_SCOPE.md`.
+
+**Still open, not changed here:**
+- The top-income growth premium carries a "Hawaiʻi outmigration haircut"
+  (0.8 pp a year in the script, 0.5 pp in section 8a), a second channel for
+  high earners leaving that may overlap with migration.
+- The ETI values sit far below Rauh & Shyu's estimate for California's top
+  earners (section 5a).
+
+---
+
+## Tax simulator groundwork — September 26, 2026 (results tables unchanged)
+
+Changes made for the tax simulator (`TAX_SIMULATOR_SCOPE.md`). A rerun of
+`forecast_sb3125_enhanced.py --cd 2` after them reproduces the published
+`enhanced.csv`, `quintile.csv` and `bracket.csv` byte for byte, so every table
+below stands.
+
+- **Migration and PTE responses read the two schedules.**
+  `apply_migration_response` and `estimate_pte_election_shift_M` hard-coded
+  SB 3125's 11% → 13% top rate and its $1M / $750K / $500K thresholds. Given
+  the baseline and scenario configs (as `apply_behavioral_response` now passes
+  them), they derive each filing status's change in the top statutory rate
+  and the scenario's top-bracket floor instead: full migration response at AGI
+  of at least max($1M, that floor), half from the floor to $1M when it is
+  lower, and none for a rate cut (the same asymmetry as the ETI). For Act 24
+  vs Act 46 this is exactly the old constants (2 points; $1M, $750K, $500K).
+  Three limits keep the derived form sensible for plans other than Act 24,
+  and none of them binds for Act 24:
+  - the half tier starts no lower than the baseline's own top-bracket floor,
+    so moving the top bracket down to middle incomes does not apply the
+    top-1% elasticity to them;
+  - no group loses more than all of its weight (a top rate above about 20%
+    in the low scenario would otherwise give negative weights);
+  - given each year's change (`top_rate_path`, which the simulator passes),
+    every rise phases in from the year it takes effect, so a rise that starts
+    in 2029 is in its first year in 2029 however the plan is written. A
+    change that holds from the first year phases in exactly as before.
+  The PTE shift likewise applies only where the top rate rises.
+- **Brackets and deductions through two lookups.** Every scorer now reads
+  `TaxCalculator.brackets_for(config, status)` and
+  `standard_deduction_for(config, status)`, which also serve inline
+  schedules (user-defined systems). Rates reach the scorers as an explicit
+  `rate_decimal`: the old "a rate above 1 is a percent" guess would have read
+  a 0.5% bracket as 50%. No existing schedule has a rate at or below 1%.
+- **One population builder.** The synthesis and projection steps moved to
+  `tax_modeler.scenarios.act24_population`, shared by this script and the
+  simulator's scoring population.
+- **Distribution shares can ignore noise.** `generate_quintile_report` takes
+  `no_change_tolerance` (default 0, as this script uses); the simulator passes
+  half a cent, so a plan that changes no one's tax does not show people
+  paying more from floating-point rounding.
+- **Correction** to the section below: the COR TY2027 projection is
+  $3,071.0M, not $2,874M; see the corrected sentence there.
+
+---
+
+## Scoring-path fixes — September 25, 2026 (post-behavioral tables superseded above)
 
 Three defects in the reform-scoring path, found while scoping a tax simulator
 (`TAX_SIMULATOR_SCOPE.md`). A pre-fix rerun on `main` reproduced the published
@@ -85,7 +219,9 @@ MID 5-year: **$870.1M → $738.9M (−$131.2M, −15.1%)**; LOW −$116.2M, HIGH
 
 Was: static $501.4M, ETI −$87.6M, bracket $413.8M. The Act 46 baseline falls
 $187M in TY2027 ($2,643.4M → $2,456.4M), widening the gap to COR's TY2027
-projection ($2,874M) from 8% to 15%.
+projection ($3,071.0M) from 13.9% to 20.0%. *(Corrected September 26, 2026:
+this sentence first cited $2,874M, the stale fallback table in
+`quintile_analysis.py`, and a gap of 8% to 15%.)*
 
 **Distribution (TY2027, MID).** Households paying less: 78.0% → 76.1%. The
 second fifth's share falls from 88% to 79%: where a nonrefundable credit
@@ -1389,8 +1525,10 @@ The tables below show every bracket for each filing status and each effective pe
 | Citation | Use |
 |----------|-----|
 | Saez, Slemrod & Giertz (2012), "The Elasticity of Taxable Income with Respect to Marginal Tax Rates," *Journal of Economic Literature* | ETI range: 0.15–0.60 |
-| Young, Varner, Lurie & Prisinzano (2016), "Millionaire Migration and Taxation of the Elite," *American Sociological Review* | Top-1% migration elasticity: 0.05–0.15 per pp rate change |
-| Rauh & Shyu (2024), California 13.3% top-rate study | State-level ETI calibration anchor for MID scenario |
+| Young & Varner (2011), "Millionaire Migration and State Taxation of Top Incomes: Evidence from a Natural Experiment," *National Tax Journal* | New Jersey's 2004 rise: semi-elasticities below 0.1 **percent** of millionaires per effective pp a year |
+| Young, Varner, Lurie & Prisinzano (2016), "Millionaire Migration and Taxation of the Elite," *American Sociological Review* | Millionaires migrate at 2.4% a year; a 1 pp rise moves about 0.26% of a state's millionaires a year |
+| Cohen, Lai & Steindel (2015), replication of Young & Varner (2011), *Public Finance Review* | About 80 extra out-migrants over $500K a year after New Jersey's 2.6 pp rise |
+| Rauh & Shyu (2024), "Behavioral Responses to State Income Taxation of High Earners: Evidence from California," *AEJ: Economic Policy* | Prop. 30's +3 pp: an extra 0.8% of the top bracket left, once; stayers' ETI 2.5–3.2 on the combined rate |
 | IRS SOI migration data — Hawaii high-income outmigration trends | Migration response calibration |
 
 ---
@@ -1594,7 +1732,7 @@ The `_bracket_year()` lookup selects the largest available vintage year ≤ the 
 
 **File:** `packages/tax_modeler/src/tax_modeler/scenarios/behavioral_response.py`
 
-Three behavioral channels are modeled, applied to the projected population before revenue comparison. All are applied only to filers above the new 13% threshold (~$500K+).
+Three behavioral channels are modeled, applied to the projected population: ETI to every filer whose marginal rate rises, migration to filers at or above the top-bracket floor (in full at $1M+), and the PTE election (off: capture is 0). Since September 27, 2026 the revenue after the response is scored against Act 46 **with nobody responding** (`score_with_response`): SB 3125 is scored on the responded population and Act 46 on the population as it is, so a filer who moves away costs their whole Hawaii tax and income reported away costs SB 3125's rate on it. Before, both laws were re-scored on the responded population, which charged a migrant only the rate increase (see the dated section at the top).
 
 ### 5a. Taxable Income Elasticity (ETI) — per-filer MTR change
 
@@ -1622,30 +1760,59 @@ also face rate increases under the bill. Filers facing no rate change
 (or a rate cut) get factor 1.0 — the literature is asymmetric and
 rate cuts have weaker, less-established income-shrinkage feedback.
 
-**Source:** Saez, Slemrod & Giertz (2012); state-level calibration from Rauh & Shyu (2024) California 13.3% study.
+**Source:** Saez, Slemrod & Giertz (2012). Rauh & Shyu (2024) estimate
+a much larger ETI for California's top earners (2.5–3.2 against the
+combined net-of-tax rate); the model's values are within the general
+literature, not calibrated to that study.
 
-| Scenario | ETI | 5-year revenue impact (pending refresh) |
+| Scenario | ETI | 5-year ETI offset alone, CD2 (September 27, 2026) |
 |----------|-----|----------------------|
-| LOW (high behavioral) | 0.60 | −$81M (pre-fix) |
-| **MID** | **0.40** | **−$71M (pre-fix)** |
-| HIGH (low behavioral) | 0.15 | −$27M (pre-fix) |
+| LOW (high behavioral) | 0.60 | −$97.7M |
+| **MID** | **0.40** | **−$67.8M** |
+| HIGH (low behavioral) | 0.15 | −$27.7M |
 
-Per-filer ETI will *increase* the absolute behavioral offset relative
-to the prior version because filers in $350K–$1M who previously got
-no ETI now contribute. Magnitude depends on bracket-by-bracket rate
-change × that bracket's income mass. Awaiting forecast re-run.
+The offset is SB 3125's full rate on the income reported away (t₁·Δy).
+Until September 27, 2026 it was scored as the rate increase alone,
+(t₁ − t₀)·Δy: MID −$8.2M over five years.
 
 ### 5b. Migration Response
 
-Some high-earners leave Hawaii when rates rise. Young & Varner (2016) estimate a top-1% migration elasticity of ~0.10–0.15 per percentage-point rate change. Applied as a weight reduction on $1M+ filers, phased in linearly over 5 years from TY2027 (migration is slow — people don't leave overnight). A 50% discount is applied relative to the published national elasticities to account for Hawaii's unique geography (harder to leave than New Jersey, the focus of most migration studies).
+Some high earners leave Hawaii when rates rise. `migration_elast` is the
+share of $1M+ filers who leave per percentage point of top-rate increase,
+at full phase-in; filers between the top-bracket floor ($500K single,
+$750K head of household) and $1M lose half that. It is phased in linearly
+over 5 years from the year each rise takes effect (migration is slow —
+people don't leave overnight), and no group loses more than all of its
+weight. Each filer who leaves costs their whole Hawaii tax.
 
-| Scenario | Migration elasticity | Effect |
+The US evidence on state top rates puts the loss at roughly 0.1% to 0.5%
+of millionaires per point, once rebased to the statutory rate (Act 24
+raises $1M+ filers' average rate about 0.9 points for its 2): Young &
+Varner (2011), Cohen, Lai & Steindel (2015), Young, Varner, Lurie &
+Prisinzano (2016), Rauh & Shyu (2024). The values below span it, with the
+strong-response end on the least certain estimates (New Jersey filers
+earning all their income in-state, not significant; Young et al.'s flow
+cumulated over five years).
+
+| Scenario | Migration elasticity | $1M+ filers lost, 2 pp, full phase-in |
 |----------|---------------------|--------|
-| LOW | 0.15 | Largest filer-count reduction |
-| **MID** | **0.10** | Included in −$71M ETI figure above |
-| HIGH | 0.05 | Minimal |
+| LOW (strong response) | 0.01 | 2% |
+| **MID** | **0.0025** | **0.5%** |
+| HIGH (weak response) | 0.001 | 0.2% |
+
+**Corrected September 27, 2026.** Until then the values were 0.15 / 0.10 /
+0.05 (10–30% of $1M+ filers), attributed to "Young & Varner (2016)" at
+"~0.10–0.15 per percentage-point", with "a 50% discount" for Hawaiʻi's
+geography. Young & Varner's semi-elasticities are in *percent* per point,
+so that reading was about a hundred times too large, and no discount was
+ever applied in the code (its only 0.5 is the half tier above).
+`BEHAVIORAL_ACCOUNTING_REVIEW.md` has the sources and the arithmetic.
 
 ### 5c. Pass-Through Entity (PTE) Election — Dominant Behavioral Offset
+
+*Off since May 5, 2026: capture is 0 in every scenario, because Act 58's
+addback removes the Hawaiʻi incentive to elect (see `BehavioralParams`).
+The design below is kept for reference.*
 
 **This is the largest single behavioral offset in the model.**
 
@@ -1781,8 +1948,8 @@ Four integrated scenarios: three behavioral sensitivity scenarios (no recession 
 | REEC residential demand scenario | obbba_severe | **obbba_mid** | pre_obbba |
 | REEC commercial demand factor | 1.0 (no §48E impact) | **1.0** | 1.0 |
 | ETI | 0.60 | **0.40** | 0.15 |
-| Migration elasticity | 0.15 | **0.10** | 0.05 |
-| PTE capture rate | 90% | **70%** | 40% |
+| Migration elasticity (share of $1M+ filers per pp) | 0.01 | **0.0025** | 0.001 |
+| PTE capture rate | 0 | **0** | 0 |
 | Top-income growth premium | +0.3%/yr | **+1.3%/yr** | +2.3%/yr |
 | REEC nonrefundable utilization | 65% | **80%** | 100% |
 | CGEC annual growth | 2%/yr | **3%/yr** | 4%/yr |
@@ -1854,6 +2021,11 @@ Note: Q1 filers (avg income ~$3K) are **completely unaffected** because their gr
 ## 10. Results
 
 ### Annual Fiscal Impact by Scenario ($M, vs. Act 46 baseline)
+
+*Superseded: the current Act 24 (CD2) results are in the dated sections at
+the top, most recently "Behavioral accounting and migration elasticity —
+September 27, 2026". The August 3 CD1 run below predates the scoring-path
+fixes and both behavioral corrections.*
 
 **Updated August 3, 2026** — full re-run of `forecast_sb3125_enhanced.py --cd 1` (static credit overlay) on the corrected Hawaii CPI basis (see "Hawaii CPI series correction," July 30, 2026, above) and the wired-through v3 κ calibration. Every number below supersedes the May 7, 2026 run, which was computed on the mislabelled Los Angeles CPI series. PTE shift is still $0 in this run (unresolved — see the Section 5c note; not re-investigated as part of this rerun). Results are post-behavioral (ETI/migration only).
 
