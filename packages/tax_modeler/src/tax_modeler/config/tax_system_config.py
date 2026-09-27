@@ -43,6 +43,31 @@ class TaxSystemConfig:
     surcharges: Optional[Dict[str, Dict[str, float]]] = None
     # Format: {'filing_status': {'threshold': 1000000, 'rate': 0.01}}
 
+    # Optional: inline schedules, for systems that are not rows in the bracket
+    # and deduction CSVs (the tax simulator's user-defined systems; see
+    # tax_modeler.reform.income_tax_spec). Keys are the CSV's filing-status
+    # names (Single_Married_Separate, Head_of_Household, Joint_Surviving_Spouse).
+    # brackets: status -> ((floor, rate in percent), ...), floors rising from 0.
+    # When set they replace bracket_year / bracket_scenario / standard_deduction_year.
+    brackets: Optional[Dict[str, Tuple[Tuple[float, float], ...]]] = None
+    standard_deductions: Optional[Dict[str, float]] = None
+
+
+# Every filing-status spelling the model uses -> the CSV's column/row names.
+CANONICAL_STATUS: Dict[str, str] = {
+    'single': 'Single_Married_Separate',
+    'married_filing_jointly': 'Joint_Surviving_Spouse',
+    'married_filing_separately': 'Single_Married_Separate',
+    'head_of_household': 'Head_of_Household',
+    'qualifying_widow': 'Joint_Surviving_Spouse',
+}
+CSV_STATUSES = ('Single_Married_Separate', 'Head_of_Household', 'Joint_Surviving_Spouse')
+
+
+def canonical_status(filing_status: str) -> str:
+    """The bracket/deduction CSV's name for ``filing_status``."""
+    return CANONICAL_STATUS.get(filing_status, filing_status)
+
 
 class TaxSystemRegistry:
     """Registry of pre-configured tax systems for common scenarios."""
@@ -447,7 +472,41 @@ class TaxCalculator:
             raise ValueError(f"No standard deduction found for year {year}")
         
         return float(deduction_row[mapped_status].iloc[0])
-    
+
+    def brackets_for(self, config: TaxSystemConfig, filing_status: str) -> pd.DataFrame:
+        """The bracket schedule ``config`` applies to ``filing_status``.
+
+        Inline ``config.brackets`` when set, else the CSV rows for
+        ``bracket_year`` / ``bracket_scenario`` (with ``bracket_adjustments``).
+        Columns ``income_min``, ``income_max`` (NaN for the top bracket),
+        ``rate`` (percent, as in the CSV) and ``rate_decimal``. Every scorer
+        reads ``rate_decimal``: the old "rate > 1 means percent" guess would
+        read a user's 0.5% bracket as 50%.
+        """
+        if config.brackets is not None:
+            sched = config.brackets[canonical_status(filing_status)]
+            floors = [float(f) for f, _ in sched]
+            brackets = pd.DataFrame({
+                'income_min': floors,
+                'income_max': floors[1:] + [np.nan],
+                'rate': [float(r) for _, r in sched],
+            })
+        else:
+            brackets = self.get_brackets(
+                config.bracket_year, filing_status, scenario=config.bracket_scenario)
+            if config.bracket_adjustments:
+                brackets = self.apply_bracket_adjustments(brackets, config.bracket_adjustments)
+        brackets['rate_decimal'] = brackets['rate'].astype(float) / 100.0
+        return brackets
+
+    def standard_deduction_for(self, config: TaxSystemConfig, filing_status: str) -> float:
+        """The standard deduction ``config`` gives ``filing_status``: inline
+        ``config.standard_deductions`` when set, else the CSV row for
+        ``standard_deduction_year``."""
+        if config.standard_deductions is not None:
+            return float(config.standard_deductions[canonical_status(filing_status)])
+        return self.get_standard_deduction(config.standard_deduction_year, filing_status)
+
     def apply_bracket_adjustments(
         self, 
         brackets: pd.DataFrame, 
@@ -480,12 +539,13 @@ class TaxCalculator:
         """Apply bracket schedule to taxable income; return (tax, marginal_rate)."""
         tax = 0.0
         marginal_rate = 0.0
+        explicit = 'rate_decimal' in brackets.columns   # from brackets_for
         for _, bracket in brackets.iterrows():
             bracket_min = bracket['income_min']
             bracket_max = (bracket['income_max']
                            if pd.notna(bracket['income_max']) else float('inf'))
-            rate = bracket['rate']
-            if rate > 1:
+            rate = bracket['rate_decimal'] if explicit else bracket['rate']
+            if not explicit and rate > 1:
                 rate = rate / 100
             if taxable_income > bracket_min:
                 tax += (min(taxable_income, bracket_max) - bracket_min) * rate
@@ -522,7 +582,7 @@ class TaxCalculator:
             Dict with tax calculation details, including ``cg_cap_savings``.
         """
         # Get standard deduction (or use override if provided)
-        std_deduction = self.get_standard_deduction(config.standard_deduction_year, filing_status)
+        std_deduction = self.standard_deduction_for(config, filing_status)
         if deduction_override is not None:
             std_deduction = deduction_override
 
@@ -532,13 +592,8 @@ class TaxCalculator:
         # Calculate taxable income (on full AGI including CG)
         taxable_income = max(0, income - std_deduction - personal_exemptions)
 
-        # Get brackets (with optional scenario tag)
-        brackets = self.get_brackets(config.bracket_year, filing_status,
-                                     scenario=config.bracket_scenario)
-
-        # Apply adjustments if specified
-        if config.bracket_adjustments:
-            brackets = self.apply_bracket_adjustments(brackets, config.bracket_adjustments)
+        # Brackets: inline, or the CSV rows (scenario tag, adjustments)
+        brackets = self.brackets_for(config, filing_status)
 
         # Calculate bracket tax on full income
         tax, marginal_rate = self._bracket_tax(taxable_income, brackets)
@@ -606,15 +661,9 @@ class TaxCalculator:
         Brackets are assumed contiguous (each ``income_min`` equals the prior
         bracket's ``income_max``), which is true for the Hawaii master schedule.
         """
-        brackets = self.get_brackets(
-            config.bracket_year, filing_status, scenario=config.bracket_scenario
-        )
-        if config.bracket_adjustments:
-            brackets = self.apply_bracket_adjustments(brackets, config.bracket_adjustments)
-
+        brackets = self.brackets_for(config, filing_status)
         floors = brackets['income_min'].to_numpy(dtype=float)
-        rates_raw = brackets['rate'].to_numpy(dtype=float)
-        rates = rates_raw / 100.0 if rates_raw.max() > 1.0 else rates_raw
+        rates = brackets['rate_decimal'].to_numpy(dtype=float)
 
         # cum_tax_at_floor[0] = 0; cum_tax_at_floor[i+1] = cum_tax_at_floor[i]
         # + (floors[i+1] - floors[i]) * rates[i]
@@ -708,9 +757,7 @@ class TaxCalculator:
         # cannot silently pass a wrong column.
         sd_per_filer = np.empty(n, dtype=float)
         for fs in np.unique(statuses):
-            sd_per_filer[statuses == fs] = self.get_standard_deduction(
-                config.standard_deduction_year, fs
-            )
+            sd_per_filer[statuses == fs] = self.standard_deduction_for(config, fs)
         itemized = itemized_deductions(tax_units)
         deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
@@ -882,9 +929,7 @@ class TaxCalculator:
         _statuses = tax_units[filing_status_col].to_numpy()
         _sd = np.empty(_n, dtype=float)
         for _fs in np.unique(_statuses):
-            _sd[_statuses == _fs] = self.get_standard_deduction(
-                config.standard_deduction_year, _fs
-            )
+            _sd[_statuses == _fs] = self.standard_deduction_for(config, _fs)
         _itemized = itemized_deductions(tax_units)
         deductions = _sd if _itemized is None else np.maximum(_sd, _itemized)
 

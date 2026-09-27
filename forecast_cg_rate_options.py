@@ -297,7 +297,7 @@ class Scorer:
         ex = np.nan_to_num(exemption_counts(df), nan=1.0)
         sd = np.empty(n)
         for fs in np.unique(self.status):
-            sd[self.status == fs] = calc.get_standard_deduction(cfg.standard_deduction_year, fs)
+            sd[self.status == fs] = calc.standard_deduction_for(cfg, fs)
         itemized = itemized_deductions(df)
         if itemized is None:
             itemized = np.zeros(n)

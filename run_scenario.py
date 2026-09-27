@@ -7,6 +7,10 @@ docstring and knowing each one's private ``--cd``/``--bill`` convention.
     python run_scenario.py --list
     python run_scenario.py --slug sb3125_cd1 --runner quintile
     python run_scenario.py --slug sb3125_cd2 --runner enhanced
+    python run_scenario.py --spec reforms/examples/top_rate_14.yaml
+
+``--spec`` scores a user-defined income tax change (the tax simulator's spec
+format) against current law, Act 24, via forecast_custom.py.
 
 This module DISPATCHES to the existing scripts — it does not reimplement
 any model math, so routing work through it cannot change results. Domain
@@ -186,11 +190,25 @@ def _parse_args():
     p.add_argument("--runner", help="Analysis to run (see --list).")
     p.add_argument("--dry-run", action="store_true",
                    help="Print the command without executing it.")
+    p.add_argument("--spec", help="Score an income tax spec file against Act 24 "
+                                  "(forecast_custom.py).")
     return p.parse_args()
+
+
+def run_spec(spec_path: str, *, dry_run: bool = False) -> int:
+    python = str(REPO / ".venv" / "bin" / "python")
+    # forecast_custom runs from the repo root; resolve the path against the caller's directory
+    cmd = [python, str(REPO / "forecast_custom.py"), "--spec", str(Path(spec_path).resolve())]
+    print(f"→ spec {spec_path} vs current law (Act 24): {' '.join(cmd)}", flush=True)
+    if dry_run:
+        return 0
+    return subprocess.run(cmd, cwd=REPO).returncode
 
 
 if __name__ == "__main__":
     args = _parse_args()
+    if args.spec:
+        sys.exit(run_spec(args.spec, dry_run=args.dry_run))
     if args.list or not args.slug:
         print_listing()
         sys.exit(0 if args.list else 1)
