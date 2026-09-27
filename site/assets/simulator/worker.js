@@ -1,6 +1,7 @@
 // Tax simulator worker: holds the population and scores specs off the main
 // thread, so the page stays responsive while the kernel runs.
 import { decodePopulation, parseSpec, resolveSpec, score } from "./kernel.js";
+import { systemsWithoutGainsRate } from "./plan.js";
 
 let pop = null;
 
@@ -38,9 +39,14 @@ self.onmessage = async (event) => {
       const systems = resolveSpec(parsed, pop.meta);
       const t0 = performance.now();
       const result = score(pop, systems, { distributionYears: [m.distYear] });
+      // A plan that changes both the capital gains rate and the rest of the
+      // income tax: the same plan at current law's gains rate, middle
+      // scenario, for the "of which, capital gains rate" row.
+      const rest = systemsWithoutGainsRate(parsed, pop.meta);
+      const withoutGains = rest ? score(pop, rest, { scenarios: ["mid"] }).revenue : null;
       // the spec and year go back with the result, so the page's downloads
       // pair these numbers with the plan that produced them
-      self.postMessage({ type: "result", id: m.id, result, systems, spec: m.spec, distYear: m.distYear,
+      self.postMessage({ type: "result", id: m.id, result, systems, withoutGains, spec: m.spec, distYear: m.distYear,
         ms: performance.now() - t0 });
     } catch (err) {
       self.postMessage({ type: "invalid", id: m.id, message: String(err.message || err) });

@@ -23,6 +23,7 @@ import hashlib
 import json
 import logging
 import subprocess
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -59,15 +60,45 @@ def params_fingerprint(params: Any) -> str:
     return hashlib.sha256(blob).hexdigest()[:16]
 
 
-def _git_sha() -> str:
+def _git_sha(cwd: Path | str = _PKG_ROOT) -> str:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=_PKG_ROOT, capture_output=True, text=True, timeout=5,
+            cwd=cwd, capture_output=True, text=True, timeout=5,
         )
         return out.stdout.strip() or "unknown"
     except Exception:  # noqa: BLE001 — provenance is best-effort
         return "unknown"
+
+
+DIRTY_SUFFIX = "-dirty"
+
+
+def git_sha_for_code(paths: Sequence[str], cwd: Path | str = _PKG_ROOT) -> str:
+    """The commit that holds the code at ``paths`` (relative to the
+    repository root): the short HEAD SHA, as :func:`_git_sha`, with
+    ``-dirty`` appended when any of them has uncommitted changes, untracked
+    files included.
+
+    For an output that cites the commit of the code that made it (the tax
+    simulator's manifest and page endnote): built from uncommitted code, no
+    commit holds that code, so the bare HEAD SHA would cite one without it.
+    Rebuild after committing the code. :func:`_git_sha` itself stays bare,
+    because cache staleness checks compare it with HEAD.
+    """
+    sha = _git_sha(cwd)
+    if sha == "unknown":
+        return sha
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain", "--", *(f":(top){p}" for p in paths)],
+            cwd=cwd, capture_output=True, text=True, timeout=10,
+        )
+    except Exception:  # noqa: BLE001 — provenance is best-effort
+        return sha
+    if out.returncode != 0:
+        return sha
+    return sha + DIRTY_SUFFIX if out.stdout.strip() else sha
 
 
 # ---------------------------------------------------------------------------

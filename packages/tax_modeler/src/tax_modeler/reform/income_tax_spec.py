@@ -14,6 +14,7 @@ TAX_SIMULATOR_SCOPE.md, "The policy spec". Example::
         married_filing_jointly: {scale: single, factor: 2.0}
       standard_deduction: current_law   # or {single: .., head_of_household: .., married_filing_jointly: ..}
       personal_exemption: current_law   # or dollars per exemption
+      capital_gains_rate: current_law   # or a percent (9), or ordinary
 
 Current law is Act 24 (SB 3125 CD2), which already schedules a different
 bracket vintage from TY2029 and a rising standard deduction; a spec's brackets
@@ -31,6 +32,12 @@ Each vintage applies from its year until the next; the first must start at
 changing only the top rate changes only the top rate in every year.) A spec
 that changes nothing scores exactly zero. Married filing separately uses the
 single schedule and deduction, as Hawaiʻi law and the bracket CSV do.
+
+``capital_gains_rate`` is the HRS §235-51(f) alternative tax rate on net
+long-term capital gains, in percent (current law: 7.25), from ``first_year``
+on; ``ordinary`` taxes gains at the bracket rates (no alternative tax). Every
+spec is scored with the statutory alternative tax, on both sides
+(:func:`current_law_system`).
 """
 from __future__ import annotations
 
@@ -57,12 +64,17 @@ MAX_FLOOR = 1e10     # $10 billion: no bracket floor is meaningful above it
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TOP_KEYS = {"name", "label", "first_year", "income_tax", "behavior", "baseline",
              "model_version", "metadata"}
-_INCOME_TAX_KEYS = {"brackets", "bracket_vintages", "standard_deduction", "personal_exemption"}
+_INCOME_TAX_KEYS = {"brackets", "bracket_vintages", "standard_deduction", "personal_exemption",
+                    "capital_gains_rate"}
+#: ``income_tax.capital_gains_rate`` value that repeals the alternative tax.
+CG_ORDINARY = "ordinary"
 
 
 def current_law_system(year: int) -> TaxSystemConfig:
-    """Current law (Act 24, the enacted SB 3125 CD2) for ``year`` (TY2027+)."""
-    return TaxSystemRegistry.get_sb3125_cd2_system(year)
+    """Current law (Act 24, the enacted SB 3125 CD2) for ``year`` (TY2027+),
+    with the statutory §235-51(f) alternative tax at 7.25% rather than the
+    registry system's stacked shortcut (``TaxSystemConfig.cg_alt_tax``)."""
+    return dataclasses.replace(TaxSystemRegistry.get_sb3125_cd2_system(year), cg_alt_tax="statute")
 
 
 Schedule = tuple[tuple[float, float], ...]
@@ -176,14 +188,28 @@ def _resolve_deductions(raw: Any) -> dict[str, float] | None:
             for fs, v in raw.items()}
 
 
+def _resolve_cg_rate(raw: Any) -> float | str | None:
+    """``income_tax.capital_gains_rate``: None for current law, a percent in
+    [0, 100), or ``CG_ORDINARY``. A present null is rejected."""
+    if isinstance(raw, str):
+        if raw == "current_law":
+            return None
+        if raw == CG_ORDINARY:
+            return CG_ORDINARY
+        raise ConfigError("income_tax.capital_gains_rate: 'current_law', 'ordinary' or a rate "
+                          f"in percent, got {raw!r}")
+    return _number(raw, "income_tax.capital_gains_rate", hi=100.0, hi_open=True)
+
+
 @dataclass(frozen=True)
 class IncomeTaxSpec:
     """A validated user-defined change to Hawaiʻi's income tax.
 
-    ``brackets`` / ``standard_deduction`` / ``personal_exemption`` are ``None``
-    where the spec keeps current law. ``brackets`` is a tuple of vintages
-    ``(from_year, {status: schedule})``, the first from ``first_year``. Build
-    with :meth:`from_dict`.
+    ``brackets`` / ``standard_deduction`` / ``personal_exemption`` /
+    ``capital_gains_rate`` are ``None`` where the spec keeps current law.
+    ``brackets`` is a tuple of vintages ``(from_year, {status: schedule})``,
+    the first from ``first_year``. ``capital_gains_rate`` is a percent or
+    ``CG_ORDINARY``. Build with :meth:`from_dict`.
     """
 
     name: str
@@ -192,6 +218,7 @@ class IncomeTaxSpec:
     brackets: tuple[tuple[int, dict[str, Schedule]], ...] | None = None
     standard_deduction: dict[str, float] | None = None
     personal_exemption: float | None = None
+    capital_gains_rate: float | str | None = None
     behavior: tuple[str, ...] = BEHAVIORS
     model_version: str | None = None
     metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
@@ -236,6 +263,7 @@ class IncomeTaxSpec:
         raw_pe = it.get("personal_exemption", "current_law")
         pe = None if raw_pe == "current_law" else _number(
             raw_pe, "income_tax.personal_exemption", hi=1e6)
+        cg = _resolve_cg_rate(it.get("capital_gains_rate", "current_law"))
         behavior = data.get("behavior", list(BEHAVIORS))
         if (not isinstance(behavior, (list, tuple)) or not behavior
                 or not all(isinstance(b, str) for b in behavior)
@@ -250,7 +278,7 @@ class IncomeTaxSpec:
         if not isinstance(meta, Mapping):
             raise ConfigError("spec.metadata: a mapping")
         return cls(name=name, first_year=fy, label=label, brackets=brackets,
-                   standard_deduction=sd, personal_exemption=pe,
+                   standard_deduction=sd, personal_exemption=pe, capital_gains_rate=cg,
                    behavior=tuple(b for b in BEHAVIORS if b in behavior),
                    model_version=mv, metadata=dict(meta))
 
@@ -272,6 +300,8 @@ class IncomeTaxSpec:
                                    else {fs: self.standard_deduction[fs] for fs in SPEC_STATUSES}),
             "personal_exemption": ("current_law" if self.personal_exemption is None
                                    else self.personal_exemption),
+            "capital_gains_rate": ("current_law" if self.capital_gains_rate is None
+                                   else self.capital_gains_rate),
         })
         out: dict[str, Any] = {"name": self.name, "label": self.label,
                                "first_year": self.first_year, "baseline": "act24",
@@ -285,7 +315,7 @@ class IncomeTaxSpec:
     @property
     def changes_anything(self) -> bool:
         return not (self.brackets is None and self.standard_deduction is None
-                    and self.personal_exemption is None)
+                    and self.personal_exemption is None and self.capital_gains_rate is None)
 
     def brackets_for_year(self, year: int) -> dict[str, Schedule] | None:
         """The spec's schedules in force in ``year`` (None: current law's)."""
@@ -321,6 +351,9 @@ class IncomeTaxSpec:
                 SPEC_STATUSES[fs]: v for fs, v in self.standard_deduction.items()}
         if self.personal_exemption is not None:
             changes["personal_exemption"] = self.personal_exemption
+        if self.capital_gains_rate is not None:
+            changes["capital_gains_rate_pct"] = (None if self.capital_gains_rate == CG_ORDINARY
+                                                 else self.capital_gains_rate)
         return dataclasses.replace(base, **changes)
 
 

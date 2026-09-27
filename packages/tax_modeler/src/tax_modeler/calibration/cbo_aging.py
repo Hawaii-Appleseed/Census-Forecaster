@@ -373,7 +373,7 @@ def age_filers_with_components(
 
     # Refresh synthetic_cg_share to reflect post-aging composition.
     # Component-aware aging grows CG and wages at different rates, so
-    # the pre-aging share is now stale. The §235-16 7.25% cap depends
+    # the pre-aging share is now stale. The §235-51(f) 7.25% cap depends
     # on this share — calculate_hawaii_tax reads it directly.
     if "cbo_aged_capital_gains" in out.columns:
         cg_aged = out["cbo_aged_capital_gains"].to_numpy(dtype=float)

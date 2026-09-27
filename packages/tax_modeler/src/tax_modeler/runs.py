@@ -32,6 +32,7 @@ def write_run_manifest(
     params: Optional[Dict[str, Any]] = None,
     inputs: Optional[Dict[str, Any]] = None,
     outputs: Optional[Sequence[str]] = None,
+    git_sha: Optional[str] = None,
 ) -> Path:
     """Write ``manifest.json`` into ``run_dir`` (created if needed).
 
@@ -44,6 +45,9 @@ def write_run_manifest(
             cache sidecar contents).
         outputs: filenames inside ``run_dir``. Defaults to every file
             present except the manifest itself.
+        git_sha: the commit to record; defaults to HEAD's. A run whose
+            outputs cite their code's commit passes
+            ``artifacts.git_sha_for_code``, which marks uncommitted code.
     """
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -54,7 +58,7 @@ def write_run_manifest(
         )
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "git_sha": _git_sha(),
+        "git_sha": git_sha if git_sha is not None else _git_sha(),
         "script": script,
         "params": params,
         "params_fingerprint": params_fingerprint(params) if params else None,

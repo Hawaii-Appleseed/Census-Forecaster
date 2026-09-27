@@ -1,0 +1,8 @@
+# Tax simulator preset (Capital gains rate 9% (was 7.25%)), scored against current law (Act 24).
+# Generated from tax_modeler.simulator.presets; run with
+#   python forecast_custom.py --spec reforms/examples/cg_9.yaml
+name: cg_9
+label: Capital gains rate 9% (was 7.25%)
+first_year: 2027
+income_tax:
+  capital_gains_rate: 9.0

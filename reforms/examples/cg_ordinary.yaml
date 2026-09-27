@@ -1,0 +1,8 @@
+# Tax simulator preset (Capital gains taxed as ordinary income), scored against current law (Act 24).
+# Generated from tax_modeler.simulator.presets; run with
+#   python forecast_custom.py --spec reforms/examples/cg_ordinary.yaml
+name: cg_ordinary
+label: Capital gains taxed as ordinary income
+first_year: 2027
+income_tax:
+  capital_gains_rate: ordinary

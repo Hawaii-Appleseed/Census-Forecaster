@@ -3,7 +3,7 @@
 // The model runs in worker.js (kernel.js on the Act 24 population); this file
 // owns the page state, turns it into a spec (tax_modeler.reform.
 // income_tax_spec's format), and renders what the worker sends back.
-import { parseSpec, householdTax } from "./kernel.js";
+import { CG_ORDINARY, parseSpec, householdTax } from "./kernel.js";
 import {
   STATUS_KEYS, LINK, clone, stateFromSpec, activeVintages, specFromState, syncLinked, setTopRate,
   setTopFloor, editorRows, editableRows, addBracket, removeBracket, warnings, encodeSpec, decodeSpec,
@@ -38,6 +38,8 @@ const m1 = (v) => `${v < 0 ? MINUS : ""}${nf1.format(Math.abs(v))}`;
 const dollars = (v) => `${v < 0 ? MINUS : ""}$${nf0.format(Math.abs(v))}`;
 const signedDollars = (v) => `${sign(Math.round(v))}$${nf0.format(Math.abs(Math.round(v)))}`;
 const pct = (v) => `${nf0.format(v)}`;
+const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const pctText = (v) => nf2.format(v);     // a rate as written: 7.25, 9
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
@@ -91,6 +93,8 @@ function drawControls() {
   const topFloor = av.brackets.single[av.brackets.single.length - 1][0];
   const clSd = meta.current_law[String(s.firstYear)].standard_deduction;
   const pePlaceholder = meta.current_law[String(s.firstYear)].personal_exemption;
+  const clCg = meta.current_law[String(s.firstYear)].capital_gains_rate;
+  const cgOwn = typeof s.cg === "number";
 
   $("#sim-controls").innerHTML = `
 <div class="ha-sim__field">
@@ -113,6 +117,16 @@ function drawControls() {
       <input id="sim-top-floor" type="number" inputmode="numeric" min="1" step="1000" value="${topFloor}"${av.brackets.single.length > 1 ? "" : " disabled"}></div>
   </div>
   <p class="ha-sim__hint">Applies to every schedule below. Head of household's top rate starts at 1.5 times the single amount and joint filers' at 2 times.</p>
+</fieldset>
+
+<fieldset class="ha-sim__group">
+  <legend>Capital gains</legend>
+  <label class="ha-sim__check"><input type="radio" name="sim-cg" value="law"${s.cg === null ? " checked" : ""}> Current law: no more than ${pctText(clCg)} percent</label>
+  <label class="ha-sim__check"><input type="radio" name="sim-cg" value="own"${cgOwn ? " checked" : ""}> A different rate</label>
+  ${cgOwn ? `<div class="ha-sim__row2"><div class="ha-sim__field"><label for="sim-cg-rate">Rate on capital gains (%)</label>
+    <input id="sim-cg-rate" type="number" inputmode="decimal" min="0" max="99.99" step="0.25" value="${s.cg}"></div></div>` : ""}
+  <label class="ha-sim__check"><input type="radio" name="sim-cg" value="ordinary"${s.cg === CG_ORDINARY ? " checked" : ""}> Tax as ordinary income, at the bracket rates</label>
+  <p class="ha-sim__hint">Net long-term capital gains are taxed at the bracket rates, but no higher than this rate. Your choice applies from ${s.firstYear}.</p>
 </fieldset>
 
 <fieldset class="ha-sim__group">
@@ -191,18 +205,26 @@ function divergingBars(cats, values, label) {
   return `<div class="ha-est__chart" role="img" aria-label="${esc(label)}"><div aria-hidden="true">${rows.join("")}</div></div>`;
 }
 
-function table(headers, rows, caption, emLast = false) {
+function table(headers, rows, caption, emRow = -1) {
   return `<p class="ha-est__figcap">${caption}</p><div class="ha-est__table-wrap"><table><thead><tr>${headers.map((h) => `<th scope="col">${h}</th>`).join("")}</tr></thead><tbody>${
-    rows.map((r, i) => `<tr${emLast && i === rows.length - 1 ? ' class="ha-est__row-em"' : ""}>${r.map((c, k) => (k ? `<td>${c}</td>` : `<th scope="row">${c}</th>`)).join("")}</tr>`).join("")}</tbody></table></div>`;
+    rows.map((r, i) => `<tr${i === emRow ? ' class="ha-est__row-em"' : ""}>${r.map((c, k) => (k ? `<td>${c}</td>` : `<th scope="row">${c}</th>`)).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
 const FIFTH = { "Q1 (bottom 20%)": "Lowest 20 percent", Q2: "Second 20 percent", Q3: "Middle 20 percent",
   Q4: "Fourth 20 percent", "Q5 (top 20%)": "Top 20 percent" };
 
+const CG_LINE = "#B08D57";
+
 function rateChart(systems, year) {
   // marginal rate by taxable income, joint filers: current law vs the plan
   const sys = systems[year], key = "Joint_Surviving_Spouse";
   const cl = sys.baseline.brackets[key], plan = sys.reform.brackets[key];
+  // The plan's capital gains rate, from the first bracket whose rate reaches
+  // it (the alternative tax's floor); none when gains are taxed as ordinary
+  // income or the rate is at or above every bracket rate.
+  const cgr = sys.reform.capital_gains_rate;
+  const reach = typeof cgr === "number" && cgr < Math.max(...plan.map((r) => r[1])) ? plan.findIndex((r) => r[1] >= cgr) : -1;
+  const cgFrom = reach >= 0 ? plan[reach][0] : null;
   const xMax = Math.max(1.3 * Math.max(cl[cl.length - 1][0], plan[plan.length - 1][0]), 100000);
   const yMax = Math.max(...cl.map((r) => r[1]), ...plan.map((r) => r[1]), 1) * 1.1;
   const W = 600, H = 220;
@@ -215,12 +237,19 @@ function rateChart(systems, year) {
     return pts.join(" ");
   };
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => `<span style="left:${f * 100}%">$${nf0.format(Math.round(f * xMax / 1000))}K</span>`).join("");
-  return `<div class="ha-est__chart"><div class="ha-est__legend" aria-hidden="true"><span><span class="ha-est__swatch" style="background:#84A98C"></span>Current law</span><span><span class="ha-est__swatch" style="background:#2F3E46"></span>Your plan</span></div>
-<div class="ha-sim__ratechart" role="img" aria-label="Marginal tax rate by taxable income for joint filers in ${year}: current law's top rate ${cl[cl.length - 1][1]} percent from $${nf0.format(cl[cl.length - 1][0])}; your plan's top rate ${plan[plan.length - 1][1]} percent from $${nf0.format(plan[plan.length - 1][0])}.">
+  const cgY = cgFrom === null ? 0 : H - cgr / yMax * H;
+  const cgLine = cgFrom === null ? "" : `<polyline points="${(cgFrom / xMax * W).toFixed(1)},${cgY.toFixed(1)} ${W},${cgY.toFixed(1)}" fill="none" stroke="${CG_LINE}" stroke-width="2" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>`;
+  const cgText = cgFrom === null
+    ? "your plan taxes capital gains at the bracket rates"
+    : `your plan taxes capital gains at no more than ${pctText(cgr)} percent, from $${nf0.format(cgFrom)}`;
+  return `<div class="ha-est__chart"><div class="ha-est__legend" aria-hidden="true"><span><span class="ha-est__swatch" style="background:#84A98C"></span>Current law</span><span><span class="ha-est__swatch" style="background:#2F3E46"></span>Your plan</span>${cgFrom === null ? "" : `<span><span class="ha-est__swatch" style="background:${CG_LINE}"></span>Your plan’s rate on capital gains</span>`}</div>
+<div class="ha-sim__ratechart" role="img" aria-label="Marginal tax rate by taxable income for joint filers in ${year}: current law's top rate ${cl[cl.length - 1][1]} percent from $${nf0.format(cl[cl.length - 1][0])}; your plan's top rate ${plan[plan.length - 1][1]} percent from $${nf0.format(plan[plan.length - 1][0])}; ${cgText}.">
 <span class="ha-sim__ymax" aria-hidden="true">${nf1.format(yMax)}%</span>
-<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${path(cl)}" fill="none" stroke="#84A98C" stroke-width="4" vector-effect="non-scaling-stroke"/><polyline points="${path(plan)}" fill="none" stroke="#2F3E46" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/></svg>
+<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${path(cl)}" fill="none" stroke="#84A98C" stroke-width="4" vector-effect="non-scaling-stroke"/><polyline points="${path(plan)}" fill="none" stroke="#2F3E46" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>${cgLine}</svg>
 <div class="ha-sim__xticks" aria-hidden="true">${ticks}</div></div>
-<p class="ha-est__source">Marginal rate on taxable income (after deductions and exemptions), joint filers, ${year}.</p></div>`;
+<p class="ha-est__source">Marginal rate on taxable income (after deductions and exemptions), joint filers, ${year}. ${cgFrom === null
+    ? "Your plan taxes long-term capital gains at the bracket rates."
+    : `The dotted line is your plan’s rate on long-term capital gains: gains are taxed at the bracket rates up to the income where those reach ${pctText(cgr)} percent, and at no more than that above it.`}</p></div>`;
 }
 
 function renderResults() {
@@ -258,12 +287,20 @@ function renderResults() {
 
   const revRows = years.map((y, i) => [String(y), m1(midStatic[i]), m1(mid[i]), m1(rev("low", y)["behavioral_$M"]), m1(rev("high", y)["behavioral_$M"])]);
   revRows.push(["Total", m1(midStatic.reduce((a, b) => a + b, 0)), m1(t5), m1(total("low")), m1(total("high"))]);
+  const totalRow = revRows.length - 1;
+  const cgPart = gainsPart(latest);
+  if (cgPart) {
+    revRows.push(["Of which, capital gains rate", m1(cgPart.reduce((a, r) => a + r["static_$M"], 0)),
+      m1(cgPart.reduce((a, r) => a + r["behavioral_$M"], 0)), "—", "—"]);
+  }
   $("#sim-revenue").innerHTML = `
 <figure class="ha-est__figure"><p class="ha-est__figcap">Figure 1. Change in Income Tax Revenue Under Your Plan, Compared With Current Law (Tax Years ${years[0]} to ${years[years.length - 1]})</p>
 ${columnChart(years.map(String), mid, "Change in revenue by tax year, middle scenario: " + years.map((y, i) => `${y} ${m1(mid[i])} million`).join(", ") + ".")}
 <p class="ha-est__source">Millions of dollars, middle scenario, after the behavioral response. Positive numbers are more revenue for the state.</p></figure>
-${table(["Tax year", "Static", "With response", "Low scenario", "High scenario"], revRows, "Table 1. Change in Revenue Compared With Current Law ($ Millions)", true)}
-<p class="ha-est__source">Static: before any change in behavior. With response: after filers whose rates rise report less income and, when the top rate rises, a few of the highest earners move away, each taking all of their income tax with them. Rate cuts get no response. The low and high scenarios vary that response, how fast top incomes grow, and the number of filers above $1 million.</p>`;
+${table(["Tax year", "Static", "With response", "Low scenario", "High scenario"], revRows, "Table 1. Change in Revenue Compared With Current Law ($ Millions)", totalRow)}
+<p class="ha-est__source">Static: before any change in behavior. With response: after filers whose rates rise report less income, filers whose rate on capital gains rises sell fewer investments and, when the top rate rises, a few of the highest earners move away, each taking all of their income tax with them. Rate cuts get no response. The low and high scenarios vary that response, how fast top incomes grow, and the number of filers above $1 million.${cgPart
+    ? " Of which, capital gains rate: your plan compared with the same plan at current law’s rate on capital gains, middle scenario only."
+    : ""}</p>`;
 
   const cats = q.map((g) => FIFTH[g.group] || g.group);
   const distFocused = document.activeElement?.id === "sim-dist-year";
@@ -284,6 +321,18 @@ ${table(["Income (AGI)", "Tax returns", "Average change", "Total ($M)", "Percent
   renderHousehold();
 }
 
+/** "Of which, capital gains rate", per year (middle scenario): the plan less
+ * the same plan at current law's capital gains rate, which the worker scores
+ * when a plan changes both. null otherwise. */
+function gainsPart(res) {
+  if (!res?.withoutGains) return null;
+  return res.withoutGains.map((r) => {
+    const p = res.result.revenue.find((x) => x.scenario === r.scenario && x.tax_year === r.tax_year);
+    return { scenario: r.scenario, tax_year: r.tax_year, "static_$M": p["static_$M"] - r["static_$M"],
+      "behavioral_$M": p["behavioral_$M"] - r["behavioral_$M"] };
+  });
+}
+
 function showMini() {
   const mini = $("#sim-mini");
   if (!mini) return;
@@ -295,14 +344,16 @@ function showMini() {
 function renderHousehold() {
   if (!latest) return;
   const h = state.household, y = state.distYear, sys = latest.systems[y];
-  const args = { fs: h.fs, agi: h.agi, dependents: h.dependents, itemized: h.itemized };
+  // gains are part of income, stored as a share of it (as the population stores them)
+  const cgShare = h.agi > 0 ? Math.min(1, h.gains / h.agi) : 0;
+  const args = { fs: h.fs, agi: h.agi, dependents: h.dependents, itemized: h.itemized, cgShare };
   const a = householdTax(sys.baseline, meta.food_excise, args);
   const b = householdTax(sys.reform, meta.food_excise, args);
   $("#sim-household-out").innerHTML = `<table><tbody>
 <tr><th scope="row">Current law, ${y}</th><td>${dollars(a.net)}</td></tr>
 <tr><th scope="row">Your plan, ${y}</th><td>${dollars(b.net)}</td></tr>
 <tr class="ha-est__row-em"><th scope="row">Change</th><td>${signedDollars(b.net - a.net)}</td></tr></tbody></table>
-<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund. It assumes no capital gains.</p>`;
+<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund. Capital gains are net long-term gains and are part of the income above${h.gains > h.agi ? "; gains above the income are counted as all of it" : ""}.</p>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +400,8 @@ function humanize(msg) {
     .replace(/income_tax\.brackets\.(\w+)/g, (_, k) => `${STATUS_LABEL[k] || k} brackets`)
     .replace(/income_tax\.standard_deduction\.(\w+)/g, (_, k) => `Standard deduction (${(STATUS_LABEL[k] || k).toLowerCase()})`)
     .replace(/income_tax\.personal_exemption/g, "Personal exemption")
+    .replace(/income_tax\.capital_gains_rate: \S+ is outside \[0, 100\)/g, "Capital gains rate: must be at least 0 and below 100")
+    .replace(/income_tax\.capital_gains_rate/g, "Capital gains rate")
     .replace(/\[(\d+)\]/g, (_, i) => ` (row ${Number(i) + 1})`);
 }
 
@@ -400,7 +453,12 @@ function onInput(e) {
     case "sim-pe":
       state.pe = t.value === "" ? null : (Number.isFinite(num) ? num : state.pe);
       markCustom(); request(); return;
+    case "sim-cg-rate":
+      if (!Number.isFinite(num)) return;
+      state.cg = num;
+      markCustom(); request(); return;
     case "sim-hh-agi": state.household.agi = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
+    case "sim-hh-cg": state.household.gains = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
     case "sim-hh-deps": state.household.dependents = Number.isFinite(num) ? Math.max(0, Math.min(20, Math.round(num))) : 0; renderHousehold(); return;
     case "sim-hh-item": state.household.itemized = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
     default:
@@ -448,6 +506,12 @@ function onChange(e) {
         married_filing_jointly: cl.Joint_Surviving_Spouse };
       state.sdLinked = true;
     } else state.sd = null;
+    markCustom(); renderControls(); request();
+  }
+  if (t.name === "sim-cg") {
+    // "A different rate" starts from current law's, as the deduction does
+    state.cg = t.value === "own" ? meta.current_law[String(state.firstYear)].capital_gains_rate
+      : t.value === "ordinary" ? CG_ORDINARY : null;
     markCustom(); renderControls(); request();
   }
 }
@@ -509,6 +573,12 @@ function resultsCsv() {
   const lines = [`# Hawaiʻi Appleseed tax simulator, model ${meta.model_version}; change vs current law (Act 24), $M`,
     "scenario,tax_year,static_M,with_response_M"];
   for (const r of latest.result.revenue) lines.push([r.scenario, r.tax_year, r["static_$M"].toFixed(3), r["behavioral_$M"].toFixed(3)].join(","));
+  const cgPart = gainsPart(latest);
+  if (cgPart) {
+    lines.push("", "# of which, capital gains rate: the plan less the same plan at current law's capital gains rate, $M",
+      "scenario,tax_year,static_M,with_response_M");
+    for (const r of cgPart) lines.push([r.scenario, r.tax_year, r["static_$M"].toFixed(3), r["behavioral_$M"].toFixed(3)].join(","));
+  }
   lines.push("", `# distribution, tax year ${latest.distYear}, static`, "group,households_or_returns,avg_change,total_change_M,pct_pay_less,pct_pay_more");
   const d = latest.result.distribution[latest.distYear];
   for (const g of d.quintile) lines.push([`"${g.group}"`, g.household_count.toFixed(0), g.avg_per_hh_bracket_change.toFixed(2), g["total_bracket_$M"].toFixed(3), g.pct_pay_less.toFixed(2), g.pct_pay_more.toFixed(2)].join(","));
@@ -547,6 +617,7 @@ function layout() {
         <option value="single">Single</option><option value="married_filing_jointly" selected>Married, filing jointly</option>
         <option value="head_of_household">Head of household</option><option value="married_filing_separately">Married, filing separately</option></select></div>
       <div class="ha-sim__field"><label for="sim-hh-agi">Income (adjusted gross income)</label><input id="sim-hh-agi" type="number" inputmode="numeric" min="0" step="1000" value="120000"></div>
+      <div class="ha-sim__field"><label for="sim-hh-cg">Long-term capital gains, part of that income</label><input id="sim-hh-cg" type="number" inputmode="numeric" min="0" step="1000" value="0"></div>
       <div class="ha-sim__field"><label for="sim-hh-deps">Dependents</label><input id="sim-hh-deps" type="number" inputmode="numeric" min="0" max="20" step="1" value="2"></div>
       <div class="ha-sim__field"><label for="sim-hh-item">Itemized deductions, if any</label><input id="sim-hh-item" type="number" inputmode="numeric" min="0" step="1000" value="0"></div>
     </form>

@@ -2,7 +2,7 @@
 
 Catches regressions where bracket math, credit overlay, or capital-gains
 cap drift quietly.  The fixture has high-CG units above $1M designed to
-trigger the §235-16 cap so any change to that code path shows up here.
+trigger the §235-51(f) cap so any change to that code path shows up here.
 """
 from __future__ import annotations
 
@@ -52,6 +52,6 @@ def test_high_income_units_pay_tax(taxed_units) -> None:
 
 @pytest.mark.smoke
 def test_cg_cap_savings_column_present(taxed_units) -> None:
-    """The §235-16 cap-savings column must exist even when zero — its
+    """The §235-51(f) cap-savings column must exist even when zero — its
     absence breaks scenario comparisons that read it directly."""
     assert "hi_cg_cap_savings" in taxed_units.columns

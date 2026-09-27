@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   decodePopulation, score, householdTax, parseSpec, resolveSpec, unitArrays,
-  prepareSystem, unitTax,
+  prepareSystem, unitTax, behave, topRateChanges, SpecError, WEB_FORMAT_VERSION,
 } from "../../site/assets/simulator/kernel.js";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -38,6 +38,23 @@ function close(actual, expected, where, tol = TOL) {
   assert.ok(Math.abs(actual - expected) <= tol * scale,
     `${where}: kernel ${actual} vs model ${expected} (diff ${actual - expected})`);
 }
+
+test("the kernel reads only its own population format", () => {
+  assert.equal(meta.web_format_version, WEB_FORMAT_VERSION);
+  assert.throws(() => decodePopulation({ ...meta, web_format_version: 1 }, buffer), /format 1/);
+  assert.throws(() => decodePopulation({ ...meta, web_format_version: undefined }, buffer), /format/);
+});
+
+test("there is no fallback to the model's own gains base", () => {
+  // a population without the DOTAX anchor, or a system without a gains
+  // rate, is an error, not current law
+  assert.throws(() => unitArrays({ ...pop, meta: { ...meta, cg_anchor: undefined } }, 2027, "mid"), /scale factors/);
+  assert.throws(() => unitArrays({ ...pop, arrays: { ...pop.arrays, cgcls_2029: undefined } }, 2029, "mid"), /classes/);
+  assert.throws(() => unitArrays({ ...pop, arrays: { ...pop.arrays, cgcls_low_2029_idx: undefined } }, 2029, "low"), /low/);
+  const { capital_gains_rate: _, ...noRate } = meta.current_law["2027"];
+  assert.throws(() => prepareSystem(noRate, meta.food_excise), /capital_gains_rate/);
+  assert.throws(() => prepareSystem({ ...noRate, capital_gains_rate: "7.25" }, meta.food_excise), /capital_gains_rate/);
+});
 
 test("population decodes to the model's shape", () => {
   assert.equal(pop.n, golden.population_meta.n_units);
@@ -91,6 +108,7 @@ for (const c of golden.cases) {
 
 test("per-unit tax matches the model", () => {
   const byName = new Map(golden.cases.map((c) => [c.name, c]));
+  assert.ok(golden.unit_sample.units.some((s) => s.case === "cg_ordinary"), "capital-gains cases sampled");
   for (const s of golden.unit_sample.units) {
     const sys = prepareSystem(byName.get(s.case).systems[s.year][s.side], meta.food_excise);
     const u = unitArrays(pop, s.year, "mid");
@@ -101,6 +119,30 @@ test("per-unit tax matches the model", () => {
       close(t.net, s.net[k], `${s.case} ${s.year} ${s.side} unit ${i} net`, 1e-9);
     });
   }
+});
+
+test("the responded population matches the model, unit by unit", () => {
+  // income, gains share and weight after ETI, migration and the
+  // realization response, and the plan's tax on them (apply_behavioral_response)
+  const r = golden.unit_sample.response;
+  const c = golden.cases.find((x) => x.name === r.case);
+  const prepared = Object.fromEntries(meta.years.map((y) => [y, {
+    base: prepareSystem(c.systems[y].baseline, meta.food_excise),
+    reform: prepareSystem(c.systems[y].reform, meta.food_excise) }]));
+  const path = meta.years.map((y) => ({ year: y, changes: topRateChanges(prepared[y].base, prepared[y].reform) }));
+  const u = unitArrays(pop, r.year, r.scenario);
+  const adj = behave(pop, prepared[r.year].base, prepared[r.year].reform, u, meta.scenarios[r.scenario], r.year, path);
+  let realized = 0;
+  r.units.forEach((i, k) => {
+    const where = `${r.case} ${r.scenario} ${r.year} unit ${i}`;
+    close(adj.agi[i], r.agi[k], `${where} income`, 1e-9);
+    close(adj.cg[i], r.cg_share[k], `${where} gains share`, 1e-9);
+    close(adj.weight[i], r.weight[k], `${where} weight`, 1e-9);
+    const t = unitTax(prepared[r.year].reform, pop.arrays.fs[i], pop.arrays.deps[i], adj.agi[i], adj.item[i], adj.cg[i]);
+    close(t.net, r.net[k], `${where} net`, 1e-9);
+    if (adj.cg[i] < u.cg[i]) realized++;
+  });
+  assert.ok(realized > 50, `${realized} sampled units realize fewer gains`);
 });
 
 test("household calculator matches the model", () => {
@@ -123,8 +165,9 @@ test("specs resolve to the model's systems", () => {
       assert.deepEqual(got.brackets, want.brackets, `${spec.name} ${y} brackets`);
       assert.deepEqual(got.standard_deduction, want.standard_deduction, `${spec.name} ${y} deductions`);
       assert.equal(got.personal_exemption, want.personal_exemption, `${spec.name} ${y} exemption`);
+      assert.equal(got.capital_gains_rate, want.capital_gains_rate, `${spec.name} ${y} capital gains rate`);
       assert.equal(got.credit_year, want.credit_year, `${spec.name} ${y} credit year`);
-      assert.deepEqual(resolved[y].baseline.brackets, meta.current_law[y].brackets);
+      assert.deepEqual(resolved[y].baseline, meta.current_law[y]);
     }
   }
 });
@@ -132,6 +175,14 @@ test("specs resolve to the model's systems", () => {
 test("invalid specs are rejected, as the model rejects them", () => {
   for (const spec of golden.invalid_specs) {
     assert.throws(() => parseSpec(spec, meta), undefined, JSON.stringify(spec));
+  }
+});
+
+test("a capital-gains rate is refused in the model's own words", () => {
+  assert.equal(golden.cg_invalid_messages.length, 9);
+  for (const { spec, message } of golden.cg_invalid_messages) {
+    assert.throws(() => parseSpec(spec, meta), (e) => e instanceof SpecError && e.message === message,
+      `${JSON.stringify(spec.income_tax)}: expected "${message}"`);
   }
 });
 
@@ -189,12 +240,15 @@ test("splitting a bracket at the same rate changes no one", () => {
 });
 
 test("a full scoring is fast enough for a live page", () => {
-  const top = meta.presets.find((p) => p.name === "top_rate_14");
-  const systems = resolveSpec(parseSpec(top, meta), meta);
-  const t0 = performance.now();
-  score(pop, systems, { distributionYears: [2027] });
-  const ms = performance.now() - t0;
-  // 3 scenarios x 5 years x 3 passes over ~40,000 units, plus one distribution.
-  assert.ok(ms < 5000, `full scoring took ${ms.toFixed(0)} ms`);
-  console.log(`# full scoring: ${ms.toFixed(0)} ms`);
+  // top_rate_14: ETI and migration; top14_cg9 adds the realization response
+  for (const [name, spec] of [["top_rate_14", meta.presets.find((p) => p.name === "top_rate_14")],
+    ["top14_cg9", golden.spec_resolution.find((x) => x.spec.name === "top14_cg9").spec]]) {
+    const systems = resolveSpec(parseSpec(spec, meta), meta);
+    const t0 = performance.now();
+    score(pop, systems, { distributionYears: [2027] });
+    const ms = performance.now() - t0;
+    // 3 scenarios x 5 years x 3 passes over ~40,000 units, plus one distribution.
+    assert.ok(ms < 5000, `full scoring of ${name} took ${ms.toFixed(0)} ms`);
+    console.log(`# full scoring, ${name}: ${ms.toFixed(0)} ms`);
+  }
 });

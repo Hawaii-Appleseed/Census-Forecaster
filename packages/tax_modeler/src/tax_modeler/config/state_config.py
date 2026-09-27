@@ -1,7 +1,7 @@
 """State-level configuration seam.
 
 Today every Hawaii hardcode in the package — state FIPS, default GEOID for
-projection proxies, the §235-16 capital-gains cap, the Pease threshold —
+projection proxies, the §235-51(f) capital-gains cap, the Pease threshold —
 sits inline at its point of use.  That makes the package work fine for
 Hawaii but means a future Oregon (or any-state) plug-in would have to
 hunt those values down individually.
@@ -55,7 +55,7 @@ class StateConfig:
         Honolulu County (``"15003"``) — the dominant population center.
     cg_cap_rate:
         Top marginal rate applied to net long-term capital gains under any
-        state-level cap (0.0725 for Hawaii under HRS §235-16).  Set to
+        state-level cap (0.0725 for Hawaii under HRS §235-51(f)).  Set to
         ``0.0`` for states without a CG cap; the liability code will then
         skip the cap calculation.
     pease_threshold_single:
@@ -104,7 +104,7 @@ HAWAII = StateConfig(
     name="Hawaii",
     state_fips="15",
     default_geoid="15003",          # Honolulu County
-    cg_cap_rate=0.0725,             # HRS §235-16
+    cg_cap_rate=0.0725,             # HRS §235-51(f)
     pease_threshold_single=166_800.0,
     pease_threshold_mfs=83_400.0,
     personal_exemption_year_inflection=2018,

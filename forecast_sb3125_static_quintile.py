@@ -70,7 +70,7 @@ def compute_quintile_breakdown(projected, baseline_cfg, scenario_cfg, calc, *, c
     proj = projected.copy()
 
     # ---- Per-unit tax under each system (static scoring) --------------------
-    # CG income for §235-16 cap: synthetic filers carry synthetic_cg_share;
+    # CG income for §235-51(f) cap: synthetic filers carry synthetic_cg_share;
     # base PUMS units don't (default 0 → no cap applied, consistent with
     # ACS not capturing realized capital gains for sub-$1M filers).
     import numpy as _np

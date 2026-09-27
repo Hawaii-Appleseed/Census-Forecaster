@@ -8,6 +8,7 @@ first. Fix by running `python scripts/build_site.py` and committing site/.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -60,6 +61,40 @@ def test_downloads_resolve(page):
     assert hrefs
     for href in hrefs:
         assert (page.parent / href).resolve().exists(), href
+
+
+def test_tax_simulator_compares_with_the_committed_pages():
+    """The simulator page quotes its capital gains method next to the Act 24
+    and capital gains pages. build_simulator_population.py takes those pages'
+    figures from runs/ and site/data/capital-gains/; they must be the figures
+    committed for those pages, or the comparison is with a stale run."""
+    d = REPO / "site" / "data"
+    fis = build_site.read_csv(d / "act-24" / "fiscal_by_scenario.csv")
+    a24 = json.loads((d / "tax-simulator" / "act24_on_anchored_base.json").read_text())["revenue"]
+    assert len(a24) == 15
+    for r in a24:
+        pub = build_site._fiscal(fis, r["scenario"].upper(), r["tax_year"])
+        assert r["published_static_$M"] == pub["bracket_delta_static_$M"], r
+        assert r["published_behavioral_$M"] == pub["bracket_delta_post_$M"], r
+    rev = build_site.read_csv(d / "capital-gains" / "revenue_by_year.csv")
+    cg = json.loads((d / "tax-simulator" / "cg_page_comparison.json").read_text())["rows"]
+    assert {(r["option"], r["tax_year"]) for r in cg} == {(o, y) for o in ("cap9", "ordinary") for y in range(2027, 2032)}
+    for r in cg:
+        pub = build_site._rev(rev, r["tax_year"], "act24", r["option"])
+        assert r["published_static_$M"] == pub["static_M"], r
+        assert r["published_behavioral_$M"] == pub["behavioral_M"], r
+
+
+def test_tax_simulator_states_its_reading_of_the_gains_cap():
+    """The page says the alternative tax is computed as the statute defines
+    it. For schedules whose rates fall back below the gains rate, the
+    statute's income "taxed at a rate below" it is read as the income below
+    the first bracket whose rate reaches it (cg_alternative.cap_floor); the
+    page must say so."""
+    text = (REPO / "site" / "tax-simulator" / "index.html").read_text()
+    assert "as the statute defines it" in text
+    assert "can be read more than one way" in text
+    assert "first bracket whose rate reaches the gains rate" in text
 
 
 def test_okina_is_the_real_character():

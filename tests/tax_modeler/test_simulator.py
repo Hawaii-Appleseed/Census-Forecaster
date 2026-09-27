@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tax_modeler.calibration.cg_anchor import TOP_SHARE_1M, anchor_nltcg
 from tax_modeler.config.tax_system_config import (
     TaxCalculator,
     TaxSystemConfig,
@@ -31,20 +32,24 @@ from tax_modeler.reform.income_tax_spec import (
     current_law_system,
     load_spec,
 )
+from tax_modeler.scenarios import behavioral_response
 from tax_modeler.scenarios.behavioral_response import (
     BehavioralParams,
     apply_behavioral_response,
     apply_migration_response,
+    apply_realization_response,
     estimate_pte_election_shift_M,
     top_rate_changes,
 )
-from tax_modeler.simulator.golden import edge_specs, invalid_specs, random_specs
+from tax_modeler.simulator.gains import CLASSES, ensure_gains_anchor, gains_classes
+from tax_modeler.simulator.golden import (edge_specs, invalid_cg_specs, invalid_specs,
+                                         random_cg_specs, random_specs, valid_edge_specs)
 from tax_modeler.simulator.population import Population, frame_for, unit_arrays
 from tax_modeler.simulator.presets import current_law_vintages, presets
 from tax_modeler.simulator.scenarios import SCENARIOS
 from tax_modeler.simulator.score import score_spec, score_systems
 from tax_modeler.simulator.systems import system_to_json
-from tax_modeler.simulator.web import pack, web_meta, write_web_files
+from tax_modeler.simulator.web import WEB_FORMAT_VERSION, pack, web_meta, write_web_files
 
 REPO = Path(__file__).resolve().parents[2]
 YEARS = (2027, 2028, 2029, 2030, 2031)
@@ -75,7 +80,8 @@ class TestSpecParsing:
         assert b["head_of_household"] == ((0, 1.4), (21_600, 2.5), (72_000, 7.2), (750_000, 14.0))
         assert b["married_filing_jointly"][-1] == (1_000_000, 14.0)
 
-    @pytest.mark.parametrize("d", edge_specs() + random_specs(12), ids=lambda d: d["name"])
+    @pytest.mark.parametrize("d", edge_specs() + random_specs(12) + random_cg_specs(4),
+                             ids=lambda d: d["name"])
     def test_round_trip(self, d):
         s = IncomeTaxSpec.from_dict(d)
         assert IncomeTaxSpec.from_dict(s.to_dict()) == s
@@ -86,6 +92,17 @@ class TestSpecParsing:
         with pytest.raises(ConfigError):
             IncomeTaxSpec.from_dict(d)
 
+    def test_golden_spec_lists(self):
+        # the kernel's fixtures: every invalid capital-gains spec is in the
+        # invalid list, and the unusual valid ones parse here too
+        assert all(d in invalid_specs() for d in invalid_cg_specs())
+        for d in valid_edge_specs():
+            IncomeTaxSpec.from_dict(d)
+        # the random plans with gains leave the bracket-only ones as they were
+        assert [d["name"] for d in random_specs(12)] == [f"random_{i}" for i in range(12)]
+        assert all("capital_gains_rate" not in d["income_tax"] for d in random_specs(12))
+        assert all("capital_gains_rate" in d["income_tax"] for d in random_cg_specs(4))
+
     def test_nothing_changed(self):
         s = spec()
         assert not s.changes_anything
@@ -94,6 +111,24 @@ class TestSpecParsing:
     def test_load_yaml_example(self):
         s = load_spec(REPO / "reforms/examples/top_rate_14.yaml")
         assert s.name == "top_rate_14" and len(s.brackets) == 2
+
+    @pytest.mark.parametrize("v, want", [(9, 9.0), (9.0, 9.0), (0, 0.0), (99.99, 99.99),
+                                         ("ordinary", "ordinary"), ("current_law", None)])
+    def test_capital_gains_rate(self, v, want):
+        s = spec(income_tax={"capital_gains_rate": v})
+        assert s.capital_gains_rate == want
+        assert IncomeTaxSpec.from_dict(s.to_dict()) == s
+        assert IncomeTaxSpec.from_dict(json.loads(json.dumps(s.to_dict()))) == s
+        # a gains-only spec changes something (else it would silently score zero)
+        assert s.changes_anything == (want is not None)
+        assert (s.system_for(2027) == current_law_system(2027)) == (want is None)
+
+    @pytest.mark.parametrize("v", [-1, 100, 100.0, "9", True, None, "repeal", "Ordinary",
+                                   {"rate": 9}, [9], float("nan"), float("inf")],
+                             ids=repr)
+    def test_capital_gains_rate_rejects(self, v):
+        with pytest.raises(ConfigError, match="capital_gains_rate"):
+            spec(income_tax={"capital_gains_rate": v})
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +189,20 @@ class TestSystems:
     def test_system_to_json_rejects_unmodeled_credits(self, calc):
         with pytest.raises(ValueError, match="credit_scenario"):
             system_to_json(TaxSystemRegistry.get_hb2306_hd1_system(2027), calc)
+
+    def test_capital_gains_rate_systems(self, calc):
+        for y in YEARS:
+            cl = current_law_system(y)
+            assert (cl.cg_alt_tax, cl.capital_gains_rate_pct) == ("statute", 7.25)
+            assert system_to_json(cl, calc)["capital_gains_rate"] == 7.25
+        s9 = spec(first_year=2029, income_tax={"capital_gains_rate": 9})
+        assert s9.system_for(2028) == current_law_system(2028)
+        c = s9.system_for(2029)
+        assert (c.cg_alt_tax, c.capital_gains_rate_pct, c.cg_alt_rate) == ("statute", 9.0, 0.09)
+        assert c.brackets is None and c.bracket_year == current_law_system(2029).bracket_year
+        o = spec(income_tax={"capital_gains_rate": "ordinary"}).system_for(2027)
+        assert o.capital_gains_rate_pct is None and o.cg_alt_rate is None
+        assert system_to_json(o, calc)["capital_gains_rate"] == "ordinary"
 
 
 # ---------------------------------------------------------------------------
@@ -394,8 +443,21 @@ class TestPresets:
     def test_act46_preset_is_act46(self, calc):
         s = IncomeTaxSpec.from_dict(next(d for d in presets(calc) if d["name"] == "act46"))
         for y in YEARS:
+            # system_to_json takes statutory systems only; the registry's keep
+            # the stacked capital-gains shortcut for the published runs.
             a, b = system_to_json(s.system_for(y), calc), system_to_json(
-                TaxSystemRegistry.get_act46_system(y), calc)
+                dataclasses.replace(TaxSystemRegistry.get_act46_system(y), cg_alt_tax="statute"), calc)
+            assert a["brackets"] == b["brackets"] and a["standard_deduction"] == b["standard_deduction"]
+
+    @pytest.mark.parametrize("name, rate", [("cg_9", 9.0), ("cg_ordinary", None)])
+    def test_capital_gains_presets(self, calc, name, rate):
+        d = next(d for d in presets(calc) if d["name"] == name)
+        s = IncomeTaxSpec.from_dict(d)
+        assert load_spec(REPO / f"reforms/examples/{name}.yaml") == s
+        for y in YEARS:
+            cfg = s.system_for(y)
+            assert cfg.capital_gains_rate_pct == rate
+            a, b = system_to_json(cfg, calc), system_to_json(current_law_system(y), calc)
             assert a["brackets"] == b["brackets"] and a["standard_deduction"] == b["standard_deduction"]
 
     def test_top_rate_14_changes_only_the_top_rate(self, calc):
@@ -405,6 +467,13 @@ class TestPresets:
             for fs in a["brackets"]:
                 assert a["brackets"][fs][:-1] == b["brackets"][fs][:-1]
                 assert a["brackets"][fs][-1] == [b["brackets"][fs][-1][0], 14.0]
+
+
+def test_realization_response_by_scenario():
+    # the LOW revenue scenario has the strong response, as with ETI and migration
+    assert {k: s.behavioral_params.cg_beta for k, s in SCENARIOS.items()} == {
+        "low": 2.6, "mid": 2.0, "high": 1.6}
+    assert BehavioralParams.static().cg_beta == 0
 
 
 def test_scenarios_match_the_act24_run():
@@ -423,7 +492,18 @@ def test_scenarios_match_the_act24_run():
 # population, scoring, web files (synthetic population)
 # ---------------------------------------------------------------------------
 
-def _synthetic_population(n=120, years=(2027, 2028)) -> Population:
+# A fixed capital-gains anchor for the synthetic population (the real one is
+# computed by tax_modeler.simulator.gains.ensure_gains_anchor): class codes
+# cycle through the six classes that carry gains. The $400K+ scale factors
+# differ by scenario, which the real anchor's do not (LOW and HIGH keep MID's
+# factors; test_low_and_high_keep_mids_factors), so these tests catch a reader
+# that takes another scenario's factors.
+SYNTH_K = {"low": [0.0, 0.9, 1.5, 1.4, 2.4, 1.95, 1.0],
+           "mid": [0.0, 0.9, 1.5, 1.4, 2.4, 2.0, 0.85],
+           "high": [0.0, 0.9, 1.5, 1.4, 2.4, 2.05, 0.75]}
+
+
+def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
     rng = np.random.default_rng(9)
     hh = np.repeat(np.arange(n // 2), 2)
     a = {
@@ -457,7 +537,31 @@ def _synthetic_population(n=120, years=(2027, 2028)) -> Population:
             "quintile_labels": ["Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)"],
             "quintile_breaks": [20_000, 45_000, 80_000, 140_000], "n_units": n,
             "n_households": n // 2, "scenarios": {}, "calibrated_base": {}}
+    if anchor:
+        for y in years:
+            a[f"cgcls_{y}"] = np.where(a["cg"] > 0, 1 + np.arange(n) % 6, 0).astype(np.uint8)
+            for k in ("low", "high"):
+                a[f"cgcls_{k}_{y}_idx"] = np.array([7], dtype=np.int32)   # the tail unit: $1M+
+                a[f"cgcls_{k}_{y}_val"] = np.array([6], dtype=np.uint8)
+        meta["cg_anchor"] = {"top_share": TOP_SHARE_1M, "classes": list(CLASSES),
+                             "k": {s: {str(y): SYNTH_K[s] for y in years} for s in SYNTH_K},
+                             "rows": {}}
     return Population(arrays=a, meta=meta)
+
+
+def _score_option(page, sc, income, nltcg, cap_new, *, behavioral: bool):
+    """forecast_cg_rate_options.score_option at 65e1a6e, verbatim (the unused
+    ``yr`` argument dropped; BETA and CAP_CURRENT from ``page``)."""
+    base_tax = sc.tax(income, nltcg, page.CAP_CURRENT)
+    if not behavioral:
+        return sc.tax(income, nltcg, cap_new) - base_tax
+    mr = sc.marginal_rate(income)
+    state0 = np.minimum(mr, page.CAP_CURRENT)
+    state1 = mr if cap_new is None else np.minimum(mr, cap_new)
+    d_tau = np.maximum(0.0, state1 - state0)
+    kept = nltcg * np.exp(-page.BETA * d_tau)
+    income1 = income - (nltcg - kept)
+    return sc.tax(income1, kept, cap_new) - base_tax
 
 
 class TestPopulationScoring:
@@ -466,8 +570,82 @@ class TestPopulationScoring:
         pop = _synthetic_population()
         mid, low = unit_arrays(pop, 2027, "mid"), unit_arrays(pop, 2027, "low")
         assert low["income"][5] == pytest.approx(mid["income"][5] * 1.1)
-        assert low["weight"][7] == 2.0 and low["synthetic_cg_share"][7] == 0.5
+        assert low["weight"][7] == 2.0
+        # the tail's model share, and on the anchored base its class's scale
+        assert unit_arrays(pop, 2027, "low", gains="model")["synthetic_cg_share"][7] == 0.5
+        assert low["synthetic_cg_share"][7] == 0.5 * SYNTH_K["low"][6]
         assert (low["income"][[1, 2, 3]] == mid["income"][[1, 2, 3]]).all()
+
+    def test_anchored_share_is_the_scaled_model_share(self):
+        pop = _synthetic_population()
+        for s in ("low", "mid", "high"):
+            model = unit_arrays(pop, 2028, s, gains="model")["synthetic_cg_share"]
+            got = unit_arrays(pop, 2028, s)["synthetic_cg_share"]
+            k = np.asarray(SYNTH_K[s])
+            np.testing.assert_array_equal(got, np.minimum(1.0, model * k[gains_classes(pop, 2028, s)]))
+        # a scale that would push a share past 1 stops at 1
+        pop.meta["cg_anchor"]["k"]["mid"]["2028"] = [0.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
+        got = unit_arrays(pop, 2028)["synthetic_cg_share"]
+        assert got.max() == 1.0 and set(np.unique(got)) <= {0.0, 1.0}
+        with pytest.raises(ValueError, match="gains"):
+            unit_arrays(pop, 2028, gains="dotax")
+
+    def test_anchor_reproduces_anchor_nltcg(self):
+        """ensure_gains_anchor on a population without one: in MID, which
+        DOTAX anchors, income x share is the capital-gains page's anchored
+        dollars, per unit."""
+        pop = _synthetic_population(n=600, years=(2027, 2031), anchor=False)
+        pop.arrays["agi_2031"][:12] = np.linspace(1.1e6, 8e6, 12)
+        anchor = ensure_gains_anchor(pop)
+        assert anchor["top_share"] == TOP_SHARE_1M and anchor is ensure_gains_anchor(pop)
+        for y in (2027, 2031):
+            d = frame_for(pop, y, "mid")
+            nl, labels, rows = anchor_nltcg(frame_for(pop, y, "mid", gains="model"), y, TOP_SHARE_1M)
+            g = (d["income"] * d["synthetic_cg_share"]).to_numpy()
+            np.testing.assert_allclose(g, nl, rtol=1e-12, atol=0)
+            assert (g[labels == "lt100"] == 0).all()
+            assert anchor["k"]["mid"][str(y)] == [0.0] + [
+                next(r["scale"] for r in rows if r["group"] == c) for c in CLASSES[1:]]
+        with pytest.raises(ValueError, match="top share"):
+            ensure_gains_anchor(pop, top_share=0.7)
+
+    def test_low_and_high_keep_mids_factors(self):
+        """LOW and HIGH scale their own model gains, in their own classes
+        (their own income ranks), by MID's factors: their gains move with
+        their top incomes rather than being pinned to DOTAX's totals."""
+        pop = _synthetic_population(n=600, years=(2027, 2031), anchor=False)
+        pop.arrays["agi_2031"][:12] = np.linspace(1.1e6, 8e6, 12)
+        anchor = ensure_gains_anchor(pop)
+        moved = pinned_differs = gains_differ = 0
+        for y in (2027, 2031):
+            k_mid = anchor["k"]["mid"][str(y)]
+            for s in ("low", "high"):
+                assert anchor["k"][s][str(y)] == k_mid
+                model = frame_for(pop, y, s, gains="model")
+                own_nl, labels, own_rows = anchor_nltcg(model, y, TOP_SHARE_1M)
+                # the scenario's own classes, not MID's
+                cls = gains_classes(pop, y, s)[pop.arrays[f"order_{y}"]]
+                has = model["synthetic_cg_share"].to_numpy() > 0
+                np.testing.assert_array_equal(cls[has], [CLASSES.index(x) for x in labels[has]])
+                moved += int((gains_classes(pop, y, s) != gains_classes(pop, y, "mid")).sum())
+                # income x share = the scenario's model gains x MID's k[class]
+                d = frame_for(pop, y, s)
+                g = (d["income"] * d["synthetic_cg_share"]).to_numpy()
+                inc = model["income"].to_numpy()
+                want = inc * np.minimum(1.0, model["synthetic_cg_share"].to_numpy()
+                                        * np.asarray(k_mid)[[CLASSES.index(x) for x in labels]])
+                np.testing.assert_allclose(g, want, rtol=1e-12, atol=0)
+                # the rule is not the old one: pinning the scenario to DOTAX
+                # would have given other factors and other gains
+                pinned_differs += sum(not np.isclose(r["scale"], k_mid[CLASSES.index(r["group"])])
+                                      for r in own_rows)
+                gains_differ += not np.allclose(g, own_nl, rtol=1e-9, atol=0)
+                assert anchor["rows"][s][str(y)] == [
+                    {"tax_year": y, "group": r["group"], "model_cg_M": r["model_cg_M"],
+                     "anchored_cg_M": r["model_cg_M"] * k_mid[CLASSES.index(r["group"])],
+                     "dotax_target_M": r["dotax_target_M"],
+                     "scale": k_mid[CLASSES.index(r["group"])]} for r in own_rows]
+        assert moved > 0 and pinned_differs > 0 and gains_differ > 0
 
     def test_frame_order(self):
         pop = _synthetic_population()
@@ -510,6 +688,72 @@ class TestPopulationScoring:
         # systems on the responded population
         old = net(adj, s_.system_for(2029)) - net(adj, s_.baseline_for(2029))
         assert r["behavioral_$M"] < old
+
+    @pytest.mark.parametrize("rate", [9.0, "ordinary"])
+    def test_gains_only_plan_is_the_capital_gains_pages_method(self, calc, cg_page, rate):
+        """A plan that changes only the gains rate: static and after response,
+        per record, the page's score_option on the same frame and gains (MID's
+        cg_beta is the page's BETA; ETI and migration do nothing)."""
+        pop = _synthetic_population(n=400, years=YEARS)
+        s_ = spec(income_tax={"capital_gains_rate": rate})
+        assert SCENARIOS["mid"].behavioral_params.cg_beta == cg_page.BETA
+        for y in (2027, 2030):
+            df = frame_for(pop, y)
+            base, cfg = s_.baseline_for(y), s_.system_for(y)
+            adj, _ = apply_behavioral_response(df, SCENARIOS["mid"].behavioral_params, target_year=y,
+                                               baseline_cfg=base, scenario_cfg=cfg, calculator=calc)
+            np.testing.assert_array_equal(adj["weight"], df["weight"])       # no migration
+            assert (adj["income"] < df["income"]).any()                      # gains realized less
+            t0 = calc.unit_liabilities(df, base)["before_credits"]
+            static = calc.unit_liabilities(df, cfg)["before_credits"] - t0
+            response = calc.unit_liabilities(adj, cfg)["before_credits"] - t0
+            sc = cg_page.Scorer(df, base, calc)
+            income = df["income"].to_numpy()
+            nltcg = income * df["synthetic_cg_share"].to_numpy()
+            for ours, behavioral in ((static, False), (response, True)):
+                page = _score_option(cg_page, sc, income, nltcg, cfg.cg_alt_rate, behavioral=behavioral)
+                np.testing.assert_allclose(ours, page, rtol=1e-9, atol=1e-7)
+            assert (response <= static + 1e-9).all() and response.sum() < static.sum()
+
+    def test_a_gains_rate_cut_has_no_response(self):
+        pop = _synthetic_population(years=YEARS)
+        for r in score_spec(pop, spec(income_tax={"capital_gains_rate": 5}))["revenue"]:
+            assert r["static_$M"] < 0 and r["behavioral_$M"] == r["static_$M"]
+
+    def test_bracket_only_plans_skip_the_realization_response(self, calc, monkeypatch):
+        """With the gains rate unchanged the realization step does nothing, so
+        a bracket-only plan scores bitwise as without it (v1)."""
+        pop = _synthetic_population(years=YEARS)
+        pop.arrays["agi_2029"][:20] = np.linspace(1.2e6, 9e6, 20)
+        vint = [{"from": v["from"], "brackets": {fs: rows[:-1] + [[rows[-1][0], 14.0]]
+                                                  for fs, rows in v["brackets"].items()}}
+                for v in current_law_vintages(calc)]
+        plans = [spec(income_tax={"bracket_vintages": vint}),
+                 spec(income_tax={"bracket_vintages": vint, "capital_gains_rate": 7.25})]
+        with_step = [score_spec(pop, p, distribution_years=[2029]) for p in plans]
+        monkeypatch.setattr(behavioral_response, "apply_realization_response",
+                            lambda df, pre, params, **kw: df)
+        without = [score_spec(pop, p, distribution_years=[2029]) for p in plans]
+        assert with_step[0] == without[0] == with_step[1] == without[1]
+        assert any(r["behavioral_$M"] != r["static_$M"] for r in with_step[0]["revenue"])
+
+    def test_realization_leaves_the_registry_systems_alone(self, calc):
+        # the Act 24 pipeline's systems keep the stacked shortcut
+        units = _units(2_000, seed=11, top=True)
+        for p in (BehavioralParams.high(), BehavioralParams.mid()):
+            out = apply_realization_response(units, units, p, calculator=calc,
+                                             baseline_cfg=TaxSystemRegistry.get_act46_system(2027),
+                                             scenario_cfg=TaxSystemRegistry.get_sb3125_cd2_system(2027))
+            pd.testing.assert_frame_equal(out, units)
+        # and a statutory pair with a rise does move them
+        s_ = spec(income_tax={"capital_gains_rate": 11})
+        out = apply_realization_response(units, units, BehavioralParams.mid(), calculator=calc,
+                                         baseline_cfg=s_.baseline_for(2027), scenario_cfg=s_.system_for(2027))
+        moved = out["income"].to_numpy() != units["income"].to_numpy()
+        assert moved.any() and (units["synthetic_cg_share"].to_numpy()[moved] > 0).all()
+        g0 = (units["income"] * units["synthetic_cg_share"]).to_numpy()
+        g1 = (out["income"] * out["synthetic_cg_share"]).to_numpy()
+        np.testing.assert_allclose(out["income"] - units["income"], g1 - g0, rtol=1e-9, atol=1e-6)
 
     def test_migrants_from_a_temporary_rise_stay_gone(self, calc):
         # 15% in 2027-28, then current law: from 2029 the plan taxes everyone
@@ -563,6 +807,23 @@ class TestPopulationScoring:
         assert versions[0] == versions[1] != versions[2]
         assert m["top_tail"]["records_1m"] == int(((pop.arrays["agi_2027"] >= 1e6)
                                                    & (pop.arrays["weight"] > 0)).sum())
+
+    def test_web_files_carry_the_gains_anchor(self, tmp_path):
+        pop = _synthetic_population(years=YEARS)
+        write_web_files(pop, tmp_path, kernel_source=b"k")
+        m = json.loads((tmp_path / "population.json").read_text())
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 2
+        assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
+        assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
+        assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25
+        assert {"cg_9", "cg_ordinary"} <= {p["name"] for p in m["presets"]}
+        blob = gzip.decompress((tmp_path / "population.bin.gz").read_bytes())
+        idx = {e["name"]: e for e in m["arrays"]}
+        dt = {"f8": "<f8", "u1": "u1", "u4": "<u4"}
+        for name in ("cgcls_2027", "cgcls_low_2031_idx", "cgcls_high_2029_val"):
+            e = idx[name]
+            got = np.frombuffer(blob, dtype=dt[e["dtype"]], count=e["length"], offset=e["offset"])
+            np.testing.assert_array_equal(got, pop.arrays[name])
 
     def test_save_load(self, tmp_path):
         pop = _synthetic_population()

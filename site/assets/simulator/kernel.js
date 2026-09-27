@@ -10,6 +10,7 @@
 //
 // A "system" is plain data (tax_modeler.simulator.systems.system_to_json):
 //   { credit_year, personal_exemption,
+//     capital_gains_rate: 7.25,       // HRS §235-51(f) alternative rate, %, or "ordinary"
 //     brackets: { Single_Married_Separate: [[floor, rate %], ...], ... },
 //     standard_deduction: { Single_Married_Separate: 8000, ... } }
 
@@ -22,18 +23,27 @@ export const SPEC_STATUS = { single: "Single_Married_Separate",
   head_of_household: "Head_of_Household", married_filing_jointly: "Joint_Surviving_Spouse" };
 const MFJ = 1, HOH = 2;
 
-export const CG_CAP_RATE = 0.0725;          // HRS §235-16 alternative tax rate
+// income_tax.capital_gains_rate / a system's capital_gains_rate: no
+// alternative tax, gains taxed at the bracket rates
+export const CG_ORDINARY = "ordinary";
 const MIGRATION_FULL_TIER = 1_000_000;
 const PTE_RATE = 0.09;
+const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 // ---------------------------------------------------------------------------
 // population
 // ---------------------------------------------------------------------------
 
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
+// population.json's web_format_version this kernel reads
+// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor)
+export const WEB_FORMAT_VERSION = 2;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
+  if (meta.web_format_version !== WEB_FORMAT_VERSION) {
+    throw new Error(`population format ${meta.web_format_version}; this page reads format ${WEB_FORMAT_VERSION}`);
+  }
   const arrays = {};
   for (const a of meta.arrays) {
     arrays[a.name] = new VIEWS[a.dtype](buffer, a.offset, a.length);
@@ -41,22 +51,46 @@ export function decodePopulation(meta, buffer) {
   return { meta, arrays, n: arrays.fs.length, nHouseholds: arrays.hh_weight.length };
 }
 
+/** Each unit's DOTAX capital-gains class code for one (year, scenario):
+ * MID's codes with LOW/HIGH's differing units swapped in
+ * (tax_modeler.simulator.gains.gains_classes). */
+export function gainsClasses(pop, year, scenario = "mid") {
+  const A = pop.arrays;
+  let cls = A[`cgcls_${year}`];
+  if (!cls) throw new Error(`population has no capital-gains classes for ${year}`);
+  if (scenario !== "mid") {
+    const idx = A[`cgcls_${scenario}_${year}_idx`], val = A[`cgcls_${scenario}_${year}_val`];
+    if (!idx || !val) throw new Error(`population has no ${scenario} capital-gains classes for ${year}`);
+    cls = Uint8Array.from(cls);
+    for (let k = 0; k < idx.length; k++) cls[idx[k]] = val[k];
+  }
+  return cls;
+}
+
 /** Income, itemized deduction, weight and capital-gains share for one
  * (year, scenario): MID's arrays with LOW/HIGH's differing units swapped in
- * (tax_modeler.simulator.population.unit_arrays). */
+ * (tax_modeler.simulator.population.unit_arrays). The share is the
+ * DOTAX-anchored one, min(1, model share x k[class]), with the model share
+ * after the scenario's tail overrides; there is no fallback to the model's
+ * own base. */
 export function unitArrays(pop, year, scenario = "mid") {
   const A = pop.arrays;
-  let agi = A[`agi_${year}`], item = A[`item_${year}`], weight = A.weight, cg = A.cg;
+  let agi = A[`agi_${year}`], item = A[`item_${year}`], weight = A.weight, cgModel = A.cg;
+  const k = pop.meta.cg_anchor?.k?.[scenario]?.[String(year)];
+  if (!k) throw new Error(`population has no capital-gains scale factors for ${scenario} ${year}`);
+  const cls = gainsClasses(pop, year, scenario);
   if (scenario !== "mid") {
     agi = Float64Array.from(agi); item = Float64Array.from(item);
-    weight = Float64Array.from(weight); cg = Float64Array.from(cg);
+    weight = Float64Array.from(weight); cgModel = Float64Array.from(cgModel);
     const idx = A[`ovr_${scenario}_${year}_idx`];
     const oa = A[`ovr_${scenario}_${year}_agi`], oi = A[`ovr_${scenario}_${year}_item`];
-    for (let k = 0; k < idx.length; k++) { agi[idx[k]] = oa[k]; item[idx[k]] = oi[k]; }
+    for (let j = 0; j < idx.length; j++) { agi[idx[j]] = oa[j]; item[idx[j]] = oi[j]; }
     const t = A[`tail_${scenario}_idx`];
     const tw = A[`tail_${scenario}_weight`], tc = A[`tail_${scenario}_cg`];
-    for (let k = 0; k < t.length; k++) { weight[t[k]] = tw[k]; cg[t[k]] = tc[k]; }
+    for (let j = 0; j < t.length; j++) { weight[t[j]] = tw[j]; cgModel[t[j]] = tc[j]; }
   }
+  const cg = new Float64Array(pop.n);
+  for (let i = 0; i < pop.n; i++) cg[i] = Math.min(1, cgModel[i] * k[cls[i]]);
   return { agi, item, weight, cg };
 }
 
@@ -64,13 +98,27 @@ export function unitArrays(pop, year, scenario = "mid") {
 // tax on one unit
 // ---------------------------------------------------------------------------
 
+/** The floor of the first bracket whose rate reaches the alternative rate
+ * `cap` (decimal), or Infinity when none does (cg_alternative.cap_floor). */
+function capFloor(floors, rates, cap) {
+  for (let i = 0; i < rates.length; i++) if (rates[i] >= cap - 1e-12) return floors[i];
+  return Infinity;
+}
+
 /** Brackets as floors, decimal rates and the tax owed at each floor
- * (TaxCalculator._bracket_schedule), per frame status code. */
+ * (TaxCalculator._bracket_schedule), per frame status code, and the
+ * capital-gains alternative rate (decimal; null: gains taxed as ordinary
+ * income) with each schedule's floor for it. */
 export function prepareSystem(system, foodExcise) {
+  const r = system.capital_gains_rate;
+  if (r !== CG_ORDINARY && !isNum(r)) {
+    throw new Error(`system ${system.name}: capital_gains_rate must be a percent or "${CG_ORDINARY}", got ${JSON.stringify(r)}`);
+  }
+  const cgRate = r === CG_ORDINARY ? null : r / 100;   // TaxSystemConfig.cg_alt_rate
   const byStatus = CSV_STATUS.map((csv) => {
     const rows = system.brackets[csv];
-    const floors = rows.map((r) => r[0]);
-    const rates = rows.map((r) => r[1] / 100);
+    const floors = rows.map((row) => row[0]);
+    const rates = rows.map((row) => row[1] / 100);
     const cum = [0];
     // np.cumsum(widths * rates[:-1]): sequential, same order.
     let acc = 0;
@@ -78,11 +126,12 @@ export function prepareSystem(system, foodExcise) {
       acc += (floors[i] - floors[i - 1]) * rates[i - 1];
       cum.push(acc);
     }
-    return { floors, rates, cum, sd: system.standard_deduction[csv] };
+    return { floors, rates, cum, sd: system.standard_deduction[csv],
+      capFloor: cgRate === null ? Infinity : capFloor(floors, rates, cgRate) };
   });
   const fe = foodExcise[String(system.credit_year)];
   if (!fe) throw new Error(`no food/excise table for credit year ${system.credit_year}`);
-  return { byStatus, pe: system.personal_exemption, fe, creditYear: system.credit_year };
+  return { byStatus, pe: system.personal_exemption, fe, creditYear: system.credit_year, cgRate };
 }
 
 // searchsorted(floors, t, side="right") - 1, clipped to [0, n-1]
@@ -160,13 +209,16 @@ export function unitTax(sys, fs, deps, agi, itemized, cgShare) {
   const exemptions = exemptionCount(fs, deps) * sys.pe;
   const taxableFull = Math.max(0, agi - ded - exemptions);
   let before = bracketTax(s, taxableFull);
+  // HRS §235-51(f) alternative tax (cg_alternative.alternative_tax): the
+  // bracket tax on the greater of taxable income less the gains and the
+  // income below the first bracket that reaches the rate, plus the rate on
+  // the rest, if lower. With no gains it is the bracket tax, so it is skipped.
   const cgIncome = Math.max(0, agi * cgShare);
-  if (cgIncome > 0) {
-    const ordinaryAgi = Math.max(0, agi - cgIncome);
-    const taxableOrd = Math.max(0, ordinaryAgi - ded - exemptions);
-    const taxOrd = bracketTax(s, taxableOrd);
-    const uncapped = Math.max(0, before - taxOrd);
-    before = taxOrd + Math.min(uncapped, cgIncome * CG_CAP_RATE);
+  if (sys.cgRate !== null && cgIncome > 0) {
+    const ncg = Math.min(cgIncome, taxableFull);
+    const base = Math.max(taxableFull - ncg, Math.min(taxableFull, s.capFloor));
+    const alt = bracketTax(s, base) + sys.cgRate * (taxableFull - base);
+    if (alt < before) before = alt;
   }
   const cr = credits(sys.fe, agi, fs, deps, before);
   return { before, credits: cr, net: before - cr };
@@ -215,7 +267,8 @@ function phasedRateChange(path, code, year, phaseInYears) {
   return total;
 }
 
-/** ETI then migration; returns adjusted incomes and weights. */
+/** ETI, migration, then capital-gains realization; returns adjusted
+ * incomes, weights and gains shares. */
 export function behave(pop, baseSys, reformSys, u, params, year, path) {
   const { fs, deps } = pop.arrays;
   let agi = u.agi, weight = u.weight;
@@ -254,10 +307,34 @@ export function behave(pop, baseSys, reformSys, u, params, year, path) {
       for (let i = 0; i < pop.n; i++) if (factor[i] !== 1) weight[i] = weight[i] * factor[i];
     }
   }
+  // Realization (apply_realization_response): at a higher alternative rate
+  // fewer gains are realized. The rate on gains is min(m, rate) (m with no
+  // alternative tax), m the reform's bracket rate at taxable income before
+  // any response, on both sides; gains after ETI shrink by exp(-cg_beta x
+  // the rise). Only units with a rise and gains change: elsewhere
+  // agi x share / agi can differ from the share by a rounding error.
+  let cg = u.cg;
+  if (params.cg_beta > 0 && baseSys.cgRate !== reformSys.cgRate) {
+    const c0 = baseSys.cgRate, c1 = reformSys.cgRate;
+    for (let i = 0; i < pop.n; i++) {
+      if (!(u.cg[i] > 0)) continue;
+      const code = fs[i], r = reformSys.byStatus[code];
+      const tr = Math.max(0, u.agi[i] - Math.max(r.sd, u.item[i]) - exemptionCount(code, deps[i]) * reformSys.pe);
+      const m = marginalRate(r, tr);
+      const d = Math.max(0, (c1 === null ? m : Math.min(m, c1)) - (c0 === null ? m : Math.min(m, c0)));
+      if (!(d > 0)) continue;
+      if (agi === u.agi) agi = Float64Array.from(u.agi);
+      if (cg === u.cg) cg = Float64Array.from(u.cg);
+      const y = agi[i], g = y * u.cg[i];
+      const kept = g * Math.exp(-params.cg_beta * d);
+      agi[i] = y - (g - kept);
+      cg[i] = kept / agi[i];
+    }
+  }
   if (params.pte_capture > 0) {
     throw new Error("PTE election response is not modeled by the simulator (capture is 0)");
   }
-  return { agi, item: u.item, weight, cg: u.cg };
+  return { agi, item: u.item, weight, cg };
 }
 
 // ---------------------------------------------------------------------------
@@ -390,12 +467,43 @@ export function score(pop, systemsByYear, { scenarios = ["low", "mid", "high"],
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const TOP_KEYS = new Set(["name", "label", "first_year", "income_tax", "behavior", "baseline",
   "model_version", "metadata"]);
-const IT_KEYS = new Set(["brackets", "bracket_vintages", "standard_deduction", "personal_exemption"]);
+const IT_KEYS = new Set(["brackets", "bracket_vintages", "standard_deduction", "personal_exemption",
+  "capital_gains_rate"]);
 const BEHAVIORS = ["static", "low", "mid", "high"];
-const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const isMap = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
 class SpecError extends Error {}
+
+// Python's repr() of a JSON value, for error texts that match the model's
+// word for word (JSON cannot tell 9 from 9.0; both print as 9).
+function pyRepr(v) {
+  if (v === null || v === undefined) return "None";
+  if (v === true) return "True";
+  if (v === false) return "False";
+  if (typeof v === "number") return Number.isNaN(v) ? "nan" : v === Infinity ? "inf" : v === -Infinity ? "-inf" : String(v);
+  if (typeof v === "string") {
+    const q = v.includes("'") && !v.includes('"') ? '"' : "'";
+    const esc = v.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
+    return q + (q === "'" ? esc.replace(/'/g, "\\'") : esc) + q;
+  }
+  if (Array.isArray(v)) return `[${v.map(pyRepr).join(", ")}]`;
+  return `{${Object.entries(v).map(([k, x]) => `${pyRepr(k)}: ${pyRepr(x)}`).join(", ")}}`;
+}
+
+/** income_tax.capital_gains_rate (income_tax_spec._resolve_cg_rate): null
+ * for current law, a percent in [0, 100), or CG_ORDINARY. A present null is
+ * rejected. The error texts are the model's. */
+function cgRate(raw) {
+  const where = "income_tax.capital_gains_rate";
+  if (typeof raw === "string") {
+    if (raw === "current_law") return null;
+    if (raw === CG_ORDINARY) return CG_ORDINARY;
+    throw new SpecError(`${where}: 'current_law', 'ordinary' or a rate in percent, got ${pyRepr(raw)}`);
+  }
+  if (typeof raw !== "number") throw new SpecError(`${where}: expected a number, got ${pyRepr(raw)}`);
+  if (!Number.isFinite(raw) || raw < 0 || raw >= 100) throw new SpecError(`${where}: ${pyRepr(raw)} is outside [0, 100)`);
+  return raw;
+}
 
 function schedule(rows, where, maxBrackets, maxFloor) {
   if (!Array.isArray(rows) || !rows.length) throw new SpecError(`${where}: expected a non-empty list of [floor, rate] pairs`);
@@ -490,11 +598,12 @@ export function parseSpec(data, meta) {
     if (!isNum(rawPe) || rawPe < 0 || rawPe > 1e6) throw new SpecError("income_tax.personal_exemption: a number from 0 to 1,000,000");
     pe = rawPe;
   }
+  const cg = cgRate(get(it, "capital_gains_rate", "current_law"));
   const behavior = get(data, "behavior", BEHAVIORS);
   if (!Array.isArray(behavior) || !behavior.length || behavior.some((b) => !BEHAVIORS.includes(b))) {
     throw new SpecError(`spec.behavior: a non-empty subset of ${BEHAVIORS.join(", ")}`);
   }
-  return { name: data.name, label: get(data, "label", ""), first_year: fy, vintages, sd, pe,
+  return { name: data.name, label: get(data, "label", ""), first_year: fy, vintages, sd, pe, cg,
     behavior: BEHAVIORS.filter((b) => behavior.includes(b)) };
 }
 
@@ -504,7 +613,7 @@ export function resolveSpec(parsed, meta) {
   const out = {};
   for (const y of meta.years) {
     const base = meta.current_law[String(y)];
-    const changes = parsed.vintages || parsed.sd || parsed.pe !== null;
+    const changes = parsed.vintages || parsed.sd || parsed.pe !== null || parsed.cg !== null;
     if (y < parsed.first_year || !changes) { out[y] = { baseline: base, reform: base }; continue; }
     const reform = { ...base, name: `${parsed.name}_${y}`,
       brackets: { ...base.brackets }, standard_deduction: { ...base.standard_deduction } };
@@ -515,12 +624,15 @@ export function resolveSpec(parsed, meta) {
     }
     if (parsed.sd) for (const [k, csv] of Object.entries(SPEC_STATUS)) reform.standard_deduction[csv] = parsed.sd[k];
     if (parsed.pe !== null) reform.personal_exemption = parsed.pe;
+    if (parsed.cg !== null) reform.capital_gains_rate = parsed.cg;
     out[y] = { baseline: base, reform };
   }
   return out;
 }
 
-/** Tax on one household under a plain system (the page's household calculator). */
+/** Tax on one household under a plain system (the page's household
+ * calculator). `cgShare`: net long-term capital gains as a share of `agi`
+ * (0 to 1), as the population stores them. */
 export function householdTax(system, foodExcise, { fs, agi, dependents = 0, itemized = 0, cgShare = 0 }) {
   const sys = prepareSystem(system, foodExcise);
   return unitTax(sys, typeof fs === "number" ? fs : STATUSES.indexOf(fs), dependents, agi, itemized, cgShare);

@@ -29,7 +29,16 @@ hike because high earners respond on multiple margins:
      rate creates a 2pp incentive to shift income through PTE. Most
      S-corps and partnerships with $1M+ owners would elect.
 
-This module applies these three responses on top of the static
+  4. **Capital-gains realization** — When the alternative tax rate on net
+     long-term capital gains (HRS §235-51(f)) rises, filers realize fewer
+     gains: gains fall by exp(−cg_beta × the rise in the state marginal
+     rate on gains), the capital-gains page's response
+     (``forecast_cg_rate_options.score_option``). Only systems scored with
+     the statutory alternative tax (the tax simulator's) use it, so the Act
+     24 pipeline, whose registry systems keep the stacked shortcut, is
+     unchanged. See ``apply_realization_response``.
+
+This module applies these responses on top of the static
 microsimulation, and ``score_with_response`` scores them. The
 counterfactual is the baseline with nobody responding (the responses are
 to the scenario's rate increases), so only the scenario is scored again
@@ -40,9 +49,9 @@ population, which charged a migrant only the rate increase.
 
 Behavioral scenarios (``BehavioralParams``; the revenue scenario LOW uses
 ``high``, MID ``mid``, HIGH ``low``). PTE capture is 0 in all three (Act 58):
-    low       — eti=0.15, migration_elast=0.001   (weak response)
-    mid       — eti=0.40, migration_elast=0.0025
-    high      — eti=0.60, migration_elast=0.01    (strong response)
+    low       — eti=0.15, migration_elast=0.001,  cg_beta=1.6   (weak response)
+    mid       — eti=0.40, migration_elast=0.0025, cg_beta=2.0
+    high      — eti=0.60, migration_elast=0.01,   cg_beta=2.6   (strong response)
 
 References:
   - Saez, Slemrod, Giertz (2012) "The Elasticity of Taxable Income with
@@ -116,13 +125,18 @@ class BehavioralParams:
     migration_elast: float     # Share of $1M+ filers who leave per pp of top-rate increase, at full phase-in
     pte_capture: float         # Share of $1M+ pass-through income that elects PTE due to bill (Act 58: =0)
     migration_phase_in_years: int = 5  # Years to fully realize migration response
+    # Capital-gains realization semi-elasticity: gains fall by exp(-cg_beta x
+    # the rise in the marginal rate on gains). The capital-gains page's
+    # 0.5-0.8 long-run elasticity range over the ~31% combined top rate
+    # (forecast_cg_rate_options.py): 1.6 / 2.0 (its BETA) / 2.6.
+    cg_beta: float = 0.0
 
     @classmethod
     def low(cls) -> "BehavioralParams":
         # Weak response: weak ETI; migration at the low end of the US
         # evidence (Young & Varner 2011: ~0.04% per effective pp a year).
-        # PTE=0 (Act 58).
-        return cls(eti=0.15, migration_elast=0.001, pte_capture=0.0)
+        # PTE=0 (Act 58). Realization at the low end (elasticity ~0.5).
+        return cls(eti=0.15, migration_elast=0.001, pte_capture=0.0, cg_beta=1.6)
 
     @classmethod
     def mid(cls) -> "BehavioralParams":
@@ -130,21 +144,22 @@ class BehavioralParams:
         # the US state-tax studies, rebased to the statutory top rate (Act 24
         # raises $1M+ filers' average rate ~0.9 pp for its 2 pp): Rauh/Shyu
         # 2024, Cohen/Lai/Steindel 2015, Young et al. 2016 (~0.002-0.005).
-        # PTE=0 (Act 58 addback eliminates Hawaii arbitrage).
-        return cls(eti=0.40, migration_elast=0.0025, pte_capture=0.0)
+        # PTE=0 (Act 58 addback eliminates Hawaii arbitrage). Realization:
+        # the capital-gains page's BETA (elasticity ~0.6).
+        return cls(eti=0.40, migration_elast=0.0025, pte_capture=0.0, cg_beta=2.0)
 
     @classmethod
     def high(cls) -> "BehavioralParams":
         # Strong response. Migration at the upper end: New Jersey filers
         # earning all their income in-state (Young & Varner 2011, not
         # significant) and Young et al.'s flow cumulated over five years.
-        # PTE=0 (Act 58).
-        return cls(eti=0.60, migration_elast=0.01, pte_capture=0.0)
+        # PTE=0 (Act 58). Realization at the high end (elasticity ~0.8).
+        return cls(eti=0.60, migration_elast=0.01, pte_capture=0.0, cg_beta=2.6)
 
     @classmethod
     def static(cls) -> "BehavioralParams":
         """All zeros — replicates the original static-scoring estimate."""
-        return cls(eti=0.0, migration_elast=0.0, pte_capture=0.0)
+        return cls(eti=0.0, migration_elast=0.0, pte_capture=0.0, cg_beta=0.0)
 
     @classmethod
     def named(cls, name: str) -> "BehavioralParams":
@@ -434,6 +449,80 @@ def apply_migration_response(
 
 
 # ---------------------------------------------------------------------------
+# Capital-gains realization: fewer gains realized at a higher gains rate
+# ---------------------------------------------------------------------------
+
+def apply_realization_response(
+    df: pd.DataFrame,
+    pre: pd.DataFrame,
+    params: BehavioralParams,
+    *,
+    baseline_cfg,
+    scenario_cfg,
+    calculator,
+    income_col: str = "income",
+    fs_col: str = "filing_status",
+    cg_col: str = "synthetic_cg_share",
+    inplace: bool = False,
+) -> pd.DataFrame:
+    """Shrink realized capital gains when the alternative tax rate rises.
+
+    The capital-gains page's response (``forecast_cg_rate_options.score_option``):
+    with ``m`` each filer's bracket rate under the scenario's schedule at
+    *pre-response* taxable income (``pre``, the frame before ETI and
+    migration), the marginal rate on gains under alternative rate ``c`` is
+    ``τ(c) = min(m, c)`` (``m`` with no alternative tax), and
+
+        d    = max(0, τ(c_scenario) − τ(c_baseline))
+        g    = income × share            (``df``: after ETI, so gains
+                                          already shrink with income)
+        kept = g × exp(−cg_beta × d)
+        income′ = income − (g − kept),  share′ = kept / income′
+
+    Both τ terms use the scenario's schedule, so a plan that changes only
+    the brackets gets no realization response (ETI and migration price it),
+    and a plan that changes only the gains rate gets exactly the page's.
+    Only rows with ``d > 0`` and gains change; elsewhere ``g / income`` can
+    differ from the share by a rounding error, which would move a plan with
+    no rise. A cut gets no response (``d`` is clipped at 0), as the other
+    channels give cuts none.
+
+    A no-op unless ``cg_beta > 0``, both systems use the statutory
+    alternative tax (``cg_alt_tax == "statute"``) and their rates differ:
+    the Act 24 pipeline's registry systems keep the stacked shortcut and are
+    never moved by this.
+    """
+    c0, c1 = baseline_cfg.capital_gains_rate_pct, scenario_cfg.capital_gains_rate_pct
+    if (params.cg_beta <= 0 or baseline_cfg.cg_alt_tax != "statute"
+            or scenario_cfg.cg_alt_tax != "statute" or c0 == c1 or cg_col not in df.columns):
+        return df if inplace else df.copy()
+
+    out = df if inplace else df.copy()
+    m1 = _per_filer_marginal_rate(
+        pre, config=scenario_cfg, calculator=calculator,
+        income_col=income_col, fs_col=fs_col, exemption_count_col=None,
+    )
+
+    def gains_rate(cfg) -> np.ndarray:
+        cap = cfg.cg_alt_rate
+        return m1 if cap is None else np.minimum(m1, cap)
+
+    d = np.maximum(0.0, gains_rate(scenario_cfg) - gains_rate(baseline_cfg))
+    income = out[income_col].to_numpy(dtype=float).copy()
+    share = out[cg_col].to_numpy(dtype=float).copy()
+    hit = (d > 0) & (share > 0)
+    if hit.any():
+        y = income[hit]
+        g = y * share[hit]
+        kept = g * np.exp(-params.cg_beta * d[hit])
+        income[hit] = y - (g - kept)
+        share[hit] = kept / income[hit]
+        out[income_col] = income
+        out[cg_col] = share
+    return out
+
+
+# ---------------------------------------------------------------------------
 # PTE election shift: revenue moves from individual to PTE form
 # ---------------------------------------------------------------------------
 
@@ -470,7 +559,7 @@ def estimate_pte_election_shift_M(
       1. CG income is not pass-through "business" income eligible for
          entity-level election under HRS §235-110.93.
       2. Even where K-1 capital gains could theoretically be elected,
-         the Hawaii CG cap (7.25%, HRS §235-16) is *below* the PTE rate
+         the Hawaii CG cap (7.25%, HRS §235-51(f)) is *below* the PTE rate
          (9%), so rational filers would not elect PTE for CG income —
          it would raise their tax on that income.
 
@@ -700,7 +789,8 @@ def apply_behavioral_response(
     weight_col: str = "weight",
     top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, float]]:
-    """Apply ETI + migration adjustments and report the PTE shift.
+    """Apply ETI, migration and capital-gains realization adjustments, in
+    that order, and report the PTE shift.
 
     Returns (adjusted_df, diagnostics_dict).
 
@@ -732,8 +822,16 @@ def apply_behavioral_response(
         baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calculator,
         top_rate_path=top_rate_path,
     )
+    # Realization last, so ETI and migration see the same inputs whatever
+    # the gains rate does; its marginal rate is read on the frame before any
+    # response (df).
+    out = apply_realization_response(
+        out, df, params,
+        baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calculator,
+        income_col=income_col, fs_col=fs_col, inplace=True,
+    )
 
-    # PTE shift estimated on the post-ETI / post-migration income base
+    # PTE shift estimated on the post-response income base
     # (so we don't double-count income that already left)
     pte = estimate_pte_election_shift_M(
         out, params, income_col=income_col, fs_col=fs_col, weight_col=weight_col,

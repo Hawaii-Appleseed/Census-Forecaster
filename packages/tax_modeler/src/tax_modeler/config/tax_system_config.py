@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import logging
 
+from tax_modeler.liability.cg_alternative import alternative_tax
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +53,31 @@ class TaxSystemConfig:
     # When set they replace bracket_year / bracket_scenario / standard_deduction_year.
     brackets: Optional[Dict[str, Tuple[Tuple[float, float], ...]]] = None
     standard_deductions: Optional[Dict[str, float]] = None
+
+    # HRS §235-51(f) alternative tax on net long-term capital gains
+    # (tax_modeler.liability.cg_alternative). "stacked": the legacy shortcut,
+    # min(bracket tax on the gains, 7.25% x gains), which every registry
+    # system keeps so the published Act 24 / Act 46 runs reproduce; it allows
+    # no other rate. "statute": the statutory alternative tax at
+    # capital_gains_rate_pct (percent; None = no alternative tax, gains taxed
+    # as ordinary income), as the tax simulator's systems use.
+    cg_alt_tax: str = "stacked"
+    capital_gains_rate_pct: Optional[float] = 7.25
+
+    def __post_init__(self):
+        if self.cg_alt_tax not in ("stacked", "statute"):
+            raise ValueError(f"{self.name}: cg_alt_tax must be 'stacked' or 'statute', "
+                             f"not {self.cg_alt_tax!r}")
+        if self.cg_alt_tax == "stacked" and self.capital_gains_rate_pct != 7.25:
+            raise ValueError(f"{self.name}: the stacked capital-gains shortcut is 7.25% only; "
+                             f"use cg_alt_tax='statute' for {self.capital_gains_rate_pct!r}")
+
+    @property
+    def cg_alt_rate(self) -> Optional[float]:
+        """The statutory alternative rate as a decimal (None: no alternative
+        tax). Percent / 100, the same operation as the browser kernel's."""
+        r = self.capital_gains_rate_pct
+        return None if r is None else float(r) / 100.0
 
 
 # Every filing-status spelling the model uses -> the CSV's column/row names.
@@ -528,7 +555,8 @@ class TaxCalculator:
         
         return adjusted
     
-    # HRS §235-16: net long-term capital gains taxed at no more than 7.25%
+    # HRS §235-51(f): net long-term capital gains taxed at no more than 7.25%
+    # (the "stacked" shortcut's rate; see TaxSystemConfig.cg_alt_tax)
     HAWAII_CG_CAP_RATE: float = 0.0725
 
     def _bracket_tax(
@@ -573,10 +601,13 @@ class TaxCalculator:
             num_exemptions: Number of personal exemptions.
             deduction_override: If provided, use this instead of the standard deduction.
             cg_income: Net long-term capital gains included in ``income``.
-                When non-zero, the Hawaii §235-16 7.25% cap is applied: the
-                incremental bracket tax on the CG portion is limited to
-                7.25% × cg_income.  Defaults to 0 (all income treated as
-                ordinary — backward-compatible).
+                When non-zero, the HRS §235-51(f) alternative tax applies:
+                with ``config.cg_alt_tax == "stacked"`` the incremental
+                bracket tax on the CG portion is limited to 7.25% ×
+                cg_income; with ``"statute"``, the statutory alternative tax
+                at ``config.capital_gains_rate_pct`` (none when None), as in
+                :meth:`unit_liabilities`. Defaults to 0 (all income treated
+                as ordinary — backward-compatible).
 
         Returns:
             Dict with tax calculation details, including ``cg_cap_savings``.
@@ -598,10 +629,20 @@ class TaxCalculator:
         # Calculate bracket tax on full income
         tax, marginal_rate = self._bracket_tax(taxable_income, brackets)
 
-        # ---- HRS §235-16 capital gains cap (7.25%) --------------------------
+        # ---- HRS §235-51(f) capital gains alternative tax ---------------------
         cg_cap_savings = 0.0
         cg_income = max(0.0, float(cg_income))
-        if cg_income > 0:
+        if cg_income > 0 and config.cg_alt_tax == "statute":
+            # The statute, through unit_liabilities' function on one-row arrays.
+            if config.cg_alt_rate is not None:
+                floors, rates, cum = self._bracket_schedule(config, filing_status)
+                capped = float(alternative_tax(
+                    np.array([float(taxable_income)]), np.array([cg_income]),
+                    floors, rates, cum, config.cg_alt_rate)[0])
+                if capped < tax:
+                    cg_cap_savings = tax - capped
+                    tax = capped
+        elif cg_income > 0:
             # Tax on ordinary income only (total AGI minus CG share)
             ordinary_agi = max(0.0, income - cg_income)
             ordinary_taxable = max(0.0, ordinary_agi - std_deduction - personal_exemptions)
@@ -705,7 +746,9 @@ class TaxCalculator:
 
         Returns arrays aligned with ``tax_units``:
 
-        * ``before_credits`` — bracket tax with the §235-16 capital-gains cap;
+        * ``before_credits`` — bracket tax with the HRS §235-51(f) capital-gains
+          alternative tax (``config.cg_alt_tax``: the stacked shortcut or the
+          statute);
         * ``credits`` — refundable credits plus nonrefundable ones limited to
           ``before_credits`` (``HawaiiTaxCredits``);
         * ``child_care`` — the dependent-care credit within ``credits``;
@@ -764,7 +807,7 @@ class TaxCalculator:
         exemption_amount = num_exemptions * config.personal_exemption
         taxable_full = np.maximum(0.0, incomes - deductions - exemption_amount)
 
-        # CG income for §235-16 cap: auto-detect synthetic_cg_share column.
+        # CG income for the §235-51(f) cap: auto-detect synthetic_cg_share column.
         cg_shares = (
             tax_units["synthetic_cg_share"].fillna(0.0).to_numpy(dtype=float)
             if "synthetic_cg_share" in tax_units.columns
@@ -777,16 +820,26 @@ class TaxCalculator:
         ordinary_agi = np.maximum(0.0, incomes - cg_income)
         taxable_ordinary = np.maximum(0.0, ordinary_agi - deductions - exemption_amount)
 
-        # Bracket tax (vectorized): full and ordinary
-        tax_full = self._vectorized_bracket_tax(taxable_full, statuses, config)
-        # Skip the ordinary pass when no CG present anywhere
-        if has_cg.any():
-            tax_ordinary = self._vectorized_bracket_tax(taxable_ordinary, statuses, config)
-            cg_tax_uncapped = np.maximum(0.0, tax_full - tax_ordinary)
-            cg_tax_capped = np.minimum(cg_tax_uncapped, cg_income * self.HAWAII_CG_CAP_RATE)
-            liabilities = np.where(has_cg, tax_ordinary + cg_tax_capped, tax_full)
+        if config.cg_alt_tax == "statute":
+            # HRS §235-51(f), per filing status (liability.cg_alternative);
+            # with no gains it is exactly the bracket tax.
+            liabilities = np.zeros(n, dtype=float)
+            for fs in np.unique(statuses):
+                floors, rates, cum = self._bracket_schedule(config, fs)
+                m = statuses == fs
+                liabilities[m] = alternative_tax(taxable_full[m], cg_income[m], floors, rates,
+                                                 cum, config.cg_alt_rate)
         else:
-            liabilities = tax_full
+            # The stacked shortcut. Bracket tax (vectorized): full and ordinary
+            tax_full = self._vectorized_bracket_tax(taxable_full, statuses, config)
+            # Skip the ordinary pass when no CG present anywhere
+            if has_cg.any():
+                tax_ordinary = self._vectorized_bracket_tax(taxable_ordinary, statuses, config)
+                cg_tax_uncapped = np.maximum(0.0, tax_full - tax_ordinary)
+                cg_tax_capped = np.minimum(cg_tax_uncapped, cg_income * self.HAWAII_CG_CAP_RATE)
+                liabilities = np.where(has_cg, tax_ordinary + cg_tax_capped, tax_full)
+            else:
+                liabilities = tax_full
 
         # Match the loop version's NaN-row drop: zero out liability for any
         # row whose exemption was NaN (loop's int(NaN) → ValueError → except).
@@ -838,7 +891,7 @@ class TaxCalculator:
 
         Weighted totals of :meth:`unit_liabilities`, which computes per-filer
         tax in two numpy passes (full taxable + ordinary taxable for the
-        §235-16 CG cap) and then runs the credit calculation in a per-filer
+        §235-51(f) CG cap) and then runs the credit calculation in a per-filer
         Python loop. The per-filer tax loop previously dominated runtime;
         eliminating it cuts the hot path by roughly an order of magnitude.
         Surcharge handling is omitted — none of the registered configs use
@@ -933,7 +986,7 @@ class TaxCalculator:
         _itemized = itemized_deductions(tax_units)
         deductions = _sd if _itemized is None else np.maximum(_sd, _itemized)
 
-        # CG income for §235-16 cap: auto-detect synthetic_cg_share column.
+        # CG income for the §235-51(f) cap: auto-detect synthetic_cg_share column.
         # Base PUMS units don't have it → 0 (cap not applied).
         cg_shares = (
             tax_units["synthetic_cg_share"].fillna(0.0).values

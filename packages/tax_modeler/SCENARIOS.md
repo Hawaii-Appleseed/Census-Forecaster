@@ -103,7 +103,7 @@ can reuse it.  States with extra wrinkles (e.g. an alternative minimum
 tax, a kicker rebate) need a sibling of `liability/hawaii.py` that
 implements the wrinkle and routes through `liability/__init__.py`.
 
-The Hawaii capital-gains cap (HRS §235-16, 7.25%) is already
+The Hawaii capital-gains cap (HRS §235-51(f), 7.25%) is already
 parameterized via `state_config.cg_cap_rate` — set to `0.0` for states
 without a CG cap and the cap branch is skipped.
 
