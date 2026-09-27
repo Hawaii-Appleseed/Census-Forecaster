@@ -1,10 +1,10 @@
 # Tax Simulator (user-defined changes, income tax first) — Scope
 
-**Status (2026-09-25): scoped; Phase 0 done.** The three engine defects
-below were fixed and Act 24 republished in PR #24 (MID five-year gain vs
-Act 46 $870.1M → $738.9M; see `SB3125_CD1_FORECAST.md`, "Scoring-path
-fixes"). Figures below that quote the pre-fix engine ($80.99M static,
-$75.44M after response for TY2027) are the old published values; the fixed
+**Status (2026-09-26): scoped; Phase 0 done.** The three engine defects
+below were fixed and Act 24 republished in PR #24 (middle-scenario five-year
+gain vs Act 46 $870.1M → $738.9M; see `SB3125_CD1_FORECAST.md`,
+"Scoring-path fixes"). Where this document quotes the pre-fix engine
+($80.99M static, $75.44M after response for TY2027) it says so; the fixed
 engine gives $58.4M and $53.8M. Phases 1–5 not started. Goal: a page on the estimates
 site where anyone can change Hawaiʻi's income tax brackets, rates, standard
 deduction and personal exemption and see right away what the change raises or
@@ -32,18 +32,18 @@ Working name: "tax simulator". The name is still open (decision 6).
   - Static change: +$80.99M
   - After behavioral response: +$75.44M
 
-  These are the published middle-scenario row. One full scoring took about
-  7 ms in Node.
-- **Three engine defects come first, and one is large.** The Act 24 scoring
-  path drops the itemized deduction of every filer above $500K. Restoring it
-  cuts TY2027's bracket gain from $80.99M to $58.10M static, and from $75.44M
-  to $53.49M after response. The published Act 24 page carries this today, and
-  the simulator would inherit it on the changes people will try most: top
-  rates. See Phase 0.
-- **Effort: about 12–16 days for v1.** v1 covers brackets, rates, standard
-  deduction and exemption; revenue by year with a range; who pays; and a
-  household calculator. Phase 0 (2–3 days) is worth doing even if the
-  simulator is never built.
+  These were the published middle-scenario row at the time, from the
+  pre-fix engine. One full scoring took about 7 ms in Node. The parity check
+  must be re-run against the fixed engine's published figures ($58.4M static,
+  $53.8M after response) in Phase 3.
+- **Three engine defects had to be fixed first. Done in PR #24.** The largest
+  was that the Act 24 scoring path dropped the itemized deduction of every
+  filer above $500K. With all three fixed, TY2027's bracket gain is $58.4M
+  static and $53.8M after response, down from $80.99M and $75.44M, and the
+  five-year gain against Act 46 is $738.9M, down from $870.1M. See Phase 0.
+- **Effort: about 10–13 days for v1,** now that Phase 0 is done. v1 covers
+  brackets, rates, standard deduction and exemption; revenue by year with a
+  range; who pays; and a household calculator.
 
 ## What users can change, and what they get
 
@@ -120,10 +120,14 @@ lists and dispatches the registry scenarios.
   `data/raw/hawaii_tax_brackets_master_all.csv`. `Reform.from_dict` accepts
   only a registered `tax_system` name, so a schedule cannot be passed inline.
 
-## Phase 0 — engine defects to fix first
+## Phase 0 — engine defects (done, PR #24)
 
 Each was found while scoping and checked on the TY2027 middle-scenario
-population. All three sit in the scoring path the simulator will reuse.
+population. All three sit in the scoring path the simulator will reuse. All
+three were fixed and Act 24 republished in PR #24; `SB3125_CD1_FORECAST.md`
+("Scoring-path fixes") has the final figures. The numbers below are the
+measurements that motivated the fixes, each taken with only that defect
+corrected, so they do not add up to the final figures.
 
 **1. Itemized deductions dropped above $500K.**
 - `apply_top_income_growth_premium` blanks `hi_itemized_deduction` and the
@@ -150,10 +154,9 @@ This looks unintended, for two reasons:
 - `project_and_recalibrate` (which the capital-gains page uses) and
   `forecast_act24_vs_pre_act46.py` both recompute tax after the premium.
 
-`forecast_sb3125_static_quintile.py` uses the same pattern. Fixing it means
-re-running the Act 24 page and updating `SB3125_CD1_FORECAST.md` (the CLAUDE.md
-hard rule). TY2027's gain alone falls $22M, so the $870M five-year headline
-will fall too. The re-run will give the full amount.
+`forecast_sb3125_static_quintile.py` used the same pattern. The fix re-ran
+the Act 24 page and updated `SB3125_CD1_FORECAST.md`; the five-year headline
+fell from $870.1M to $738.9M.
 
 **2. `per_unit_tax` ignores credits.**
 - It reads `result.get("total_credits")`, but
@@ -385,16 +388,16 @@ spike, it already did.
 
 | Phase | Work | Days |
 |---|---|---:|
-| 0 | Fix the three defects; re-run Act 24; update `SB3125_CD1_FORECAST.md` and the page | 2–3 |
+| 0 | Fix the three defects; re-run Act 24; update `SB3125_CD1_FORECAST.md` and the page (done, PR #24) | — |
 | 1 | Inline schedules in `TaxSystemConfig` and `Reform`; generalize migration, the PTE shift and the effective year; `forecast_custom.py --spec` scoring against Act 24 | 2 |
 | 2 | Population export from the Act 24 run; import into `site/data/`; manifest; size budget | 1 |
 | 3 | `kernel.js`; golden-fixture generator; `node --test` in CI | 2 |
 | 4 | The page: editor, presets, results, distribution, household calculator, share and download, no-JS fallback, mobile, accessibility | 4–6 |
 | 5 | Methodology section, QA against the published pages, staff review | 1–2 |
-| **Total** | | **12–16** |
+| **Total remaining** | | **10–13** |
 
-Phases 0 and 1 are useful alone. They fix published numbers and let staff
-score any schedule from the command line.
+Phase 1 is useful alone: it lets staff score any schedule from the command
+line.
 
 ## Risks
 
@@ -405,15 +408,13 @@ score any schedule from the command line.
   after a re-run. The data paths and links are versioned for this reason.
 - **A single number gets quoted out of context.** The page shows the range by
   default and carries the guardrail text above.
-- **Phase 0 lowers the published Act 24 figures.** That needs a decision, and a
-  note on the page when it is republished.
 - **Scope creep.** Credits and capital gains could delay v1. They are v2 and
   v3.
 
 ## Decisions needed
 
-1. Fix Phase 0 and republish Act 24 before the simulator (recommended), or
-   build against the current numbers?
+1. ~~Fix Phase 0 and republish Act 24 before the simulator, or build against
+   the current numbers?~~ Settled: fixed and republished first (PR #24).
 2. May the site add first-party JavaScript, on this page only?
 3. Behavioral response to rate cuts: keep none, as the model does today and as
    the published numbers assume, or make it symmetric?
@@ -439,9 +440,23 @@ kernel, parity tests and a panel on the page.
     cliff tables).
   - The base is band aggregates already on the site (`county_bands.csv`,
     `maui_by_band.csv`).
-  - The kernel sums count × tax(price) by price band, buyer category and
-    county, then applies the ε sales response and the §247-7 disposition.
-  - About 3–4 days once the framework exists.
+  - The published estimate (`forecast_conveyance_sb3028.py`, PR #25) is no
+    longer a single ε applied to static tax. Its `Behavior` model has
+    separate channels: the lasting sales response (ε 6, with a first-year
+    bump and curvature), a developer ramp over five years, part of the tax
+    passed into prices, buyers shifting to the owner-occupant rates, and
+    sales of companies in place of homes. The range comes from a 1,000-draw
+    simulation over those priors and each county's sales by price.
+  - The kernel therefore sums count × tax(price) by price band, buyer
+    category and county, applies those channels, then the §247-7
+    disposition. It must reproduce the page's central estimate
+    (`site/data/conveyance-tax/revenue_by_year.csv`) as a golden case.
+  - The range is the hard part. Either run the simulation in the browser
+    (1,000 draws over the band aggregates, likely fast enough in a Worker),
+    or show the central estimate live and scale the published 5–95% band,
+    and say so. Decide before building.
+  - About 5–7 days once the framework exists, more than the earlier 3–4,
+    because of the behavior channels and the simulation.
 - **Capital-gains rate.** Use the DOTAX-anchored gains base and the statutory
   alternative tax from `forecast_cg_rate_options.py`.
 - **Credits.** Food/excise tables, the EITC share of federal, and dependent
