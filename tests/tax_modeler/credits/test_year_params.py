@@ -8,6 +8,7 @@ year-specific refundable-per-child cap.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from tax_modeler.credits.eitc import (
@@ -254,3 +255,21 @@ def test_ctc_actc_uses_year_refundable_cap_2_kids():
     # Part of the credit is lost to both limits.
     assert r2022['ctc_total'] == pytest.approx(3_860)
     assert r2025['ctc_total'] == pytest.approx(3_837.5)
+
+
+def test_compute_base_tax_extrapolates_credit_params_past_last_rev_proc():
+    """TY2028 credits use CPI-extrapolated parameters, not a TY2023 fallback."""
+    from tax_modeler.pipeline import compute_base_tax
+    from tax_modeler.liability.hawaii import NO_ITEMIZING
+
+    unit = pd.DataFrame([{
+        'filing_status': 'married_filing_jointly', 'income': 22_000.0,
+        'earned_income': 22_000.0, 'investment_income': 0.0,
+        'num_dependents': 2, 'num_qualifying_children': 2, 'weight': 1.0,
+        'dependents': list(_TWO_KID_DEPS), 'dependents_details': list(_TWO_KID_DEPS),
+    }])
+    out = compute_base_tax(unit, deduction_params=NO_ITEMIZING, tax_year=2028)
+    # At $22K the 2-child EITC sits on its plateau, so it equals the max credit.
+    expected = eitc_parameters_for_year(2028, extrapolate=True).by_children[2].max_credit
+    assert out['eitc_amount'].iloc[0] == pytest.approx(expected)
+    assert expected > eitc_parameters_for_year(2026).by_children[2].max_credit

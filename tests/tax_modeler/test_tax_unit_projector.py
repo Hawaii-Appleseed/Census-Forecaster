@@ -315,3 +315,28 @@ def test_recalculate_eitc_grows_with_irs_parameter_indexing():
     e25 = out_2025["eitc_amount"].iloc[0]
     assert e22 > 0
     assert e25 > e22, f"Expected EITC TY2025 > TY2022 at fixed $30K EI; got 2022={e22:.2f}, 2025={e25:.2f}"
+
+
+def test_earned_and_investment_income_follow_income_growth():
+    """Credit inputs grow with each unit's income, not left in base-year dollars."""
+    base = _make_tax_units()
+    proj = project_tax_units_forward(base, target_year=2026)
+    ratio = proj["income"] / proj["income_base_year"]
+    assert proj["earned_income"].tolist() == pytest.approx((base["earned_income"] * ratio).tolist())
+    assert proj["investment_income"].tolist() == pytest.approx((base["investment_income"] * ratio).tolist())
+    # Growth actually happened, so the check is not vacuous.
+    assert (ratio > 1.0).all()
+
+
+def test_zero_income_unit_takes_county_median_ratio():
+    from tax_modeler.projection.tax_unit_projector import _scale_credit_income_inputs
+
+    df = pd.DataFrame({
+        "county": ["Maui", "Maui", "Maui"],
+        "income_base_year": [100.0, 200.0, 0.0],
+        "income": [110.0, 230.0, 0.0],
+        "earned_income": [100.0, 200.0, 50.0],
+        "investment_income": [0.0, 0.0, 0.0],
+    })
+    out = _scale_credit_income_inputs(df.copy(), df, use_cbo_components=False)
+    assert out["earned_income"].tolist() == pytest.approx([110.0, 230.0, 50.0 * 1.125])

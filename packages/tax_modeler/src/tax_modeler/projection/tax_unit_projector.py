@@ -210,6 +210,78 @@ def _apply_bls_income_projection(
     return df
 
 
+def _ratio(num: np.ndarray, den: np.ndarray, fallback: np.ndarray) -> np.ndarray:
+    """``num / den`` where ``|den| > $1``, else ``fallback``."""
+    ok = np.abs(den) > 1.0
+    out = np.array(fallback, dtype=float, copy=True)
+    out[ok] = num[ok] / den[ok]
+    return out
+
+
+def _scale_credit_income_inputs(
+    df: pd.DataFrame,
+    base_df: pd.DataFrame,
+    *,
+    use_cbo_components: bool,
+) -> pd.DataFrame:
+    """Grow ``earned_income`` and ``investment_income`` with projected income.
+
+    County / BLS paths: each unit's own ``income`` growth ratio (units with no
+    base income take the median ratio of their county, else of all units).
+    CBO path: the ratio of aged to base wages + self-employment (earned) and
+    interest + dividends (investment), from the same component decomposition
+    ``age_filers_with_components`` aged.
+
+    ``total_cash_income``, ``agi`` and the per-person component columns are
+    left alone: quintile binning reads ``total_cash_income`` and changing it
+    here would move the Act 24 distributional tables.
+    """
+    targets = [c for c in ("earned_income", "investment_income") if c in df.columns]
+    if not targets:
+        return df
+
+    base_inc = df["income_base_year"].to_numpy(dtype=float)
+    new_inc = df["income"].to_numpy(dtype=float)
+    ok = np.abs(base_inc) > 1.0
+    unit_ratio = np.full(len(df), np.nan)
+    unit_ratio[ok] = new_inc[ok] / base_inc[ok]
+    overall = float(np.nanmedian(unit_ratio)) if ok.any() else 1.0
+    fill = np.full(len(df), overall)
+    if "county" in df.columns:
+        county = df["county"].astype(object).to_numpy()
+        med = pd.Series(unit_ratio).groupby(county).median()
+        fill = np.array([med.get(c, overall) for c in county], dtype=float)
+        fill = np.where(np.isnan(fill), overall, fill)
+    unit_ratio = np.where(np.isnan(unit_ratio), fill, unit_ratio)
+
+    ratios = {c: unit_ratio for c in targets}
+    aged_cols = ("cbo_aged_wages", "cbo_aged_business", "cbo_aged_interest", "cbo_aged_dividends")
+    if use_cbo_components and all(c in df.columns for c in aged_cols):
+        from tax_modeler.calibration.cbo_aging import _component_amounts_for_filer
+
+        base = _component_amounts_for_filer(base_df.loc[df.index])
+        aged = {c: df[f"cbo_aged_{c}"].to_numpy(dtype=float)
+                for c in ("wages", "business", "interest", "dividends")}
+        b = {c: base[c].to_numpy(dtype=float) for c in aged}
+
+        def _scalar(comps):
+            den = sum(b[c].sum() for c in comps)
+            return float(sum(aged[c].sum() for c in comps) / den) if abs(den) > 1 else 1.0
+
+        ratios["earned_income"] = _ratio(
+            aged["wages"] + aged["business"], b["wages"] + b["business"],
+            np.full(len(df), _scalar(("wages", "business"))),
+        )
+        ratios["investment_income"] = _ratio(
+            aged["interest"] + aged["dividends"], b["interest"] + b["dividends"],
+            np.full(len(df), _scalar(("interest", "dividends"))),
+        )
+
+    for col in targets:
+        df[col] = df[col].to_numpy(dtype=float) * ratios[col]
+    return df
+
+
 def _recalculate_ctc(
     df: pd.DataFrame,
     tax_year: int = 2023,
@@ -530,6 +602,14 @@ def project_tax_units_forward(
             df["income_ci90_low"].median(),
             df["income_ci90_high"].median(),
         )
+
+    # --- Credit inputs follow income ---------------------------------------
+    # Every path above rewrites ``income`` only. EITC and ACTC read
+    # ``earned_income`` / ``investment_income``, which otherwise stayed in
+    # base-year dollars while credit parameters moved to the target year.
+    df = _scale_credit_income_inputs(
+        df, tax_units_df, use_cbo_components=use_cbo_aging,
+    )
 
     # --- Recalculate Hawaii tax on scaled incomes (with scaled deductions) ---
     # refresh_stale_hawaii_tax repeats this step for units whose income changes
