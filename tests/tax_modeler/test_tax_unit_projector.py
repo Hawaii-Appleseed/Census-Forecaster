@@ -250,7 +250,7 @@ def test_no_county_column_uses_state_proxy():
 def _two_kid_30k_unit() -> pd.DataFrame:
     """A 2-child single filer at $30K EI — squarely in the EITC flat region.
 
-    Uses PUMS-style integer relationship codes (22 = natural-born child) and
+    Uses PUMS-style RELSHIPP relationship codes (25 = biological child) and
     citizenship code 1 so that both CTC and EITC qualifying-child tests pass.
     The earned income exceeds the EITC phase-in point for 2 kids across all
     years and stays below the single-filer phaseout start for all years.

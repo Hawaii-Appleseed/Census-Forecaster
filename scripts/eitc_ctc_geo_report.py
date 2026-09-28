@@ -152,6 +152,36 @@ def _build_units_for_tax_year(
 # ---------------------------------------------------------------------------
 
 # CBPP-comparable column set for every geography level.
+# BLS CPI-U, U.S. city average, annual averages (series CUUR0000SA0). ADJINC
+# puts every PUMS survey year in the file's final-year dollars with a national
+# price index, so the same kind of index takes them back to an earlier year.
+_CPI_U_ANNUAL = {2022: 292.655, 2023: 304.702, 2024: 313.689}
+
+_INCOME_DOLLAR_COLUMNS = (
+    "income", "earned_income", "investment_income", "total_cash_income", "agi",
+    *(f"{who}_{src}" for who in ("primary", "secondary") for src in (
+        "wagp", "semp", "intp", "div", "retp", "ssp", "ssp_full", "ssip", "pap", "oip",
+    )),
+)
+
+
+def _rebase_income_dollars(units: pd.DataFrame, *, from_year: int, to_year: int) -> pd.DataFrame:
+    """Express PUMS money-income columns in ``to_year`` dollars.
+
+    Without this, a TY2022 backtest taxed 2024-dollar incomes under TY2022
+    parameters: incomes ~7% high, federal tax before credits too high, and
+    too little of the CTC left over to refund.
+    """
+    factor = _CPI_U_ANNUAL[to_year] / _CPI_U_ANNUAL[from_year]
+    out = units.copy()
+    for col in _INCOME_DOLLAR_COLUMNS:
+        if col in out.columns:
+            out[col] = out[col] * factor
+    LOG.info("Rebased %d-dollar incomes to %d dollars (CPI-U factor %.4f)",
+             from_year, to_year, factor)
+    return out
+
+
 _REPORT_COLUMNS = [
     "weighted_filers",
     "filers_receiving_eitc",
@@ -338,10 +368,16 @@ def main(argv: Optional[list] = None) -> int:
     # 1. Build base units (PUMS → enriched + geography assigned).
     base_units = _load_units(args.pums_data_dir, args.use_fixture)
 
-    # 2. Compute year-specific tax + credits. The PUMS construction year is
-    #    fixed; if the requested year differs, project forward.
-    PUMS_CONSTRUCTION_YEAR = 2022
-    project_required = args.tax_year != PUMS_CONSTRUCTION_YEAR
+    # 2. Compute year-specific tax + credits. PUMS incomes are in the file's
+    #    ADJINC dollar-year (2024 for the 2020-24 5-year file). Earlier years
+    #    are deflated to that year's dollars and taxed directly; later years
+    #    are projected forward.
+    from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+    if args.tax_year < PUMS_INCOME_DOLLAR_YEAR:
+        base_units = _rebase_income_dollars(
+            base_units, from_year=PUMS_INCOME_DOLLAR_YEAR, to_year=args.tax_year,
+        )
+    project_required = args.tax_year > PUMS_INCOME_DOLLAR_YEAR
     units = _build_units_for_tax_year(
         base_units, tax_year=args.tax_year, project=project_required,
     )

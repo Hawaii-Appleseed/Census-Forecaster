@@ -233,8 +233,8 @@ def test_ctc_actc_uses_year_refundable_cap_2_kids():
         'income': 28_000,
         'earned_income': 28_000,
         'dependents': [
-            {'age': 8, 'relationship': '22', 'citizenship': '1'},
-            {'age': 12, 'relationship': '22', 'citizenship': '1'},
+            {'age': 8, 'relationship': '25', 'citizenship': '1'},
+            {'age': 12, 'relationship': '25', 'citizenship': '1'},
         ],
         'num_dependents': 2,
     }

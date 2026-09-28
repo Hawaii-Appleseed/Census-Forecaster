@@ -275,38 +275,27 @@ def _is_qualifying_child_ctc(dependent: Dict, params: CTCParameters) -> bool:
     return True
 
 
-def _is_qualifying_relationship(relationship: str) -> bool:
+def _is_qualifying_relationship(relationship) -> bool:
     """
     Check if relationship qualifies for CTC.
 
-    Args:
-        relationship: PUMS relationship code or description
+    Dependents carry PUMS ``RELSHIPP`` codes (20-38). A CTC qualifying child
+    (IRC §24(c), §152(c)) is the same relationship set as the EITC's: own
+    child (biological, adopted, step), sibling, grandchild, foster child.
+    Nieces/nephews sit inside "other relative" (33) and cannot be separated,
+    so they are excluded, as for the EITC.
 
-    Returns:
-        True if relationship qualifies
+    Until September 2026 this compared against the retired ``RELP`` codes, so
+    it dropped stepchildren, siblings and grandchildren and admitted
+    unmarried partners and same-sex spouses.
     """
-    # PUMS relationship codes that qualify:
-    # 22 = Natural born child
-    # 23 = Adopted child
-    # 24 = Stepchild
-    # 25 = Grandchild
-    # 26 = Brother or sister
-    # 27 = Father or mother
-    # 28 = Grandparent
-    # 29 = Parent-in-law
-    # 30 = Son-in-law or daughter-in-law
-    # 31 = Other relative
-    # 32 = Roomer or boarder
-    # 33 = Housemate or roommate
-    # 34 = Unmarried partner
-    # 35 = Foster child
-    # 36 = Other nonrelative
+    from tax_modeler.units.relshipp_codes import EITC_QUALIFYING_CHILD_RELS
 
-    qualifying_codes = ['22', '23', '24', '25', '26', '35']  # Child, stepchild, grandchild, sibling, foster child
-
-    # Handle both string and numeric relationship codes
-    rel_str = str(relationship)
-    return rel_str in qualifying_codes
+    try:
+        code = int(float(relationship))
+    except (TypeError, ValueError):
+        return False
+    return code in EITC_QUALIFYING_CHILD_RELS
 
 
 def _is_us_person(citizenship: str) -> bool:
@@ -376,7 +365,8 @@ def with_federal_tax_before_credits(
     extrapolate: bool = False,
 ) -> pd.DataFrame:
     """Add ``federal_tax_before_credits`` (vectorized) so per-row CTC calls
-    skip recomputing it. Existing non-null values are kept."""
+    skip recomputing it. Always recomputed from the current ``income``: a
+    value carried over from an earlier year or income vintage is stale."""
     from tax_modeler.liability.federal import federal_tax_before_credits
 
     if len(tax_units_df) == 0 or 'income' not in tax_units_df.columns:
@@ -386,16 +376,10 @@ def with_federal_tax_before_credits(
         out['filing_status'].astype(str).to_numpy()
         if 'filing_status' in out.columns else np.full(len(out), 'single')
     )
-    computed = federal_tax_before_credits(
+    out['federal_tax_before_credits'] = federal_tax_before_credits(
         out['income'].fillna(0).astype(float).to_numpy(), status,
         tax_year=tax_year, extrapolate=extrapolate,
     )
-    if 'federal_tax_before_credits' in out.columns:
-        out['federal_tax_before_credits'] = out['federal_tax_before_credits'].fillna(
-            pd.Series(computed, index=out.index)
-        )
-    else:
-        out['federal_tax_before_credits'] = computed
     return out
 
 

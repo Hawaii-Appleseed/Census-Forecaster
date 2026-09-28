@@ -889,22 +889,29 @@ less the standard deduction), and only the unused remainder is
 refundable, limited to 15% of earned income above $2,500 — one amount
 per return — and to the per-child cap. Until September 2026 the model
 assigned the refundable part first and applied the 15% limit per child,
-which put TY 2022 ACTC at $332M against IRS's $117.8M. With the fix
-(TY 2022, real PUMS, after the EITC by-children reweight):
+which put TY 2022 ACTC at $332M against IRS's $117.8M. Two more fixes
+followed: the CTC's qualifying-child test compared PUMS `RELSHIPP` codes
+against the retired `RELP` list (dropping stepchildren, siblings and
+grandchildren; now the EITC's `EITC_QUALIFYING_CHILD_RELS`), and the
+TY 2022 backtest taxed 2024-dollar PUMS incomes (now CPI-U-deflated to
+2022 dollars in `eitc_ctc_geo_report.py`). TY 2022, real PUMS, after the
+EITC by-children reweight:
 
 | | Model | IRS SOI | Gap |
 |---|---:|---:|---:|
-| Nonrefundable CTC | $346.1M | $351.7M | −2% |
-| ACTC | $76.8M | $117.8M | −35% |
-| Total CTC | $422.9M | $469.5M | −10% |
-| CTC returns | 132.0k | 154.6k | −15% |
+| CTC returns | 153.9k | 154.6k | −0.5% |
+| Total CTC | $491.7M | $469.5M | +5% |
+| Nonrefundable CTC (IRS incl. ODC) | $401.2M | $351.7M | +14% |
+| ACTC | $90.5M | $117.8M | −23% |
 
-The remaining ACTC shortfall is open. Likely causes: nonrefundable
-credits that come before the CTC (dependent care, education, saver's)
-are not modeled, so tax available to absorb the CTC is overstated;
-`income` omits above-the-line adjustments; and the unit construction
-finds ~15% fewer CTC families than IRS, probably concentrated at low
-incomes where the credit is refundable.
+Against IRS SOI by AGI band (`22in55cmcsv`), the split error sits in
+the $25K–$200K bands: too much credit absorbed by tax, too little
+refunded. Checked and ruled out as main causes (each moves ACTC by
+under $5M): the half-SE-tax and QBI deductions; nonrefundable credits
+taken before the CTC (dependent care, education, saver's, residential
+energy — assigned at IRS band rates); assigning PUMS-subfamily children
+to their own parent instead of the householder; and the statutory
+taxable-Social-Security formula in place of a flat 85%. Still open.
 
 From TY 2025 the taxpayer (or one spouse on a joint return) must hold a
 work-eligible SSN. `calculate_ctc` honors a `filer_has_ssn` column but
