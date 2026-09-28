@@ -4,13 +4,14 @@ Earned Income Tax Credit (EITC) Calculation Module
 Implements the federal EITC with year-specific statutory parameters.
 The EITC is a refundable credit for low-to-moderate income workers.
 
-Supported tax years: 2022, 2023, 2024, 2025.
+Supported tax years: 2022-2026.
 
 Sources (IRS Revenue Procedures, inflation-adjusted tables):
 - TY 2022: IRS Rev. Proc. 2021-45
 - TY 2023: IRS Rev. Proc. 2022-38
 - TY 2024: IRS Rev. Proc. 2023-34
 - TY 2025: IRS Rev. Proc. 2024-40
+- TY 2026: IRS Rev. Proc. 2025-32
 
 Key rules:
 - Must have earned income (wages or self-employment)
@@ -168,11 +169,23 @@ def _eitc_2025() -> EITCParameters:
     )
 
 
+def _eitc_2026() -> EITCParameters:
+    # IRS Rev. Proc. 2025-32 §4.06 (TY 2026). Investment income limit $12,200.
+    return _build_eitc_params(
+        investment_income_limit=12_200,
+        max_credits={0: 664, 1: 4_427, 2: 7_316, 3: 8_231},
+        phase_in_ends={0: 8_680, 1: 13_020, 2: 18_290, 3: 18_290},
+        phaseout_start_single={0: 10_860, 1: 23_890, 2: 23_890, 3: 23_890},
+        phaseout_start_joint={0: 18_140, 1: 31_160, 2: 31_160, 3: 31_160},
+    )
+
+
 _EITC_PARAMS_BY_YEAR = {
     2022: _eitc_2022,
     2023: _eitc_2023,
     2024: _eitc_2024,
     2025: _eitc_2025,
+    2026: _eitc_2026,
 }
 
 # Assumed chained-CPI growth for extrapolating IRS Rev. Proc. parameters past

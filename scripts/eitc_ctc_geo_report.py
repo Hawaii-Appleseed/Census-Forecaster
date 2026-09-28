@@ -301,7 +301,7 @@ def _compare_against_cbpp(
 def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--tax-year", type=int, required=True,
-                   help="Tax year (2022, 2023, 2024, or 2025).")
+                   help="Tax year (2022-2026).")
     p.add_argument("--out", type=Path, required=True,
                    help="Output directory (created if absent). Repo-relative paths recommended.")
     p.add_argument("--compare-cbpp", action="store_true",
@@ -329,8 +329,8 @@ def main(argv: Optional[list] = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    if args.tax_year not in {2022, 2023, 2024, 2025}:
-        LOG.error("--tax-year must be one of {2022, 2023, 2024, 2025}; got %d", args.tax_year)
+    if args.tax_year not in {2022, 2023, 2024, 2025, 2026}:
+        LOG.error("--tax-year must be one of {2022, 2023, 2024, 2025, 2026}; got %d", args.tax_year)
         return 2
 
     args.out.mkdir(parents=True, exist_ok=True)

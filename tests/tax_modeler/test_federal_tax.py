@@ -88,3 +88,25 @@ def test_unsupported_year_raises():
     df = _frame([{"filing_status": "single", "total_cash_income": 50_000}])
     with pytest.raises(KeyError):
         compute_federal_income_tax_for_units(df, tax_year=2030)
+
+
+def test_2025_standard_deduction_reflects_pl_119_21():
+    from tax_modeler.liability.federal import federal_tax_before_credits
+    # $15,750 SD: $15,750 of income owes nothing, $16,750 owes 10% × 1_000.
+    assert federal_tax_before_credits(15_750, "single", tax_year=2025)[0] == 0
+    assert federal_tax_before_credits(16_750, "single", tax_year=2025)[0] == pytest.approx(100)
+
+
+def test_2026_hoh_brackets_rev_proc_2025_32():
+    from tax_modeler.liability.federal import federal_tax_before_credits
+    # Taxable $67,450 (top of 12% HoH bracket) → $7,740 per Table 2.
+    tax = federal_tax_before_credits(67_450 + 24_150, "head_of_household", tax_year=2026)
+    assert tax[0] == pytest.approx(7_740)
+
+
+def test_federal_extrapolation_grows_and_rounds():
+    from tax_modeler.liability.federal import _federal_parameters_for_year
+    sd26, br26 = _federal_parameters_for_year(2026)
+    sd28, br28 = _federal_parameters_for_year(2028, extrapolate=True)
+    assert sd28["single"] > sd26["single"] and sd28["single"] % 50 == 0
+    assert br28["single"][0][0] > br26["single"][0][0] and br28["single"][0][0] % 25 == 0

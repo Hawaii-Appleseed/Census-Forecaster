@@ -863,11 +863,12 @@ sees exactly the keys it expects.
 
 Year-keyed federal credit calculators (`tax_modeler.credits.eitc`,
 `tax_modeler.credits.ctc`) carry IRS Rev. Proc. parameters for TY
-2022 → TY 2025 — max-credit, phase-in completion income, single-
+2022 → TY 2026 — max-credit, phase-in completion income, single-
 and joint-filer phaseout starts, ACTC refundable cap. Statutory rates
-(phase-in / phase-out percentages, $200K/$400K phaseout thresholds,
-$2,000/child max under TCJA) do not move year-to-year and live in
-shared constants.
+(phase-in / phase-out percentages, $200K/$400K phaseout thresholds)
+do not move year-to-year and live in shared constants. The CTC max is
+$2,000/child through TY 2024 and $2,200 from TY 2025, indexed after
+TY 2026 (P.L. 119-21 §70104).
 
 ### Parameter vintages
 
@@ -877,14 +878,46 @@ shared constants.
 | 2023 |           $6,604 |              $1,600 |        2022-38 |
 | 2024 |           $6,960 |              $1,700 |        2023-34 |
 | 2025 |           $7,152 |              $1,700 |        2024-40 |
+| 2026 |           $7,316 |              $1,700 |        2025-32 |
+
+### CTC ordering (September 2026)
+
+The CTC is split in statutory order (IRC §24(b)(3), §24(d)): it first
+offsets federal income tax before credits
+(`liability.federal.federal_tax_before_credits`, bracket tax on `income`
+less the standard deduction), and only the unused remainder is
+refundable, limited to 15% of earned income above $2,500 — one amount
+per return — and to the per-child cap. Until September 2026 the model
+assigned the refundable part first and applied the 15% limit per child,
+which put TY 2022 ACTC at $332M against IRS's $117.8M. With the fix
+(TY 2022, real PUMS, after the EITC by-children reweight):
+
+| | Model | IRS SOI | Gap |
+|---|---:|---:|---:|
+| Nonrefundable CTC | $346.1M | $351.7M | −2% |
+| ACTC | $76.8M | $117.8M | −35% |
+| Total CTC | $422.9M | $469.5M | −10% |
+| CTC returns | 132.0k | 154.6k | −15% |
+
+The remaining ACTC shortfall is open. Likely causes: nonrefundable
+credits that come before the CTC (dependent care, education, saver's)
+are not modeled, so tax available to absorb the CTC is overstated;
+`income` omits above-the-line adjustments; and the unit construction
+finds ~15% fewer CTC families than IRS, probably concentrated at low
+incomes where the credit is refundable.
+
+From TY 2025 the taxpayer (or one spouse on a joint return) must hold a
+work-eligible SSN. `calculate_ctc` honors a `filer_has_ssn` column but
+PUMS has no SSN field and no imputation exists yet, so the rule
+currently removes no one — TY 2025+ CTC is an upper bound on this margin.
 
 `project_tax_units_forward(target_year=Y)` plumbs `Y` into both
 `_recalculate_ctc` and `calculate_eitc_for_tax_units` so projected
 nominal incomes are credited against `Y`'s statutory parameters
 (this matches the IRS chained-CPI inflation-indexing treatment).
 For `target_year` beyond the latest published Rev. Proc., the
-projector clamps to the most recent supported year and logs the
-substitution — older callers projecting to 2026+ continue to work.
+projector CPI-extrapolates dollar parameters from the latest supported
+year (`CREDIT_PARAM_CPI_GROWTH`) and logs the substitution.
 
 ### Take-up imputation
 

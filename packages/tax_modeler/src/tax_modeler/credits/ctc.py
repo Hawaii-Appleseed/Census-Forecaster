@@ -2,20 +2,27 @@
 Child Tax Credit (CTC) Calculation Module
 
 Implements the federal Child Tax Credit with year-specific statutory
-parameters. The CTC provides up to $2,000 per qualifying child under
-the Tax Cuts and Jobs Act (TCJA), with a refundable portion (ACTC) that
-the IRS indexes for inflation per year.
+parameters: $2,000 per qualifying child under TCJA through TY 2024, raised
+to $2,200 for TY 2025 and indexed thereafter by the 2025 reconciliation act
+(P.L. 119-21 §70104), with an inflation-indexed refundable portion (ACTC).
 
-Supported tax years: 2022, 2023, 2024, 2025.
+Supported tax years: 2022-2026 (later years with ``extrapolate=True``).
 
-Sources (IRS Revenue Procedures):
-- TY 2022: IRS Rev. Proc. 2021-45  → refundable cap $1,500/child
-- TY 2023: IRS Rev. Proc. 2022-38  → refundable cap $1,600/child
-- TY 2024: IRS Rev. Proc. 2023-34  → refundable cap $1,700/child
-- TY 2025: IRS Rev. Proc. 2024-40  → refundable cap $1,700/child
+Sources:
+- TY 2022: IRS Rev. Proc. 2021-45  → $2,000 max, refundable cap $1,500/child
+- TY 2023: IRS Rev. Proc. 2022-38  → $2,000 max, refundable cap $1,600/child
+- TY 2024: IRS Rev. Proc. 2023-34  → $2,000 max, refundable cap $1,700/child
+- TY 2025: P.L. 119-21 §70104 ($2,200 max); Rev. Proc. 2024-40 ($1,700 cap)
+- TY 2026: IRS Rev. Proc. 2025-32 §4.05 → $2,200 max, refundable cap $1,700
 
-Phaseout thresholds ($200K single / $400K joint) and max $2,000/child
-are statutory TCJA values that do not move with inflation through 2025.
+Phaseout thresholds ($200K single / $400K joint) are statutory and not
+indexed. From TY 2025 the taxpayer (or, on a joint return, at least one
+spouse) must have a work-eligible SSN (§24(h)(7) as amended).
+
+Ordering (IRC §24(b)(3), §24(d)): the credit first offsets federal income
+tax before credits; only the unused remainder can be refunded, and the
+refund is limited to 15% of earned income above $2,500 (a per-return
+amount, not per child) and to the per-child cap.
 """
 
 from __future__ import annotations
@@ -41,7 +48,18 @@ class CTCParameters:
     qualifying_age_limit: int = 17  # Must be under 17
     earned_income_threshold: int = 2500  # ACTC earned-income threshold (TCJA, IRC §24(d))
     actc_earned_income_rate: float = 0.15  # ACTC = 15% of earned income above threshold
+    require_filer_ssn: bool = False  # P.L. 119-21: taxpayer/spouse SSN, TY 2025+
 
+
+# Maximum credit per child. TCJA's $2,000 was not indexed; P.L. 119-21
+# §70104 set $2,200 for TY 2025 and indexed it from TY 2026.
+_CTC_MAX_CREDIT_BY_YEAR = {
+    2022: 2_000,
+    2023: 2_000,
+    2024: 2_000,
+    2025: 2_200,  # P.L. 119-21 §70104
+    2026: 2_200,  # IRS Rev. Proc. 2025-32 §4.05(1)
+}
 
 # Refundable per-child cap (Additional CTC) is inflation-indexed under TCJA.
 _CTC_REFUNDABLE_LIMIT_BY_YEAR = {
@@ -49,34 +67,46 @@ _CTC_REFUNDABLE_LIMIT_BY_YEAR = {
     2023: 1_600,  # IRS Rev. Proc. 2022-38
     2024: 1_700,  # IRS Rev. Proc. 2023-34
     2025: 1_700,  # IRS Rev. Proc. 2024-40
+    2026: 1_700,  # IRS Rev. Proc. 2025-32 §4.05(2)
 }
+
+# First tax year the taxpayer/spouse SSN requirement applies.
+_FILER_SSN_REQUIRED_FROM = 2025
 
 
 def ctc_parameters_for_year(tax_year: int, *, extrapolate: bool = False) -> CTCParameters:
     """Return CTC parameters for the requested tax year.
 
     With ``extrapolate=True``, years beyond the last published Rev. Proc. get
-    a CPI-extrapolated ACTC refundable cap (chained CPI per IRC §24(d)(4),
-    floored to the next-lowest $100 per §24(d)(4)(B)). The $2,000 max credit
-    and $200K/$400K phaseout thresholds are NOT indexed under TCJA and stay
-    fixed.
+    CPI-extrapolated dollar amounts: the ACTC refundable cap (§24(d)(4)) and,
+    since P.L. 119-21, the maximum credit (§24(i)), each rounded down to the
+    nearest $100. The $200K/$400K phaseout thresholds are not indexed.
 
     Raises ``KeyError`` for unsupported years when not extrapolating.
     """
+    ssn = tax_year >= _FILER_SSN_REQUIRED_FROM
     if tax_year in _CTC_REFUNDABLE_LIMIT_BY_YEAR:
         return CTCParameters(
+            max_credit_per_child=_CTC_MAX_CREDIT_BY_YEAR[tax_year],
             refundable_limit_per_child=_CTC_REFUNDABLE_LIMIT_BY_YEAR[tax_year],
+            require_filer_ssn=ssn,
         )
     if extrapolate and tax_year > max(_CTC_REFUNDABLE_LIMIT_BY_YEAR):
         from tax_modeler.credits.eitc import CREDIT_PARAM_CPI_GROWTH
 
         base_year = max(_CTC_REFUNDABLE_LIMIT_BY_YEAR)
-        base_cap = _CTC_REFUNDABLE_LIMIT_BY_YEAR[base_year]
         factor = (1.0 + CREDIT_PARAM_CPI_GROWTH) ** (tax_year - base_year)
-        # §24(d)(4)(B): round DOWN to the nearest multiple of $100. Cap at the
-        # statutory $2,000 max — the refundable portion cannot exceed it.
-        cap = min(int(base_cap * factor // 100) * 100, 2_000)
-        return CTCParameters(refundable_limit_per_child=cap)
+        max_credit = int(_CTC_MAX_CREDIT_BY_YEAR[base_year] * factor // 100) * 100
+        # The refundable portion cannot exceed the maximum credit.
+        cap = min(
+            int(_CTC_REFUNDABLE_LIMIT_BY_YEAR[base_year] * factor // 100) * 100,
+            max_credit,
+        )
+        return CTCParameters(
+            max_credit_per_child=max_credit,
+            refundable_limit_per_child=cap,
+            require_filer_ssn=ssn,
+        )
     raise KeyError(
         f"CTC parameters not defined for tax year {tax_year}. "
         f"Supported years: {sorted(_CTC_REFUNDABLE_LIMIT_BY_YEAR)}"
@@ -97,16 +127,20 @@ def calculate_ctc(
         tax_unit: Dictionary containing tax unit information with keys:
             - filing_status: str ('single', 'married_filing_jointly', etc.)
             - income: float (Modified Adjusted Gross Income)
+            - earned_income: float (falls back to ``income``)
             - dependents: List of dependent dictionaries
-            - num_dependents: int
+            - federal_tax_before_credits: optional float; computed from
+              ``income`` and ``filing_status`` when absent
+            - filer_has_ssn: optional bool (default True); from TY 2025 a
+              unit without a filer SSN gets no CTC
         tax_year: Tax year for calculation (default 2023)
-        extrapolate: CPI-extrapolate the ACTC cap for years beyond the last
-            published Rev. Proc. instead of raising KeyError.
+        extrapolate: CPI-extrapolate dollar parameters for years beyond the
+            last published Rev. Proc. instead of raising KeyError.
 
     Returns:
         Dictionary with:
-            - ctc_total: Total CTC amount
-            - ctc_nonrefundable: Non-refundable portion
+            - ctc_total: Total CTC allowed (nonrefundable + refundable)
+            - ctc_nonrefundable: Portion that offsets federal income tax
             - ctc_refundable: Refundable portion (ACTC)
             - qualifying_children: Number of qualifying children
     """
@@ -122,13 +156,16 @@ def calculate_ctc(
 
     # Get qualifying children
     qualifying_children = _get_qualifying_children(tax_unit.get('dependents', []), params)
-    result['qualifying_children'] = len(qualifying_children)
+    n_children = len(qualifying_children)
+    result['qualifying_children'] = n_children
 
-    if len(qualifying_children) == 0:
+    if n_children == 0:
+        return result
+    if params.require_filer_ssn and not _filer_has_ssn(tax_unit):
         return result
 
     # Calculate base credit amount
-    base_credit = len(qualifying_children) * params.max_credit_per_child
+    base_credit = n_children * params.max_credit_per_child
 
     # Apply income phaseout
     filing_status = tax_unit.get('filing_status', 'single')
@@ -138,38 +175,47 @@ def calculate_ctc(
         base_credit, income, filing_status, params
     )
 
-    # Calculate Additional Child Tax Credit (ACTC) - refundable portion
+    # Nonrefundable part: limited to federal income tax before credits.
+    tax_before_credits = tax_unit.get('federal_tax_before_credits')
+    if tax_before_credits is None or pd.isna(tax_before_credits):
+        from tax_modeler.liability.federal import federal_tax_before_credits
+
+        tax_before_credits = float(federal_tax_before_credits(
+            income or 0.0, filing_status, tax_year=tax_year, extrapolate=extrapolate,
+        )[0])
+    nonrefundable_portion = min(phased_out_credit, max(0.0, float(tax_before_credits)))
+
+    # Refundable part (ACTC): the unused remainder, limited to 15% of earned
+    # income above the threshold (once per return) and the per-child cap.
     earned_income = tax_unit.get('earned_income', tax_unit.get('income', 0))  # Fallback to total income if earned_income not available
-
-    # ACTC is 15% of earned income above the EI threshold, up to refundable cap per child
-    actc_per_child = min(
-        max(0, earned_income - params.earned_income_threshold) * params.actc_earned_income_rate,
-        params.refundable_limit_per_child
+    earned_income_limit = (
+        max(0, earned_income - params.earned_income_threshold) * params.actc_earned_income_rate
     )
-
-    # Total potential ACTC is per-child amount * number of children
-    max_actc = len(qualifying_children) * actc_per_child
-
-    # The refundable portion is the lesser of:
-    # 1. The total credit amount after phaseout
-    # 2. The ACTC amount (15% of earned income above threshold, up to refundable cap/child)
-    # 3. The refundable limit cap × number of children
     refundable_portion = min(
-        phased_out_credit,
-        max_actc,
-        len(qualifying_children) * params.refundable_limit_per_child
+        phased_out_credit - nonrefundable_portion,
+        earned_income_limit,
+        n_children * params.refundable_limit_per_child,
     )
-
-    # Non-refundable portion is the remaining credit
-    nonrefundable_portion = max(0, phased_out_credit - refundable_portion)
 
     result.update({
-        'ctc_total': phased_out_credit,
+        'ctc_total': nonrefundable_portion + refundable_portion,
         'ctc_nonrefundable': nonrefundable_portion,
         'ctc_refundable': refundable_portion
     })
 
     return result
+
+
+def _filer_has_ssn(tax_unit: Dict) -> bool:
+    """Taxpayer (or either spouse on a joint return) holds a work-eligible SSN.
+
+    PUMS has no SSN/ITIN field, so this reads an imputed ``filer_has_ssn``
+    flag and treats a missing value as True.
+    """
+    flag = tax_unit.get('filer_has_ssn', True)
+    if flag is None or (isinstance(flag, float) and np.isnan(flag)):
+        return True
+    return bool(flag)
 
 
 def _get_qualifying_children(dependents: List[Dict], params: CTCParameters) -> List[Dict]:
@@ -323,6 +369,36 @@ def _apply_income_phaseout(
     return phased_out_credit
 
 
+def with_federal_tax_before_credits(
+    tax_units_df: pd.DataFrame,
+    tax_year: int,
+    *,
+    extrapolate: bool = False,
+) -> pd.DataFrame:
+    """Add ``federal_tax_before_credits`` (vectorized) so per-row CTC calls
+    skip recomputing it. Existing non-null values are kept."""
+    from tax_modeler.liability.federal import federal_tax_before_credits
+
+    if len(tax_units_df) == 0 or 'income' not in tax_units_df.columns:
+        return tax_units_df
+    out = tax_units_df.copy()
+    status = (
+        out['filing_status'].astype(str).to_numpy()
+        if 'filing_status' in out.columns else np.full(len(out), 'single')
+    )
+    computed = federal_tax_before_credits(
+        out['income'].fillna(0).astype(float).to_numpy(), status,
+        tax_year=tax_year, extrapolate=extrapolate,
+    )
+    if 'federal_tax_before_credits' in out.columns:
+        out['federal_tax_before_credits'] = out['federal_tax_before_credits'].fillna(
+            pd.Series(computed, index=out.index)
+        )
+    else:
+        out['federal_tax_before_credits'] = computed
+    return out
+
+
 def calculate_ctc_for_tax_units(
     tax_units_df: pd.DataFrame,
     tax_year: int = 2023,
@@ -337,6 +413,7 @@ def calculate_ctc_for_tax_units(
     Returns:
         DataFrame with CTC calculations added (prefixed ``ctc_``).
     """
+    tax_units_df = with_federal_tax_before_credits(tax_units_df, tax_year=tax_year)
     results = []
 
     for _, tax_unit in tax_units_df.iterrows():

@@ -36,11 +36,11 @@ def test_ctc_basic_calculation():
     
     assert result['qualifying_children'] == 2
     assert result['ctc_total'] == 4000  # 2 children × $2,000
-    
-    # ACTC calculation: 15% of ($30,000 - $2,500) = $4,125, but capped at $3,200 ($1,600 × 2)
-    expected_actc = min((30000 - 2500) * 0.15, 2 * 1600)
-    assert result['ctc_refundable'] == expected_actc
-    assert result['ctc_nonrefundable'] == 4000 - expected_actc  # Remainder
+
+    # TY2023 single, $50K: tax before credits = 1_100 + 12% × (36_150 − 11_000)
+    # = 4_118 ≥ 4_000, so the whole credit offsets tax and none is refunded.
+    assert result['ctc_nonrefundable'] == 4000
+    assert result['ctc_refundable'] == 0
 
 
 def test_ctc_no_qualifying_children():
@@ -199,3 +199,51 @@ def test_ctc_dataframe_calculation():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def _kids(n):
+    return [{'age': 5 + i, 'relationship': '22', 'citizenship': '1'} for i in range(n)]
+
+
+def test_ctc_offsets_tax_before_refund():
+    """IRC §24(d): refund only the part income tax does not absorb."""
+    unit = {'filing_status': 'married_filing_jointly', 'income': 40_000,
+            'earned_income': 40_000, 'dependents': _kids(2)}
+    r = calculate_ctc(unit, tax_year=2024)
+    # Tax = 10% × (40_000 − 29_200) = 1_080; remainder 2_920 < cap 3_400.
+    assert r['ctc_nonrefundable'] == pytest.approx(1_080)
+    assert r['ctc_refundable'] == pytest.approx(2_920)
+    assert r['ctc_total'] == pytest.approx(4_000)
+
+
+def test_actc_earned_income_limit_is_per_return():
+    """15% × (EI − 2_500) is one amount per return, not per child."""
+    unit = {'filing_status': 'head_of_household', 'income': 10_000,
+            'earned_income': 10_000, 'dependents': _kids(3)}
+    r = calculate_ctc(unit, tax_year=2024)
+    assert r['ctc_nonrefundable'] == 0  # below the standard deduction
+    assert r['ctc_refundable'] == pytest.approx(0.15 * 7_500)
+
+
+def test_ctc_uses_supplied_tax_before_credits():
+    unit = {'filing_status': 'single', 'income': 30_000, 'earned_income': 30_000,
+            'dependents': _kids(1), 'federal_tax_before_credits': 500.0}
+    r = calculate_ctc(unit, tax_year=2024)
+    assert r['ctc_nonrefundable'] == pytest.approx(500)
+    assert r['ctc_refundable'] == pytest.approx(1_500)
+
+
+def test_ctc_2025_max_credit_2200():
+    unit = {'filing_status': 'married_filing_jointly', 'income': 150_000,
+            'earned_income': 150_000, 'dependents': _kids(2)}
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 4_400
+    assert calculate_ctc(unit, tax_year=2024)['ctc_total'] == 4_000
+
+
+def test_ctc_filer_ssn_required_from_2025():
+    unit = {'filing_status': 'married_filing_jointly', 'income': 60_000,
+            'earned_income': 60_000, 'dependents': _kids(1), 'filer_has_ssn': False}
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 0
+    assert calculate_ctc(unit, tax_year=2024)['ctc_total'] == 2_000
+    unit['filer_has_ssn'] = True
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 2_200

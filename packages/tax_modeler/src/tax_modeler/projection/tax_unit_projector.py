@@ -224,14 +224,16 @@ def _recalculate_ctc(
     as RevenueEstimator expects.  The DataFrame-level calculate_ctc_for_tax_units
     adds a redundant 'ctc_' prefix (producing ctc_ctc_total), so we bypass it.
 
-    ``tax_year`` selects the inflation-indexed refundable cap
-    ($1,500 in TY 2022 → $1,700 in TY 2024-2025); the $2,000 max-credit
-    and $200K/$400K phaseout thresholds are TCJA statutory and unchanged.
-    ``extrapolate=True`` CPI-extrapolates the cap for years past the latest
-    published Rev. Proc.
+    ``tax_year`` selects the max credit ($2,000 through TY 2024, $2,200 from
+    TY 2025) and the inflation-indexed refundable cap ($1,500 in TY 2022 →
+    $1,700 in TY 2024-2026). ``extrapolate=True`` CPI-extrapolates both for
+    years past the latest published Rev. Proc. Federal tax before credits is
+    computed once, vectorized, so the credit is split between its
+    nonrefundable and refundable parts in statutory order.
     """
-    from tax_modeler.credits.ctc import calculate_ctc
+    from tax_modeler.credits.ctc import calculate_ctc, with_federal_tax_before_credits
 
+    df = with_federal_tax_before_credits(df, tax_year=tax_year, extrapolate=extrapolate)
     results = []
     for _, row in df.iterrows():
         unit = row.to_dict()
