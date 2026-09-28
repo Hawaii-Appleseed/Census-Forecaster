@@ -12,9 +12,9 @@ for TY2027-2031 in the LOW / MID / HIGH scenarios, static and after the
 behavioral response, and MID distribution tables. Baseline: current law,
 Act 24 -- not Act 46, which the forecast_sb3125_* scripts score against.
 Capital gains are the simulator's DOTAX-anchored base (the capital-gains
-page's), taxed with the statutory alternative tax (HRS §235-51(f)) on both
-sides; the Act 24 page scores the model's own gains base, so a spec that
-restates Act 46's brackets does not reproduce that page's figures exactly.
+page's and the Act 24 page's), taxed with the statutory alternative tax
+(HRS §235-51(f)) on both sides, so a spec that restates Act 46's brackets
+reproduces the Act 24 page's static figures with the sign reversed.
 
 Outputs runs/custom/<spec name>/: revenue.csv, quintile_<year>.csv,
 income_class_<year>.csv, spec.json, manifest.json.

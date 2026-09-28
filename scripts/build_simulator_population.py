@@ -11,21 +11,19 @@ runs/tax_simulator/ (population.npz + population.json for Python, the web
 files for the estimates site, golden kernel fixtures, manifest.json), then
 checks that scoring Act 24 against Act 46 on the population reproduces the
 Act 24 run (runs/sb3125_cd2_enhanced/): the static and post-response bracket
-change for LOW/MID/HIGH, and every MID distribution table. That check scores
-the model's own capital-gains base with the registry systems, as the Act 24
-page does. Exits non-zero if it does not, before writing anything else; so
-after a change that moves the Act 24 figures, re-run
-`forecast_sb3125_enhanced.py --cd 2` first.
+change for LOW/MID/HIGH, and every MID distribution table. Exits non-zero if
+it does not, before writing anything else; so after a change that moves the
+Act 24 figures, re-run `forecast_sb3125_enhanced.py --cd 2` first.
 
-The simulator itself scores a DOTAX-anchored gains base with the statutory
-alternative tax (tax_modeler.simulator.gains; under a second, so it is
-computed in every mode rather than saved). Every mode also checks that base
-against DOTAX and the capital-gains page's published figures
-(check_gains_anchor), checks that a capital-gains-only plan reproduces that
-page's method and lands near its numbers (check_cg_page_parity, writing
-cg_page_comparison.json), and scores Act 24 against Act 46 on the anchored
-base (act24_on_anchored_base.json), the gap between the simulator's base and
-the Act 24 page's.
+Both score capital gains on the DOTAX-anchored base with the statutory
+alternative tax: the simulator through tax_modeler.simulator.gains (under a
+second, so it is computed in every mode rather than saved), the Act 24 run
+through act24_population.mid_gains_factors. Every mode first checks the
+simulator's base against DOTAX and the capital-gains page's published
+figures (check_gains_anchor) and that its factors are the ones the Act 24
+run recorded, then the reproduction above, then that a capital-gains-only
+plan reproduces the capital-gains page's method and lands near its numbers
+(check_cg_page_parity, writing cg_page_comparison.json).
 
 --from-saved skips the ~10-minute projection and rewrites the web files,
 golden fixtures and preset results with the current scoring code (after a
@@ -72,13 +70,29 @@ def check_reproduces_act24(pop, out_dir: Path) -> list[str]:
     import numpy as np
     import pandas as pd
 
+    import json
+
     from tax_modeler.config.tax_system_config import TaxSystemRegistry
+    from tax_modeler.scenarios.act24_population import statute
     from tax_modeler.simulator.score import REPORT_NAMES, score_systems
 
-    res = score_systems(pop, TaxSystemRegistry.get_act46_system,
-                        TaxSystemRegistry.get_sb3125_cd2_system, distribution_years=pop.years,
-                        gains="model")
     problems = []
+    # The Act 24 run's gains factors (MID, per class and year) are the
+    # simulator's: both anchor the same MID population with anchor_nltcg.
+    ran = json.loads((ENHANCED / "manifest.json").read_text())["params"].get("gains_factors")
+    if ran is None:
+        problems.append("runs/sb3125_cd2_enhanced/manifest.json has no gains_factors: re-run "
+                        "forecast_sb3125_enhanced.py --cd 2")
+    else:
+        anchor = pop.meta["cg_anchor"]
+        for y in pop.years:
+            ours = dict(zip(anchor["classes"], anchor["k"]["mid"][str(y)]))
+            for c, k in ran[str(y)].items():
+                if ours[c] != k:
+                    problems.append(f"TY{y} gains factor {c}: {ours[c]!r} vs the Act 24 run's {k!r}")
+    res = score_systems(pop, statute(TaxSystemRegistry.get_act46_system),
+                        statute(TaxSystemRegistry.get_sb3125_cd2_system),
+                        distribution_years=pop.years)
     fiscal = pd.read_csv(ENHANCED / "enhanced.csv")
     for r in res["revenue"]:
         row = fiscal[(fiscal.scenario == r["scenario"].upper()) & (fiscal.tax_year == r["tax_year"])].iloc[0]
@@ -313,39 +327,6 @@ def check_cg_page_parity(pop, out_dir: Path) -> list[str]:
     return problems
 
 
-def write_act24_on_anchored_base(pop, out_dir: Path) -> list[dict]:
-    """Act 24 vs Act 46 on the simulator's base (anchored gains, statutory
-    alternative tax), next to the Act 24 page's published figures (model
-    base, stacked shortcut): the gap the simulator's page discloses. Writes
-    act24_on_anchored_base.json."""
-    import dataclasses
-    import json
-
-    import pandas as pd
-
-    from tax_modeler.config.tax_system_config import TaxSystemRegistry
-    from tax_modeler.simulator.score import score_systems
-
-    def statute(factory):
-        return lambda y: dataclasses.replace(factory(y), cg_alt_tax="statute")
-
-    res = score_systems(pop, statute(TaxSystemRegistry.get_act46_system),
-                        statute(TaxSystemRegistry.get_sb3125_cd2_system))
-    fiscal = pd.read_csv(ENHANCED / "enhanced.csv")
-    rows = []
-    for r in res["revenue"]:
-        pub = fiscal[(fiscal.scenario == r["scenario"].upper()) & (fiscal.tax_year == r["tax_year"])].iloc[0]
-        rows.append({**r, "published_static_$M": float(pub["bracket_delta_static_$M"]),
-                     "published_behavioral_$M": float(pub["bracket_delta_post_$M"]),
-                     "static_gap_$M": r["static_$M"] - float(pub["bracket_delta_static_$M"]),
-                     "behavioral_gap_$M": r["behavioral_$M"] - float(pub["bracket_delta_post_$M"])})
-    (out_dir / "act24_on_anchored_base.json").write_text(json.dumps(
-        {"note": "Act 24 vs Act 46 on the simulator's anchored gains base with the statutory "
-                 "alternative tax, vs the Act 24 page (runs/sb3125_cd2_enhanced/enhanced.csv: "
-                 "model gains base, stacked shortcut). $M.", "revenue": rows}, indent=1))
-    return rows
-
-
 def write_preset_results(golden_path: Path, out: Path) -> None:
     """The presets' results, as the model computed them, for the page's
     first render and its no-JavaScript table (from the golden fixtures, which
@@ -401,13 +382,6 @@ def main() -> int:
         print(f"  {pop.n_units:,} units, {pop.meta['n_households']:,} households "
               f"({time.perf_counter() - t0:.0f}s)", flush=True)
 
-    print("Checking it reproduces the Act 24 run...", flush=True)
-    problems = check_reproduces_act24(pop, OUT)
-    if problems:
-        print(f"FAILED: {len(problems)} differences, first: {problems[:5]}")
-        return 1
-    print("  Act 24 vs Act 46 reproduced: LOW/MID/HIGH revenue, MID distribution", flush=True)
-
     from tax_modeler.simulator.gains import ensure_gains_anchor
 
     print("Anchoring capital gains to DOTAX and checking it...", flush=True)
@@ -423,6 +397,13 @@ def main() -> int:
     print(f"  anchored gains TY{y0}, LOW/MID/HIGH: "
           + " / ".join(f"{sum(r['anchored_cg_M'] for r in rows[s][y0]):.1f}" for s in ("low", "mid", "high"))
           + f" $M (DOTAX {sum(r['dotax_target_M'] for r in rows['mid'][y0]):.1f})", flush=True)
+    print("Checking it reproduces the Act 24 run...", flush=True)
+    problems = check_reproduces_act24(pop, OUT)
+    if problems:
+        print(f"FAILED: {len(problems)} differences, first: {problems[:5]}")
+        return 1
+    print("  Act 24 vs Act 46 reproduced on the anchored base: gains factors, LOW/MID/HIGH "
+          "revenue, MID distribution", flush=True)
     print("Checking capital-gains plans against the capital-gains page...", flush=True)
     problems = check_cg_page_parity(pop, OUT)
     if problems:
@@ -430,11 +411,6 @@ def main() -> int:
         return 1
     print("  score_option reproduced; levels and response ratios within bounds "
           "(cg_page_comparison.json)", flush=True)
-    rows = write_act24_on_anchored_base(pop, OUT)
-    mid27 = next(r for r in rows if r["scenario"] == "mid" and r["tax_year"] == 2027)
-    print(f"  Act 24 on the anchored base, MID TY2027: static {mid27['static_$M']:.2f} "
-          f"(page {mid27['published_static_$M']:.2f}), after response {mid27['behavioral_$M']:.2f} "
-          f"(page {mid27['published_behavioral_$M']:.2f}) -> act24_on_anchored_base.json", flush=True)
     if args.check_only:
         return 0
 

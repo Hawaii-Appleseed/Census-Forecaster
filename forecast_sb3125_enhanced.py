@@ -48,6 +48,15 @@ Improvements over forecast_sb3125.py:
      blanked deductions were scored as zero, putting every filer above
      $500K on the standard deduction.
 
+  5b. **Capital gains on the DOTAX-anchored base** — Each DOTAX AGI class's
+     gains are scaled to DOTAX's resident net long-term gains
+     (``calibration.cg_anchor``; factors from the MID population, applied to
+     every scenario: ``act24_population.mid_gains_factors``), and both laws
+     are scored with the statutory §235-51(f) alternative tax
+     (``act24_population.statute``), as the tax simulator and the
+     capital-gains page do. Until September 28, 2026 this script scored the
+     model's own gains shares with the stacked shortcut.
+
   6. **Corporate REEC: §48E vs §25D split** — OBBBA terminated §25D
      (residential) but extended §48E (commercial). Corporate REEC
      baseline now uses the §48E factor (no decay through forecast
@@ -183,8 +192,11 @@ SCENARIOS = [
 # Requires the workspace to be installed: `uv sync --all-packages`.
 REPO = Path(__file__).parent
 
+CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors in every "
+                      "scenario), statutory alternative tax (HRS §235-51(f))")
 
-def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1"):
+
+def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None):
     """Top-level worker (must be picklable) for ProcessPoolExecutor.
 
     Each worker is a fresh Python process — package imports rely on
@@ -196,12 +208,13 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1"):
     return run_one_scenario(
         base, scenario=scenario_dict, target_years=target_years, cd=cd,
         ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
+        gains_factors=gains_factors,
     )
 
 
 def run_one_scenario(
     base_calibrated, *, scenario, target_years, cd="1",
-    ded_params=None, cal_tax_year=2023,
+    ded_params=None, cal_tax_year=2023, gains_factors=None,
 ):
     """Run a single scenario across all target years and return per-year rows.
 
@@ -211,6 +224,12 @@ def run_one_scenario(
     ``ded_params``/``cal_tax_year`` are the deduction params and vintage the
     calibrated base was scored under — re-scoring here must use the SAME
     basis or the synthetic-tail rescale derives a wrong ``tail_k`` (C3).
+
+    ``gains_factors`` ({year: {DOTAX class: k}}, from
+    ``act24_population.mid_gains_factors``) puts each year's projected gains
+    on the DOTAX-anchored base; both laws are scored with the statutory
+    alternative tax. None (tests, diagnostics) keeps the model's own gains
+    base and the stacked shortcut.
     """
     if ded_params is None:
         from tax_modeler.artifacts import load_canonical_deduction_params
@@ -220,7 +239,8 @@ def run_one_scenario(
     import logging; logging.disable(logging.WARNING)
 
     from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
-    from tax_modeler.scenarios.act24_population import build_units, project_units
+    from tax_modeler.calibration.cg_anchor import apply_anchor_factors
+    from tax_modeler.scenarios.act24_population import build_units, project_units, statute
     from tax_modeler.scenarios.sb3125_cd1_credits import (
         compute_credit_overlay,
         compute_dynamic_agi_eligibility_share,
@@ -295,6 +315,9 @@ def run_one_scenario(
         #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes").
         projected = project_units(units, year=year, top_premium=top_premium,
                                   macro_shock=macro_shock)
+        # 2b) Capital gains on the DOTAX-anchored base (MID's factors).
+        if gains_factors is not None:
+            projected = apply_anchor_factors(projected, gains_factors[year])
 
         # 3-5) Static scores, the behavioral response (per-filer ETI +
         #      migration) and the PTE shift. Act 46 is scored once, on the
@@ -302,6 +325,9 @@ def run_one_scenario(
         #      responded population (score_with_response).
         baseline_cfg = TaxSystemRegistry.get_act46_system(year)
         scenario_cfg = get_scenario_system(year)
+        if gains_factors is not None:     # the statutory alternative tax
+            baseline_cfg = statute(TaxSystemRegistry.get_act46_system)(year)
+            scenario_cfg = statute(get_scenario_system)(year)
         revenue, _, behav_diag = score_with_response(
             projected, behav_params, target_year=year,
             baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calc,
@@ -474,6 +500,16 @@ if __name__ == "__main__":
             extra_meta={"built_by": "forecast_sb3125_enhanced.py", "cd": CD},
         )
 
+        # Capital gains: DOTAX anchors MID; every scenario rescales its gains
+        # with MID's factors (act24_population.mid_gains_factors), as the tax
+        # simulator does.
+        from tax_modeler.scenarios.act24_population import mid_gains_factors
+        _mid = next(s for s in SCENARIOS if s["label"] == "MID")
+        print("Anchoring capital gains to DOTAX on the MID population...", flush=True)
+        GAINS_FACTORS = mid_gains_factors(
+            calibrated_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
+            ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS)
+
         # Parallel: run all four scenarios concurrently. Each worker imports
         # its own modules and reads the calibrated parquet. With the
         # vectorized compare_systems, each scenario takes ~30-60s on its
@@ -485,7 +521,8 @@ if __name__ == "__main__":
         print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = {
-                pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD): sc["label"]
+                pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
+                            GAINS_FACTORS): sc["label"]
                 for sc in SCENARIOS
             }
             for fut in as_completed(futures):
@@ -513,7 +550,9 @@ if __name__ == "__main__":
         write_run_manifest(
             RUN_DIR,
             script=f"forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS},
+            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                    "capital_gains": CAPITAL_GAINS_NOTE,
+                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
             inputs={"tax_units_cache": cache_provenance()},
         )
         print(f"Saved run: {RUN_DIR}", flush=True)
@@ -538,7 +577,8 @@ if __name__ == "__main__":
         # Re-synthesize MID (same params as the parallel worker); re-score on
         # the calibration deduction basis (C3 fix — see run_one_scenario).
         # enrich=True adds total_cash_income for TCI quintile binning.
-        from tax_modeler.scenarios.act24_population import build_units, project_units
+        from tax_modeler.calibration.cg_anchor import apply_anchor_factors
+        from tax_modeler.scenarios.act24_population import build_units, project_units, statute
         q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"],
                                  ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True)
 
@@ -553,10 +593,12 @@ if __name__ == "__main__":
         bracket_frames  = []
 
         for yr in TARGET_YEARS:
-            projected_q = project_units(q_units, year=yr, top_premium=mid_sc["top_premium"])
+            projected_q = apply_anchor_factors(
+                project_units(q_units, year=yr, top_premium=mid_sc["top_premium"]),
+                GAINS_FACTORS[yr])
 
-            base_cfg = TaxSystemRegistry.get_act46_system(yr)
-            scen_cfg = get_scenario_system(yr)
+            base_cfg = statute(TaxSystemRegistry.get_act46_system)(yr)
+            scen_cfg = statute(get_scenario_system)(yr)
 
             if CD == "2":
                 agi_elig = compute_dynamic_agi_eligibility_share(projected_q)
@@ -620,7 +662,9 @@ if __name__ == "__main__":
         write_run_manifest(
             RUN_DIR,
             script=f"forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS},
+            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                    "capital_gains": CAPITAL_GAINS_NOTE,
+                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
             inputs={"tax_units_cache": cache_provenance()},
         )
 

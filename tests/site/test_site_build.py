@@ -63,19 +63,31 @@ def test_downloads_resolve(page):
         assert (page.parent / href).resolve().exists(), href
 
 
-def test_tax_simulator_compares_with_the_committed_pages():
-    """The simulator page quotes its capital gains method next to the Act 24
-    and capital gains pages. build_simulator_population.py takes those pages'
-    figures from runs/ and site/data/capital-gains/; they must be the figures
-    committed for those pages, or the comparison is with a stale run."""
-    d = REPO / "site" / "data"
-    fis = build_site.read_csv(d / "act-24" / "fiscal_by_scenario.csv")
-    a24 = json.loads((d / "tax-simulator" / "act24_on_anchored_base.json").read_text())["revenue"]
-    assert len(a24) == 15
-    for r in a24:
+def test_tax_simulator_scores_act24_as_the_act24_page_does():
+    """The simulator's current law is the Act 24 page's: its golden
+    act24_vs_act46 case (the model's own answer, which the kernel tests
+    reproduce) equals the Act 24 page's published bracket change, static and
+    after response, every scenario and year, to the page's two decimals. Both
+    score capital gains on the DOTAX-anchored base with the statutory
+    alternative tax; a change to either that the other does not follow fails
+    here."""
+    import gzip
+    fis = build_site.read_csv(REPO / "site" / "data" / "act-24" / "fiscal_by_scenario.csv")
+    golden = json.loads(gzip.open(REPO / "tests" / "simulator" / "golden.json.gz").read())
+    rev = next(c for c in golden["cases"] if c["name"] == "act24_vs_act46")["expected"]["revenue"]
+    assert len(rev) == 15
+    for r in rev:
         pub = build_site._fiscal(fis, r["scenario"].upper(), r["tax_year"])
-        assert r["published_static_$M"] == pub["bracket_delta_static_$M"], r
-        assert r["published_behavioral_$M"] == pub["bracket_delta_post_$M"], r
+        assert round(r["static_$M"], 2) == pub["bracket_delta_static_$M"], r
+        assert round(r["behavioral_$M"], 2) == pub["bracket_delta_post_$M"], r
+
+
+def test_tax_simulator_compares_with_the_capital_gains_page():
+    """The simulator page quotes its capital gains method next to the capital
+    gains page. build_simulator_population.py takes that page's figures from
+    site/data/capital-gains/; they must be the figures committed for it, or
+    the comparison is with a stale run."""
+    d = REPO / "site" / "data"
     rev = build_site.read_csv(d / "capital-gains" / "revenue_by_year.csv")
     cg = json.loads((d / "tax-simulator" / "cg_page_comparison.json").read_text())["rows"]
     assert {(r["option"], r["tax_year"]) for r in cg} == {(o, y) for o in ("cap9", "ordinary") for y in range(2027, 2032)}

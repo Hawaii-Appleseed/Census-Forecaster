@@ -5,11 +5,10 @@ Each is an ``IncomeTaxSpec`` dict scored against current law (Act 24):
 * ``current_law`` — no change; scores zero.
 * ``act46`` — Act 46's own two bracket vintages (TY2027-28 and TY2029+), i.e.
   undoing Act 24's rate changes. Its static change is Act 24's static gain
-  scored the simulator's way (DOTAX-anchored gains, statutory alternative
-  tax) with the sign reversed, in every year. It no longer mirrors the Act 24
-  page's static figure exactly: that page keeps the model's own gains base
-  and the stacked shortcut (the build's ``act24_on_anchored_base.json``
-  measures the gap). Nor does it mirror the page's after-response figure:
+  (DOTAX-anchored gains, statutory alternative tax, as on the Act 24 page
+  since September 28, 2026) with the sign reversed, in every year: the Act 24
+  page's static figure, reversed. It does not mirror the page's
+  after-response figure:
   against Act 24 this is a rate cut, and the model gives rate cuts no
   behavioral response.
 * ``sb3125_sd1`` / ``hb2306_hd1`` — those bills' bracket schedules only (SD1's

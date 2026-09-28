@@ -3,10 +3,11 @@
 This is the reference the browser kernel (``site/assets/simulator/kernel.js``)
 must reproduce: it calls ``score_with_response`` and
 ``generate_quintile_report`` on frames rebuilt from the population, the same
-functions the Act 24 estimates use. Scoring the registry's Act 24 against
-Act 46 here on the model's own gains base (``gains="model"``) reproduces the
-published Act 24 bracket figures and distribution tables; specs are scored on
-the DOTAX-anchored base with the statutory capital-gains alternative tax.
+functions the Act 24 estimates use. Scoring Act 24 against Act 46 here, on
+the DOTAX-anchored gains base with the statutory capital-gains alternative
+tax (``act24_population.statute``), reproduces the published Act 24 bracket
+figures and distribution tables; specs are scored the same way.
+``gains="model"`` (the model's own gains shares) is for diagnostics.
 """
 from __future__ import annotations
 

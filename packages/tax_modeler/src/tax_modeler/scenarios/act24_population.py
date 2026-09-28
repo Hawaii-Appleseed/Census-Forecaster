@@ -13,10 +13,19 @@ Two steps:
 * :func:`project_units` — one tax year: county income growth, the top-income
   growth premium, an optional recession shock, then the tax of every unit
   whose income those steps changed is recomputed.
+
+Capital gains are scored on the DOTAX-anchored base with the statutory
+alternative tax (HRS §235-51(f)), as on the tax simulator and the
+capital-gains page: :func:`mid_gains_factors` gives the MID population's
+scale factor per DOTAX class and year (DOTAX anchors MID), every scenario's
+projected frame is rescaled with them (``cg_anchor.apply_anchor_factors``),
+and :func:`statute` scores a registry law with the statutory tax instead of
+its stacked shortcut.
 """
 from __future__ import annotations
 
-from typing import Optional
+from dataclasses import replace
+from typing import Callable, Optional
 
 import pandas as pd
 
@@ -84,3 +93,30 @@ def project_units(
     if macro_shock is not None:
         projected = apply_macro_recession_shock(projected, target_year=year, scenario=macro_shock)
     return refresh_stale_hawaii_tax(projected, target_year=year)
+
+
+def statute(factory: Callable[[int], "TaxSystemConfig"]) -> Callable[[int], "TaxSystemConfig"]:
+    """``factory`` with the statutory alternative tax on capital gains
+    (``cg_alt_tax="statute"``) instead of the registry's stacked shortcut."""
+    return lambda year: replace(factory(year), cg_alt_tax="statute")
+
+
+def mid_gains_factors(
+    base_calibrated: pd.DataFrame,
+    *,
+    alpha: float,
+    top_premium: float,
+    ded_params,
+    cal_tax_year: int,
+    years,
+) -> dict[int, dict[str, float]]:
+    """The DOTAX anchoring's scale factor per class (``cg_anchor.anchor_factors``)
+    on the MID population (``alpha``/``top_premium`` are MID's), per tax year.
+    Every scenario's gains are rescaled with these, so DOTAX anchors MID and
+    the other scenarios' gains move with their own top incomes."""
+    from tax_modeler.calibration.cg_anchor import anchor_factors
+
+    units, _ = build_units(base_calibrated, alpha=alpha, ded_params=ded_params,
+                           cal_tax_year=cal_tax_year)
+    return {int(y): anchor_factors(project_units(units, year=y, top_premium=top_premium), y)
+            for y in years}
