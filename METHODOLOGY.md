@@ -889,29 +889,41 @@ less the standard deduction), and only the unused remainder is
 refundable, limited to 15% of earned income above $2,500 — one amount
 per return — and to the per-child cap. Until September 2026 the model
 assigned the refundable part first and applied the 15% limit per child,
-which put TY 2022 ACTC at $332M against IRS's $117.8M. Two more fixes
-followed: the CTC's qualifying-child test compared PUMS `RELSHIPP` codes
-against the retired `RELP` list (dropping stepchildren, siblings and
-grandchildren; now the EITC's `EITC_QUALIFYING_CHILD_RELS`), and the
-TY 2022 backtest taxed 2024-dollar PUMS incomes (now CPI-U-deflated to
-2022 dollars in `eitc_ctc_geo_report.py`). TY 2022, real PUMS, after the
-EITC by-children reweight:
+which put TY 2022 ACTC at $332M against IRS's $117.8M.
+
+Three further corrections (September 2026):
+
+* **CTC relationship codes.** The CTC compared dependents' PUMS `RELSHIPP`
+  codes against the retired `RELP` list, dropping stepchildren, siblings
+  and grandchildren. It now uses the same qualifying-child set as the EITC
+  (`units.relshipp_codes.EITC_QUALIFYING_CHILD_RELS`).
+* **Income dollar-year in backtests.** `eitc_ctc_geo_report.py` taxed the
+  2020-24 PUMS (2024 dollars) under TY 2022 parameters. Years before
+  `PUMS_INCOME_DOLLAR_YEAR` are now deflated by CPI-U; later years are
+  projected.
+* **Stale pre-credit tax.** `federal_tax_before_credits` is recomputed on
+  every CTC pass, never carried over from an earlier income vintage.
+
+TY 2022, real PUMS, after the EITC by-children reweight, no take-up:
 
 | | Model | IRS SOI | Gap |
 |---|---:|---:|---:|
-| CTC returns | 153.9k | 154.6k | −0.5% |
-| Total CTC | $491.7M | $469.5M | +5% |
 | Nonrefundable CTC (IRS incl. ODC) | $401.2M | $351.7M | +14% |
 | ACTC | $90.5M | $117.8M | −23% |
+| Total CTC | $491.7M | $469.5M | +5% |
+| CTC returns | 153.9k | 154.6k | −0.5% |
 
-Against IRS SOI by AGI band (`22in55cmcsv`), the split error sits in
-the $25K–$200K bands: too much credit absorbed by tax, too little
-refunded. Checked and ruled out as main causes (each moves ACTC by
-under $5M): the half-SE-tax and QBI deductions; nonrefundable credits
-taken before the CTC (dependent care, education, saver's, residential
-energy — assigned at IRS band rates); assigning PUMS-subfamily children
-to their own parent instead of the householder; and the statutory
-taxable-Social-Security formula in place of a flat 85%. Still open.
+Recipient counts now match; the remaining error is the split, too much
+nonrefundable and too little refunded. Tested against IRS SOI Hawaii by AGI
+band and ruled out as material (each moves ACTC by ≤ $4M): half-SE-tax and
+QBI deductions; nonrefundable credits ahead of the CTC (dependent care,
+education, saver's, residential energy — $127M in Hawaii TY 2022); assigning
+grandchildren to their PUMS subfamily parent instead of the householder; and
+the statutory taxable-Social-Security formula in place of a flat 85%. Per-
+return federal tax before credits is 3-8% above IRS in the $25K-$200K bands,
+and nonrefundable CTC per claiming return in the $100K-$200K band is $3.7K
+against IRS's $2.9K. Both point at children per unit or unit construction
+in middle and upper-middle incomes rather than the credit formula.
 
 From TY 2025 the taxpayer (or one spouse on a joint return) must hold a
 work-eligible SSN. `calculate_ctc` honors a `filer_has_ssn` column but
