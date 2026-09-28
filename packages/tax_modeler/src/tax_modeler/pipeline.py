@@ -267,6 +267,11 @@ def enrich_for_credits(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["total_cash_income"] = tci.clip(lower=0)
 
+    # Federal AGI / earned income (W-2 wages, §86 taxable Social Security)
+    # for federal credits and federal tax. Hawaii tax keeps using ``income``.
+    from tax_modeler.liability.federal import add_federal_income_columns
+    df = add_federal_income_columns(df)
+
     return df
 
 

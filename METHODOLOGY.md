@@ -925,6 +925,44 @@ and nonrefundable CTC per claiming return in the $100K-$200K band is $3.7K
 against IRS's $2.9K. Both point at children per unit or unit construction
 in middle and upper-middle incomes rather than the credit formula.
 
+### Federal income measurement (September 2026)
+
+The AGI-band comparison traced the remaining split error to income
+measurement, not unit construction. PUMS `WAGP` is gross pay: Hawaii
+PUMS wages ran 13% above IRS W-2 wages in the $1-$500K bands although the
+count of wage-earning units matched IRS exactly (531K). And `income`
+counts 85% of Social Security for everyone, where IRC §86 taxes none for
+most Social-Security-only retirees. Both inflated federal tax and pushed
+families into higher bands.
+
+`liability.federal.add_federal_income_columns` (run in
+`enrich_for_credits`) adds `federal_agi` and `federal_earned_income`:
+wages × `FEDERAL_W2_WAGE_FACTOR` (0.87, calibrated to IRS SOI Hawaii TY
+2022 A00200 in the $1-$500K bands; top bands excluded for PUMS top-coding)
+and §86 taxable Social Security. The CTC, EITC and
+`compute_federal_income_tax_for_units` read them when present; Hawaii tax
+still reads `income`, so Act 24 is unchanged. The projector grows both
+columns with income. `likely_nonfiler` flags units IRS counts would omit.
+
+With it, units by federal-AGI band match IRS within ~5% from $10K to
+$500K (they had been off by −25% to +24%), and federal tax before credits
+is within 0-10% by band. TY 2022 report, no take-up:
+
+| | Before | After | IRS SOI |
+|---|---:|---:|---:|
+| Total CTC | $491.7M | $464.6M | $469.5M |
+| Nonrefundable CTC | $401.2M | $372.0M | $351.7M (incl. ODC) |
+| ACTC | $90.5M | $92.5M | $117.8M |
+| CTC returns | 153.9k | 145.3k | 154.6k |
+| EITC (pre-take-up) | $170.7M / 85.7k | $176.0M / 90.6k | $184.7M / 84.0k |
+
+ACTC is still ~21% low in every band, most visibly above $75K
+(IRS $8.8M vs model $1.8M), where the 3+-child alternative ACTC formula
+and pre-CTC credits (not modeled) apply. CTC returns fell because the
+EITC by-children reweight now adds less weight (more units are eligible
+before it runs). The wage factor is one rate for all earners; low earners
+probably defer less.
+
 From TY 2025 the taxpayer (or one spouse on a joint return) must hold a
 work-eligible SSN. `calculate_ctc` honors a `filer_has_ssn` column but
 PUMS has no SSN field and no imputation exists yet, so the rule
