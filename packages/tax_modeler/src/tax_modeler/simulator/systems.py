@@ -23,7 +23,7 @@ def system_to_json(config: TaxSystemConfig, calc: TaxCalculator | None = None) -
         raise ValueError(f"{config.name}: surcharges are not modeled by the simulator")
     if config.cg_alt_tax != "statute":
         # The kernel implements the statutory alternative tax only; the
-        # stacked shortcut is kept for the registry systems' published runs.
+        # stacked shortcut is only the registry systems' default.
         raise ValueError(f"{config.name}: cg_alt_tax {config.cg_alt_tax!r} is not modeled by "
                          "the simulator (use dataclasses.replace(config, cg_alt_tax='statute'))")
     rate = config.capital_gains_rate_pct

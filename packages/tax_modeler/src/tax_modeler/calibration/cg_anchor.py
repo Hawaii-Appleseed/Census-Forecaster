@@ -133,3 +133,33 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
         rows.append({"tax_year": yr, "group": grp, "model_cg_M": have / 1e6,
                      "dotax_target_M": target[grp] / 1e6, "scale": k})
     return np.clip(nltcg, 0.0, np.maximum(inc, 0.0)), labels, rows
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The anchored base as scale factors, for scoring a population on it
+# ─────────────────────────────────────────────────────────────────────────────
+
+def anchor_factors(df: pd.DataFrame, yr: int,
+                   top_share_1m: float = TOP_SHARE_1M) -> dict[str, float]:
+    """Each class's scale factor k (``anchor_nltcg``'s ``scale``) on ``df``,
+    keyed by class label; classes with no factor (``lt100``) are left out.
+
+    The Act 24 pipeline computes these on its MID population and applies them
+    to every scenario (:func:`apply_anchor_factors`), as the tax simulator
+    does (``tax_modeler.simulator.gains``): DOTAX anchors MID, and the other
+    scenarios' gains move with their own top incomes."""
+    _, _, rows = anchor_nltcg(df, yr, top_share_1m)
+    return {r["group"]: float(r["scale"]) for r in rows}
+
+
+def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
+                         share_col: str = "synthetic_cg_share") -> pd.DataFrame:
+    """A copy of ``df`` with its gains share rescaled to the anchored base:
+    ``min(1, share × k[class])``, with each unit's class from its own weighted
+    income rank (:func:`rank_classes`) and k = 0 below the $100K class. The
+    same share the tax simulator's kernel and ``anchored_share`` compute."""
+    labels = rank_classes(df)
+    k = np.fromiter((factors.get(c, 0.0) for c in labels), dtype=float, count=len(labels))
+    out = df.copy()
+    out[share_col] = np.minimum(1.0, out[share_col].fillna(0.0).to_numpy(float) * k)
+    return out

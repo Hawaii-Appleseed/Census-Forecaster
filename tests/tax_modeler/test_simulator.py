@@ -738,7 +738,8 @@ class TestPopulationScoring:
         assert any(r["behavioral_$M"] != r["static_$M"] for r in with_step[0]["revenue"])
 
     def test_realization_leaves_the_registry_systems_alone(self, calc):
-        # the Act 24 pipeline's systems keep the stacked shortcut
+        # registry systems keep the stacked shortcut (the Act 24 pipeline wraps
+        # them with act24_population.statute)
         units = _units(2_000, seed=11, top=True)
         for p in (BehavioralParams.high(), BehavioralParams.mid()):
             out = apply_realization_response(units, units, p, calculator=calc,

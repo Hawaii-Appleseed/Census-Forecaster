@@ -34,9 +34,9 @@ hike because high earners respond on multiple margins:
      gains: gains fall by exp(−cg_beta × the rise in the state marginal
      rate on gains), the capital-gains page's response
      (``forecast_cg_rate_options.score_option``). Only systems scored with
-     the statutory alternative tax (the tax simulator's) use it, so the Act
-     24 pipeline, whose registry systems keep the stacked shortcut, is
-     unchanged. See ``apply_realization_response``.
+     the statutory alternative tax whose gains rates differ use it, so it
+     never moves Act 24 against Act 46 (both 7.25%). See
+     ``apply_realization_response``.
 
 This module applies these responses on top of the static
 microsimulation, and ``score_with_response`` scores them. The
@@ -489,8 +489,7 @@ def apply_realization_response(
 
     A no-op unless ``cg_beta > 0``, both systems use the statutory
     alternative tax (``cg_alt_tax == "statute"``) and their rates differ:
-    the Act 24 pipeline's registry systems keep the stacked shortcut and are
-    never moved by this.
+    Act 24 against Act 46 (both 7.25%) is never moved by this.
     """
     c0, c1 = baseline_cfg.capital_gains_rate_pct, scenario_cfg.capital_gains_rate_pct
     if (params.cg_beta <= 0 or baseline_cfg.cg_alt_tax != "statute"

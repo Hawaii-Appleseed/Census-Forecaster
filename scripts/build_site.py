@@ -122,9 +122,8 @@ TAX_SIMULATOR = Estimate(
         "population.json": "tax_simulator/web/population.json",
         "population.bin.gz": "tax_simulator/web/population.bin.gz",
         "presets_results.json": "tax_simulator/web/presets_results.json",
-        # the simulator's capital gains method next to the Act 24 and
-        # capital gains pages' published figures (build_simulator_population.py)
-        "act24_on_anchored_base.json": "tax_simulator/act24_on_anchored_base.json",
+        # the simulator's capital gains method next to the capital gains
+        # page's published figures (build_simulator_population.py)
         "cg_page_comparison.json": "tax_simulator/cg_page_comparison.json",
         "manifest.json": "tax_simulator/manifest.json",
     },
@@ -776,7 +775,7 @@ def build_act24() -> tuple[str, dict]:
               m1(p[y]["total_vs_pre_act46"])] for y in years]
     s4 = section("Act 24 Against the Law Before Act 46", f"""
 {lead("Act 24 is small next to the tax cut it amended.", f"Act 46 of 2024 raised the standard deduction and widened the brackets in steps through {last}. Measured against the law before Act 46, it will cost the state about {millions(a46_last)} a year by {last} on this model’s static estimate. Act 24 recovers {millions(c_last)} of that, about {pct(100 * c_last / a46_last)} percent.{notes.ref(T_pre)}")}
-<p>This model’s estimate of Act 46’s cost runs 17 to 25 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
+<p>This model’s estimate of Act 46’s cost runs 17 to 24 percent below the Department of Taxation’s own figure, $1.45 billion by fiscal year 2032, largely because survey data miss nonresident filers and some business income.{notes.ref(T_cor)} That gap largely cancels when comparing Act 24 with Act 46, since both are scored on the same population, which is why the estimates above use that comparison.{notes.ref(T_doc)}</p>
 {table(["Tax year", "Act 46", "Act 24", "Both laws"], prows,
        caption="Table 5. Static Change in Income Tax Revenue Compared With Pre-Act 46 Law ($ Millions)")}
 <p class="ha-est__source">Negative numbers are revenue the state gives up. Brackets, standard deduction and personal exemption only; no behavioral response or credit changes.</p>
@@ -784,7 +783,7 @@ def build_act24() -> tuple[str, dict]:
 
     base = manifest["inputs"]["tax_units_cache"]
     s5 = section("How These Estimates Are Made", f"""
-{lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics.")}
+{lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics. Each income class holds the capital gains the Department of Taxation reports for it, and those gains are taxed with the statute’s alternative tax, which caps their rate at 7.25 percent.{notes.ref(T_DOTAX_STATS)}{notes.ref(T_HRS_ALT_TAX)}")}
 <p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. Each filer who moves costs the state all of the income tax they would have paid, not just the increase. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income. The middle scenario is the recommended one. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
@@ -1399,16 +1398,6 @@ def _preset_totals(res: dict, scen: str) -> tuple[float, float]:
             sum(r["behavioral_$M"] for r in rows))
 
 
-def _difference_range(values: list[float]) -> str:
-    """Yearly differences in prose: 'from $6 million less to $13 million more'."""
-    lo, hi = min(values), max(values)
-    if lo < 0 < hi:
-        return f"from {millions(-lo)} less to {millions(hi)} more"
-    if lo >= 0:
-        return f"from {millions(lo)} to {millions(hi)} more"
-    return f"from {millions(-hi)} to {millions(-lo)} less"
-
-
 def build_tax_simulator() -> tuple[str, dict]:
     d = DATA / TAX_SIMULATOR.slug
     manifest = json.loads((d / "manifest.json").read_text())
@@ -1432,14 +1421,8 @@ def build_tax_simulator() -> tuple[str, dict]:
     cg_law = meta["current_law"][str(Y0)]["capital_gains_rate"]
     beta = {k: meta["scenarios"][k]["cg_beta"] for k in ("low", "mid", "high")}
     top_share = meta["cg_anchor"]["top_share"]
-    a24 = json.loads((d / "act24_on_anchored_base.json").read_text())["revenue"]
     fis = read_csv(DATA / ACT24.slug / "fiscal_by_scenario.csv")
-    a24_page = {(r["scenario"], r["tax_year"]): _fiscal(fis, r["scenario"].upper(), r["tax_year"])["bracket_delta_post_$M"]
-                for r in a24}
-    a24_sim = {(r["scenario"], r["tax_year"]): r["behavioral_$M"] for r in a24}
-    a24_mid5 = sum(v for (sc, _), v in a24_sim.items() if sc == "mid")
-    a24_page_mid5 = sum(v for (sc, _), v in a24_page.items() if sc == "mid")
-    a24_gaps = [a24_sim[k] - a24_page[k] for k in a24_sim]
+    a24_mid = {y: _fiscal(fis, "MID", y)["bracket_delta_post_$M"] for y in range(Y0, Y1 + 1)}
     cg_ratios = [r["behavioral_vs_published"] for r in json.loads((d / "cg_page_comparison.json").read_text())["rows"]]
     cg_p = json.loads((DATA / CAPITAL_GAINS.slug / "manifest.json").read_text())["params"]
     nr = read_csv(DATA / CAPITAL_GAINS.slug / "nonresident_addon.csv")
@@ -1493,7 +1476,7 @@ def build_tax_simulator() -> tuple[str, dict]:
 
     s1 = section("How to Read These Numbers", f"""
 {lead("Every figure compares your plan with current law,", f"the income tax as Act 24 of 2026 left it, including the changes it already schedules: a new set of brackets in {Y0 + 2} and a standard deduction that rises in steps through {Y1}.{notes.ref(T_act24)} A plan that changes nothing scores zero.")}
-<p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, filers whose rate on capital gains rises sell fewer investments, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them. Apart from capital gains, the middle scenario uses the same assumptions as the Act 24 page.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
+<p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, filers whose rate on capital gains rises sell fewer investments, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them. The middle scenario uses the same assumptions as the Act 24 page, capital gains included.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
 <div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income and, when the rate on capital gains falls, sold the same investments. Capital gains of nonresidents are not counted. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
 """, "reading")
 
@@ -1502,7 +1485,7 @@ def build_tax_simulator() -> tuple[str, dict]:
 <p>Who has the gains matters more than the formula. In the middle scenario, the simulator sets the gains of each income class to the Department of Taxation’s count of resident long-term gains eligible for the alternative tax, grown each year, as the capital gains page does.{notes.ref(T_DOTAX_STATS)}{notes.ref(T_cg_page)} The department’s top class is $400,000 and up; filers above $1 million get {pct(top_share * 100)} percent of its gains, that page’s central assumption. The low and high scenarios scale each class’s gains by the same factors as the middle one, so their gains rise and fall with their top incomes rather than being held to the department’s totals. Gains of filers with income under about $100,000 are left out: their bracket rates are below {pct(cg_law, 2)} percent, so under current law the alternative tax does not lower their tax.</p>
 <p>When the rate on a filer’s gains rises, the filer sells fewer investments. In the middle scenario, gains fall by about {beta['mid']:g} percent for each point the rate on them rises, as on the capital gains page; the low scenario uses {beta['low']:g} percent and the high scenario {beta['high']:g} percent. A lower rate on gains gets no response, and the gains rate moves no one away: only the top bracket rate does. Filers whose bracket rates rise report less income, gains included, as on the Act 24 page.</p>
 <p>The simulator counts Hawaiʻi residents only. Nonresidents who sell Hawaiʻi property or hold interests in Hawaiʻi businesses also pay the alternative tax on those gains. The capital gains page estimates that in tax year {Y0}, in a typical year for nonresident gains, they would add about {millions(nr_c9['typical_year_M'])} to a {pct(cg_p['options']['cap9'] * 100)} percent rate and {millions(nr_od['typical_year_M'])} to taxing gains as ordinary income; at tax year 2022 levels, when their gains spiked, {millions(nr_c9['ty2022_level_M'])} and {millions(nr_od['ty2022_level_M'])}. The simulator offers both of those options as starting points; its estimates for them run {pct(100 * (1 - max(cg_ratios)))} to {pct(100 * (1 - min(cg_ratios)))} percent below that page’s, which projects its own population.</p>
-<p>Capital gains are where the simulator and the Act 24 page differ. That page keeps the model’s own estimate of each filer’s gains, which puts more of them above $1 million and fewer between $300,000 and $1 million, and taxes them with a shortcut for the alternative tax.{notes.ref(T_a24_page)} Scored the simulator’s way, Act 24’s bracket changes raise {millions(a24_sim[('mid', Y0)])} in tax year {Y0} compared with Act 46, in the middle scenario after the behavioral response; the Act 24 page shows {millions(a24_page[('mid', Y0)])}. Over tax years {Y0} to {Y1} the two are {millions(a24_mid5)} and {millions(a24_page_mid5)}. Across the three scenarios the yearly difference runs {_difference_range(a24_gaps)}. The Act 24 page has not been re-estimated on this base; each model run reports the difference.</p>
+<p>The Act 24 page scores capital gains the same way, with the same gains and the same alternative tax, so the simulator’s current law is that page’s. Scored against Act 46, Act 24’s bracket changes raise {millions(a24_mid[Y0])} in tax year {Y0} in the middle scenario after the behavioral response, and {millions(sum(a24_mid.values()))} over tax years {Y0} to {Y1}, on both.{notes.ref(T_a24_page)}</p>
 """, "capital-gains")
 
     s2 = section("How the Simulator Works", f"""
@@ -1513,7 +1496,6 @@ def build_tax_simulator() -> tuple[str, dict]:
 <li><a href="../data/{TAX_SIMULATOR.slug}/population.json"><code>population.json</code></a>: current law, the options above, the scenario assumptions and an index of the model data</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/population.bin.gz"><code>population.bin.gz</code></a>: the projected tax units the page scores (binary, described in <code>population.json</code>)</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/presets_results.json"><code>presets_results.json</code></a>: the model’s results for the options above, by year and scenario</li>
-<li><a href="../data/{TAX_SIMULATOR.slug}/act24_on_anchored_base.json"><code>act24_on_anchored_base.json</code></a>: Act 24 scored the simulator’s way, next to the Act 24 page’s figures</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/cg_page_comparison.json"><code>cg_page_comparison.json</code></a>: the capital gains page’s two options scored the simulator’s way, next to that page’s figures</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
 </ul>

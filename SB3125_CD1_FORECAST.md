@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 27, 2026
+**Last updated:** September 28, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -15,11 +15,118 @@
 
 ---
 
-## Tax simulator v2: capital gains — September 27, 2026 (results tables unchanged)
+## Act 24 re-based on the DOTAX-anchored capital-gains base — September 28, 2026 (supersedes the tables below)
+
+This script, `forecast_act24_vs_pre_act46.py` and the tax simulator now score
+capital gains the same way: each DOTAX Hawaiʻi AGI class holds DOTAX's
+resident net long-term gains eligible for the alternative tax, and the tax is
+the statutory alternative tax of HRS §235-51(f). Until now this script scored
+the model's own gains shares with the stacked shortcut of Step 10a, so the
+simulator and the Act 24 page gave different figures for Act 24 itself (MID
+TY2027 after response: $52.4M against $46.4M). They now agree exactly.
+
+**What changed.**
+- `scenarios/act24_population.mid_gains_factors` anchors the MID population
+  once per tax year (`calibration.cg_anchor.anchor_factors`) and returns the
+  scale factor per DOTAX class; every scenario's projected frame is rescaled
+  with MID's factors (`apply_anchor_factors`), so DOTAX fixes how gains are
+  spread across classes while LOW and HIGH keep their own top incomes. The
+  factors are recorded in the run manifest.
+- Both systems are scored with `cg_alt_tax="statute"`
+  (`act24_population.statute`) in the revenue loop and the MID distribution
+  pass.
+- The simulator build's reproduction check scores the same way and also
+  checks that its own factors equal the ones this run recorded.
+- `forecast_act24_vs_pre_act46.py` now builds the same population as this
+  script (`build_units` + `project_units`) instead of
+  `redistribute_mid_high_incomes` + `project_and_recalibrate`. Its Act 24
+  column is therefore exactly this script's static bracket change, which it
+  checks every year; it was about 70% above it. Its `memo_vs_frozen_2026`
+  column no longer reproduces `forecast_sb3125_vs_fy26base.py`, which still
+  scores the other population and the model's own gains.
+
+**Why the numbers move.** The formula is almost irrelevant: on the model's
+own gains the statute moves MID TY2027's Act 46 baseline by $0.006M and its
+static gain not at all. The base is what moves them. Against DOTAX the
+model's own gains hold about 17% too much above $1M and too little between
+$300K and $1M (by a factor of 2.0 to 2.8). Gains are taxed at no more than
+7.25%, so gains shield income from a bracket increase: moving gains down out
+of the $1M+ class exposes more of its income to Act 24's higher rates, and
+moving gains up into the $300K–$1M classes shields more of theirs.
+
+**CD2 vs Act 46 baseline, post-behavioral ($M)** (the September 27 figures in
+brackets):
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $94.8M [$89.9M] | **$101.5M [$95.4M]** | $126.5M [$119.4M] | $98.1M [$92.4M] |
+| 2028 | $110.7M [$105.7M] | **$128.6M [$122.5M]** | $163.5M [$156.5M] | $127.0M [$120.9M] |
+| 2029 | $121.8M [$119.3M] | **$146.0M [$142.3M]** | $186.0M [$181.2M] | $146.5M [$142.7M] |
+| 2030 | $148.7M [$146.6M] | **$181.8M [$178.2M]** | $224.3M [$220.3M] | $183.9M [$180.1M] |
+| 2031 | $159.5M [$158.0M] | **$191.0M [$188.0M]** | $240.1M [$237.1M] | $194.4M [$191.6M] |
+| **5-year total** | **$635.4M [$619.5M]** | **$748.9M [$726.4M]** | **$940.4M [$914.5M]** | **$749.9M [$727.7M]** |
+
+MID 5-year: **$726.4M → $748.9M (+$22.5M, +3.1%)**. LOW +$15.9M, HIGH
++$25.9M, RECESSION +$22.2M. The whole of each move is in the bracket change;
+the credit overlay and the migration diagnostics are unchanged.
+
+**MID by component ($M):**
+
+| Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
+|----------|----------------:|---------------:|--------------------:|----------------------:|-------------:|----------:|
+| 2027 | $2,465.2M | $64.5M | −$12.1M | $52.4M | $49.1M | **$101.5M** |
+| 2028 | $2,615.5M | $67.9M | −$13.8M | $54.1M | $74.5M | **$128.6M** |
+| 2029 | $2,475.4M | $74.5M | −$17.0M | $57.4M | $88.6M | **$146.0M** |
+| 2030 | $2,585.2M | $81.0M | −$19.1M | $61.9M | $119.9M | **$181.8M** |
+| 2031 | $2,661.9M | $88.1M | −$21.3M | $66.8M | $124.3M | **$191.0M** |
+| **5-year** | | **$376.0M** | **−$83.4M** | **$292.6M** | **$456.3M** | **$748.9M** |
+
+Was: static $353.3M, behavioral −$83.2M, bracket $270.1M, total $726.4M.
+
+**Who pays (MID TY2027, total change by income class).** The change is
+concentrated and runs both ways, for the reason above:
+
+| Income class | Before | Now | Share paying more |
+|---|---:|---:|---|
+| $1M+ | $82.58M | $91.08M | 100% → 100% |
+| $500K–$1M | $7.84M | $6.19M | 96.1% → 75.7% |
+| $350K–$500K | $3.39M | $2.85M | 35.4% → 34.6% |
+| $175K–$350K | $3.27M | $3.15M | 9.9% → 9.5% |
+| Under $175K | unchanged | unchanged | unchanged |
+
+By fifth of households only the top fifth moves (+$5.46M in TY2027).
+
+**Act 24 against pre-Act-46 (2017) law, five years ($M)** (`forecast_act24_vs_pre_act46.py`;
+the published figures in brackets). The Act 24 column falls to this
+script's own static change; the Act 46 columns barely move:
+
+| Tax Year | A: Act 46 banked ≤2026 | B: Act 46 remaining | C: Act 24 increment | **TOTAL vs pre-Act-46** | memo: vs frozen 2026 | COR (A+B) | % below COR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2027 | −539.0 | −230.5 | +64.6 | **−704.9** | −166.0 | −922.7 | 16.6% |
+| 2028 | −546.7 | −250.0 | +67.9 | **−728.7** | −182.0 | −1,052.6 | 24.3% |
+| 2029 | −551.3 | −491.9 | +74.5 | **−968.8** | −417.4 | −1,262.3 | 17.4% |
+| 2030 | −558.8 | −515.0 | +81.0 | **−992.7** | −433.9 | −1,347.5 | 20.3% |
+| 2031 | −563.0 | −544.9 | +88.1 | **−1,019.9** | −456.8 | −1,453.2 | 23.8% |
+| **5-year** | **−2,758.8** | **−2,032.2** | **+376.0** | **−4,415.0** | **−1,656.2** | **−6,038.3** | **20.7%** |
+
+Published before this change: A −2,770.2, B −2,040.1, C **+604.5**, total
+−4,205.8, memo −1,435.6. By 2031 Act 46 costs $1,107.9M a year on this
+model's static estimate and Act 24 recovers $88.1M of it, about 8% (was
+$170.7M, about 15%, which did not match this document's own $85.1M static
+for the same comparison). Against COR's own Act 46 estimate the model now
+runs **16.6–24.3% below** (5-year 20.7%; was 17.5–24.8%, 5-year 20.3%). The
+memo column moves more than A and B because it is Act 24 against frozen
+2026, so it carries the whole change in C.
+
+---
+
+## Tax simulator v2: capital gains — September 27, 2026 (superseded by the section above)
 
 The tax simulator now lets users change the rate of the alternative tax on
 net long-term capital gains (`TAX_SIMULATOR_SCOPE.md`, "v2: capital gains").
-The Act 24 pipeline is unchanged, and so is every table in this document.
+The Act 24 pipeline was unchanged that day; it was re-based on the same
+capital-gains treatment the next day, so the figures this section gives for
+the difference between the two no longer stand.
 
 **Why nothing here moves.** This script, `forecast_act24_vs_pre_act46.py`
 and `forecast_sb3125_vs_fy26base.py` score the registry systems, which keep
@@ -61,8 +168,10 @@ The base moves it. The model's base holds about 17% too much at $1M+ and
 too little between $300K and $1M (by a factor of 2.0 to 2.8) against DOTAX
 in MID TY2027 (`meta.cg_anchor` in `site/data/tax-simulator/population.json`).
 Scored the simulator's way, Act 24's bracket change against Act 46 is
-(`site/data/tax-simulator/act24_on_anchored_base.json`, rewritten on every
-simulator build; this document's figures in brackets):
+(this document's figures at the time in brackets; the section above re-based
+this script on the same treatment the next day, so the figures on the left
+are now this document's too, and the comparison file that recorded the gap
+is gone):
 
 | $M | LOW | **MID** | HIGH |
 |---|---:|---:|---:|
@@ -80,8 +189,9 @@ MID's factors, as in the table, the ratios are 1.00 / 1 / 1.10.
 The yearly post-behavioral gap runs from +$1.53M to +$4.94M in LOW, +$3.04M
 to +$6.11M in MID and +$3.02M to +$7.07M in HIGH: the simulator is above
 this document in every scenario and year. The simulator's page states it.
-Re-basing this estimate on the anchored base is a separate, dated
-decision; it would change Section 10, the decomposition and Step 10a.
+Re-basing this estimate on the anchored base was done the next day; see
+"Act 24 re-based on the DOTAX-anchored capital-gains base" above, which
+supersedes this section's comparison.
 
 **Corrections to this document.** The capital-gains cap is HRS §235-51(f),
 not §235-16; Step 10a and the other citations below now say so. Step 10a
@@ -2100,9 +2210,10 @@ Note: Q1 filers (avg income ~$3K) are **completely unaffected** because their gr
 ### Annual Fiscal Impact by Scenario ($M, vs. Act 46 baseline)
 
 *Superseded: the current Act 24 (CD2) results are in the dated sections at
-the top, most recently "Behavioral accounting and migration elasticity —
-September 27, 2026". The August 3 CD1 run below predates the scoring-path
-fixes and both behavioral corrections.*
+the top, most recently "Act 24 re-based on the DOTAX-anchored capital-gains
+base — September 28, 2026". The August 3 CD1 run below predates the
+scoring-path fixes, both behavioral corrections and the capital-gains
+re-basing.*
 
 **Updated August 3, 2026** — full re-run of `forecast_sb3125_enhanced.py --cd 1` (static credit overlay) on the corrected Hawaii CPI basis (see "Hawaii CPI series correction," July 30, 2026, above) and the wired-through v3 κ calibration. Every number below supersedes the May 7, 2026 run, which was computed on the mislabelled Los Angeles CPI series. PTE shift is still $0 in this run (unresolved — see the Section 5c note; not re-investigated as part of this rerun). Results are post-behavioral (ETI/migration only).
 

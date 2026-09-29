@@ -6,10 +6,12 @@ live at `site/tax-simulator/`. See [As built](#as-built-september-26-2026)
 for what shipped, where it departs from this scope, and the decisions
 taken, and [v2](#v2-capital-gains-september-27-2026) for the capital gains
 rate. v2 scores capital gains on the capital-gains page's DOTAX-anchored
-base with the statutory alternative tax, while the Act 24 page keeps the
-model's own gains base, so the two pages no longer give the same figure for
-Act 24 itself (middle scenario, TY2027, after response: $52.4M against
-$46.4M). The three engine defects below were fixed and Act 24 republished
+base with the statutory alternative tax; on September 28 the Act 24 page was
+re-based the same way, so the two agree again on Act 24 itself (middle
+scenario, TY2027, after response: $52.4M; the Act 24 page was $46.4M and its
+five-year gain against Act 46 went from $726.4M to $748.9M — see
+`SB3125_CD1_FORECAST.md`, "Act 24 re-based on the DOTAX-anchored
+capital-gains base"). The three engine defects below were fixed and Act 24 republished
 in PR #24 (middle-scenario five-year gain vs Act 46 $870.1M → $738.9M; see
 `SB3125_CD1_FORECAST.md`, "Scoring-path fixes"). On September 27 the
 behavioral response was rescored for the simulator and the Act 24 pipeline
@@ -296,8 +298,10 @@ the rate of the alternative tax on net long-term capital gains.
   to the Act 24 page, all read from the committed data.
 - **Checks on every build** (`scripts/build_simulator_population.py`, all
   three modes):
-  - `check_reproduces_act24`, unchanged and still exact: it scores the
-    registry systems on the model's gains base (`gains="model"`).
+  - `check_reproduces_act24`, still exact. Since the Act 24 page was
+    re-based (September 28) it scores the anchored base with the statute,
+    the way that page does, and also checks that the page's run recorded
+    the same scale factors per class and year.
   - `check_gains_anchor`: in the middle scenario every class total, every
     year, equals DOTAX's TY2022 gains grown with `cg_growth`, and the
     totals and class targets equal the capital-gains page's `nltcg_M` and
@@ -315,8 +319,6 @@ the rate of the alternative tax on net long-term capital gains.
     0.0032 of the page's (bound 0.005). The levels cannot match: the page
     projects its own population (`project_and_recalibrate`, with its own
     $1M+ tail).
-  - `act24_on_anchored_base.json`: Act 24 against Act 46 scored the
-    simulator's way, next to the Act 24 page's figures.
 - **Tests.** The golden fixture grows from 29 plans to 45, 480 households to
   800, 55 invalid specs to 64 and 6 unusual valid ones to 11, with a
   record-by-record check after the response (`top14_cg9`, middle scenario,
@@ -371,13 +373,18 @@ the rate of the alternative tax on net long-term capital gains.
 - **Known inconsistency, left as the page has it.** The $1M+ tail is scaled
   to DOTAX's $663M tax target on the model's own gains, and anchoring then
   changes those filers' gains. The capital-gains page does the same, which
-  keeps the two comparable; fixing it belongs with re-basing Act 24.
+  keeps the two comparable; fixing it belongs with the tail rescale itself,
+  not with the base.
 
 **Decisions taken** (each the recommended option):
-1. The Act 24 page stays on the model's own gains base, and the registry
-   systems keep the stacked shortcut, so `forecast_sb3125_enhanced.py`,
-   `forecast_act24_vs_pre_act46.py`, the Act 24 page and the build's exact
-   check are unchanged. Re-basing Act 24 is a separate, dated decision.
+1. ~~The Act 24 page stays on the model's own gains base~~, so that
+   `forecast_sb3125_enhanced.py`, `forecast_act24_vs_pre_act46.py`, the Act
+   24 page and the build's exact check were unchanged by v2. **Reversed on
+   September 28, 2026:** both scripts now score the anchored base with the
+   statute, so one capital-gains treatment serves every page. The registry
+   systems still default to the stacked shortcut; the pipelines wrap them
+   with `act24_population.statute`. `forecast_sb3125_vs_fy26base.py` has not
+   moved.
 2. β by scenario: 2.6 / 2.0 / 1.6 for the low / middle / high revenue
    scenarios, the capital-gains script's elasticity range of 0.5–0.8 divided
    by the combined top rate of about 31%. The middle value is that page's

@@ -21,9 +21,10 @@ the tax is the regular tax.
 This is the one implementation for ``TaxCalculator`` (systems with
 ``cg_alt_tax="statute"``) and the capital-gains page
 (``forecast_cg_rate_options.Scorer``). ``site/assets/simulator/kernel.js``
-mirrors it. Registry systems keep the legacy "stacked" shortcut,
-``min(bracket tax on the gains, 7.25% x gains)``, so the published Act 24
-and Act 46 runs reproduce.
+mirrors it, and the Act 24 pipeline scores with it
+(``act24_population.statute``). Registry systems default to the legacy
+"stacked" shortcut, ``min(bracket tax on the gains, 7.25% x gains)``, which
+the scripts that have not moved to the anchored base still use.
 """
 from __future__ import annotations
 

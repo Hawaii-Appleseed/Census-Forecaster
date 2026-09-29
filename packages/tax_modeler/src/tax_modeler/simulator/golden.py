@@ -10,9 +10,9 @@ the kernel is tested on scoring alone; resolving a spec into systems is
 checked separately (``spec_resolution``).
 
 The kernel implements the statutory capital-gains alternative tax only, so
-the registry systems (Act 24, Act 46), which keep the stacked shortcut for
-the published runs, enter the fixtures with ``cg_alt_tax="statute"``
-(:func:`_statute`), as every spec's systems already have it. Every case is
+the registry systems (Act 24, Act 46), which default to the stacked
+shortcut, enter the fixtures with ``cg_alt_tax="statute"`` (:func:`_statute`),
+as the Act 24 pipeline and every spec score them. Every case is
 scored on the simulator's DOTAX-anchored gains base.
 """
 from __future__ import annotations

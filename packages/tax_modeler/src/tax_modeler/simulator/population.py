@@ -19,8 +19,8 @@ household and year (``hhfw_<year>``), with the household-income fifth
 (``quint_<year>``) and the projected frame's row order (``order_<year>``), so
 the browser kernel and :func:`frame_for` reproduce the published tables.
 
-Capital gains: the arrays carry the model's own gains share (``cg``, the Act
-24 page's base). The simulator scores on the DOTAX-anchored base instead
+Capital gains: the arrays carry the model's own gains share (``cg``). The
+simulator and the Act 24 page score on the DOTAX-anchored base instead
 (:mod:`.gains`), which :func:`unit_arrays` applies by default.
 """
 from __future__ import annotations
