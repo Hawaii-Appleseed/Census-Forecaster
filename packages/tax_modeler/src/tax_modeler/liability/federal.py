@@ -210,6 +210,95 @@ def _tax_from_brackets(taxable: np.ndarray, brackets: list) -> np.ndarray:
     return tax
 
 
+# ---------------------------------------------------------------------------
+# Federal (tax-return) income from PUMS income
+# ---------------------------------------------------------------------------
+
+# Share of PUMS gross wages that appears as W-2 box 1 wages. ACS WAGP is
+# gross pay; box 1 excludes pre-tax deductions (Hawaii ERS contributions of
+# 7.8-9.8%, 401(k)/403(b)/457 deferrals, §125 health premiums), and survey
+# reports run somewhat high. Calibrated so PUMS 2020-24 wages (deflated to
+# 2022 dollars, before the EITC reweight) in the $1-$500K federal-AGI bands
+# equal IRS SOI Hawaii TY 2022 A00200 for those bands ($33.65B; file
+# 22in55cmcsv). The $500K+ bands are excluded because PUMS top-codes wages.
+# One rate for all earners: low earners likely defer less, so it slightly
+# understates their earnings.
+FEDERAL_W2_WAGE_FACTOR = 0.87
+
+# IRC §86 base / adjusted-base amounts (not indexed).
+_SS_BASE = {"married_filing_jointly": 32_000}
+_SS_ADJUSTED_BASE = {"married_filing_jointly": 44_000}
+_SS_BASE_OTHER, _SS_ADJUSTED_BASE_OTHER = 25_000, 34_000
+
+
+def taxable_social_security(
+    other_income: np.ndarray, benefits: np.ndarray, filing_status: np.ndarray,
+) -> np.ndarray:
+    """IRC §86 taxable Social Security. MFS filers use $0 base amounts
+    (the rule for spouses who lived together)."""
+    status = np.asarray(filing_status, dtype=str)
+    b1 = np.array([_SS_BASE.get(s, _SS_BASE_OTHER) for s in status], dtype=float)
+    b2 = np.array([_SS_ADJUSTED_BASE.get(s, _SS_ADJUSTED_BASE_OTHER) for s in status], dtype=float)
+    mfs = status == "married_filing_separately"
+    b1[mfs] = 0.0
+    b2[mfs] = 0.0
+    provisional = other_income + 0.5 * benefits
+    tier1 = np.minimum(0.5 * benefits, 0.5 * np.maximum(provisional - b1, 0.0))
+    tier2 = np.minimum(
+        0.85 * benefits,
+        0.85 * np.maximum(provisional - b2, 0.0) + np.minimum(0.5 * benefits, 0.5 * (b2 - b1)),
+    )
+    return np.where(provisional > b2, tier2, tier1)
+
+
+def add_federal_income_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add ``federal_agi`` and ``federal_earned_income``.
+
+    ``income`` (the model's AGI proxy, also Hawaii AGI) counts gross wages
+    and 85% of Social Security for everyone. The federal columns instead use
+    W-2 wages (``FEDERAL_W2_WAGE_FACTOR`` × PUMS wages) and §86 taxable
+    Social Security. Federal credits and federal tax read these when present;
+    Hawaii tax keeps reading ``income``.
+    """
+    out = df.copy()
+    n = len(out)
+
+    def _col(name: str) -> np.ndarray:
+        if name in out.columns:
+            return out[name].fillna(0).astype(float).to_numpy()
+        return np.zeros(n)
+
+    wages = np.maximum(_col("primary_wagp"), 0) + np.maximum(_col("secondary_wagp"), 0)
+    wage_cut = (1.0 - FEDERAL_W2_WAGE_FACTOR) * wages
+    if "primary_ssp_full" in out.columns or "secondary_ssp_full" in out.columns:
+        benefits = _col("primary_ssp_full") + _col("secondary_ssp_full")
+        in_income = 0.85 * benefits
+    else:
+        in_income = _col("primary_ssp") + _col("secondary_ssp")
+        benefits = in_income / 0.85
+    income = out["income"].fillna(0).astype(float).to_numpy() if "income" in out.columns else np.zeros(n)
+    other = income - wage_cut - in_income
+    status = out["filing_status"].astype(str).to_numpy() if "filing_status" in out.columns else np.full(n, "single")
+    out["federal_agi"] = other + taxable_social_security(other, benefits, status)
+    earned = _col("earned_income") if "earned_income" in out.columns else income
+    out["federal_earned_income"] = np.maximum(earned - wage_cut, 0.0)
+    return out
+
+
+def likely_nonfiler(df: pd.DataFrame, *, tax_year: int, extrapolate: bool = False) -> pd.Series:
+    """Units with federal AGI under the standard deduction and no earnings.
+
+    They have no filing requirement and no refundable credit to claim, so
+    IRS return counts omit them. For comparisons against SOI only; credit
+    and tax calculations do not use it.
+    """
+    sd_by_status, _ = _federal_parameters_for_year(tax_year, extrapolate=extrapolate)
+    agi = df["federal_agi"] if "federal_agi" in df.columns else df["income"]
+    ei = df["federal_earned_income"] if "federal_earned_income" in df.columns else df.get("earned_income", 0)
+    sd = df["filing_status"].astype(str).map(lambda s: sd_by_status.get(s, sd_by_status["single"]))
+    return (agi.fillna(0) < sd) & (pd.Series(ei, index=df.index).fillna(0) <= 0)
+
+
 def federal_tax_before_credits(
     income,
     filing_status,
@@ -248,7 +337,7 @@ def compute_federal_income_tax_for_units(
     *,
     tax_year: int,
     out_col: str = "federal_tax_liability",
-    income_col: str = "total_cash_income",
+    income_col: Optional[str] = None,
     filing_status_col: str = "filing_status",
     ctc_nonrefundable_col: str = "ctc_nonrefundable",
     extrapolate: bool = False,
@@ -277,6 +366,9 @@ def compute_federal_income_tax_for_units(
     ----------
     tax_year:
         One of {2022, ..., 2026}, or later with ``extrapolate=True``.
+    income_col:
+        Defaults to ``federal_agi`` when present (see
+        :func:`add_federal_income_columns`), else ``total_cash_income``.
 
     Returns
     -------
@@ -285,6 +377,8 @@ def compute_federal_income_tax_for_units(
         (non-negative annual dollars).
     """
     out = units.copy()
+    if income_col is None:
+        income_col = "federal_agi" if "federal_agi" in out.columns else "total_cash_income"
     tax = federal_tax_before_credits(
         out[income_col].fillna(0).astype(float).to_numpy(),
         out[filing_status_col].astype(str).to_numpy(),
@@ -301,4 +395,11 @@ def compute_federal_income_tax_for_units(
     return out
 
 
-__all__ = ["compute_federal_income_tax_for_units", "federal_tax_before_credits"]
+__all__ = [
+    "FEDERAL_W2_WAGE_FACTOR",
+    "add_federal_income_columns",
+    "compute_federal_income_tax_for_units",
+    "federal_tax_before_credits",
+    "likely_nonfiler",
+    "taxable_social_security",
+]

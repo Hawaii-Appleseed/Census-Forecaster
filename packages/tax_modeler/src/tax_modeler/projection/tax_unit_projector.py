@@ -224,7 +224,10 @@ def _scale_credit_income_inputs(
     *,
     use_cbo_components: bool,
 ) -> pd.DataFrame:
-    """Grow ``earned_income`` and ``investment_income`` with projected income.
+    """Grow the credit income inputs with projected income.
+
+    Covers ``earned_income``, ``investment_income`` and the federal columns
+    ``federal_earned_income`` / ``federal_agi``.
 
     County / BLS paths: each unit's own ``income`` growth ratio (units with no
     base income take the median ratio of their county, else of all units).
@@ -236,7 +239,8 @@ def _scale_credit_income_inputs(
     left alone: quintile binning reads ``total_cash_income`` and changing it
     here would move the Act 24 distributional tables.
     """
-    targets = [c for c in ("earned_income", "investment_income") if c in df.columns]
+    targets = [c for c in ("earned_income", "investment_income", "federal_earned_income", "federal_agi")
+               if c in df.columns]
     if not targets:
         return df
 
@@ -272,6 +276,7 @@ def _scale_credit_income_inputs(
             aged["wages"] + aged["business"], b["wages"] + b["business"],
             np.full(len(df), _scalar(("wages", "business"))),
         )
+        ratios["federal_earned_income"] = ratios["earned_income"]
         ratios["investment_income"] = _ratio(
             aged["interest"] + aged["dividends"], b["interest"] + b["dividends"],
             np.full(len(df), _scalar(("interest", "dividends"))),

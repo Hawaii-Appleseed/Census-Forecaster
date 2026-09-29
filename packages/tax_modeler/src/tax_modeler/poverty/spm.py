@@ -183,7 +183,9 @@ def compute_spm_resources(
             df_fed = compute_federal_income_tax_for_units(
                 df,
                 tax_year=tax_year,
-                income_col=money_income_col,
+                # Federal AGI when the frame has it: taxing SSI, public
+                # assistance and full Social Security overstated tax.
+                income_col="federal_agi" if "federal_agi" in df.columns else money_income_col,
                 filing_status_col=filing_status_col,
             )
             federal_tax = df_fed["federal_tax_liability"].fillna(0).to_numpy(

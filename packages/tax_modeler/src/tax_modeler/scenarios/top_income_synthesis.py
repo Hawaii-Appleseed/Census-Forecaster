@@ -145,6 +145,15 @@ def synthesize_top_filers(
             if col in result.columns:
                 result.loc[synth_mask, col] = (total * cg_share).astype(float)
 
+    # Federal AGI / earned income were copied from template rows; rebuild
+    # them from the overridden components.
+    if synth_mask.any() and "federal_agi" in result.columns:
+        from tax_modeler.liability.federal import add_federal_income_columns
+
+        fed = add_federal_income_columns(result.loc[synth_mask])
+        for col in ("federal_agi", "federal_earned_income"):
+            result.loc[synth_mask, col] = fed[col]
+
     # ---- Override 4: weight columns aligned ----------------------------
     if "hh_weight" in result.columns:
         result.loc[synth_mask, "hh_weight"] = result.loc[synth_mask, "weight"]

@@ -169,7 +169,7 @@ def calculate_ctc(
 
     # Apply income phaseout
     filing_status = tax_unit.get('filing_status', 'single')
-    income = tax_unit.get('income', 0)
+    income = _first_present(tax_unit, 'federal_agi', 'income', default=0.0)
 
     phased_out_credit = _apply_income_phaseout(
         base_credit, income, filing_status, params
@@ -187,7 +187,9 @@ def calculate_ctc(
 
     # Refundable part (ACTC): the unused remainder, limited to 15% of earned
     # income above the threshold (once per return) and the per-child cap.
-    earned_income = tax_unit.get('earned_income', tax_unit.get('income', 0))  # Fallback to total income if earned_income not available
+    earned_income = _first_present(
+        tax_unit, 'federal_earned_income', 'earned_income', 'income', default=0.0,
+    )
     earned_income_limit = (
         max(0, earned_income - params.earned_income_threshold) * params.actc_earned_income_rate
     )
@@ -204,6 +206,15 @@ def calculate_ctc(
     })
 
     return result
+
+
+def _first_present(tax_unit: Dict, *keys: str, default: float = 0.0) -> float:
+    """First key whose value is present and not NaN (federal columns first)."""
+    for key in keys:
+        val = tax_unit.get(key)
+        if val is not None and not pd.isna(val):
+            return float(val)
+    return default
 
 
 def _filer_has_ssn(tax_unit: Dict) -> bool:
@@ -372,12 +383,15 @@ def with_federal_tax_before_credits(
     if len(tax_units_df) == 0 or 'income' not in tax_units_df.columns:
         return tax_units_df
     out = tax_units_df.copy()
+    agi = out['income']
+    if 'federal_agi' in out.columns:
+        agi = out['federal_agi'].fillna(out['income'])
     status = (
         out['filing_status'].astype(str).to_numpy()
         if 'filing_status' in out.columns else np.full(len(out), 'single')
     )
     out['federal_tax_before_credits'] = federal_tax_before_credits(
-        out['income'].fillna(0).astype(float).to_numpy(), status,
+        agi.fillna(0).astype(float).to_numpy(), status,
         tax_year=tax_year, extrapolate=extrapolate,
     )
     return out

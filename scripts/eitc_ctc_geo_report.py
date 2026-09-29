@@ -159,6 +159,7 @@ _CPI_U_ANNUAL = {2022: 292.655, 2023: 304.702, 2024: 313.689}
 
 _INCOME_DOLLAR_COLUMNS = (
     "income", "earned_income", "investment_income", "total_cash_income", "agi",
+    "federal_agi", "federal_earned_income",
     *(f"{who}_{src}" for who in ("primary", "secondary") for src in (
         "wagp", "semp", "intp", "div", "retp", "ssp", "ssp_full", "ssip", "pap", "oip",
     )),

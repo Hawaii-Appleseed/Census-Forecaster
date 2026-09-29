@@ -196,6 +196,14 @@ _EITC_PARAMS_BY_YEAR = {
 CREDIT_PARAM_CPI_GROWTH = 0.021
 
 
+def _first_present(tax_unit: Dict, *keys: str) -> float:
+    for key in keys:
+        val = tax_unit.get(key)
+        if val is not None and not pd.isna(val):
+            return float(val)
+    return 0.0
+
+
 def _round10(x: float) -> float:
     return float(round(x / 10.0) * 10)
 
@@ -342,9 +350,11 @@ def calculate_eitc(
     if filing_status == 'married_filing_separately':
         return result
 
-    earned_income = float(tax_unit.get('earned_income', 0) or 0)
+    # Federal columns (W-2 wages, §86 taxable SS) when present; see
+    # liability.federal.add_federal_income_columns.
+    earned_income = _first_present(tax_unit, 'federal_earned_income', 'earned_income')
     investment_income = float(tax_unit.get('investment_income', 0) or 0)
-    agi = float(tax_unit.get('income', 0) or 0)
+    agi = _first_present(tax_unit, 'federal_agi', 'income')
 
     # Must have positive earned income
     if earned_income <= 0:

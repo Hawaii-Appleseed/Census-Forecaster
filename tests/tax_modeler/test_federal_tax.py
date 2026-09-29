@@ -110,3 +110,53 @@ def test_federal_extrapolation_grows_and_rounds():
     sd28, br28 = _federal_parameters_for_year(2028, extrapolate=True)
     assert sd28["single"] > sd26["single"] and sd28["single"] % 50 == 0
     assert br28["single"][0][0] > br26["single"][0][0] and br28["single"][0][0] % 25 == 0
+
+
+def test_taxable_social_security_tiers():
+    import numpy as np
+    from tax_modeler.liability.federal import taxable_social_security
+    other = np.array([10_000.0, 20_000.0, 40_000.0])
+    ss = np.array([20_000.0, 20_000.0, 20_000.0])
+    status = np.array(["single"] * 3)
+    t = taxable_social_security(other, ss, status)
+    # Provisional 20K < $25K → 0; 30K → 50% × 5K; 50K → capped at 85% × 20K.
+    assert t.tolist() == pytest.approx([0.0, 2_500.0, 17_000.0])
+
+
+def test_add_federal_income_columns_w2_wages_and_ss():
+    from tax_modeler.liability.federal import (
+        FEDERAL_W2_WAGE_FACTOR, add_federal_income_columns,
+    )
+    df = pd.DataFrame([
+        {"filing_status": "single", "income": 50_000.0, "earned_income": 50_000.0,
+         "primary_wagp": 50_000.0, "primary_ssp_full": 0.0},
+        # SS-only retiree: model income holds 85% of benefits; §86 taxes none.
+        {"filing_status": "single", "income": 17_000.0, "earned_income": 0.0,
+         "primary_wagp": 0.0, "primary_ssp_full": 20_000.0},
+    ])
+    out = add_federal_income_columns(df)
+    cut = (1 - FEDERAL_W2_WAGE_FACTOR) * 50_000
+    assert out["federal_earned_income"].tolist() == pytest.approx([50_000 - cut, 0.0])
+    assert out["federal_agi"].tolist() == pytest.approx([50_000 - cut, 0.0])
+    assert out["income"].tolist() == [50_000.0, 17_000.0]  # Hawaii-side column untouched
+
+
+def test_federal_tax_defaults_to_federal_agi():
+    df = pd.DataFrame([{"filing_status": "single", "total_cash_income": 60_000.0,
+                        "federal_agi": 20_000.0}])
+    out = compute_federal_income_tax_for_units(df, tax_year=2024)
+    # 10% × (20_000 − 14_600) = 540, not tax on $60K.
+    assert out["federal_tax_liability"].iloc[0] == pytest.approx(540)
+
+
+def test_ctc_and_eitc_read_federal_columns():
+    from tax_modeler.credits.ctc import calculate_ctc
+    from tax_modeler.credits.eitc import calculate_eitc
+    kids = [{'age': 6, 'relationship': 25, 'citizenship': 1},
+            {'age': 9, 'relationship': 25, 'citizenship': 1}]
+    unit = {'filing_status': 'head_of_household', 'income': 40_000.0,
+            'earned_income': 40_000.0, 'investment_income': 0.0,
+            'dependents': kids, 'dependents_details': kids, 'num_qualifying_children': 2}
+    fed = dict(unit, federal_agi=30_000.0, federal_earned_income=30_000.0)
+    assert calculate_eitc(fed, tax_year=2024)['eitc_amount'] > calculate_eitc(unit, tax_year=2024)['eitc_amount']
+    assert calculate_ctc(fed, tax_year=2024)['ctc_refundable'] > calculate_ctc(unit, tax_year=2024)['ctc_refundable']
