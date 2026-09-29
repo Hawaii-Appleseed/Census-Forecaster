@@ -387,13 +387,17 @@ def compute_base_tax(
     from tax_modeler.projection.tax_unit_projector import _recalculate_ctc
 
     df = calculate_hawaii_tax_for_units(df, tax_year=tax_year, deduction_params=deduction_params)
-    # Year-aware federal credits: use the requested tax_year when it has a
-    # statutory parameter set; otherwise fall back to TY 2023 to preserve
-    # historical behavior for older calibration vintages.
+    # Year-aware federal credits, on the same rule as project_tax_units_forward:
+    # published years use their Rev. Proc. parameters, later years are
+    # CPI-extrapolated, earlier years use the earliest published set. (This
+    # used to fall back to TY 2023 for every unpublished year, so TY 2027+
+    # calls credited 2027+ incomes against TY 2023 parameters.)
     from tax_modeler.credits.eitc import _EITC_PARAMS_BY_YEAR
-    credit_year = tax_year if tax_year in _EITC_PARAMS_BY_YEAR else 2023
-    df = _recalculate_ctc(df, tax_year=credit_year)
-    df = calculate_eitc_for_tax_units(df, tax_year=credit_year)
+    supported = sorted(_EITC_PARAMS_BY_YEAR)
+    extrapolate = tax_year > supported[-1]
+    credit_year = tax_year if (tax_year in _EITC_PARAMS_BY_YEAR or extrapolate) else supported[0]
+    df = _recalculate_ctc(df, tax_year=credit_year, extrapolate=extrapolate)
+    df = calculate_eitc_for_tax_units(df, tax_year=credit_year, extrapolate=extrapolate)
     # Calibration expects 'agi' and 'hi_state_tax'; Hawaii tax produces 'hi_agi' / 'hi_tax_liability'
     if "hi_agi" in df.columns and "agi" not in df.columns:
         df["agi"] = df["hi_agi"]
