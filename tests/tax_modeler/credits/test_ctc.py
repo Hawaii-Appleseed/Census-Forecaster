@@ -26,8 +26,8 @@ def test_ctc_basic_calculation():
         'income': 50000,
         'earned_income': 30000,  # $30,000 in earned income
         'dependents': [
-            {'age': 10, 'relationship': '22', 'citizenship': '1'},  # Qualifying child
-            {'age': 15, 'relationship': '22', 'citizenship': '1'}   # Qualifying child
+            {'age': 10, 'relationship': '25', 'citizenship': '1'},  # Qualifying child
+            {'age': 15, 'relationship': '25', 'citizenship': '1'}   # Qualifying child
         ],
         'num_dependents': 2
     }
@@ -36,11 +36,11 @@ def test_ctc_basic_calculation():
     
     assert result['qualifying_children'] == 2
     assert result['ctc_total'] == 4000  # 2 children × $2,000
-    
-    # ACTC calculation: 15% of ($30,000 - $2,500) = $4,125, but capped at $3,200 ($1,600 × 2)
-    expected_actc = min((30000 - 2500) * 0.15, 2 * 1600)
-    assert result['ctc_refundable'] == expected_actc
-    assert result['ctc_nonrefundable'] == 4000 - expected_actc  # Remainder
+
+    # TY2023 single, $50K: tax before credits = 1_100 + 12% × (36_150 − 11_000)
+    # = 4_118 ≥ 4_000, so the whole credit offsets tax and none is refunded.
+    assert result['ctc_nonrefundable'] == 4000
+    assert result['ctc_refundable'] == 0
 
 
 def test_ctc_no_qualifying_children():
@@ -49,7 +49,7 @@ def test_ctc_no_qualifying_children():
         'filing_status': 'single',
         'income': 50000,
         'dependents': [
-            {'age': 18, 'relationship': '22', 'citizenship': '1'},  # Too old
+            {'age': 18, 'relationship': '25', 'citizenship': '1'},  # Too old
         ],
         'num_dependents': 1
     }
@@ -68,7 +68,7 @@ def test_ctc_income_phaseout_single():
         'filing_status': 'single',
         'income': 210000,  # $10,000 over threshold
         'dependents': [
-            {'age': 10, 'relationship': '22', 'citizenship': '1'}
+            {'age': 10, 'relationship': '25', 'citizenship': '1'}
         ],
         'num_dependents': 1
     }
@@ -86,7 +86,7 @@ def test_ctc_income_phaseout_joint():
         'filing_status': 'married_filing_jointly',
         'income': 420000,  # $20,000 over threshold
         'dependents': [
-            {'age': 10, 'relationship': '22', 'citizenship': '1'}
+            {'age': 10, 'relationship': '25', 'citizenship': '1'}
         ],
         'num_dependents': 1
     }
@@ -104,7 +104,7 @@ def test_ctc_complete_phaseout():
         'filing_status': 'single',
         'income': 250000,  # $50,000 over threshold
         'dependents': [
-            {'age': 10, 'relationship': '22', 'citizenship': '1'}
+            {'age': 10, 'relationship': '25', 'citizenship': '1'}
         ],
         'num_dependents': 1
     }
@@ -121,30 +121,28 @@ def test_qualifying_child_age_limit():
     params = CTCParameters()
     
     # Under 17 - qualifies
-    child_16 = {'age': 16, 'relationship': '22', 'citizenship': '1'}
+    child_16 = {'age': 16, 'relationship': '25', 'citizenship': '1'}
     assert _is_qualifying_child_ctc(child_16, params) == True
     
     # 17 or over - doesn't qualify
-    child_17 = {'age': 17, 'relationship': '22', 'citizenship': '1'}
+    child_17 = {'age': 17, 'relationship': '25', 'citizenship': '1'}
     assert _is_qualifying_child_ctc(child_17, params) == False
 
 
 def test_qualifying_relationship():
-    """Test relationship requirements for CTC."""
+    """CTC qualifying child uses PUMS RELSHIPP codes (20-38)."""
     params = CTCParameters()
-    
-    # Qualifying relationships
-    natural_child = {'age': 10, 'relationship': '22', 'citizenship': '1'}  # Natural child
-    adopted_child = {'age': 10, 'relationship': '23', 'citizenship': '1'}  # Adopted child
-    foster_child = {'age': 10, 'relationship': '35', 'citizenship': '1'}   # Foster child
-    
-    assert _is_qualifying_child_ctc(natural_child, params) == True
-    assert _is_qualifying_child_ctc(adopted_child, params) == True
-    assert _is_qualifying_child_ctc(foster_child, params) == True
-    
-    # Non-qualifying relationship
-    other_relative = {'age': 10, 'relationship': '31', 'citizenship': '1'}  # Other relative
-    assert _is_qualifying_child_ctc(other_relative, params) == False
+
+    # Own child (bio 25, adopted 26, step 27), sibling 28, grandchild 30, foster 35.
+    for code in ('25', '26', '27', '28', '30', '35', 30):
+        dep = {'age': 10, 'relationship': code, 'citizenship': '1'}
+        assert _is_qualifying_child_ctc(dep, params), code
+
+    # Unmarried partner 22, same-sex spouse 23, parent-in-law 31, other
+    # relative 33 (nieces/nephews not separable), roommate 34, nonrelative 36.
+    for code in ('22', '23', '31', '33', '34', '36', '', None):
+        dep = {'age': 10, 'relationship': code, 'citizenship': '1'}
+        assert not _is_qualifying_child_ctc(dep, params), code
 
 
 def test_citizenship_requirement():
@@ -152,14 +150,14 @@ def test_citizenship_requirement():
     params = CTCParameters()
     
     # US citizens qualify
-    us_born = {'age': 10, 'relationship': '22', 'citizenship': '1'}
-    naturalized = {'age': 10, 'relationship': '22', 'citizenship': '4'}
+    us_born = {'age': 10, 'relationship': '25', 'citizenship': '1'}
+    naturalized = {'age': 10, 'relationship': '25', 'citizenship': '4'}
     
     assert _is_qualifying_child_ctc(us_born, params) == True
     assert _is_qualifying_child_ctc(naturalized, params) == True
     
     # Non-citizens don't qualify
-    non_citizen = {'age': 10, 'relationship': '22', 'citizenship': '5'}
+    non_citizen = {'age': 10, 'relationship': '25', 'citizenship': '5'}
     assert _is_qualifying_child_ctc(non_citizen, params) == False
 
 
@@ -170,7 +168,7 @@ def test_ctc_dataframe_calculation():
             'filer_id': '1',
             'filing_status': 'single',
             'income': 50000,
-            'dependents': [{'age': 10, 'relationship': '22', 'citizenship': '1'}],
+            'dependents': [{'age': 10, 'relationship': '25', 'citizenship': '1'}],
             'num_dependents': 1
         },
         {
@@ -178,8 +176,8 @@ def test_ctc_dataframe_calculation():
             'filing_status': 'married_filing_jointly',
             'income': 80000,
             'dependents': [
-                {'age': 8, 'relationship': '22', 'citizenship': '1'},
-                {'age': 12, 'relationship': '22', 'citizenship': '1'}
+                {'age': 8, 'relationship': '25', 'citizenship': '1'},
+                {'age': 12, 'relationship': '25', 'citizenship': '1'}
             ],
             'num_dependents': 2
         }
@@ -199,3 +197,51 @@ def test_ctc_dataframe_calculation():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def _kids(n):
+    return [{'age': 5 + i, 'relationship': '25', 'citizenship': '1'} for i in range(n)]
+
+
+def test_ctc_offsets_tax_before_refund():
+    """IRC §24(d): refund only the part income tax does not absorb."""
+    unit = {'filing_status': 'married_filing_jointly', 'income': 40_000,
+            'earned_income': 40_000, 'dependents': _kids(2)}
+    r = calculate_ctc(unit, tax_year=2024)
+    # Tax = 10% × (40_000 − 29_200) = 1_080; remainder 2_920 < cap 3_400.
+    assert r['ctc_nonrefundable'] == pytest.approx(1_080)
+    assert r['ctc_refundable'] == pytest.approx(2_920)
+    assert r['ctc_total'] == pytest.approx(4_000)
+
+
+def test_actc_earned_income_limit_is_per_return():
+    """15% × (EI − 2_500) is one amount per return, not per child."""
+    unit = {'filing_status': 'head_of_household', 'income': 10_000,
+            'earned_income': 10_000, 'dependents': _kids(3)}
+    r = calculate_ctc(unit, tax_year=2024)
+    assert r['ctc_nonrefundable'] == 0  # below the standard deduction
+    assert r['ctc_refundable'] == pytest.approx(0.15 * 7_500)
+
+
+def test_ctc_uses_supplied_tax_before_credits():
+    unit = {'filing_status': 'single', 'income': 30_000, 'earned_income': 30_000,
+            'dependents': _kids(1), 'federal_tax_before_credits': 500.0}
+    r = calculate_ctc(unit, tax_year=2024)
+    assert r['ctc_nonrefundable'] == pytest.approx(500)
+    assert r['ctc_refundable'] == pytest.approx(1_500)
+
+
+def test_ctc_2025_max_credit_2200():
+    unit = {'filing_status': 'married_filing_jointly', 'income': 150_000,
+            'earned_income': 150_000, 'dependents': _kids(2)}
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 4_400
+    assert calculate_ctc(unit, tax_year=2024)['ctc_total'] == 4_000
+
+
+def test_ctc_filer_ssn_required_from_2025():
+    unit = {'filing_status': 'married_filing_jointly', 'income': 60_000,
+            'earned_income': 60_000, 'dependents': _kids(1), 'filer_has_ssn': False}
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 0
+    assert calculate_ctc(unit, tax_year=2024)['ctc_total'] == 2_000
+    unit['filer_has_ssn'] = True
+    assert calculate_ctc(unit, tax_year=2025)['ctc_total'] == 2_200

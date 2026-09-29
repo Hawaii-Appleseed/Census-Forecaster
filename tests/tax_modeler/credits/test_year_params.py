@@ -100,18 +100,20 @@ def test_eitc_default_remains_2023():
 
 
 @pytest.mark.parametrize(
-    "tax_year,refundable_cap",
+    "tax_year,refundable_cap,max_credit",
     [
-        (2022, 1_500),
-        (2023, 1_600),
-        (2024, 1_700),
-        (2025, 1_700),
+        (2022, 1_500, 2_000),
+        (2023, 1_600, 2_000),
+        (2024, 1_700, 2_000),
+        (2025, 1_700, 2_200),  # P.L. 119-21 §70104
+        (2026, 1_700, 2_200),  # Rev. Proc. 2025-32 §4.05
     ],
 )
-def test_ctc_refundable_cap_by_year(tax_year, refundable_cap):
+def test_ctc_refundable_cap_by_year(tax_year, refundable_cap, max_credit):
     params = ctc_parameters_for_year(tax_year)
     assert params.refundable_limit_per_child == refundable_cap
-    assert params.max_credit_per_child == 2_000  # TCJA statutory cap unchanged
+    assert params.max_credit_per_child == max_credit
+    assert params.require_filer_ssn == (tax_year >= 2025)
 
 
 def test_ctc_unsupported_year_raises():
@@ -138,9 +140,9 @@ def test_eitc_extrapolation_off_by_default():
 def test_eitc_extrapolated_params_grow_and_round():
     from tax_modeler.credits.eitc import CREDIT_PARAM_CPI_GROWTH
 
-    base = eitc_parameters_for_year(2025)
+    base = eitc_parameters_for_year(2026)  # latest published Rev. Proc.
     p2027 = eitc_parameters_for_year(2027, extrapolate=True)
-    factor = (1.0 + CREDIT_PARAM_CPI_GROWTH) ** 2
+    factor = 1.0 + CREDIT_PARAM_CPI_GROWTH
 
     # Dollar params scale by the CPI factor with statutory rounding.
     assert p2027.by_children[2].max_credit == pytest.approx(
@@ -184,20 +186,22 @@ def test_ctc_extrapolation_off_by_default():
 
 
 def test_ctc_extrapolated_cap_floors_to_100_and_respects_max():
+    # Base is TY 2026 (Rev. Proc. 2025-32): $2,200 max, $1,700 cap.
     p2027 = ctc_parameters_for_year(2027, extrapolate=True)
-    # 1_700 × 1.021² ≈ 1_772 → floor to $1,700 per §24(d)(4)(B).
+    # 1_700 × 1.021 ≈ 1_736 → floor to $1,700 per §24(d)(4)(B).
     assert p2027.refundable_limit_per_child == 1_700
     p2031 = ctc_parameters_for_year(2031, extrapolate=True)
-    # 1_700 × 1.021⁶ ≈ 1_925 → floor to $1,900.
-    assert p2031.refundable_limit_per_child == 1_900
+    # 1_700 × 1.021⁵ ≈ 1_886 → floor to $1,800.
+    assert p2031.refundable_limit_per_child == 1_800
     assert p2031.refundable_limit_per_child % 100 == 0
-    # Statutory TCJA values never move.
-    assert p2031.max_credit_per_child == 2_000
+    # P.L. 119-21 indexes the max credit too: 2_200 × 1.021⁵ ≈ 2_441 → $2,400.
+    assert p2031.max_credit_per_child == 2_400
+    # Phaseout thresholds are not indexed.
     assert p2031.phaseout_threshold_single == 200_000
     assert p2031.phaseout_threshold_joint == 400_000
-    # And the cap can never exceed the $2,000 max credit.
+    # And the cap can never exceed the max credit.
     far = ctc_parameters_for_year(2045, extrapolate=True)
-    assert far.refundable_limit_per_child <= 2_000
+    assert far.refundable_limit_per_child <= far.max_credit_per_child
 
 
 def test_eitc_calculate_with_extrapolation_keeps_real_value():
@@ -223,15 +227,14 @@ def test_eitc_calculate_with_extrapolation_keeps_real_value():
 
 def test_ctc_actc_uses_year_refundable_cap_2_kids():
     """ACTC cap differs by year: $1,500 (2022) vs $1,700 (2025) per child."""
-    # Earned income high enough that 15% × (EI − 2_500) saturates the
-    # refundable cap for both kids.
+    # HoH with $28K earnings: small income tax, so the per-child cap binds.
     unit = {
-        'filing_status': 'single',
-        'income': 60_000,
-        'earned_income': 60_000,
+        'filing_status': 'head_of_household',
+        'income': 28_000,
+        'earned_income': 28_000,
         'dependents': [
-            {'age': 8, 'relationship': '22', 'citizenship': '1'},
-            {'age': 12, 'relationship': '22', 'citizenship': '1'},
+            {'age': 8, 'relationship': '25', 'citizenship': '1'},
+            {'age': 12, 'relationship': '25', 'citizenship': '1'},
         ],
         'num_dependents': 2,
     }
@@ -241,9 +244,13 @@ def test_ctc_actc_uses_year_refundable_cap_2_kids():
 
     assert r2022['qualifying_children'] == 2
     assert r2025['qualifying_children'] == 2
-    # 15% × (60_000 − 2_500) = 8_625 → saturates each year's cap.
+    # TY2022: tax = 10% × (28_000 − 19_400) = 860 → nonrefundable 860;
+    # remainder 3_140 vs 15% × 25_500 = 3_825 vs cap 3_000 → 3_000.
+    assert r2022['ctc_nonrefundable'] == pytest.approx(860)
     assert r2022['ctc_refundable'] == pytest.approx(2 * 1_500)
+    # TY2025: tax = 10% × (28_000 − 23_625) = 437.5; remainder 3_962.5 → cap 3_400.
+    assert r2025['ctc_nonrefundable'] == pytest.approx(437.5)
     assert r2025['ctc_refundable'] == pytest.approx(2 * 1_700)
-    # Total CTC capped at $2,000/child either way (no phaseout at $60K).
-    assert r2022['ctc_total'] == 4_000
-    assert r2025['ctc_total'] == 4_000
+    # Part of the credit is lost to both limits.
+    assert r2022['ctc_total'] == pytest.approx(3_860)
+    assert r2025['ctc_total'] == pytest.approx(3_837.5)

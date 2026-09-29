@@ -863,11 +863,12 @@ sees exactly the keys it expects.
 
 Year-keyed federal credit calculators (`tax_modeler.credits.eitc`,
 `tax_modeler.credits.ctc`) carry IRS Rev. Proc. parameters for TY
-2022 → TY 2025 — max-credit, phase-in completion income, single-
+2022 → TY 2026 — max-credit, phase-in completion income, single-
 and joint-filer phaseout starts, ACTC refundable cap. Statutory rates
-(phase-in / phase-out percentages, $200K/$400K phaseout thresholds,
-$2,000/child max under TCJA) do not move year-to-year and live in
-shared constants.
+(phase-in / phase-out percentages, $200K/$400K phaseout thresholds)
+do not move year-to-year and live in shared constants. The CTC max is
+$2,000/child through TY 2024 and $2,200 from TY 2025, indexed after
+TY 2026 (P.L. 119-21 §70104).
 
 ### Parameter vintages
 
@@ -877,14 +878,65 @@ shared constants.
 | 2023 |           $6,604 |              $1,600 |        2022-38 |
 | 2024 |           $6,960 |              $1,700 |        2023-34 |
 | 2025 |           $7,152 |              $1,700 |        2024-40 |
+| 2026 |           $7,316 |              $1,700 |        2025-32 |
+
+### CTC ordering (September 2026)
+
+The CTC is split in statutory order (IRC §24(b)(3), §24(d)): it first
+offsets federal income tax before credits
+(`liability.federal.federal_tax_before_credits`, bracket tax on `income`
+less the standard deduction), and only the unused remainder is
+refundable, limited to 15% of earned income above $2,500 — one amount
+per return — and to the per-child cap. Until September 2026 the model
+assigned the refundable part first and applied the 15% limit per child,
+which put TY 2022 ACTC at $332M against IRS's $117.8M.
+
+Three further corrections (September 2026):
+
+* **CTC relationship codes.** The CTC compared dependents' PUMS `RELSHIPP`
+  codes against the retired `RELP` list, dropping stepchildren, siblings
+  and grandchildren. It now uses the same qualifying-child set as the EITC
+  (`units.relshipp_codes.EITC_QUALIFYING_CHILD_RELS`).
+* **Income dollar-year in backtests.** `eitc_ctc_geo_report.py` taxed the
+  2020-24 PUMS (2024 dollars) under TY 2022 parameters. Years before
+  `PUMS_INCOME_DOLLAR_YEAR` are now deflated by CPI-U; later years are
+  projected.
+* **Stale pre-credit tax.** `federal_tax_before_credits` is recomputed on
+  every CTC pass, never carried over from an earlier income vintage.
+
+TY 2022, real PUMS, after the EITC by-children reweight, no take-up:
+
+| | Model | IRS SOI | Gap |
+|---|---:|---:|---:|
+| Nonrefundable CTC (IRS incl. ODC) | $401.2M | $351.7M | +14% |
+| ACTC | $90.5M | $117.8M | −23% |
+| Total CTC | $491.7M | $469.5M | +5% |
+| CTC returns | 153.9k | 154.6k | −0.5% |
+
+Recipient counts now match; the remaining error is the split, too much
+nonrefundable and too little refunded. Tested against IRS SOI Hawaii by AGI
+band and ruled out as material (each moves ACTC by ≤ $4M): half-SE-tax and
+QBI deductions; nonrefundable credits ahead of the CTC (dependent care,
+education, saver's, residential energy — $127M in Hawaii TY 2022); assigning
+grandchildren to their PUMS subfamily parent instead of the householder; and
+the statutory taxable-Social-Security formula in place of a flat 85%. Per-
+return federal tax before credits is 3-8% above IRS in the $25K-$200K bands,
+and nonrefundable CTC per claiming return in the $100K-$200K band is $3.7K
+against IRS's $2.9K. Both point at children per unit or unit construction
+in middle and upper-middle incomes rather than the credit formula.
+
+From TY 2025 the taxpayer (or one spouse on a joint return) must hold a
+work-eligible SSN. `calculate_ctc` honors a `filer_has_ssn` column but
+PUMS has no SSN field and no imputation exists yet, so the rule
+currently removes no one — TY 2025+ CTC is an upper bound on this margin.
 
 `project_tax_units_forward(target_year=Y)` plumbs `Y` into both
 `_recalculate_ctc` and `calculate_eitc_for_tax_units` so projected
 nominal incomes are credited against `Y`'s statutory parameters
 (this matches the IRS chained-CPI inflation-indexing treatment).
 For `target_year` beyond the latest published Rev. Proc., the
-projector clamps to the most recent supported year and logs the
-substitution — older callers projecting to 2026+ continue to work.
+projector CPI-extrapolates dollar parameters from the latest supported
+year (`CREDIT_PARAM_CPI_GROWTH`) and logs the substitution.
 
 ### Take-up imputation
 

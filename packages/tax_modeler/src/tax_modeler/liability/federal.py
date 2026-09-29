@@ -27,8 +27,14 @@ consistent with Census SPM accounting:
               - state_tax - federal_tax_liability - payroll_tax - ...
 
 Year-keyed parameters: standard deduction and bracket schedules for
-TY 2022, 2023, 2024, 2025 sourced from IRS Rev. Procs. Inflation
-indexing for the SD and bracket thresholds is statutory.
+TY 2022-2026 sourced from IRS Rev. Procs. (TY 2025 standard deduction as
+amended by the 2025 reconciliation act, P.L. 119-21 §70102). Inflation
+indexing for the SD and bracket thresholds is statutory; later years can be
+CPI-extrapolated with ``extrapolate=True``.
+
+:func:`federal_tax_before_credits` exposes the pre-credit bracket tax so the
+CTC can be split between its nonrefundable and refundable (ACTC) parts the
+way IRC §24(d) orders them.
 """
 from __future__ import annotations
 
@@ -54,9 +60,16 @@ _STANDARD_DEDUCTION = {
         "single": 14_600, "married_filing_jointly": 29_200,
         "head_of_household": 21_900, "married_filing_separately": 14_600,
     },
+    # P.L. 119-21 §70102 raised TY 2025 above Rev. Proc. 2024-40's
+    # $15,000 / $30,000 / $22,500 (restated in Rev. Proc. 2025-32 §3).
     2025: {
-        "single": 15_000, "married_filing_jointly": 30_000,
-        "head_of_household": 22_500, "married_filing_separately": 15_000,
+        "single": 15_750, "married_filing_jointly": 31_500,
+        "head_of_household": 23_625, "married_filing_separately": 15_750,
+    },
+    # Rev. Proc. 2025-32 §4.14.
+    2026: {
+        "single": 16_100, "married_filing_jointly": 32_200,
+        "head_of_household": 24_150, "married_filing_separately": 16_100,
     },
 }
 
@@ -132,7 +145,54 @@ _BRACKETS = {
             (np.inf, 0.37),
         ],
     },
+    # Rev. Proc. 2025-32 §4.01, Tables 1-3.
+    2026: {
+        "single": [
+            (12_400, 0.10), (50_400, 0.12), (105_700, 0.22),
+            (201_775, 0.24), (256_225, 0.32), (640_600, 0.35),
+            (np.inf, 0.37),
+        ],
+        "married_filing_jointly": [
+            (24_800, 0.10), (100_800, 0.12), (211_400, 0.22),
+            (403_550, 0.24), (512_450, 0.32), (768_700, 0.35),
+            (np.inf, 0.37),
+        ],
+        "head_of_household": [
+            (17_700, 0.10), (67_450, 0.12), (105_700, 0.22),
+            (201_750, 0.24), (256_200, 0.32), (640_600, 0.35),
+            (np.inf, 0.37),
+        ],
+    },
 }
+
+
+def _federal_parameters_for_year(tax_year: int, *, extrapolate: bool = False):
+    """Return ``(standard_deduction_by_status, brackets_by_status)``.
+
+    With ``extrapolate=True``, years past the last published Rev. Proc. scale
+    the latest year's dollar amounts by ``CREDIT_PARAM_CPI_GROWTH`` (the same
+    chained-CPI assumption the credit modules use), rounding down to $50 for
+    the standard deduction (§63(c)(4)) and $25 for bracket thresholds
+    (§1(f)(7)). Raises ``KeyError`` otherwise.
+    """
+    if tax_year in _STANDARD_DEDUCTION:
+        return _STANDARD_DEDUCTION[tax_year], _BRACKETS[tax_year]
+    last = max(_STANDARD_DEDUCTION)
+    if extrapolate and tax_year > last:
+        from tax_modeler.credits.eitc import CREDIT_PARAM_CPI_GROWTH
+
+        factor = (1.0 + CREDIT_PARAM_CPI_GROWTH) ** (tax_year - last)
+        sd = {k: float(v * factor // 50 * 50) for k, v in _STANDARD_DEDUCTION[last].items()}
+        brackets = {
+            k: [(u if np.isinf(u) else float(u * factor // 25 * 25), r) for u, r in b]
+            for k, b in _BRACKETS[last].items()
+        }
+        return sd, brackets
+    raise KeyError(
+        f"Federal tax parameters not defined for tax year {tax_year}. "
+        f"Supported years: {sorted(_STANDARD_DEDUCTION)}"
+        + ("" if extrapolate else " (pass extrapolate=True for later years)")
+    )
 
 
 def _tax_from_brackets(taxable: np.ndarray, brackets: list) -> np.ndarray:
@@ -150,6 +210,39 @@ def _tax_from_brackets(taxable: np.ndarray, brackets: list) -> np.ndarray:
     return tax
 
 
+def federal_tax_before_credits(
+    income,
+    filing_status,
+    *,
+    tax_year: int,
+    extrapolate: bool = False,
+) -> np.ndarray:
+    """Bracket tax on ``max(0, income - standard deduction)``, before credits.
+
+    ``income`` and ``filing_status`` are scalars or equal-length arrays.
+    MFS and unknown statuses use the single schedule, as in
+    :func:`compute_federal_income_tax_for_units`.
+    """
+    sd_by_status, brackets_by_status = _federal_parameters_for_year(
+        tax_year, extrapolate=extrapolate,
+    )
+    income = np.atleast_1d(np.asarray(income, dtype=float))
+    status = np.atleast_1d(np.asarray(filing_status, dtype=str))
+    if status.size == 1 and income.size > 1:
+        status = np.repeat(status, income.size)
+    sd = np.array(
+        [sd_by_status.get(s, sd_by_status["single"]) for s in status],
+        dtype=float,
+    )
+    taxable = np.maximum(np.nan_to_num(income) - sd, 0.0)
+    tax = np.zeros(income.size, dtype=float)
+    for s in np.unique(status):
+        key = s if s in brackets_by_status else "single"
+        mask = status == s
+        tax[mask] = _tax_from_brackets(taxable[mask], brackets_by_status[key])
+    return tax
+
+
 def compute_federal_income_tax_for_units(
     units: pd.DataFrame,
     *,
@@ -158,6 +251,7 @@ def compute_federal_income_tax_for_units(
     income_col: str = "total_cash_income",
     filing_status_col: str = "filing_status",
     ctc_nonrefundable_col: str = "ctc_nonrefundable",
+    extrapolate: bool = False,
 ) -> pd.DataFrame:
     """Add a ``federal_tax_liability`` column to ``units``.
 
@@ -182,7 +276,7 @@ def compute_federal_income_tax_for_units(
     Parameters
     ----------
     tax_year:
-        Must be one of {2022, 2023, 2024, 2025}.
+        One of {2022, ..., 2026}, or later with ``extrapolate=True``.
 
     Returns
     -------
@@ -190,36 +284,13 @@ def compute_federal_income_tax_for_units(
         Copy of ``units`` with a new ``federal_tax_liability`` column
         (non-negative annual dollars).
     """
-    if tax_year not in _STANDARD_DEDUCTION:
-        raise KeyError(
-            f"Federal tax parameters not defined for tax year {tax_year}. "
-            f"Supported years: {sorted(_STANDARD_DEDUCTION)}"
-        )
-    sd_by_status = _STANDARD_DEDUCTION[tax_year]
-    brackets_by_status = _BRACKETS[tax_year]
-
     out = units.copy()
-    income = out[income_col].fillna(0).astype(float).to_numpy()
-    status = out[filing_status_col].astype(str).to_numpy()
-
-    # Per-row standard deduction lookup.
-    sd = np.array(
-        [sd_by_status.get(s, sd_by_status["single"]) for s in status],
-        dtype=float,
+    tax = federal_tax_before_credits(
+        out[income_col].fillna(0).astype(float).to_numpy(),
+        out[filing_status_col].astype(str).to_numpy(),
+        tax_year=tax_year,
+        extrapolate=extrapolate,
     )
-    taxable = np.maximum(income - sd, 0.0)
-
-    # Per-row bracket lookup. MFS maps to single brackets (the IRS publishes
-    # MFS thresholds as half of MFJ; the difference vs. single is small at
-    # SPM-relevant incomes and either is closer than the previous 10% flat
-    # fallback).
-    tax = np.zeros(len(out), dtype=float)
-    for s in np.unique(status):
-        key = s if s in brackets_by_status else "single"
-        mask = status == s
-        if not mask.any():
-            continue
-        tax[mask] = _tax_from_brackets(taxable[mask], brackets_by_status[key])
 
     # Nonrefundable CTC offsets bracket tax, but cannot push it below zero.
     if ctc_nonrefundable_col in out.columns:
@@ -230,4 +301,4 @@ def compute_federal_income_tax_for_units(
     return out
 
 
-__all__ = ["compute_federal_income_tax_for_units"]
+__all__ = ["compute_federal_income_tax_for_units", "federal_tax_before_credits"]

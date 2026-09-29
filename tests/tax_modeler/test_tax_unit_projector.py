@@ -250,7 +250,7 @@ def test_no_county_column_uses_state_proxy():
 def _two_kid_30k_unit() -> pd.DataFrame:
     """A 2-child single filer at $30K EI — squarely in the EITC flat region.
 
-    Uses PUMS-style integer relationship codes (22 = natural-born child) and
+    Uses PUMS-style RELSHIPP relationship codes (25 = biological child) and
     citizenship code 1 so that both CTC and EITC qualifying-child tests pass.
     The earned income exceeds the EITC phase-in point for 2 kids across all
     years and stays below the single-filer phaseout start for all years.
@@ -279,20 +279,23 @@ def test_recalculate_ctc_refundable_cap_changes_by_year():
     """_recalculate_ctc must apply the target year's refundable-cap parameter."""
     from tax_modeler.projection.tax_unit_projector import _recalculate_ctc
 
-    df = _two_kid_30k_unit()
+    # HoH at $28k: income tax is small, so the per-child cap binds.
+    df = _two_kid_30k_unit().assign(
+        filing_status="head_of_household", income=28_000.0, earned_income=28_000.0,
+    )
 
     out_2022 = _recalculate_ctc(df, tax_year=2022)
     out_2025 = _recalculate_ctc(df, tax_year=2025)
 
-    # 2 kids, EI=$30k → ACTC = min(15%*(30k-2.5k), cap) per child
-    # = min(4_125, cap_per_child) per child
-    # 2022 cap = $1,500/child → ACTC caps at 2*1500 = 3_000
-    # 2025 cap = $1,700/child → ACTC caps at 2*1700 = 3_400
+    # Tax before credits: 10% × (28k − SD) = 860 (TY2022) / 437.5 (TY2025).
+    # Remainder vs 15% × (28k − 2.5k) = 3_825 vs cap: 2×1_500 / 2×1_700.
     assert out_2022["ctc_refundable"].iloc[0] == pytest.approx(3_000)
     assert out_2025["ctc_refundable"].iloc[0] == pytest.approx(3_400)
-    # Total CTC capped at $2,000/child * 2 = $4,000 either way (no phaseout).
-    assert out_2022["ctc_total"].iloc[0] == 4_000
-    assert out_2025["ctc_total"].iloc[0] == 4_000
+    assert out_2022["ctc_nonrefundable"].iloc[0] == pytest.approx(860)
+    assert out_2025["ctc_nonrefundable"].iloc[0] == pytest.approx(437.5)
+    # Max credit: $2,000/child (TY2022) → $2,200/child (TY2025).
+    assert out_2022["ctc_total"].iloc[0] == pytest.approx(3_860)
+    assert out_2025["ctc_total"].iloc[0] == pytest.approx(3_837.5)
 
 
 def test_recalculate_eitc_grows_with_irs_parameter_indexing():

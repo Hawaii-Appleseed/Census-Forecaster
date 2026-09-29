@@ -193,7 +193,7 @@ def enrich_for_credits(df: pd.DataFrame) -> pd.DataFrame:
         # caller-supplied tax-unit frames, synthesized top-filer rows). Real
         # details come from TaxUnitConstructor via ``dependents_details``.
         return [
-            {"age": 10, "relationship": 22, "citizenship": 1, "months_in_home": 12}
+            {"age": 10, "relationship": 25, "citizenship": 1, "months_in_home": 12}  # RELSHIPP 25 = own child
         ] * max(0, int(n))
 
     def _coerce_dep_details(row):
