@@ -146,8 +146,10 @@ def test_bundled_national_macro_loads():
     data = load_national_macro_data()
     if data is None:
         pytest.skip("national_macro.json not committed")
+    # Equality, not subset: the 2026-08-06 and 2026-09-23 refreshes each
+    # dropped the four FRED series, and a subset check accepted the loss.
     names = {s.name for s in NATIONAL_SERIES}
-    assert set(data) <= names
+    assert set(data) == names, f"missing: {sorted(names - set(data))}"
     for name, by_year in data.items():
         assert by_year
         assert all(isinstance(y, int) for y in by_year)

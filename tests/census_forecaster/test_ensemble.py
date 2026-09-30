@@ -358,3 +358,95 @@ class TestKalmanPromotion:
         fp = project_ensemble_multi(obs, target_year=2023, use_ml=False, use_kalman=True)
         assert fp is not None
         assert fp.method == METHOD_NAME
+
+
+class TestAnchorSeFoldParity:
+    """Production multi_anchor SE must equal the calibration-fold SE.
+
+    The multi_anchor κ / bias / conformal records are fit on folds built by
+    ``calibration._project_anchor_only``; ``project_ensemble_multi`` applies
+    them to its own anchor forecast. Both must convert the per-source RMSE
+    to a per-year SE with the same divisor (ANCHOR_CALIBRATION_HORIZON) at
+    every h. Production used to divide by the target h instead, so its
+    pre-κ SE was ~2× the fold SE at h=1 and ~0.4× at h=5.
+    """
+
+    ANCHOR_YEAR = 2018
+    RMSE = 0.40  # large enough that the calibration SE binds over the in-sample floor
+
+    def _series(self, indicator):
+        return [
+            AcsObservation(
+                estimate=80000.0 * (1.03 ** i), moe=1500.0,
+                year=2010 + i, vintage="1y", geoid="15003", indicator=indicator,
+            )
+            for i in range(self.ANCHOR_YEAR - 2010 + 1)
+        ]
+
+    def _per_source(self, indicator):
+        from census_forecaster.acs.sources import available_sources
+        names = [s.name for s in available_sources(indicator) if s.anchor_type == "rate"]
+        assert names, f"no rate-type anchor source for {indicator}"
+        return {indicator: {n: self.RMSE for n in names}}
+
+    def test_default_divisor_is_the_shared_constant(self):
+        import inspect
+        from census_forecaster.acs.anchors import (
+            ANCHOR_CALIBRATION_HORIZON, combined_anchor_rate,
+        )
+        default = inspect.signature(combined_anchor_rate).parameters[
+            "calibration_horizon"
+        ].default
+        assert default == ANCHOR_CALIBRATION_HORIZON == 2
+
+    @pytest.mark.parametrize("indicator", ["B19013_001E", "B25064_001E"])
+    @pytest.mark.parametrize("h", [1, 2, 3, 4, 5])
+    def test_production_anchor_se_matches_fold_se(self, monkeypatch, indicator, h):
+        import census_forecaster.acs.anchors as anchors_mod
+        from census_forecaster.acs.anchors import (
+            ANCHOR_CALIBRATION_HORIZON, combined_anchor_rate,
+        )
+        from census_forecaster.acs.calibration import _project_anchor_only
+        from census_forecaster.acs.ensemble import project_ensemble_multi
+
+        train = self._series(indicator)
+        per_source = self._per_source(indicator)
+        target = self.ANCHOR_YEAR + h
+
+        # Non-vacuous: the calibration RMSE (not the in-sample SD) sets
+        # every component SE, so the divisor actually matters.
+        rate = combined_anchor_rate(
+            indicator=indicator, end_year=self.ANCHOR_YEAR,
+            calibration=per_source, geoid="15003",
+        )
+        assert rate is not None
+        for _name, _r, se, _w in rate.components:
+            assert se == pytest.approx(self.RMSE / ANCHOR_CALIBRATION_HORIZON)
+
+        fold = _project_anchor_only(
+            train, target, self.ANCHOR_YEAR, indicator, per_source_rmse=per_source,
+        )
+        assert fold is not None
+
+        # Capture the raw (pre-bias, pre-κ) anchor forecast production builds.
+        captured: list[ForecastPoint] = []
+        real = anchors_mod.anchor_as_forecast
+
+        def _spy(*args, **kwargs):
+            fp = real(*args, **kwargs)
+            captured.append(fp)
+            return fp
+
+        monkeypatch.setattr(anchors_mod, "anchor_as_forecast", _spy)
+        out = project_ensemble_multi(
+            train, target,
+            calibration={"rmse_by_indicator_source": per_source},
+            populations={}, use_ml=False, use_kalman=False,
+        )
+        assert out is not None
+        assert len(captured) == 1
+        prod = captured[0]
+        assert prod.horizon == fold.horizon == h
+        assert prod.point == pytest.approx(fold.point, rel=1e-12)
+        assert prod.se_forecast == pytest.approx(fold.se_forecast, rel=1e-12)
+        assert prod.se_total == pytest.approx(fold.se_total, rel=1e-12)

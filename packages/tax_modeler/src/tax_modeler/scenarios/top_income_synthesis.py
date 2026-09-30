@@ -2,7 +2,7 @@
 
 PUMS samples ultra-high-income filers very thinly: the calibrated tax units
 recover only ~19% of the DOTAX $1M+ filer count (342 weighted vs the 1,824
-target from DOTAX TY2023 data, IRS SOI 2022 Table A8). The IPF rake's
+target, DOTAX TY2022 Table A-8). The IPF rake's
 1.5x weight-cap prevents it from closing this gap on its own (a 5x
 adjustment would be needed).
 
@@ -25,22 +25,33 @@ projection, so the rake doesn't see (and try to undo) the synthetic
 rows. After synthesis, the base tax must be re-computed so the
 synthetic rows have proper ``hi_tax_liability`` values.
 
-DOTAX target source: "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax
-Year 2023" combined with IRS SOI 2022 Hawaii Table A8 (1,824 filers
-generating $663M Hawaii state tax above $1M AGI).
+Then :func:`calibrate_synthetic_tail_to_tax_target` scales the tail's
+incomes until its re-scored tax is the DOTAX target, and
+:func:`age_synthetic_tail` moves it from the target's tax year (TY2022) to
+the PUMS income dollar year the projection grows every unit from.
+
+DOTAX target source: DOTAX TY2022 Table A-8 (1,824 resident returns above
+$1M AGI owing $662.6M before credits; ``forward_targets``'
+``_DOTAX_*_TARGETS_2022`` and ``calibration.cg_anchor`` use the same
+figures).
 """
 from __future__ import annotations
 
 import logging
-from typing import Dict
+from typing import Callable, Dict
 
 import pandas as pd
 
+from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+
 logger = logging.getLogger(__name__)
 
-# DOTAX/IRS SOI 2022 Hawaii target for $1M+ AGI bracket
+# DOTAX TY2022 Hawaii target for $1M+ AGI bracket (Table A-8)
 DOTAX_1M_PLUS_FILER_TARGET = 1_824
 DOTAX_1M_PLUS_TAX_TARGET_M = 663.0   # $ millions
+# The tax year the two targets above describe: a tail calibrated to them is
+# in TY2022 dollars (see age_synthetic_tail).
+DOTAX_1M_PLUS_TARGET_TAX_YEAR = 2022
 PARETO_ALPHA = 1.5                    # IRS SOI 2022 tail shape
 
 # DOTAX Table A8 targets for $500K-$1M (PUMS topcode-compression range)
@@ -219,24 +230,73 @@ def validate_top_synthesis(df: pd.DataFrame) -> Dict[str, float]:
     return out
 
 
+# Income columns scaled on synthetic rows, by the tax rescale and the aging.
+_TAIL_INCOME_COLUMNS = (
+    "income", "agi", "synthetic_total_income",
+    "earned_income", "investment_income",
+    "primary_wagp", "primary_intp",
+)
+_TAIL_STALE_TAX_COLUMNS = (
+    "hi_tax_liability", "hi_state_tax", "hi_agi", "hi_taxable_income",
+    "hi_tax_before_credits",
+)
+
+
+def _synthetic_mask(df: pd.DataFrame) -> pd.Series:
+    return df["is_synthetic_ultra_high"].fillna(False).astype(bool)
+
+
+def _synthetic_tail_tax_m(df: pd.DataFrame) -> float:
+    """Weighted Hawaii tax on the synthetic $1M+ rows, $M."""
+    mask = _synthetic_mask(df)
+    tax_col = "hi_tax_liability" if "hi_tax_liability" in df.columns else "hi_state_tax"
+    return float((df.loc[mask, tax_col] * df.loc[mask, "weight"]).sum() / 1e6)
+
+
+def _scale_synthetic_incomes(df: pd.DataFrame, factor: float) -> pd.DataFrame:
+    """``df`` with the synthetic rows' income columns multiplied by ``factor``,
+    their federal income columns rebuilt from them (as
+    :func:`synthesize_top_filers` builds them) and their tax columns cleared:
+    re-score afterwards."""
+    mask = _synthetic_mask(df)
+    out = df.copy()
+    for col in _TAIL_INCOME_COLUMNS:
+        if col in out.columns:
+            out.loc[mask, col] = out.loc[mask, col] * factor
+    if mask.any() and "federal_agi" in out.columns:
+        from tax_modeler.liability.federal import add_federal_income_columns
+
+        fed = add_federal_income_columns(out.loc[mask])
+        for col in ("federal_agi", "federal_earned_income"):
+            out.loc[mask, col] = fed[col]
+    # Clear stale tax so caller must recompute with updated incomes
+    for col in _TAIL_STALE_TAX_COLUMNS:
+        if col in out.columns:
+            out.loc[mask, col] = 0.0
+    return out
+
+
 def rescale_synthetic_tail_to_tax_target(
     df: pd.DataFrame,
     target_tax_m: float = DOTAX_1M_PLUS_TAX_TARGET_M,
 ) -> tuple:
-    """Scale synthesized $1M+ filer incomes uniformly so aggregate Hawaii tax
-    on the synthetic tail matches ``target_tax_m``.
+    """One proportional step toward the tax target: scale synthesized $1M+
+    filer incomes uniformly by ``k = target_tax_m / actual``.
 
     This closes the gap between Pareto-distribution-derived income levels and
-    the DOTAX/IRS SOI tax benchmark.  The Pareto synthesizer hits the filer
+    the DOTAX tax benchmark.  The Pareto synthesizer hits the filer
     count target exactly but typically recovers only ~88% of the $663M tax
     target because the conditional-mean income per tier underestimates the
     very top of the tail.  A uniform income scale factor ``k`` applied to all
     synthetic filer incomes corrects this.
 
-    At $1M+ income Hawaii's effective marginal rate is approximately flat at
-    11% (top bracket), so ``tax ≈ k × income × rate`` — a single-pass k
-    lands within ~0.5% of target after ``_compute_base_tax()`` reruns. No
-    iteration is required.
+    One step does not land on the target. Tax is not proportional to income
+    even above $1M: the deduction, the lower brackets and the §235-51(f)
+    alternative tax on gains make it roughly ``a·k − b``, so re-scoring after
+    this step misses in the direction of the step (the Act 24 MID tail:
+    $686.9M against $663M, k 1.4685 where 1.4210 lands). Use
+    :func:`calibrate_synthetic_tail_to_tax_target`, which iterates to the
+    target; this is its first step.
 
     Must be called AFTER ``synthesize_top_filers()`` AND ``_compute_base_tax()``.
     Clears stale tax columns on synthetic rows; caller must re-run
@@ -257,43 +317,152 @@ def rescale_synthetic_tail_to_tax_target(
         to all income-related columns on synthetic rows.  ``k > 1`` means
         incomes were scaled up to reach the tax target.
     """
-    mask = df["is_synthetic_ultra_high"].fillna(False).astype(bool)
-    tax_col = "hi_tax_liability" if "hi_tax_liability" in df.columns else "hi_state_tax"
-
-    actual_tax_m = float(
-        (df.loc[mask, tax_col] * df.loc[mask, "weight"]).sum() / 1e6
-    )
+    actual_tax_m = _synthetic_tail_tax_m(df)
     if actual_tax_m <= 0:
         raise ValueError(
             f"Synthetic filer tax is {actual_tax_m:.1f}M — run _compute_base_tax() first."
         )
 
     k = target_tax_m / actual_tax_m
-
-    income_cols = [
-        c for c in [
-            "income", "agi", "synthetic_total_income",
-            "earned_income", "investment_income",
-            "primary_wagp", "primary_intp",
-        ]
-        if c in df.columns
-    ]
-
-    out = df.copy()
-    for col in income_cols:
-        out.loc[mask, col] = out.loc[mask, col] * k
-
-    # Clear stale tax so caller must recompute with updated incomes
-    for col in ("hi_tax_liability", "hi_state_tax", "hi_agi", "hi_taxable_income",
-                "hi_tax_before_credits"):
-        if col in out.columns:
-            out.loc[mask, col] = 0.0
+    out = _scale_synthetic_incomes(df, k)
 
     logger.info(
         "rescale_synthetic_tail: k=%.4f  actual_tax=%.1fM → target=%.1fM",
         k, actual_tax_m, target_tax_m,
     )
     return out, k
+
+
+def calibrate_synthetic_tail_to_tax_target(
+    units: pd.DataFrame,
+    *,
+    score: Callable[[pd.DataFrame], pd.DataFrame],
+    target_tax_m: float = DOTAX_1M_PLUS_TAX_TARGET_M,
+    rtol: float = 1e-3,
+    max_iter: int = 8,
+) -> tuple[pd.DataFrame, float]:
+    """Scale the synthetic $1M+ tail's incomes until its re-scored Hawaii tax
+    is ``target_tax_m`` within ``rtol``; return ``(units, k)``.
+
+    Alternates scaling and re-scoring: the first step is
+    :func:`rescale_synthetic_tail_to_tax_target`'s proportional ``k``, which
+    misses because tax is not proportional to income; later steps are secant
+    updates on the cumulative ``k``, which land within 0.1% in two or three
+    re-scores.
+
+    ``units`` must already be scored, and ``score`` must re-score a frame on
+    the same deduction basis, e.g. ``lambda u: compute_base_tax(u,
+    deduction_params=ded_params, tax_year=cal_tax_year)``. The iterations
+    score the synthetic rows alone (scoring the whole frame takes seconds),
+    so ``score`` must score each row independently, as ``compute_base_tax``
+    does; the result is then scaled and scored whole once, and checked.
+
+    Returns the re-scored frame and ``k``, the product of the steps. Raises
+    RuntimeError if the tail is not within ``rtol`` of the target after
+    ``max_iter`` steps.
+    """
+    def off(tax: float) -> bool:
+        return abs(tax / target_tax_m - 1.0) > rtol
+
+    tail = units.loc[_synthetic_mask(units)]
+    tax = _synthetic_tail_tax_m(tail)
+    if tax <= 0:
+        raise ValueError(
+            f"Synthetic filer tax is {tax:.1f}M — score the units first."
+        )
+    k, prev = 1.0, None
+    for _ in range(max_iter):
+        if not off(tax):
+            break
+        k_next = None
+        if prev is not None and tax != prev[1]:
+            k_next = k + (target_tax_m - tax) * (k - prev[0]) / (tax - prev[1])
+        if k_next is None or k_next <= 0:
+            k_next = k * target_tax_m / tax          # the proportional step
+        prev = (k, tax)
+        tail = score(_scale_synthetic_incomes(tail, k_next / k))
+        k, tax = k_next, _synthetic_tail_tax_m(tail)
+    if off(tax):
+        raise RuntimeError(
+            f"Synthetic $1M+ tail tax ${tax:.1f}M is not within {rtol:.2%} of "
+            f"${target_tax_m:.1f}M after {max_iter} steps (k={k:.4f})."
+        )
+
+    out = score(_scale_synthetic_incomes(units, k))
+    whole = _synthetic_tail_tax_m(out)
+    if off(whole):
+        raise RuntimeError(
+            f"Synthetic $1M+ tail tax ${whole:.1f}M scored with the whole frame, "
+            f"${tax:.1f}M scored alone: score must score each row independently."
+        )
+    logger.info(
+        "calibrate_synthetic_tail: k=%.4f  tax=%.1fM (target %.1fM)",
+        k, whole, target_tax_m,
+    )
+    return out, k
+
+
+def _observed_honolulu_b19013(year: int) -> float:
+    """Honolulu's observed 1-year ACS B19013 for ``year``: the bundled
+    calibration panel observation ``revenue_projection.project_revenue_per_filer``
+    anchors the projector's county growth on."""
+    from census_forecaster.acs.projection import effective_year
+
+    from tax_modeler.projection.income_forecast import _load_b19013_series
+    from tax_modeler.projection.tax_unit_projector import _HAWAII_COUNTY_GEOIDS
+
+    geoid = _HAWAII_COUNTY_GEOIDS[HONOLULU_COUNTY]
+    obs = [o for o in _load_b19013_series(geoid)
+           if o.vintage == "1y" and effective_year(o) == year]
+    if not obs:
+        raise ValueError(f"No observed 1-year B19013 for {geoid} in {year} in the bundled panel.")
+    return float(obs[-1].estimate)
+
+
+def synthetic_tail_aging_factor(
+    top_premium: float,
+    *,
+    year: int = PUMS_INCOME_DOLLAR_YEAR,
+) -> float:
+    """Growth of the synthetic $1M+ tail from the DOTAX targets' tax year
+    (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``) to ``year``:
+
+        B19013_Honolulu(year) / B19013_Honolulu(2022) × (1 + top_premium) ** (year − 2022)
+
+    The two growth steps the projection gives a Honolulu filer above $500K,
+    over the years before its own base year: the county's median-income
+    growth (observed here, where the projector forecasts it) and the
+    scenario's top-income premium (``apply_top_income_growth_premium``).
+    """
+    base = DOTAX_1M_PLUS_TARGET_TAX_YEAR
+    return (_observed_honolulu_b19013(year) / _observed_honolulu_b19013(base)
+            * (1.0 + top_premium) ** (year - base))
+
+
+def age_synthetic_tail(
+    df: pd.DataFrame,
+    *,
+    top_premium: float,
+    year: int = PUMS_INCOME_DOLLAR_YEAR,
+) -> pd.DataFrame:
+    """Move the tax-calibrated synthetic $1M+ tail from TY2022 dollars to
+    ``year`` (the PUMS income dollar year); re-score afterwards.
+
+    Why: :func:`calibrate_synthetic_tail_to_tax_target` puts the tail at the
+    DOTAX TY2022 $1M+ tax (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``), but every PUMS
+    unit is in ``PUMS_INCOME_DOLLAR_YEAR`` (2024) dollars and the projection
+    grows every unit from there: the county B19013 factor from the
+    projector's 2024 anchor, the top-income premium from
+    ``TOP_INCOME_PREMIUM_BASE_YEAR`` (2024). Left at the TY2022 level the tail
+    never receives 2022-2024 growth, while the same pipeline ages DOTAX's
+    TY2022 capital gains from 2022 (``cg_anchor.cg_growth``). The tail is
+    Honolulu's, so it grows by :func:`synthetic_tail_aging_factor`: Honolulu's
+    observed B19013 growth times the scenario's premium.
+
+    Scales the income columns the tax rescale scales, rebuilds the federal
+    income columns and clears the tax columns, on the synthetic rows only.
+    """
+    return _scale_synthetic_incomes(df, synthetic_tail_aging_factor(top_premium, year=year))
 
 
 # ---------------------------------------------------------------------------

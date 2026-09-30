@@ -21,9 +21,25 @@ Sources, all keyless:
 - ``FRED``       — ``https://fred.stlouisfed.org/graph/fredgraph.csv?id=<ID>``
   (keyless CSV; the Census Housing Vacancy Survey rides the FRED mirror).
 
-Failure posture mirrors ``refresh_market_panel``: a failed source block
-emits ``::warning`` and keeps the previously committed series; the write
-aborts only if NOTHING was fetched.
+Failure posture mirrors ``refresh_market_panel``: the write MERGES into
+the committed ``national_macro.json``, never replaces it. ``main()`` seeds
+every registry series from the existing file, each successful fetch
+overwrites its own series, and a failed or empty fetch emits
+``::warning`` and leaves the previous series in place. A final
+``::warning`` names every series carried over unrefreshed, and
+``series_fetch_date`` records when each series was last actually
+fetched. The write aborts (exit 2) only if the merged result would be
+empty — no committed file and nothing fetched.
+
+This used to be false. ``main()`` started from an empty dict and wrote
+only what fetched, so the "keeping previous" warning lied: the monthly
+CI refreshes of 2026-08-06 and 2026-09-23 each hit a FRED outage and
+deleted ``mortgage30``, ``dgs10``, ``rental_vacancy`` and
+``homeownership`` from the bundle (7 of the 22 ``natl_*`` feature
+columns went all-NaN). ``ef96a9f`` hand-restored the file once without
+fixing the script. Pinned by the merge tests in
+``tests/census_forecaster/test_refresh_national_macro.py`` and by
+``test_national_macro_features.test_bundled_national_macro_loads``.
 
 Usage
 -----
@@ -212,22 +228,77 @@ def read_cpi_panel_series(series_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Previous-bundle reader (merge seed)
+# ---------------------------------------------------------------------------
+
+def read_previous_national_macro(
+    path: Path,
+) -> tuple[dict[str, dict[int, float]], dict[str, str], dict[str, str]]:
+    """Seed for ``main()``: the committed file's registry series.
+
+    Returns ``(annual_by_name, sources, series_fetch_date)`` with int year
+    keys, restricted to names in ``NATIONAL_SERIES`` — a series dropped
+    from the registry is dropped from the file rather than carried
+    forever. A series with no per-series date (files written before
+    ``series_fetch_date`` existed) takes the file's top-level
+    ``fetch_date``. Absent file → three empty dicts.
+    """
+    if not path.exists():
+        return {}, {}, {}
+    with open(path) as f:
+        payload = json.load(f)
+    registry = {s.name for s in NATIONAL_SERIES}
+    file_date = payload.get("fetch_date", "")
+    prev_dates = payload.get("series_fetch_date", {})
+    prev_sources = payload.get("sources", {})
+
+    annual_by_name: dict[str, dict[int, float]] = {}
+    sources: dict[str, str] = {}
+    fetched_on: dict[str, str] = {}
+    for name, by_year in payload.get("series", {}).items():
+        if name not in registry:
+            print(f"[national-macro] dropping {name}: no longer in "
+                  "NATIONAL_SERIES", file=sys.stderr)
+            continue
+        vals = {int(y): float(v) for y, v in by_year.items() if v is not None}
+        if not vals:
+            continue
+        annual_by_name[name] = vals
+        if name in prev_sources:
+            sources[name] = prev_sources[name]
+        fetched_on[name] = prev_dates.get(name, file_date)
+    return annual_by_name, sources, fetched_on
+
+
+# ---------------------------------------------------------------------------
 # Payload assembly
 # ---------------------------------------------------------------------------
 
 def build_national_macro_payload(
     annual_by_name: dict[str, dict[int, float]],
     sources: dict[str, str],
+    series_fetch_date: Optional[dict[str, str]] = None,
 ) -> dict:
+    today = date.today().isoformat()
+    fetched_on = series_fetch_date or {}
     return {
         "version": 1,
-        "fetch_date": date.today().isoformat(),
+        "fetch_date": today,
         "series": {
             name: {str(y): v for y, v in sorted(vals.items())}
             for name, vals in sorted(annual_by_name.items())
         },
         "sources": sources,
+        "series_fetch_date": {
+            name: fetched_on.get(name, today)
+            for name in sorted(annual_by_name)
+        },
         "limitations": [
+            "The refresh MERGES into this file: a series whose fetch fails "
+            "keeps its previously committed values rather than being "
+            "dropped. fetch_date is when the file was last written; "
+            "series_fetch_date is when each series was last actually "
+            "fetched, and an older date there means that series is stale.",
             "Each value is the CALENDAR-YEAR MEAN level in the series' "
             "native units (index level, rate %, or yield %). The forecaster "
             "applies the log-change / diff / level transform at row-build "
@@ -279,7 +350,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--start-year", type=int, default=2005)
     parser.add_argument("--end-year", type=int, default=date.today().year)
     parser.add_argument("--skip-fred", action="store_true",
-                        help="Skip FRED series (mortgage/10yr/HVS).")
+                        help="Skip FRED series (mortgage/10yr/HVS); their "
+                             "previously committed values are kept.")
     parser.add_argument("--dry-run", action="store_true",
                         help="List what would be fetched; write nothing.")
     args = parser.parse_args(argv)
@@ -299,25 +371,35 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             for s in fred_specs:
                 print(f"[dry-run] would GET {FRED_CSV_TMPL.format(sid=s.series_id)}",
                       file=sys.stderr)
-        print(f"[dry-run] outputs: {NATIONAL_MACRO_FILE}, "
+        print(f"[dry-run] outputs: {NATIONAL_MACRO_FILE} (merge), "
               f"{MACRO_MONTHLY_FILE} (merge)", file=sys.stderr)
         return 0
 
-    annual_by_name: dict[str, dict[int, float]] = {}
+    # Seed from the committed file so a failed fetch leaves its series
+    # in place; each successful fetch below overwrites its own entry.
+    annual_by_name, sources, fetched_on = read_previous_national_macro(
+        NATIONAL_MACRO_FILE)
+    previous = set(annual_by_name)
+    refreshed: set[str] = set()
     monthly_for_screen: dict[str, list[dict]] = {}
-    sources: dict[str, str] = {}
+    today = date.today().isoformat()
+
+    def _refresh(name: str, rows: Sequence[dict], source: str) -> None:
+        annual_by_name[name] = aggregate_to_annual(rows)
+        sources[name] = source
+        fetched_on[name] = today
+        refreshed.add(name)
 
     # ---- Tier 0: CPI panel (no network) ----
     for s in cpi_specs:
         rows = read_cpi_panel_series(s.series_id)
         if rows:
-            annual_by_name[s.name] = aggregate_to_annual(rows)
-            sources[s.name] = f"BLS CPI panel ({s.series_id})"
+            _refresh(s.name, rows, f"BLS CPI panel ({s.series_id})")
             print(f"[cpi] {s.name}: {len(annual_by_name[s.name])} years "
                   f"from panel", file=sys.stderr)
         else:
-            print(f"::warning::CPI panel missing {s.series_id}; skipping "
-                  f"{s.name}", file=sys.stderr)
+            print(f"::warning::CPI panel missing {s.series_id}; keeping "
+                  f"previous {s.name}", file=sys.stderr)
 
     # ---- Tier 1: BLS keyless ----
     api_key = os.environ.get("BLS_API_KEY")
@@ -331,43 +413,56 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for s in bls_specs:
             rows = bls_monthly.get(s.series_id, [])
             if rows:
-                annual_by_name[s.name] = aggregate_to_annual(rows)
-                sources[s.name] = f"BLS API ({s.series_id})"
+                _refresh(s.name, rows, f"BLS API ({s.series_id})")
                 if s.cadence in _SCREEN_CADENCES:
                     monthly_for_screen[s.series_id] = resample_monthly(rows)
                 print(f"[bls] {s.name}: {len(rows)} monthly prints",
                       file=sys.stderr)
     except Exception as exc:  # noqa: BLE001 — degrade, don't fail CI
-        print(f"::warning::BLS fetch failed ({exc}); BLS national-macro "
-              "block skipped", file=sys.stderr)
+        print(f"::warning::BLS fetch failed ({exc}); keeping previous BLS "
+              "national-macro series", file=sys.stderr)
 
     # ---- Tier 1: FRED keyless CSV ----
     if not args.skip_fred:
         for s in fred_specs:
             try:
                 rows = fetch_fred_csv(s.series_id)
-                if rows:
-                    annual_by_name[s.name] = aggregate_to_annual(rows)
-                    sources[s.name] = f"FRED ({s.series_id})"
-                    if s.cadence in _SCREEN_CADENCES:
-                        monthly_for_screen[s.series_id] = resample_monthly(rows)
-                    print(f"[fred] {s.name}: {len(rows)} prints → "
-                          f"{len(annual_by_name[s.name])} years",
-                          file=sys.stderr)
             except Exception as exc:  # noqa: BLE001
                 print(f"::warning::FRED fetch failed for {s.series_id} "
-                      f"({exc}); keeping previous", file=sys.stderr)
+                      f"({exc}); keeping previous {s.name}", file=sys.stderr)
+                continue
+            if not rows:
+                print(f"::warning::FRED returned no rows for {s.series_id}; "
+                      f"keeping previous {s.name}", file=sys.stderr)
+                continue
+            _refresh(s.name, rows, f"FRED ({s.series_id})")
+            if s.cadence in _SCREEN_CADENCES:
+                monthly_for_screen[s.series_id] = resample_monthly(rows)
+            print(f"[fred] {s.name}: {len(rows)} prints → "
+                  f"{len(annual_by_name[s.name])} years", file=sys.stderr)
 
     if not annual_by_name:
-        print("ERROR: nothing fetched; refusing to write national_macro.json",
-              file=sys.stderr)
+        print("ERROR: nothing fetched and no previous national_macro.json; "
+              "refusing to write an empty file", file=sys.stderr)
         return 2
+
+    carried = sorted(previous - refreshed)
+    if carried:
+        print("::warning::national_macro.json carried over unrefreshed: "
+              + ", ".join(f"{n} (last fetched {fetched_on.get(n) or '?'})"
+                          for n in carried), file=sys.stderr)
+    missing = [s.name for s in NATIONAL_SERIES if s.name not in annual_by_name]
+    if missing:
+        print(f"::warning::national_macro.json has no data for "
+              f"{', '.join(missing)} (never fetched); their natl_* feature "
+              "columns will be all-NaN", file=sys.stderr)
 
     _atomic_write_json(
         NATIONAL_MACRO_FILE,
-        build_national_macro_payload(annual_by_name, sources))
+        build_national_macro_payload(annual_by_name, sources, fetched_on))
     print(f"[national-macro] wrote national_macro.json "
-          f"({len(annual_by_name)} series)", file=sys.stderr)
+          f"({len(annual_by_name)} series: {len(refreshed)} refreshed, "
+          f"{len(carried)} carried over)", file=sys.stderr)
 
     if monthly_for_screen:
         _merge_macro_monthly(monthly_for_screen)

@@ -521,7 +521,6 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
         a[f"item_{y}"] = a[f"agi_{y}"] * 0.1
         a[f"tci_{y}"] = a[f"agi_{y}"] * 1.05
         a[f"order_{y}"] = rng.permutation(n).astype(np.int32)
-        a[f"hhfw_{y}"] = a["weight"][::2].copy()
         a[f"quint_{y}"] = rng.integers(0, 5, n // 2).astype(np.uint8)
         for k in ("low", "high"):
             idx = np.array([0, 5], dtype=np.int32)
@@ -785,6 +784,20 @@ class TestPopulationScoring:
         assert not any("act46" in c or "cd1" in c for c in cols)
         assert {"total_baseline_$M", "total_reform_$M", "avg_baseline_tax"} <= cols
 
+    def test_distribution_totals_are_the_revenue_totals(self):
+        # each unit at its own filer weight (they differ within households
+        # here), so every table adds up to the static revenue
+        pop = _synthetic_population()
+        d = score_spec(pop, spec(income_tax={"personal_exemption": 5_000}),
+                       scenarios=["mid"], distribution_years=[2027])
+        rev = next(r for r in d["revenue"] if r["tax_year"] == 2027)
+        for kind in ("quintile", "income_class"):
+            rows = d["distribution"][2027][kind]
+            for col, want in (("total_baseline_$M", rev["baseline_$M"]),
+                              ("total_reform_$M", rev["reform_$M"]),
+                              ("total_bracket_$M", rev["static_$M"])):
+                assert sum(r[col] for r in rows) == pytest.approx(want, rel=1e-9), (kind, col)
+
     def test_splitting_a_bracket_changes_no_one(self, calc):
         # same rate above and below the new floor: floating-point noise only
         pop = _synthetic_population()
@@ -813,7 +826,7 @@ class TestPopulationScoring:
         pop = _synthetic_population(years=YEARS)
         write_web_files(pop, tmp_path, kernel_source=b"k")
         m = json.loads((tmp_path / "population.json").read_text())
-        assert m["web_format_version"] == WEB_FORMAT_VERSION == 2
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 3
         assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
         assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
         assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25

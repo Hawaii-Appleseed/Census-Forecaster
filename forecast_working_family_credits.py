@@ -42,9 +42,14 @@ inflation-indexed federal credit.
 
 Poverty: SPM poverty in TY2028 with the expansions renewed (baseline) vs
 expired (scenario ``act163_sunset``), through the same SPM resource pipeline
-as the EITC revert analysis. Static: no labor-supply response. Federal income
-tax and benefit parameters use TY2025 tables (the latest in the package) for
-both cases.
+as the EITC revert analysis. Static: no labor-supply response. Money income,
+credits, Hawaii and federal income tax and the SPM threshold are all in TY2028
+dollars: money income is aged with the tax inputs, and federal tax parameters
+and the threshold are indexed past their last published year by the same CPI
+assumption as the federal credits. Not indexed: benefits use the package's
+latest tables (TY2025; FY2024 for SNAP), and the medical, childcare and
+work-expense deductions are CPS ASEC donor cell means ranked on base-year
+income, in both cases.
 
 Outputs (runs/working_family_credits/):
   revenue_by_year.csv      $M by year: expanded vs reverted, per credit, and claimants
@@ -218,14 +223,19 @@ def run() -> None:
 
 
 def _household_frame(u: pd.DataFrame) -> pd.DataFrame:
-    """One row per household: summed loss, household income, weights, composition."""
+    """One row per household: summed loss, household income, weights, composition.
+
+    ``loss_w`` is the household's weighted loss, each unit's loss times its
+    own filer weight (they differ within a household), so group totals are
+    the revenue table's; ``hh_weight`` (WGTP) counts households.
+    """
     income_col = "total_cash_income" if "total_cash_income" in u.columns else "income"
     g = u.groupby("hh_id", observed=True)
     hh = pd.DataFrame({
         "income": g[income_col].sum(),
         "loss": g["act163_sunset_loss"].sum(),
+        "loss_w": (u["act163_sunset_loss"] * u["weight"]).groupby(u["hh_id"], observed=True).sum(),
         "hh_weight": g["hh_weight"].first() if "hh_weight" in u.columns else g["weight"].first(),
-        "weight": g["weight"].first(),
         "children": g["num_dependents"].sum(),
         "joint": g["filing_status"].agg(lambda s: (s == "married_filing_jointly").any()),
         # A household loses if any of its tax units claims: q = 1 - prod(1 - q_unit).
@@ -255,9 +265,9 @@ def _summarize(hh: pd.DataFrame, col: str, order: list[str]) -> pd.DataFrame:
     out = []
     for key in order:
         g = hh[hh[col] == key]
-        hw, fw = g["hh_weight"], g["weight"]
+        hw = g["hh_weight"]
         losers = (hw * g["claim_prob"] * (g["loss"] > 0)).sum()
-        total = float((g["loss"] * fw).sum())
+        total = float(g["loss_w"].sum())
         out.append({
             "group": key, "households": float(hw.sum()),
             "income_lo": float(g["income"].min()), "income_hi": float(g["income"].max()),
@@ -281,28 +291,34 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
 
     yr = POVERTY_YEAR
-    # Benefit and federal-tax parameter tables in the package stop at TY2025.
-    # Every one of them enters the renewed and expired cases identically, so
-    # use the TY2025 tables on TY2028 incomes: this shifts the poverty
-    # baseline slightly but not the difference between the two cases.
-    py = min(yr, 2025)
+    # Income, taxes, credits and the poverty line are in TY2028 dollars. The projector
+    # aged money income with the tax inputs (``spm_money_income``, which
+    # compute_spm_resources reads in place of the base-year
+    # ``total_cash_income``); the credits and Hawaii tax are TY2028 amounts;
+    # federal income tax uses TY2028 brackets and standard deductions, and the
+    # SPM threshold the last tabled year indexed to TY2028, both by the CPI
+    # assumption the federal credits use past their last Rev. Proc.
+    # Benefits stay on the package's latest tables (TY2025, where school lunch
+    # stops; SNAP's FY2024 USDA tables), applied to TY2028 incomes. Benefits
+    # are identical in the renewed and expired cases, but they still move who
+    # sits near the line and so how many people cross it. The MOOP,
+    # childcare-expense and work-expense subtractions are CPS ASEC donor cell
+    # means, not indexed to TY2028 either (they rank on base-year income).
+    benefit_year = min(yr, 2025)
     u = pir._apply_arpa_ctc(u)
-    u = pir._apply_snap(u, tax_year=py)
-    u = compute_federal_income_tax_for_units(u, tax_year=py)
+    u = pir._apply_snap(u, tax_year=benefit_year)
+    u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
     u = compute_moop_for_units(u)
-    u = pir._apply_housing_subsidy(u, tax_year=py)
-    u = pir._apply_childcare_subsidy(u, tax_year=py)
-    u = pir._apply_wic(u, tax_year=py)
-    u = pir._apply_liheap(u, tax_year=py)
-    u = compute_school_lunch_for_units(u, tax_year=py)
+    u = pir._apply_housing_subsidy(u, tax_year=benefit_year)
+    u = pir._apply_childcare_subsidy(u, tax_year=benefit_year)
+    u = pir._apply_wic(u, tax_year=benefit_year)
+    u = pir._apply_liheap(u, tax_year=benefit_year)
+    u = compute_school_lunch_for_units(u, tax_year=benefit_year)
     u = compute_childcare_expense_for_units(u)
     u = compute_work_expense_for_units(u)
     frame = aggregate_to_spm_units(u, persons)
-    try:
-        res = compute_poverty_impact(frame, tax_year=yr, scenarios=("act163_sunset",))
-    except (KeyError, ValueError) as exc:          # thresholds past the table
-        print(f"  SPM thresholds for TY{yr} unavailable ({exc}); using TY{py}", flush=True)
-        res = compute_poverty_impact(frame, tax_year=py, scenarios=("act163_sunset",))
+    res = compute_poverty_impact(frame, tax_year=yr, scenarios=("act163_sunset",),
+                                 extrapolate_thresholds=True)
     s = res.by_state.iloc[0]
     hoh = res.by_household_type
     row = {

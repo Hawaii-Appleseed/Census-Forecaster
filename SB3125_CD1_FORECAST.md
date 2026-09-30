@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 28, 2026
+**Last updated:** September 29, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -15,7 +15,149 @@
 
 ---
 
-## Act 24 re-based on the DOTAX-anchored capital-gains base — September 28, 2026 (supersedes the tables below)
+## Pipeline-audit fixes — September 29, 2026 (supersedes the tables below)
+
+A review of the forecasting pipeline (September 29, 2026) found four errors
+that moved this document's Act 24 figures. All four are fixed, and every
+table in this section is a full rerun (`forecast_sb3125_enhanced.py --cd 2`,
+`forecast_act24_vs_pre_act46.py`, `forecast_sb3125_vs_fy26base.py --cd 2`).
+Unmodified code at `134a15f` reproduces the September 28 tables exactly, so
+every change below comes from these fixes.
+
+**What changed.**
+- **The $1M+ tail is calibrated exactly, then aged to 2024 dollars (Steps
+  6a–6b).** The tail's tax target, $663M, is DOTAX's TY2022 figure, but the
+  projection grows every unit from 2024, so the tail never received
+  2022–2024 growth; its incomes are now multiplied by Honolulu B19013
+  2024/2022 (105,205 / 96,580) × (1 + premium)² before projection. The
+  one-step rescale to that target also overshot it by 2.0–3.6% (tax is not
+  proportional to income even above $1M), so it now iterates to within 0.1%.
+  The two pull in opposite directions: on MID TY2027's static bracket change,
+  the exact calibration alone is −$5.6M and the aging alone +$16.6M, together
+  $64.5M → $75.0M.
+- **Quintile tables use the household weight for the fifths and each unit's
+  own weight for dollars (Section 9).** The fifths were cut on the filer weight
+  of each household's first tax unit while households were counted with WGTP,
+  so the published "fifths" held 16.4–23.5% of households; and each
+  household's summed change was multiplied by that one filer weight, so the
+  quintile Act 46 total ($2,652.7M in TY2027) did not match the fiscal total
+  ($2,465.2M). Both are fixed; the quintile totals now equal the fiscal and
+  income-class totals exactly.
+- **The frozen-TY2026 baseline is scored on target-year itemized
+  deductions** (`forecast_sb3125_vs_fy26base.py`). It re-scored the frozen
+  law with TY2026 mortgage-interest tiers, an economic input rather than
+  statute, which put a spurious −$346.3M over five years into its "SD
+  expansion" row (TY2027 showed −$32.4M where the statute gives exactly 0).
+- **The REEC growth CI uses the calibrated anchor SE.** The ACS ensemble
+  built the multi-anchor SE with a different horizon convention from the
+  calibration that fits its κ, so intervals were too narrow at long horizons
+  (METHODOLOGY.md §4, *Anchor SE convention*). Points are unchanged.
+
+`calibration.json` was also regenerated (the monthly refresh had deleted four
+national-macro ML features on September 23). That changes only the ML
+member's records, which the Act 24 path does not use (`use_ml=False`).
+
+**CD2 vs Act 46 baseline, post-behavioral ($M)** (the September 28 figures in
+brackets):
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|----------|----:|--------:|-----:|----------:|
+| 2027 | $105.1M [$94.8M] | **$111.1M [$101.5M]** | $144.9M [$126.5M] | $108.2M [$98.1M] |
+| 2028 | $121.1M [$110.7M] | **$140.9M [$128.6M]** | $180.3M [$163.5M] | $139.9M [$127.0M] |
+| 2029 | $132.3M [$121.8M] | **$158.8M [$146.0M]** | $203.7M [$186.0M] | $160.1M [$146.5M] |
+| 2030 | $159.2M [$148.7M] | **$194.9M [$181.8M]** | $245.5M [$224.3M] | $198.1M [$183.9M] |
+| 2031 | $170.0M [$159.5M] | **$204.6M [$191.0M]** | $262.4M [$240.1M] | $209.1M [$194.4M] |
+| **5-year total** | **$687.6M [$635.4M]** | **$810.4M [$748.9M]** | **$1,036.9M [$940.4M]** | **$815.3M [$749.9M]** |
+
+MID 5-year: **$748.9M → $810.4M (+$61.5M, +8.2%)**. The whole move is in the
+bracket change; the credit overlay is unchanged. RECESSION still runs above
+MID in 2030–31: it carries a 1.3%/yr top premium against MID's 1.0% (a
+leftover from the May change that lowered MID's), which also gives its tail a
+slightly larger aging factor. That is not changed here.
+
+**MID by component ($M):**
+
+| Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
+|----------|----------------:|---------------:|--------------------:|----------------------:|-------------:|----------:|
+| 2027 | $2,522.9M | $75.0M | −$13.0M | $62.0M | $49.1M | **$111.1M** |
+| 2028 | $2,689.1M | $81.3M | −$14.8M | $66.4M | $74.5M | **$140.9M** |
+| 2029 | $2,552.0M | $88.4M | −$18.2M | $70.2M | $88.6M | **$158.8M** |
+| 2030 | $2,664.9M | $95.5M | −$20.4M | $75.1M | $119.9M | **$194.9M** |
+| 2031 | $2,744.8M | $103.1M | −$22.7M | $80.4M | $124.3M | **$204.6M** |
+| **5-year** | | **$443.2M** | **−$89.2M** | **$354.1M** | **$456.3M** | **$810.4M** |
+
+Was: static $376.0M, behavioral −$83.4M, bracket $292.6M, total $748.9M. The
+Act 46 baseline rises by the aged tail's tax (TY2027 $2,465.2M → $2,522.9M).
+
+**Who pays (MID TY2027).** By income class only the $1M+ row moves: $91.08M
+→ $101.55M in total, $39,303 → $43,823 per household. By fifth of households
+(the published figures in brackets):
+
+| Fifth | Households | Avg. rate change | Avg. credit change | **Avg. total** | Total $M | % paying less | % paying more |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Q1 (bottom 20%) | 98,676 [81,005] | −8 | +14 | **+6 [+9]** | +0.57 [+0.74] | 25.1% | 1.3% |
+| Q2 | 98,877 [89,419] | −54 | +17 | **−37 [−29]** | −3.69 [−2.63] | 87.1% | 2.4% |
+| Q3 | 98,778 [100,606] | −77 | +36 | **−41 [−46]** | −4.10 [−4.66] | 96.7% | 2.9% |
+| Q4 | 98,905 [106,687] | −92 | +56 | **−36 [−40]** | −3.58 [−4.28] | 96.1% | 3.9% |
+| Q5 (top 20%) | 98,811 [116,330] | +991 | +134 | **+1,126 [+905]** | +111.26 [+105.26] | 78.2% | 21.8% |
+
+The top fifth's total rises with the aged tail (+$6.0M) while the weighting
+fix alone lowers it (−$4.5M). The credit borne by households falls from
+$27.1M to $25.4M in TY2027 (per claimant $1,746 → $1,637), because the old
+totals counted it at the first unit's weight.
+
+**Act 24 against pre-Act-46 (2017) law, five years ($M)**
+(`forecast_act24_vs_pre_act46.py`). Column C follows the page's new static
+change; the Act 46 columns barely move:
+
+| Tax Year | A: Act 46 banked ≤2026 | B: Act 46 remaining | C: Act 24 increment | **TOTAL vs pre-Act-46** | memo: vs frozen 2026 | COR (A+B) | % below COR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2027 | −539.0 | −230.5 | +75.0 | **−694.5** | −155.5 | −922.7 | 16.6% |
+| 2028 | −546.7 | −250.0 | +81.3 | **−715.4** | −168.7 | −1,052.6 | 24.3% |
+| 2029 | −551.3 | −491.9 | +88.4 | **−954.9** | −403.6 | −1,262.3 | 17.4% |
+| 2030 | −558.8 | −515.0 | +95.5 | **−978.3** | −419.5 | −1,347.5 | 20.3% |
+| 2031 | −563.0 | −545.0 | +103.1 | **−1,004.9** | −441.9 | −1,453.2 | 23.8% |
+| **5-year** | **−2,758.8** | **−2,032.5** | **+443.3** | **−4,348.0** | **−1,589.2** | **−6,038.3** | **20.7%** |
+
+By 2031 Act 46 costs $1,108.0M a year on this model's static estimate and
+Act 24 recovers $103.1M of it, about 9% (was $88.1M, about 8%).
+
+**Act 24 against Act 46 frozen at TY2026 (the ITEP frame), CD2, $M**
+(`forecast_sb3125_vs_fy26base.py --cd 2`; its own population, on which the
+SOI anchor replaces the Pareto tail, so only the frozen-baseline fix moves
+it):
+
+| TY | Bracket | SD expansion | Total | ITEP | Gap |
+|---|---:|---:|---:|---:|---:|
+| 2027 | −151.0 | 0.0 | −151.0 | −227.0 | +76.0 |
+| 2028 | −139.8 | −15.7 | −155.6 | −258.0 | +102.4 |
+| 2029 | −355.5 | −15.1 | −370.6 | −534.0 | +163.4 |
+| 2030 | −343.7 | −30.6 | −374.2 | −563.0 | +188.8 |
+| 2031 | −320.8 | −63.4 | −384.2 | −622.0 | +237.8 |
+| **5-yr** | **−1,310.8** | **−124.8** | **−1,435.6** | **−2,204.0** | **+768.4** |
+
+Was: SD expansion −$471.1M, total −$1,781.9M, gap +$422.1M (~19% below ITEP;
+now ~35% below). These equal the pre-September-28 `memo_vs_frozen_2026`
+column of `forecast_act24_vs_pre_act46.py`, which scored the same population
+on target-year deductions. Whether ITEP's own vs-frozen figure holds itemized
+deductions at TY2026 levels is worth checking before comparing the two.
+
+**REEC growth CI90** (the table under *Prediction-interval plumbing*,
+recomputed with the MID credit knobs, 0.65 effective claim share and 1.5%
+CGEC growth). Points are unchanged; the band now uses the calibrated anchor
+SE:
+
+| Tax year | REEC savings $M | CI90 before | CI90 now |
+|---|---:|---|---|
+| 2027 | 43.47 | [41.23, 45.84] | [40.87, 46.24] |
+| 2031 | 83.02 | [79.76, 86.52] | [77.42, 89.33] |
+
+The CPI deflator leg of this band is still extrapolated past its calibrated
+horizon (h > 12 months), so the band remains a lower bound.
+
+---
+
+## Act 24 re-based on the DOTAX-anchored capital-gains base — September 28, 2026 (superseded by the section above)
 
 This script, `forecast_act24_vs_pre_act46.py` and the tax simulator now score
 capital gains the same way: each DOTAX Hawaiʻi AGI class holds DOTAX's
@@ -435,7 +577,10 @@ superseded by:
 Against ITEP's ~$1.4B, the 2031 A+B of −$1,129.7M is ~19% below (was ~16%).
 
 **CD2 vs FY2026-frozen baseline** (`forecast_sb3125_vs_fy26base.py --cd 2`;
-supersedes the August 3 table in Section 10; pre-fix `main` gave −$1,862.7M):
+supersedes the August 3 table in Section 10; pre-fix `main` gave −$1,862.7M).
+*Superseded September 29, 2026: this table scored the frozen baseline on
+TY2026 itemized deductions; the corrected table (5-year −$1,435.6M) is in the
+section at the top.*
 
 | Tax Year | Bracket effect | SD expansion | **Total** | ITEP estimate | Gap |
 |----------|---------------:|-------------:|----------:|---------------:|-----:|
@@ -874,7 +1019,9 @@ no credit overlay. The memo column differs from the −$1,854.5M published
 vs-frozen total because it scores the frozen baseline on target-year itemized
 deduction scales rather than TY2026 scales; the script's separate tie-out column
 reproduces the published −$1,854.5M **exactly ($0.0M difference in all five
-years)**, which is what validates the pre-Act-46 column.*
+years)**, which is what validates the pre-Act-46 column. (The TY2026 scales
+were the defect, not the memo column: corrected September 29, 2026, see the
+dated section at the top.)*
 
 **The reconciliation.** Act 46's own full annual cost in 2031 is column A + B:
 
@@ -1680,7 +1827,7 @@ The tables below show every bracket for each filing status and each effective pe
 | Source | Description | Use |
 |--------|-------------|-----|
 | **ACS 5-Year PUMS 2020–2024** | U.S. Census Bureau, Hawaii (State FIPS 15) — `psam_p15.csv` / `psam_h15.csv` | Base population of tax units |
-| **IRS Statistics of Income (SOI) 2022, Table A8 — Hawaii** | High-income filer count and tax by AGI bracket | Targets for top-income synthesis: 1,824 filers at $1M+, $663M in tax |
+| **DOTAX Hawaiʻi Individual Income Tax Statistics, TY2022, Table A-8** | Resident filer count and tax by AGI class | Targets for top-income synthesis: 1,824 returns above $1M AGI owing $662.6M (the $663M target), a TY2022 level aged to the PUMS dollar year before projection (Step 6b) |
 | **DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year 2023"** | Table A-1 (REEC aggregate), Table A-5 (REEC by AGI bin), line 1490 (CGEC) | Credit overlay baseline values |
 
 ### Administrative Benchmarks
@@ -1770,34 +1917,41 @@ Iterative Proportional Fitting (IPF) adjusts unit weights so the PUMS-derived to
 
 **How it works:** Generates synthetic tax units with incomes drawn from a Pareto distribution with shape parameter α (default α = 1.5, calibrated to match the IRS SOI 2022 Hawaii tail shape). These units are given realistic filing-status mixes (drawn from the DOTAX TY2023 $1M+ filer population: ~65% MFJ, ~25% Single, ~8% HoH, ~2% MFS) and are added to the calibrated dataset. Base tax is recomputed for all units after synthesis.
 
-**Validation target:** 1,824 weighted $1M+ filers with $663M in aggregate tax (from IRS SOI 2022 Hawaii Table A8 and DOTAX TY2023). The synthesis hits 100% of the filer count target by construction.
+**Validation target:** 1,824 weighted $1M+ filers with $663M in aggregate tax (DOTAX TY2022 Table A-8: 1,824 resident returns above $1M AGI owing $662.6M before credits). The synthesis hits 100% of the filer count target by construction.
 
 ### Step 6a — Synthetic Tail Tax-Target Calibration
 
-**Function:** `rescale_synthetic_tail_to_tax_target()`  
+**Function:** `calibrate_synthetic_tail_to_tax_target()` (first step: `rescale_synthetic_tail_to_tax_target()`)  
 **File:** `packages/tax_modeler/src/tax_modeler/scenarios/top_income_synthesis.py`
 
 **Why this step exists:** The Pareto conditional-mean income formula slightly underestimates income concentration above ~$10M — the very top of the tail — causing the raw synthesis to recover only ~88% of the $663M tax benchmark. A 12% shortfall in the baseline tax at $1M+ directly translates to a ~12% undercount of marginal revenue from the 13% bracket, approximately $14–17M per year.
 
-**How it works:** After `synthesize_top_filers()` and an initial `_compute_base_tax()` call, a uniform scale factor `k` is computed:
+**How it works:** After synthesis and a first `compute_base_tax()`, the synthetic rows' income columns (`income`, `agi`, `synthetic_total_income`, `earned_income`, `investment_income`, `primary_wagp`, `primary_intp`) are scaled by a uniform factor k and re-scored until the tail's Hawaii tax is within 0.1% of $663M. The first step is proportional, k = target / actual; later steps are secant updates on k. A single proportional step does not land on the target, because tax is not proportional to income even above $1M: the deduction, the lower brackets and the §235-51(f) alternative tax on gains make it roughly a·k − b. The single step used until September 29, 2026 overshot to $681.9M / $686.9M / $676.3M (LOW / MID / HIGH), 2.0–3.6% above the target; the iteration converges in two or three re-scores.
+
+**Per-scenario k values:**
+
+| Scenario | Pareto α | tail_k | Tail tax after calibration (TY2022 level) |
+|----------|----------|--------|--------------------------------------------|
+| LOW      | 1.7      | 1.7743 | 100.0% of $663M |
+| MID      | 1.5      | 1.4210 | 100.0% |
+| HIGH     | 1.4      | 1.2343 | 100.0% |
+
+RECESSION uses α = 1.5, so its k is MID's. k is larger for LOW (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail). The §235-51(f) alternative tax raises k: capping gains at 7.25% lowers the tail's tax, so a larger scale is needed to reach the target. (Published before September 29, 2026 with the single step: 1.8202 / 1.4685 / 1.2573; earlier still 1.5745 / 1.2793 / 1.1001.)
+
+### Step 6b — Age the Tail to the PUMS Dollar Year
+
+**Function:** `age_synthetic_tail()` (factor: `synthetic_tail_aging_factor()`)  
+**File:** `packages/tax_modeler/src/tax_modeler/scenarios/top_income_synthesis.py`
+
+The $663M target is a TY2022 figure, but every PUMS unit is in 2024 dollars (the 2020–2024 5-year file), and Step 7 grows every unit from 2024: the county B19013 factor from the projector's 2024 anchor, and the Step 8 premium from its 2024 base year. So after calibration the tail's incomes are multiplied by
 
 ```
-k = target_tax_m / actual_tax_on_synthetic_1m_plus_filers
+g = B19013_Honolulu(2024) / B19013_Honolulu(2022) × (1 + premium)^2 = 105,205 / 96,580 × (1 + p)^2
 ```
 
-All income-related columns (`income`, `agi`, `synthetic_total_income`, `earned_income`, `investment_income`, etc.) on synthetic rows are multiplied by `k`. Tax columns are cleared and `_compute_base_tax()` is re-run, after which `validate_top_synthesis()` confirms the tax target ratio rises to ≥99.5%.
+and re-scored. The B19013 levels are the observed 1-year ACS values from the same bundled panel the projector anchors on (read, not typed), and p is the scenario's own top-income premium: g = 1.0958 (LOW), 1.1112 (MID), 1.1400 (HIGH), 1.1178 (RECESSION). The premium applies to 2022–2024 as well because the model observes only median income in those years; each scenario's premium is its assumption about how top incomes grew relative to it. Until September 29, 2026 the tail entered the projection at its TY2022 level and never received 2022–2024 growth, while the same pipeline aged DOTAX's TY2022 capital gains from 2022 (`cg_anchor.cg_growth`).
 
-**Why single-pass k is sufficient:** Hawaii's top income tax bracket is linear above the $200K threshold (11% marginal rate for Act 46). At $1M+ incomes, the effective marginal rate is approximately flat, so `tax ≈ k × income × rate`. A single application of k achieves the target within 0.5% without iteration.
-
-**Per-scenario k values** (from most recent forecast run):
-
-| Scenario | Pareto α | tail_k | Post-scale tax ratio |
-|----------|----------|--------|----------------------|
-| LOW      | 1.7      | 1.5745 | 100.0%               |
-| MID      | 1.5      | 1.2793 | 100.0%               |
-| HIGH     | 1.4      | 1.1001 | 100.0%               |
-
-k is larger for the LOW scenario (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail → higher initial tax capture). k values are also elevated by the §235-51(f) capital gains cap (Step 10a): correctly applying the 7.25% CG cap to synthetic filers reduces simulated tax below the $663M target, requiring a larger scaling factor to close the gap. Each scenario is independently calibrated to the same $663M DOTAX benchmark.
+The scripts that project with `project_and_recalibrate(use_soi_anchor=True)` (`forecast_sb3125_vs_fy26base.py`, `forecast_cg_rate_options.py`, `forecast_bill_quintile.py`) use the converging calibration but not the aging: the SOI anchor zeroes every unit above $1M, the Pareto rows included, and replaces them with SOI tier rows aged from TY2022, so the Pareto tail's starting level does not reach their results (checked: identical TY2027 output for the old, calibrated, and calibrated-and-aged tail). `forecast_sb3125_static_quintile.py` projects like Step 7 and is aged with p = 0.
 
 ### Step 7 — Project to Target Year
 
@@ -2167,7 +2321,7 @@ Models a **mild-to-moderate recession with trough in 2027 and gradual recovery t
 
 The top-income extra gap captures capital gains realization collapse and pass-through business income cyclicality (historical precedent: 2008–09 saw 40–60% CG declines and 6–12% peak-to-trough top-1% income drops, with full recovery within 4 years).
 
-**Results (May 7, 2026 re-run):** RECESSION and MID are within $1.5M over 5 years; RECESSION is slightly above MID in 2030–2031. ⚠️ *This is unexpected — recession should depress revenue, not raise it. Likely an artifact of COR scaling or income-projection interaction; needs investigation before citing.*
+**Results (May 7, 2026 re-run):** RECESSION and MID are within $1.5M over 5 years; RECESSION is slightly above MID in 2030–2031. ⚠️ *This is unexpected — recession should depress revenue, not raise it. Likely an artifact of COR scaling or income-projection interaction; needs investigation before citing.* **Explained September 29, 2026:** RECESSION's top premium is 1.3%/yr against MID's 1.0% — the May change that lowered MID's premium left RECESSION's at the old value — and the macro shock is 0 by TY2031, so RECESSION outgrows MID in the last years. With MID's premium it falls below MID every year through 2030 and equals it in 2031. Not yet changed in the script.
 
 | Year | MID | RECESSION | Δ vs MID |
 |------|----:|----------:|---------:|
@@ -2194,7 +2348,7 @@ The top-income extra gap captures capital gains realization collapse and pass-th
 
 Methodology follows CBO/Tax Policy Center standard distributional analysis:
 
-- **Population sorted by income** and divided into **5 equal-population quintiles** using cumulative weight percentiles (not equal income spans)
+- **Households ranked by household total cash income** and cut into **fifths of households by the PUMS household weight (WGTP)**, so each fifth holds a fifth of households (not equal income spans); dollar totals sum each tax unit's calibrated filer weight × its change, so the fifths add up to the fiscal totals. (Until September 29, 2026 the fifths were cut on each household's first-unit filer weight and its summed change was multiplied by that one weight; see the dated section at the top.)
 - **Static incidence scoring**: per-unit tax is computed at each filer's projected income before ETI/migration adjustments — reflects who bears the statutory burden before behavioral avoidance
 - **Bracket change plus attributed credit loss** (September 24, 2026): the individual-return share of REEC and CGEC savings is assigned to imputed claimant households at DOTAX TY2023 claim rates by AGI class (`quintile_analysis.attribute_credit_loss`; see the note at the top of this document). Corporate credit savings and TCRA are not distributed. Pay-more / pay-less shares count only claimants as bearing credit losses.
 - **MID scenario only**
@@ -2210,8 +2364,7 @@ Note: Q1 filers (avg income ~$3K) are **completely unaffected** because their gr
 ### Annual Fiscal Impact by Scenario ($M, vs. Act 46 baseline)
 
 *Superseded: the current Act 24 (CD2) results are in the dated sections at
-the top, most recently "Act 24 re-based on the DOTAX-anchored capital-gains
-base — September 28, 2026". The August 3 CD1 run below predates the
+the top, most recently "Pipeline-audit fixes — September 29, 2026". The August 3 CD1 run below predates the
 scoring-path fixes, both behavioral corrections and the capital-gains
 re-basing.*
 
@@ -2230,7 +2383,7 @@ re-basing.*
 
 The CPI correction raises every scenario's 5-year total by roughly $90-105M (MID: $673.0M → $766.7M, +13.9%) — the corrected Hawaii nominal-income path runs hotter than the Los Angeles path it replaced, which raises both the bracket base and the REEC demand baseline (REEC scales with nominal income; see Section 6a).
 
-**RECESSION scenario note (unchanged from the prior run):** See Section 8b. ⚠️ RECESSION is still slightly above MID in 2030–2031 ($159.0M vs $156.8M in 2030; $195.1M vs $191.2M in 2031) — the same unexpected ordering flagged in the May 7 run persists after the CPI fix, confirming it is not a CPI-series artifact. Still needs investigation before citing the RECESSION scenario as strictly conservative.
+**RECESSION scenario note (unchanged from the prior run):** See Section 8b. ⚠️ RECESSION is still slightly above MID in 2030–2031 ($159.0M vs $156.8M in 2030; $195.1M vs $191.2M in 2031) — the same unexpected ordering flagged in the May 7 run persists after the CPI fix, confirming it is not a CPI-series artifact. Cause found September 29, 2026 (RECESSION's 1.3%/yr top premium vs MID's 1.0%; see Section 8b).
 
 ### MID Scenario Decomposition
 
@@ -2287,7 +2440,7 @@ claimant loses the full credit:
 | Q4 | 106,687 | −$14.5M | +$17.2M | +$2.7M | −$136 | +$161 | +$25 | 3.9% | 3.9% | 96.0% |
 | Q5 (top 20%) | 116,330 | +$124.2M | +$41.9M | +$166.0M | +$1,067 | +$360 | +$1,427 | 6.5% | 25.3% | 74.7% |
 
-*Negative Δ = household pays less. "Credit loss" is the individual-return REEC/CGEC savings attributed to households, in expectation (claim probability × loss if claiming); "% claimants" is the share of households imputed to claim REEC or CGEC. Static incidence: before ETI/migration response. Household counts use PUMS WGTP; $M totals use the calibrated filer weight.*
+*Negative Δ = household pays less. "Credit loss" is the individual-return REEC/CGEC savings attributed to households, in expectation (claim probability × loss if claiming); "% claimants" is the share of households imputed to claim REEC or CGEC. Static incidence: before ETI/migration response. Household counts use PUMS WGTP; $M totals use the calibrated filer weight. (Superseded September 29, 2026: until then the fifths were cut on each household's first-unit filer weight and totals multiplied a household's summed change by that one weight; see the dated section at the top.)*
 
 ---
 
@@ -2451,7 +2604,7 @@ rate for out-of-range years and the scenario-level REEC baselines rather
 than `_hawaii_nominal_growth` directly; the modest per-year shifts are
 noise from the underlying microsim rerun, not a CPI effect.*
 
-**CD2 vs FY2026-frozen baseline (ITEP-comparable, $M) — updated August 3, 2026:**
+**CD2 vs FY2026-frozen baseline (ITEP-comparable, $M) — updated August 3, 2026** *(superseded; see the September 29, 2026 section at the top)*:
 
 *Answers: "What does CD2 cost vs if nothing had been enacted after 2026?" Negative = revenue lost. Re-run of `forecast_sb3125_vs_fy26base.py --cd 2` on the corrected CPI basis.*
 
@@ -2535,7 +2688,7 @@ The **bracket delta** (SB 3125 CD1 minus Act 46) is robust to this level-shift �
 
 ## 11. Caveats and Limitations
 
-1. **PUMS income underreporting at the top.** The ACS PUMS understates income for very high earners even after Pareto synthesis. The Pareto approximation underweights income concentration above ~$10M. The raw synthesis recovers only ~65–80% of the IRS SOI $663M tax target when the §235-51(f) CG cap is correctly applied (lower than the pre-cap estimate because CG income is taxed at 7.25% rather than bracket rates, reducing simulated baseline tax). The gap is closed by the post-synthesis uniform tail scaling step (Step 6a), which brings the tax target ratio to 100.0% before projection (tail_k: LOW=1.575, MID=1.279, HIGH=1.100).
+1. **PUMS income underreporting at the top.** The ACS PUMS understates income for very high earners even after Pareto synthesis. The Pareto approximation underweights income concentration above ~$10M. The raw synthesis recovers only ~65–80% of the IRS SOI $663M tax target when the §235-51(f) CG cap is correctly applied (lower than the pre-cap estimate because CG income is taxed at 7.25% rather than bracket rates, reducing simulated baseline tax). The gap is closed by the post-synthesis uniform tail scaling step (Step 6a), which brings the tax target ratio to 100.0% (tail_k: LOW=1.774, MID=1.421, HIGH=1.234), then ages the tail from the TY2022 target to 2024 dollars before projection (Step 6b).
 
 2. **Static credit overlay.** REEC and CGEC are scored as aggregate static overlays. The model does not simulate individual solar adoption behavior or capital investment timing at the filer level.
 
@@ -2552,6 +2705,14 @@ The **bracket delta** (SB 3125 CD1 minus Act 46) is robust to this level-shift �
 ---
 
 ## 10a. Margin of error on the poverty-impact pipeline (added May 2026)
+
+> **September 29, 2026:** projected-year SPM runs of this pipeline
+> (`poverty_impact_report.py` for tax years other than 2024,
+> `forecast_hi_eitc_revert_20.py`, `forecast_working_family_credits.py`) now
+> age money income with the tax inputs (`spm_money_income`) instead of
+> reading 2024-dollar `total_cash_income` against target-year taxes and
+> credits; see METHODOLOGY.md, *Projected-year SPM poverty*. Act 24 figures
+> do not move: `total_cash_income` itself is unchanged.
 
 The poverty-impact tables emitted by `scripts/poverty_impact_report.py`
 (separate from the SB 3125 fiscal-impact tables in Section 10) now
@@ -2628,13 +2789,13 @@ columns.
 | `forecast_sb3125_cd2_sensitivity.py` | Sensitivity across Pareto α × REEC scenarios (static, no behavioral) | `/tmp/sb3125_cd2_sensitivity_2027_2031.csv` |
 | `forecast_sb3125_cd2_enhanced.py` | **Primary CD2 forecast** — 4 scenarios (LOW/MID/HIGH/RECESSION) with behavioral response | `/tmp/sb3125_cd2_enhanced_2027_2031.csv` |
 | `forecast_sb3125_cd2_quintile.py` | Distributional quintile analysis (bracket only, all 5 years) | `/tmp/sb3125_cd2_quintile_2027_2031.csv` |
-| `forecast_sb3125_cd2_vs_fy26base.py` | ITEP-comparable: CD2 vs FY2026-frozen baseline | `/tmp/cd2_vs_fy26base_*.csv` |
+| `forecast_sb3125_vs_fy26base.py --cd 2` | ITEP-comparable: CD2 vs FY2026-frozen baseline | `runs/sb3125_cd2_fy26base/` |
 
 #### Baseline reconciliation
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `forecast_act24_vs_pre_act46.py` | Act 24 vs **pre-Act-46 (2017) law** — the frame comparable to ITEP's ~$1.4B/yr Act 46 figure. Decomposes into Act 46 banked ≤2026 / Act 46 remaining / Act 24 increment, and carries a tie-out column that reproduces the published vs-frozen table exactly. | `runs/act24_vs_pre_act46/decomposition.csv` |
+| `forecast_act24_vs_pre_act46.py` | Act 24 vs **pre-Act-46 (2017) law** — the frame comparable to ITEP's ~$1.4B/yr Act 46 figure. Decomposes into Act 46 banked ≤2026 / Act 46 remaining / Act 24 increment, and carries a tie-out column (`tieout_act24_page`) checking that column C equals the Act 24 page's static bracket change. | `runs/act24_vs_pre_act46/decomposition.csv` |
 
 ### Key Package Files
 

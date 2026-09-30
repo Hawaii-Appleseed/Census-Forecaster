@@ -39,7 +39,8 @@ from .presets import current_law_vintages, presets
 from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
-WEB_FORMAT_VERSION = 2
+# 3 dropped hhfw: distribution totals sum each unit's own filer weight.
+WEB_FORMAT_VERSION = 3
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it
@@ -63,15 +64,14 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
         "fs": ("u1", a["fs"]), "deps": ("u1", a["deps"]), "hh": ("u4", a["hh"]),
         "weight": ("f8", a["weight"]), "cg": ("f8", a["cg"]), "hh_weight": ("f8", a["hh_weight"]),
     }
-    # Household fifths and household weights: shipped once when every year
-    # has the same (they do: fixed base-year breaks and a stable sort), else per year.
-    for name, dtype in (("quint", "u1"), ("hhfw", "f8")):
-        first = a[f"{name}_{pop.years[0]}"]
-        if all(np.array_equal(first, a[f"{name}_{y}"], equal_nan=True) for y in pop.years):
-            out[name] = (dtype, first)
-        else:
-            for y in pop.years:
-                out[f"{name}_{y}"] = (dtype, a[f"{name}_{y}"])
+    # Household fifths: shipped once when every year has the same (they do:
+    # fixed base-year breaks on base-year household income), else per year.
+    first = a[f"quint_{pop.years[0]}"]
+    if all(np.array_equal(first, a[f"quint_{y}"]) for y in pop.years):
+        out["quint"] = ("u1", first)
+    else:
+        for y in pop.years:
+            out[f"quint_{y}"] = ("u1", a[f"quint_{y}"])
     for y in pop.years:
         out[f"agi_{y}"] = ("f8", a[f"agi_{y}"])
         out[f"item_{y}"] = ("f8", a[f"item_{y}"])

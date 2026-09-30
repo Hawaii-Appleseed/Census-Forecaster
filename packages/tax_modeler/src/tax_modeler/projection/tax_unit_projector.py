@@ -237,7 +237,8 @@ def _scale_credit_income_inputs(
 
     ``total_cash_income``, ``agi`` and the per-person component columns are
     left alone: quintile binning reads ``total_cash_income`` and changing it
-    here would move the Act 24 distributional tables.
+    here would move the Act 24 distributional tables. SPM poverty reads an
+    aged copy instead (:func:`_add_spm_money_income`).
     """
     targets = [c for c in ("earned_income", "investment_income", "federal_earned_income", "federal_agi")
                if c in df.columns]
@@ -284,6 +285,57 @@ def _scale_credit_income_inputs(
 
     for col in targets:
         df[col] = df[col].to_numpy(dtype=float) * ratios[col]
+    return df
+
+
+def _add_spm_money_income(
+    df: pd.DataFrame,
+    base_df: pd.DataFrame,
+    *,
+    use_cbo_components: bool,
+) -> pd.DataFrame:
+    """Add ``spm_money_income``: ``total_cash_income`` plus the dollars aging added.
+
+    ``total_cash_income`` stays in base-year dollars (see
+    :func:`_scale_credit_income_inputs`), but SPM resources add target-year
+    credits and subtract target-year taxes computed on the aged incomes, so
+    poverty needs money income in the same year's dollars.
+    :func:`~tax_modeler.poverty.spm.compute_spm_resources` reads this column
+    when a frame carries it.
+
+    The growth added is exactly what the projector aged, so every aged
+    component moves money income by the same dollars:
+
+    * County / BLS paths: ``income - income_base_year``.
+    * CBO path: the sum over components of aged minus base amounts. The aged
+      ``income`` re-sums the component decomposition, whose retirement
+      bucket holds full Social Security, SSI and public assistance where the
+      base ``income`` holds 85% of Social Security and neither of the others,
+      so ``income - income_base_year`` would add those amounts a second time
+      (``total_cash_income`` already has them), even at zero growth.
+
+    Left in base-year dollars: the imputed employer FICA in
+    ``total_cash_income`` on every path, and on the county / BLS paths the
+    parts of it outside ``income`` (the untaxed 15% of Social Security, SSI,
+    public assistance). Floored at zero like ``total_cash_income``. Frames
+    without ``total_cash_income`` are returned unchanged. Steps that rescale
+    ``income`` after projection (the top-income premium, macro shocks) do not
+    update the column.
+    """
+    if "total_cash_income" not in df.columns:
+        return df
+    growth = df["income"].to_numpy(dtype=float) - df["income_base_year"].to_numpy(dtype=float)
+    if use_cbo_components:
+        from tax_modeler.calibration.cbo_aging import _component_amounts_for_filer
+
+        base = _component_amounts_for_filer(base_df.loc[df.index])
+        if all(f"cbo_aged_{c}" in df.columns for c in base):
+            growth = sum(
+                df[f"cbo_aged_{c}"].to_numpy(dtype=float) - amt.to_numpy(dtype=float)
+                for c, amt in base.items()
+            )
+    tci = df["total_cash_income"].fillna(0.0).to_numpy(dtype=float)
+    df["spm_money_income"] = np.maximum(tci + np.nan_to_num(growth), 0.0)
     return df
 
 
@@ -434,6 +486,10 @@ def project_tax_units_forward(
         * ``income_base_year`` — original income before scaling
         * ``income_ci90_low`` / ``income_ci90_high`` — 90% CI bounds on
           projected income (NaN when using the BLS OES path)
+        * ``spm_money_income`` — ``total_cash_income`` aged to
+          ``target_year`` for SPM poverty (only when the input carries
+          ``total_cash_income``; see :func:`_add_spm_money_income`).
+          ``total_cash_income`` itself stays in base-year dollars.
         * ``projection_year`` — ``target_year``
         * ``projection_base_year`` — the anchor year used (or default)
         * ``projection_method`` — the projector name used
@@ -613,6 +669,11 @@ def project_tax_units_forward(
     # ``earned_income`` / ``investment_income``, which otherwise stayed in
     # base-year dollars while credit parameters moved to the target year.
     df = _scale_credit_income_inputs(
+        df, tax_units_df, use_cbo_components=use_cbo_aging,
+    )
+    # SPM money income follows too, as a separate column: the poverty path
+    # reads it, quintile binning keeps reading the base-year TCI.
+    df = _add_spm_money_income(
         df, tax_units_df, use_cbo_components=use_cbo_aging,
     )
 

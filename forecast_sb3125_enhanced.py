@@ -36,6 +36,11 @@ Improvements over forecast_sb3125.py:
   4. **Top-income growth premium** — Top earners (>$500K) get an additional
      premium above the median-anchored projection. Anchored to PUMS 2024
      base year (5-year vintage panel inflation-adjusted to 2024 dollars).
+     The synthetic $1M+ tail is calibrated to DOTAX's TY2022 $1M+ tax, so
+     it is first aged 2022 -> 2024 (Honolulu's observed B19013 growth and
+     two years of the scenario's premium; ``age_synthetic_tail``). Until
+     September 29, 2026 it entered the projection at its TY2022 level, and
+     its single-step rescale overshot the tax target by ~3.6% (MID).
 
   5. **Effective deductions plumbed through** — The bracket comparison
      uses each filer's projection-time effective deduction (greater of
@@ -245,7 +250,11 @@ def run_one_scenario(
         compute_credit_overlay,
         compute_dynamic_agi_eligibility_share,
     )
-    from tax_modeler.scenarios.top_income_synthesis import validate_top_synthesis
+    from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+    from tax_modeler.scenarios.top_income_synthesis import (
+        synthetic_tail_aging_factor,
+        validate_top_synthesis,
+    )
     from tax_modeler.scenarios.behavioral_response import (
         BehavioralParams,
         score_with_response,
@@ -283,14 +292,17 @@ def run_one_scenario(
     print(f"\n{'='*78}", flush=True)
 
     # Synthesize fresh from the calibrated (no-synthesis) base, re-scored with
-    # the SAME deduction params the base was calibrated under (C3). Shared with
-    # the tax simulator's population (tax_modeler.scenarios.act24_population).
-    units, tail_k = build_units(base_calibrated, alpha=alpha, ded_params=ded_params,
-                                cal_tax_year=cal_tax_year)
+    # the SAME deduction params the base was calibrated under (C3), the tail
+    # calibrated to DOTAX's TY2022 $1M+ tax and aged to the PUMS dollar year
+    # with this scenario's premium. Shared with the tax simulator's population
+    # (tax_modeler.scenarios.act24_population).
+    units, tail_k = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
+                                ded_params=ded_params, cal_tax_year=cal_tax_year)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
-          f"({100*v['filer_target_ratio']:.1f}%), ${v['tax_1m_plus_$M']:,.1f}M tax "
-          f"({100*v['tax_target_ratio']:.1f}%), tail_k={tail_k:.4f}", flush=True)
+          f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2022 tax, "
+          f"aged x{synthetic_tail_aging_factor(top_premium):.4f} to "
+          f"{PUMS_INCOME_DOLLAR_YEAR}: ${v['tax_1m_plus_$M']:,.1f}M tax", flush=True)
 
     behav_params = BehavioralParams.named(behav)
     print(f"  Behavioral: ETI={behav_params.eti}, migration_elast="
@@ -469,14 +481,15 @@ if __name__ == "__main__":
 
         # Validate post-rake AND post-synthesis (top-tier filers added in
         # synthesis fill the $1M+ bin which the IPF rake can't reach via its
-        # 1.5x bin-cap). Calibration target is met after synthesis.
+        # 1.5x bin-cap). Calibration target is met after synthesis. The tail
+        # stays at the TY2022 level here (no aging), like the targets below.
+        from tax_modeler.pipeline import compute_base_tax as _score_base
         from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers as _synth, rescale_synthetic_tail_to_tax_target as _rescale,
+            synthesize_top_filers as _synth,
+            calibrate_synthetic_tail_to_tax_target as _calibrate_tail,
         )
-        _vb = _synth(calibrated_base, pareto_alpha=1.5)
-        _vb = _compute_base_tax(_vb, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        _vb, _ = _rescale(_vb)
-        _vb = _compute_base_tax(_vb, deduction_params=CAL_DED_PARAMS, tax_year=2023)
+        _score = lambda u: _score_base(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)  # noqa: E731
+        _vb, _ = _calibrate_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)), score=_score)
         _hi_tl = (_vb["hi_tax_liability"] * _vb["weight"]).sum() / 1e6
         _hi_st = (_vb["hi_state_tax"]     * _vb["weight"]).sum() / 1e6
         print(
@@ -580,6 +593,7 @@ if __name__ == "__main__":
         from tax_modeler.calibration.cg_anchor import apply_anchor_factors
         from tax_modeler.scenarios.act24_population import build_units, project_units, statute
         q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"],
+                                 top_premium=mid_sc["top_premium"],
                                  ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True)
 
         # Anchor quintile boundaries to the 2026 base-year income distribution

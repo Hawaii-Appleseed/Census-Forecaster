@@ -64,6 +64,20 @@ METHOD_LEVEL_ANCHOR = "level_anchor"
 _PKG_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CALIBRATION_PATH = _PKG_ROOT / "data" / "anchors" / "calibration.json"
 
+# Divisor that turns a per-source calibration RMSE into a per-year log-rate
+# SE in `combined_anchor_rate`. It is a fixed property of the calibration,
+# NOT the projection horizon: every hold-out fold behind the shipped
+# multi_anchor κ / bias / conformal records builds its SE with this divisor
+# (at every h — the v3+ per-source RMSE is pooled over h=1..5, so 2 is a
+# nominal scale and the per-h-bucket κ absorbs the rest), and
+# `anchor_as_forecast` then scales the per-year SE by the real h. The
+# production consumer (`ensemble.project_ensemble_multi`) must pass the same
+# value; dividing by the target h instead (as it did from 3a1e744 until
+# 2026-09-29) made the pre-κ SE ≈ rmse at every h — ~2× too wide at h=1 and
+# 0.4-0.8× too narrow at h=3-5 relative to what κ was fit on. Changing this
+# requires regenerating data/anchors/calibration.json.
+ANCHOR_CALIBRATION_HORIZON = 2
+
 
 # -----------------------------------------------------------------------------
 # Level-anchor point (for rate/percentage indicators)
@@ -312,7 +326,7 @@ def combined_anchor_rate(
     sources: Optional[Sequence[AnchorSource]] = None,
     calibration: Optional[dict[str, dict[str, float]]] = None,
     correlation_rho: float = 0.6,
-    calibration_horizon: int = 2,
+    calibration_horizon: int = ANCHOR_CALIBRATION_HORIZON,
     geoid: Optional[str] = None,
 ) -> Optional[AnchorRate]:
     """Compute the indicator-specific multi-source anchor rate at end_year.
@@ -341,9 +355,20 @@ def combined_anchor_rate(
     YoY volatility for admin series like FHFA HPI. We convert it to a
     per-year log-rate SE via:
         se_log_rate ≈ rmse / horizon
-    using the back-test horizon (default 2y, configurable via
-    `calibration_horizon`). The in-sample SD acts as a floor so that
-    indicators with no calibration entry still get a sane SE.
+    using a nominal calibration scale (`ANCHOR_CALIBRATION_HORIZON` = 2;
+    the v3+ per-source RMSE is pooled over h=1..5, so this is a scale the
+    per-h-bucket κ absorbs, not a literal back-test horizon; configurable
+    via `calibration_horizon`). The in-sample SD acts as a
+    floor so that indicators with no calibration entry still get a sane
+    SE.
+
+    `calibration_horizon` describes the calibration, not the forecast:
+    the ensemble consumer and every calibration fold must pass the same
+    value (the default) whatever the target horizon, because the
+    multi_anchor κ / bias / conformal records were fit on SEs built
+    with it. `anchor_as_forecast` applies the real horizon (SE × h).
+    The Kalman member uses its own one-step convention
+    (`calibration_horizon=1`) and is calibrated separately.
 
     Returns None if no source has data visible at end_year (the caller
     must then fall back to ACS-only models).

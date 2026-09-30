@@ -27,7 +27,7 @@ What stays the same
 - Honolulu county/PUMA assignment.
 - Tax rescale: optional uniform income scale ``k`` to land aggregate
   Hawaii tax on the COR-implied $1M+ tax target after ``_compute_base_tax``
-  reruns. Same pattern as ``rescale_synthetic_tail_to_tax_target``.
+  reruns. Same pattern as ``calibrate_synthetic_tail_to_tax_target``.
 
 Hawaii non-resident note
 ------------------------
@@ -259,7 +259,7 @@ def synthesize_top_filers_from_soi(
         ``target_year`` and ``cbo_vintage`` are set.
     target_tax_M:
         Forward-year COR-implied $1M+ aggregate Hawaii tax ($M). If
-        provided, caller should run ``rescale_synthetic_tail_to_tax_target``
+        provided, caller should run ``calibrate_synthetic_tail_to_tax_target``
         after ``_compute_base_tax`` to land aggregate tax on this number.
         Logged here for traceability; not applied directly.
     soi_anchors:

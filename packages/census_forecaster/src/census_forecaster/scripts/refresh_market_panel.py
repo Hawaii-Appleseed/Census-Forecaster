@@ -251,9 +251,11 @@ def build_macro_payload(series: dict[str, list[dict]],
     downstream fetch failed that run was silently deleted from committed
     history rather than merely going stale.
 
-    That is not hypothetical: the 2026-08-06 run lost MORTGAGE30US,
-    DGS10, RRVRUSQ156N and RHORUSQ156N when their FRED fetches timed
-    out. Their handler logs "keeping previous", which was true of its
+    That is not hypothetical: the 2026-08-06 run lost MORTGAGE30US and
+    DGS10 from this file when their FRED fetches timed out. (The same
+    outage deleted mortgage30, dgs10, rental_vacancy and homeownership
+    from national_macro.json, through the same replace-not-merge defect
+    in refresh_national_macro, fixed 2026-09-29.) Their handler logs "keeping previous", which was true of its
     own merge step but false in effect, because this write had already
     removed the previous values. Merging here makes that message honest.
     """

@@ -418,6 +418,7 @@ def compute_poverty_impact(
     household_type_col: str = "filing_status",
     weight_col: str = "weight",
     tenure_col: str = "tenure",
+    extrapolate_thresholds: bool = False,
 ) -> PovertyImpactResult:
     """Compute SPM poverty impact of EITC, CTC, and HI state EITC, plus expansions.
 
@@ -467,6 +468,15 @@ def compute_poverty_impact(
         monthly-CTC participation among eligible families (band:
         0.92–0.95). Applied as conditional take-up given the unit
         already claims the baseline CTC.
+    extrapolate_thresholds:
+        For a ``tax_year`` past the SPM threshold table, index the latest
+        tabled threshold forward by the credit-parameter CPI assumption
+        (:func:`tax_modeler.poverty.thresholds.hawaii_spm_threshold`)
+        instead of raising. Off by default. Projected-year runs should set
+        it so the threshold is in the same year's dollars as the aged money
+        income, credits and taxes. The same flag lets the federal-tax
+        fallback in :func:`compute_spm_resources` extrapolate its parameters
+        rather than drop to the flat-rate estimate.
     """
     # Auto-detect granularity: SPM-unit frames carry ``n_persons``;
     # tax-unit frames don't. In SPM mode, ``filing_status`` and
@@ -496,6 +506,7 @@ def compute_poverty_impact(
     df, spm_meta = compute_spm_resources(
         df,
         tax_year=tax_year,
+        extrapolate=extrapolate_thresholds,
         eitc_col=eitc_col,
         refundable_ctc_col=ctc_col,
         hi_eitc_col=hi_eitc_col,
@@ -503,7 +514,9 @@ def compute_poverty_impact(
     )
 
     # 2. Per-unit Hawaii SPM threshold.
-    df["spm_threshold"] = threshold_for_units(df, year=tax_year, tenure_col=tenure_col)
+    df["spm_threshold"] = threshold_for_units(
+        df, year=tax_year, tenure_col=tenure_col, extrapolate=extrapolate_thresholds,
+    )
     threshold = df["spm_threshold"].to_numpy(dtype=float)
 
     # 3. Person-equivalent weight (for "persons lifted" metric).

@@ -140,8 +140,8 @@ def build_base() -> pd.DataFrame:
     from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
     from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.top_income_synthesis import (
+        calibrate_synthetic_tail_to_tax_target,
         redistribute_mid_high_incomes,
-        rescale_synthetic_tail_to_tax_target,
         synthesize_top_filers,
     )
 
@@ -156,9 +156,13 @@ def build_base() -> pd.DataFrame:
     units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
     units = enrich_for_credits(units)
     units = impute_capital_gains_from_soi(units)
-    units = compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-    units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-    units = compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+
+    def score(u):
+        return compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+
+    # Not aged to the PUMS dollar year: project()'s SOI anchor replaces every
+    # $1M+ unit with SOI tiers aged from TY2022, so the tail's level is moot.
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
     print(f"  tail_k={tail_k:.4f}", flush=True)
     return units
 
@@ -269,10 +273,12 @@ def distribution(df: pd.DataFrame, changes: dict[str, np.ndarray]) -> pd.DataFra
     """Average change per household by ITEP-style group.
 
     Households are ranked on summed total cash income (TCI) and cut at
-    percentiles of the first filer's weight, as compute_quintile_breaks does
-    for the repo's ITEP-anchored quintiles. As in generate_quintile_report,
-    dollar totals use the calibrated filer weight and per-household averages
-    divide by the PUMS household weight.
+    percentiles of the PUMS household weight (WGTP, which every unit of a
+    household shares), as compute_quintile_breaks does for the repo's
+    ITEP-anchored quintiles, so each group holds its share of households. As
+    in generate_quintile_report, dollar totals are sums over tax units of
+    each unit's calibrated filer weight x change, and per-household averages
+    divide them by the group's WGTP households.
     """
     hh = df["hh_id"].to_numpy()
     col = "total_cash_income" if "total_cash_income" in df.columns else "income"
@@ -282,10 +288,10 @@ def distribution(df: pd.DataFrame, changes: dict[str, np.ndarray]) -> pd.DataFra
     for k, v in changes.items():
         frame[k] = v * frame["fw"]            # weighted $ per unit
         frame[f"{k}_raw"] = v                 # the unit's own change
-    agg = {"tci": "sum", "fw": "first", "hw": "first", **{k: "sum" for k in changes},
+    agg = {"tci": "sum", "hw": "first", **{k: "sum" for k in changes},
            **{f"{k}_raw": "sum" for k in changes}}
     h = frame.groupby("hh_id").agg(agg).sort_values("tci").reset_index()
-    cum = (h["fw"].cumsum() - h["fw"] / 2) / h["fw"].sum()
+    cum = (h["hw"].cumsum() - h["hw"] / 2) / h["hw"].sum()
     rows = []
     for name, lo, hi in _GROUPS:
         m = (cum > lo) & (cum <= hi) if lo > 0 else (cum <= hi)

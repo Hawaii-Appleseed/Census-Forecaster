@@ -340,3 +340,59 @@ def test_zero_income_unit_takes_county_median_ratio():
     })
     out = _scale_credit_income_inputs(df.copy(), df, use_cbo_components=False)
     assert out["earned_income"].tolist() == pytest.approx([110.0, 230.0, 50.0 * 1.125])
+
+
+# ---------------------------------------------------------------------------
+# SPM money income (spm_money_income)
+# ---------------------------------------------------------------------------
+
+def _with_tci(df: pd.DataFrame) -> pd.DataFrame:
+    """Give each unit a TCI above ``income`` (untaxed transfers, employer FICA)."""
+    out = df.copy()
+    out["total_cash_income"] = out["income"] * 1.1
+    return out
+
+
+def test_spm_money_income_equals_tci_at_zero_growth(monkeypatch):
+    import tax_modeler.projection.tax_unit_projector as tup
+
+    monkeypatch.setattr(
+        tup, "_fetch_growth_factor",
+        lambda *a, **k: tup._GrowthFactorResult(1.0, 1.0, 1.0),
+    )
+    proj = project_tax_units_forward(_with_tci(_make_tax_units()), target_year=2028)
+    assert proj["spm_money_income"].tolist() == pytest.approx(proj["total_cash_income"].tolist())
+
+
+def test_spm_money_income_ages_with_income_and_tci_stays_put():
+    """Aged money income = TCI + the dollars aging added; TCI itself is untouched
+    because quintile binning ranks on it."""
+    base = _with_tci(_make_tax_units())
+    proj = project_tax_units_forward(base, target_year=2028)
+    growth = proj["income"] - proj["income_base_year"]
+    assert (growth > 0).all()
+    assert sorted(proj["total_cash_income"]) == pytest.approx(sorted(base["total_cash_income"]))
+    assert proj["spm_money_income"].tolist() == pytest.approx(
+        (proj["total_cash_income"] + growth).tolist())
+
+
+def test_cbo_path_money_income_adds_growth_not_the_decomposition_gap():
+    """CBO aging re-sums components whose retirement bucket counts full Social
+    Security and SSI, which ``income`` holds at 85% and not at all. At zero
+    growth that re-sum lifts a retiree's ``income``, but money income (TCI
+    already has both in full) must not move."""
+    from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+
+    base = _with_tci(_make_tax_units())
+    base["primary_wagp"] = base["earned_income"]
+    retiree = {
+        "filing_status": "single", "income": 8_500.0, "earned_income": 0.0,
+        "investment_income": 0.0, "num_dependents": 0, "num_qualifying_children": 0,
+        "dependents": [], "weight": 90, "county": "Honolulu",
+        "primary_wagp": 0.0, "primary_ssp_full": 10_000.0, "primary_ssip": 3_000.0,
+        "total_cash_income": 13_000.0,
+    }
+    base = pd.concat([base, pd.DataFrame([retiree])], ignore_index=True)
+
+    proj = project_tax_units_forward(base, target_year=PUMS_INCOME_DOLLAR_YEAR, use_cbo_aging=True)
+    assert proj["spm_money_income"].tolist() == pytest.approx(proj["total_cash_income"].tolist())

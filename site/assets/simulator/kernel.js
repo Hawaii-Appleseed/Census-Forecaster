@@ -381,18 +381,23 @@ export function distribution(pop, year, baseSys, reformSys) {
   const u = unitArrays(pop, year, "mid");
   const baseTax = unitNetTaxes(pop, baseSys, u.agi, u.item, u.cg);
   const reformTax = unitNetTaxes(pop, reformSys, u.agi, u.item, u.cg);
-  // per-year arrays when they differ between years, else one shared array
+  // per-year array when the fifths differ between years, else one shared array
   const H = pop.nHouseholds, hh = A.hh;
-  const quint = A[`quint_${year}`] ?? A.quint, hhfw = A[`hhfw_${year}`] ?? A.hhfw;
-  // households: summed tax of their units (weight > 0.01)
-  // (the change is summed unit by unit, as pandas does, not taken as a
-  // difference of the sums: a near-zero household must not flip sign)
+  const quint = A[`quint_${year}`] ?? A.quint;
+  // households: the summed change of their units (weight > 0.01), which
+  // decides whether they pay more (the change is summed unit by unit, as
+  // pandas does, not taken as a difference of the sums: a near-zero
+  // household must not flip sign); and the weighted tax of their units,
+  // each at its own filer weight, which the fifths' dollar totals sum
   const hBase = new Float64Array(H), hReform = new Float64Array(H), hChange = new Float64Array(H);
+  const hWChange = new Float64Array(H);
   const hIn = new Uint8Array(H);
   for (let i = 0; i < pop.n; i++) {
-    if (!(u.weight[i] > 0.01)) continue;
-    const h = hh[i];
-    hBase[h] += baseTax[i]; hReform[h] += reformTax[i]; hChange[h] += reformTax[i] - baseTax[i];
+    const w = u.weight[i];
+    if (!(w > 0.01)) continue;
+    const h = hh[i], change = reformTax[i] - baseTax[i];
+    hBase[h] += baseTax[i] * w; hReform[h] += reformTax[i] * w; hWChange[h] += change * w;
+    hChange[h] += change;
     hIn[h] = 1;
   }
   const quintile = [];
@@ -403,7 +408,7 @@ export function distribution(pop, year, baseSys, reformSys) {
     let hw = 0, b = 0, r = 0, c = 0;
     for (const h of members) {
       hw += A.hh_weight[h];
-      b += hBase[h] * hhfw[h]; r += hReform[h] * hhfw[h]; c += hChange[h] * hhfw[h];
+      b += hBase[h]; r += hReform[h]; c += hWChange[h];
     }
     const [more, less, same] = sharesOf(hChange, (h) => A.hh_weight[h], members);
     quintile.push({ group: label, household_count: hw,

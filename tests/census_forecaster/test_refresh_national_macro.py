@@ -135,6 +135,150 @@ def test_merge_macro_monthly_preserves_existing(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# national_macro.json write MERGES into the committed file
+#
+# Regression: main() used to start from an empty dict and write only what
+# fetched, so the monthly CI refreshes of 2026-08-06 and 2026-09-23 each
+# deleted mortgage30 / dgs10 / rental_vacancy / homeownership from the
+# bundle when FRED was down, despite logging "keeping previous".
+# ---------------------------------------------------------------------------
+
+_FRED_NAMES = {s.name for s in NATIONAL_SERIES if s.source == "FRED"}
+_PREV_DATE = "2026-01-15"
+
+
+def _previous_payload(**extra_series) -> dict:
+    """A committed national_macro.json holding all 14 registry series at 1.0."""
+    series = {s.name: {"2019": 1.0, "2020": 1.0} for s in NATIONAL_SERIES}
+    series.update(extra_series)
+    return {
+        "version": 1, "fetch_date": _PREV_DATE,
+        "series": series,
+        "sources": {s.name: f"old ({s.series_id})" for s in NATIONAL_SERIES},
+        "limitations": [],
+    }
+
+
+@pytest.fixture
+def merge_env(tmp_path, monkeypatch):
+    """Point both outputs at tmp_path; stub CPI + BLS to return value 9.0."""
+    nm = tmp_path / "national_macro.json"
+    mm = tmp_path / "macro_monthly.json"
+    nm.write_text(json.dumps(_previous_payload()))
+    monkeypatch.setattr(script, "NATIONAL_MACRO_FILE", nm)
+    monkeypatch.setattr(script, "MACRO_MONTHLY_FILE", mm)
+    monkeypatch.delenv("BLS_API_KEY", raising=False)
+    rows = [{"year": 2025, "period": "M01", "value": 9.0}]
+    monkeypatch.setattr(script, "read_cpi_panel_series", lambda sid: rows)
+    monkeypatch.setattr(
+        script, "fetch_bls_monthly",
+        lambda ids, key, **kw: {sid: list(rows) for sid in ids})
+    return nm
+
+
+def _fred_down(series_id, **kw):
+    raise RuntimeError("Read timed out")
+
+
+def test_failed_fred_keeps_previous_series(merge_env, monkeypatch, capsys):
+    monkeypatch.setattr(script, "fetch_fred_csv", _fred_down)
+    assert script.main([]) == 0
+    out = json.loads(merge_env.read_text())
+    assert set(out["series"]) == {s.name for s in NATIONAL_SERIES}
+    for s in NATIONAL_SERIES:
+        if s.name in _FRED_NAMES:        # carried over, values untouched
+            assert out["series"][s.name] == {"2019": 1.0, "2020": 1.0}
+            assert out["sources"][s.name] == f"old ({s.series_id})"
+            assert out["series_fetch_date"][s.name] == _PREV_DATE
+        else:                            # refreshed this run
+            assert out["series"][s.name] == {"2025": 9.0}
+            assert out["series_fetch_date"][s.name] == out["fetch_date"]
+    err = capsys.readouterr().err
+    carried = [ln for ln in err.splitlines() if "carried over" in ln]
+    assert carried and carried[0].startswith("::warning::")
+    for name in _FRED_NAMES:
+        assert name in carried[0]
+
+
+def test_skip_fred_keeps_previous_series(merge_env, monkeypatch, capsys):
+    def boom(*a, **k):
+        raise AssertionError("FRED fetched despite --skip-fred")
+    monkeypatch.setattr(script, "fetch_fred_csv", boom)
+    assert script.main(["--skip-fred"]) == 0
+    out = json.loads(merge_env.read_text())
+    assert set(out["series"]) == {s.name for s in NATIONAL_SERIES}
+    for name in _FRED_NAMES:
+        assert out["series"][name] == {"2019": 1.0, "2020": 1.0}
+    assert "carried over" in capsys.readouterr().err
+
+
+def test_failed_bls_keeps_previous_series(merge_env, monkeypatch):
+    def bls_down(*a, **k):
+        raise RuntimeError("BLS 503")
+    monkeypatch.setattr(script, "fetch_bls_monthly", bls_down)
+    monkeypatch.setattr(script, "fetch_fred_csv",
+                        lambda sid, **kw: [{"date": "2025-01-01", "value": 7.0}])
+    assert script.main([]) == 0
+    out = json.loads(merge_env.read_text())
+    assert set(out["series"]) == {s.name for s in NATIONAL_SERIES}
+    for s in NATIONAL_SERIES:
+        want = ({"2019": 1.0, "2020": 1.0} if s.source == "BLS_FETCH"
+                else {"2025": 7.0} if s.source == "FRED"
+                else {"2025": 9.0})
+        assert out["series"][s.name] == want, s.name
+
+
+def test_fred_zero_rows_warns_and_keeps_previous(merge_env, monkeypatch,
+                                                 capsys):
+    monkeypatch.setattr(script, "fetch_fred_csv", lambda sid, **kw: [])
+    assert script.main([]) == 0
+    out = json.loads(merge_env.read_text())
+    for name in _FRED_NAMES:
+        assert out["series"][name] == {"2019": 1.0, "2020": 1.0}
+    err = capsys.readouterr().err
+    for s in NATIONAL_SERIES:
+        if s.source == "FRED":
+            assert (f"::warning::FRED returned no rows for {s.series_id}"
+                    in err)
+
+
+def test_series_dropped_from_registry_is_not_carried(tmp_path, monkeypatch):
+    nm = tmp_path / "national_macro.json"
+    nm.write_text(json.dumps(_previous_payload(retired={"2020": 5.0})))
+    annual, sources, fetched_on = script.read_previous_national_macro(nm)
+    assert "retired" not in annual
+    assert set(annual) == {s.name for s in NATIONAL_SERIES}
+    assert all(isinstance(y, int) for v in annual.values() for y in v)
+    assert set(fetched_on.values()) == {_PREV_DATE}
+
+
+def test_nothing_fetched_and_no_previous_refuses_to_write(tmp_path,
+                                                          monkeypatch):
+    nm = tmp_path / "national_macro.json"
+    monkeypatch.setattr(script, "NATIONAL_MACRO_FILE", nm)
+    monkeypatch.setattr(script, "MACRO_MONTHLY_FILE",
+                        tmp_path / "macro_monthly.json")
+    monkeypatch.setattr(script, "read_cpi_panel_series", lambda sid: [])
+    monkeypatch.setattr(script, "fetch_bls_monthly", lambda *a, **k: {})
+    monkeypatch.setattr(script, "fetch_fred_csv", _fred_down)
+    assert script.main([]) == 2
+    assert not nm.exists()
+
+
+def test_everything_down_still_rewrites_previous_intact(merge_env,
+                                                        monkeypatch):
+    # Merged result is non-empty, so the write proceeds — with every
+    # series carried over and none lost.
+    monkeypatch.setattr(script, "read_cpi_panel_series", lambda sid: [])
+    monkeypatch.setattr(script, "fetch_bls_monthly", lambda *a, **k: {})
+    monkeypatch.setattr(script, "fetch_fred_csv", _fred_down)
+    assert script.main([]) == 0
+    out = json.loads(merge_env.read_text())
+    assert out["series"] == _previous_payload()["series"]
+    assert set(out["series_fetch_date"].values()) == {_PREV_DATE}
+
+
+# ---------------------------------------------------------------------------
 # Dry-run writes nothing
 # ---------------------------------------------------------------------------
 

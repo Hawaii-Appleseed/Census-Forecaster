@@ -940,9 +940,11 @@ def build_working_families() -> tuple[str, dict]:
         ["Food/excise dollars, 2022 (old table)", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['dotax']:,.1f}M", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['model']:,.1f}M", "Check"],
         ["Food/excise claims, 2022 (old table)", f"{cal['TY2022 food/excise claims, prior table']['dotax']:,.0f}", f"{cal['TY2022 food/excise claims, prior table']['model']:,.0f}", "Check"],
     ]
+    oos = cal['TY2022 food/excise $M, prior table (out of sample)']
+    oos_off = 100 * abs(oos['model'] / oos['dotax'] - 1)
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
-<p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that 2023, the first year of the expansions, matches what the Department of Taxation actually paid, then holds that rate fixed.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, reproduces that year’s food/excise credit under the old table within 2 percent (Table 5).</p>
+<p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that 2023, the first year of the expansions, matches what the Department of Taxation actually paid, then holds that rate fixed.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
 {table(["Measure", "Department of Taxation", "Model", ""], vrows, caption="Table 5. Model Against Department of Taxation Records")}
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">

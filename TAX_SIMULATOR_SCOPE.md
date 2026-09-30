@@ -694,8 +694,9 @@ It runs for each year and scenario, about 15 scorings in all. Each takes about
 4. **Aggregate.**
    - Revenue by year.
    - Static distribution by household fifth and AGI class. As in
-     `generate_quintile_report`: sum by household, use the filer weight for
-     dollars and the household weight for counts.
+     `generate_quintile_report`: fifths of households by the household
+     weight; dollars are each unit's change × its own filer weight, summed;
+     the household weight counts households.
 
 **Parity.** After Phase 0, a pytest writes golden outputs from the real
 pipeline for about 20 specs: the presets plus random valid schedules. A

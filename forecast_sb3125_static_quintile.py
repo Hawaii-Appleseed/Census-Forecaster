@@ -505,7 +505,7 @@ if __name__ == "__main__":
         )
         from tax_modeler.scenarios.top_income_synthesis import (
             synthesize_top_filers, validate_top_synthesis,
-            rescale_synthetic_tail_to_tax_target,
+            calibrate_synthetic_tail_to_tax_target, age_synthetic_tail,
         )
         from tax_modeler.scenarios.behavioral_response import (
             apply_top_income_growth_premium,
@@ -535,16 +535,21 @@ if __name__ == "__main__":
 
         print(f"Synthesizing top-income filers (Pareto α={PARETO_ALPHA})...", flush=True)
         t0 = time.perf_counter()
+
+        def score(u):
+            return _compute_base_tax(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)
+
         units = synthesize_top_filers(units, pareto_alpha=PARETO_ALPHA)
-        units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-        units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
+        units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
         v = validate_top_synthesis(units)
+        # The tail is at DOTAX's TY2022 level; the projection below grows
+        # every unit from the PUMS dollar year (2024), so age it there first.
+        units = score(age_synthetic_tail(units, top_premium=TOP_PREMIUM))
         print(f"  {v['filers_1m_plus']:,.0f} filers @ $1M+ "
               f"({100*v['filer_target_ratio']:.1f}%), "
               f"${v['tax_1m_plus_$M']:,.1f}M tax "
               f"({100*v['tax_target_ratio']:.1f}% of $663M target), "
-              f"tail_k={tail_k:.4f} "
+              f"tail_k={tail_k:.4f}, then aged to the PUMS dollar year, "
               f"in {time.perf_counter()-t0:.1f}s", flush=True)
 
         # ---- Per-year quintile analysis -------------------------------------
