@@ -48,8 +48,15 @@ Where:
 | capital_gains | `synthetic_cg_share × income` (synthesized + imputed) |
 | dividends | `primary_div + secondary_div` |
 | interest | `primary_intp + secondary_intp` |
-| retirement | `primary_retp + primary_ssp_full + ssip + pap` |
-| other | residual: rental, royalty, misc |
+| retirement | `primary_retp + secondary_retp + primary_ssp + secondary_ssp` (the 85% of Social Security that `income` counts; else 0.85 × `*_ssp_full`) |
+| other | residual: OIP, rental, royalty, misc |
+
+The components sum to the unit's `income`, so aging to the base year with no
+growth leaves it unchanged. SSI, public assistance and the untaxed 15% of
+Social Security are in total cash income but not in `income`, so they are not
+components (see `transfers_outside_income`). Until 2026-09-30 retirement held
+full Social Security, SSI and public assistance, which inflated income about
+1.5% at zero growth.
 
 ## Hawaii calibration
 

@@ -7,11 +7,79 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 29, 2026
+**Last updated:** September 30, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
 > **Maintenance note:** This document must be updated whenever forecast methodology changes — including parameter recalibration, new behavioral channels, tax treatment corrections, or data source changes. Update the relevant section(s) and the Results table before committing.
+
+---
+
+## CBO Social Security aging — September 30, 2026 (supersedes the frozen-baseline table below)
+
+The September 29 pipeline audit confirmed a defect in the per-component CBO
+aging (`age_filers_with_components`) that `forecast_sb3125_vs_fy26base.py`,
+`forecast_cg_rate_options.py`, `forecast_working_family_credits.py` and
+`forecast_bill_quintile.py` use through `use_cbo_aging=True`. It is fixed. The
+code change is one commit on top of the published build, and the Act 24 files
+came back byte-identical, so every difference below comes from it.
+
+**The defect.** The aging splits each unit's `income` into CBO components,
+grows each at its own rate and rewrites `income` as the sum. The retirement
+component held RETP plus *all* of Social Security, SSI and public assistance,
+but `income` holds 85% of Social Security and neither of the others, and the
+residual `other` component is floored at zero, so the excess was never netted
+out. Aging to the base year with **no growth** raised weighted income 1.55% on
+the tax-unit cache ($61,659M → $62,613M) and 2.04% on the calibrated base
+($45,343M → $46,268M). 12,328 of 39,990 units moved, every one with Social
+Security, SSI or public assistance, and units living on SSI or TANF alone, with
+no income, were handed income and taxed on it. The test fixture counted full
+Social Security inside `income` and carried no SSI or public assistance, which
+hid it.
+
+**The fix.** Retirement is now RETP plus the 85% of Social Security `income`
+counts, so the components sum to `income` and a base-year round trip is exact
+(asserted in `test_cbo_aging.py`; a warning fires if a decomposition ever sums
+more than 0.1% away from `income`). SPM money income still ages every dollar of
+total cash income: the untaxed 15% of Social Security, SSI and public
+assistance, which `income` does not hold, are aged separately at the retirement
+rate, where before they aged by sitting in the retirement bucket. The one
+change to money income is that OIP now ages for units where the old floor
+swallowed it (+$13M weighted on the TY2028 PUMS, +0.02%).
+
+**What moved.**
+
+| Output | Before | After |
+|---|---|---|
+| Act 24 vs Act 46, vs pre-Act-46, fifths and income classes (CD2) | | **unchanged** (identical files): they project through `project_units` (county growth and the top-income premium), not CBO aging |
+| Tax simulator population | | unchanged (only the `model_version` hash and provenance stamps) |
+| Act 24 vs Act 46 frozen at TY2026, 5-year total | −$1,435.6M | −$1,429.2M |
+| Gap to ITEP over five years | +$768.4M | +$774.8M (still about 35% below) |
+| Working-family credits, revenue loss from reverting, TY2028–2031 | $314.2M | $315.1M |
+| People pushed below the poverty line, TY2028 (children) | 2,036 (555) | 2,127 (521) |
+| Poverty rate, renewed / expired law, TY2028 | 8.46% / 8.61% | 8.52% / 8.68% |
+| Poverty gap increase, TY2028 | $16.4M | $16.2M |
+| Capital-gains options page, static / behavioral revenue by year | | at most $1.3M / $1.0M a year (0.9%) |
+
+The head count is still the fragile poverty number (it moved 4.5% here; the
+gap moved −1.1%).
+
+**Act 24 against Act 46 frozen at TY2026 (the ITEP frame), CD2, $M**
+(`forecast_sb3125_vs_fy26base.py --cd 2`):
+
+| TY | Bracket | SD expansion | Total | ITEP | Gap |
+|---|---:|---:|---:|---:|---:|
+| 2027 | −150.3 | 0.0 | −150.3 | −227.0 | +76.7 |
+| 2028 | −139.0 | −15.6 | −154.6 | −258.0 | +103.4 |
+| 2029 | −354.0 | −15.0 | −369.0 | −534.0 | +165.0 |
+| 2030 | −342.2 | −30.4 | −372.6 | −563.0 | +190.4 |
+| 2031 | −319.7 | −63.0 | −382.7 | −622.0 | +239.3 |
+| **5-yr** | **−1,305.2** | **−124.0** | **−1,429.2** | **−2,204.0** | **+774.8** |
+
+Not rerun: `forecast_bill_quintile.py` (HB 2306) and the poverty and EITC/CTC
+report products that default to CBO aging (`scripts/poverty_impact_report.py`).
+They age through the same function, so they will move by the same order,
+fractions of a percent, when next run.
 
 ---
 
@@ -141,6 +209,9 @@ now ~35% below). These equal the pre-September-28 `memo_vs_frozen_2026`
 column of `forecast_act24_vs_pre_act46.py`, which scored the same population
 on target-year deductions. Whether ITEP's own vs-frozen figure holds itemized
 deductions at TY2026 levels is worth checking before comparing the two.
+
+*Superseded September 30, 2026: the CBO aging fix moves this table to −$1,429.2M
+over five years (section above).*
 
 **REEC growth CI90** (the table under *Prediction-interval plumbing*,
 recomputed with the MID credit knobs, 0.65 effective claim share and 1.5%
