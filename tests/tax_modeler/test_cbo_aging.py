@@ -1,6 +1,7 @@
 """Tests for cbo_aging: per-component CBO Outlook filer aging."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -11,8 +12,10 @@ from tax_modeler.calibration.cbo_aging import (
     CBO_COMPONENTS,
     DEFAULT_HAWAII_FACTORS,
     CBOComponentRates,
+    _component_amounts_for_filer,
     age_filers_with_components,
     load_cbo_rates,
+    transfers_outside_income,
 )
 
 
@@ -64,6 +67,15 @@ def test_capital_gains_grows_faster_than_wages(cbo_rates: CBOComponentRates):
 
 
 def _make_units(n: int = 200) -> pd.DataFrame:
+    """Units whose ``income`` is built the way ``units.income`` builds it.
+
+    ``income`` = WAGP + SEMP + INTP + DIV + RETP + OIP + 85% of Social Security
+    (``primary_ssp``), with a 2% capital-gains slice. ``primary_ssp_full`` is
+    the whole benefit; SSI and public assistance are in total cash income but
+    not in ``income``. (This fixture used to count the full benefit inside
+    ``income`` and carry no SSI or PAP, which is why the decomposition bug
+    that inflated income by 1.5% at zero growth never showed.)
+    """
     rng = np.random.default_rng(7)
     inc = rng.uniform(50_000, 250_000, n)
     return pd.DataFrame({
@@ -73,12 +85,16 @@ def _make_units(n: int = 200) -> pd.DataFrame:
         "filing_status": rng.choice(
             ["single", "married_filing_jointly", "head_of_household"], n,
         ),
-        "primary_wagp": inc * 0.70,
+        "primary_wagp": inc * 0.69,
+        "primary_oip": inc * 0.01,
         "primary_intp": inc * 0.05,
         "primary_div": inc * 0.03,
         "primary_retp": inc * 0.05,
-        "primary_ssp_full": inc * 0.05,
+        "primary_ssp": inc * 0.05,
+        "primary_ssp_full": inc * 0.05 / 0.85,
         "primary_semp": inc * 0.10,
+        "primary_ssip": np.where(rng.random(n) < 0.15, 4_000.0, 0.0),
+        "primary_pap": np.where(rng.random(n) < 0.10, 2_500.0, 0.0),
         "synthetic_cg_share": np.full(n, 0.02),
     })
 
@@ -172,11 +188,9 @@ def test_round_trip_to_base_year_preserves_income(cbo_rates: CBOComponentRates):
         hawaii_factors={c: 1.0 for c in CBO_COMPONENTS},
     )
     post = (aged["income"] * aged["weight"]).sum()
-    # Some drift acceptable due to PUMS decomposition rounding (other component
-    # absorbs residual). Within 1% is fine.
-    assert abs(post / pre - 1) < 0.01, (
-        f"Base-year round-trip drift {post/pre - 1:.4f} > 1%"
-    )
+    # Exact, not "close": the components sum to income (see the zero-growth
+    # tests below), so a base-year round trip cannot move it.
+    assert post == pytest.approx(pre, rel=1e-12)
 
 
 def test_synthetic_cg_share_refreshed_after_aging(cbo_rates: CBOComponentRates):
@@ -208,3 +222,151 @@ def test_synthetic_cg_share_refreshed_after_aging(cbo_rates: CBOComponentRates):
     )
     # Share must remain a valid fraction.
     assert 0.0 <= new_share <= 1.0, f"share out of range: {new_share}"
+
+
+# ---------------------------------------------------------------------------
+# The decomposition sums to ``income``
+#
+# Regression (2026-09-29 pipeline audit): retirement was RETP + 100% of Social
+# Security + SSI + public assistance, while unit ``income`` holds 85% of
+# Social Security and neither of the others. ``other`` is floored at zero, so
+# the excess was never netted out and aging to the base year raised weighted
+# income by ~1.5% ($61,659M -> $62,613M on the tax-unit cache, +2.0% on the
+# calibrated base) and taxed SSI and TANF recipients in Hawaii.
+# ---------------------------------------------------------------------------
+
+_HI_OFF = {c: 1.0 for c in CBO_COMPONENTS}
+
+
+def _synthetic_units() -> pd.DataFrame:
+    """Top-income rows: no PUMS columns, components come from the shares."""
+    return pd.DataFrame({
+        "income": [5_000_000.0, 2_000_000.0],
+        "agi": [5_000_000.0, 2_000_000.0],
+        "weight": [1.0, 2.0],
+        "filing_status": ["married_filing_jointly", "single"],
+        "synthetic_cg_share": [0.60, 0.30],
+        "synthetic_wages_share": [0.25, 0.50],
+        "synthetic_business_share": [0.10, 0.10],
+    })
+
+
+def _only_the_85_percent_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.drop(columns=["primary_ssp_full"])
+
+
+def _only_the_full_benefit_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.drop(columns=["primary_ssp"])
+
+
+@pytest.mark.parametrize("build", [
+    _make_units,
+    lambda: _only_the_85_percent_columns(_make_units()),
+    lambda: _only_the_full_benefit_columns(_make_units()),
+    _synthetic_units,
+], ids=["both-ss-columns", "ssp-only", "ssp_full-only", "synthetic-rows"])
+def test_components_sum_to_income(build):
+    units = build()
+    total = sum(_component_amounts_for_filer(units).values())
+    np.testing.assert_allclose(total, units["income"], rtol=1e-12)
+
+
+@pytest.mark.parametrize("hawaii_factors", [_HI_OFF, DEFAULT_HAWAII_FACTORS],
+                         ids=["national", "hawaii-calibrated"])
+@pytest.mark.parametrize("build", [
+    _make_units,
+    lambda: _only_the_85_percent_columns(_make_units()),
+    lambda: _only_the_full_benefit_columns(_make_units()),
+    _synthetic_units,
+], ids=["both-ss-columns", "ssp-only", "ssp_full-only", "synthetic-rows"])
+def test_aging_to_the_base_year_leaves_every_units_income_unchanged(
+        cbo_rates: CBOComponentRates, build, hawaii_factors):
+    units = build()
+    aged = age_filers_with_components(
+        units, target_year=2024, base_year=2024, cbo_rates=cbo_rates,
+        hawaii_factors=hawaii_factors,
+    )
+    np.testing.assert_allclose(aged["income"], units["income"], rtol=1e-12)
+
+
+def test_ssi_and_public_assistance_never_enter_income(cbo_rates: CBOComponentRates):
+    """A unit on SSI and TANF only has no ``income``; aging must not invent any,
+    in the base year or after growth."""
+    units = pd.DataFrame({
+        "income": [0.0], "agi": [0.0], "weight": [1.0],
+        "filing_status": ["single"],
+        "primary_ssip": [9_000.0], "primary_pap": [3_000.0],
+    })
+    for target in (2024, 2029):
+        aged = age_filers_with_components(
+            units, target_year=target, base_year=2024, cbo_rates=cbo_rates,
+            hawaii_factors=_HI_OFF,
+        )
+        assert aged["income"].iloc[0] == 0.0
+
+
+def test_retirement_is_retp_plus_the_85_percent_of_social_security():
+    df = pd.DataFrame({
+        "income": [40_000.0],
+        "primary_retp": [12_000.0], "secondary_retp": [1_000.0],
+        "primary_ssp": [8_500.0], "primary_ssp_full": [10_000.0],
+        "primary_ssip": [3_000.0], "primary_pap": [500.0],
+    })
+    ret = _component_amounts_for_filer(df)["retirement"].iloc[0]
+    assert ret == pytest.approx(12_000.0 + 1_000.0 + 8_500.0)
+
+
+def test_social_security_grows_on_the_85_percent_income_counts(
+        cbo_rates: CBOComponentRates):
+    """A retiree with only Social Security: income is 85% of the benefit and
+    grows at the retirement rate on that 85%, not on the whole benefit."""
+    units = pd.DataFrame({
+        "income": [8_500.0], "agi": [8_500.0], "weight": [1.0],
+        "filing_status": ["single"],
+        "primary_ssp": [8_500.0], "primary_ssp_full": [10_000.0],
+    })
+    aged = age_filers_with_components(
+        units, target_year=2027, base_year=2024, cbo_rates=cbo_rates,
+        hawaii_factors=_HI_OFF,
+    )
+    f = cbo_rates.factor("retirement", 2027) / cbo_rates.factor("retirement", 2024)
+    assert aged["income"].iloc[0] == pytest.approx(8_500.0 * f)
+
+
+def test_transfers_outside_income_are_untaxed_ss_ssi_and_pap():
+    df = pd.DataFrame({
+        "primary_ssp": [8_500.0], "primary_ssp_full": [10_000.0],
+        "primary_ssip": [3_000.0], "secondary_pap": [500.0],
+    })
+    want = 1_500.0 + 3_000.0 + 500.0
+    assert transfers_outside_income(df).iloc[0] == pytest.approx(want)
+    # Either Social Security column set alone recovers the same split.
+    assert transfers_outside_income(
+        df.drop(columns="primary_ssp")).iloc[0] == pytest.approx(want)
+    assert transfers_outside_income(
+        df.drop(columns="primary_ssp_full")).iloc[0] == pytest.approx(want)
+    # ...and a frame with none of the columns has none.
+    assert transfers_outside_income(pd.DataFrame({"income": [1.0]})).iloc[0] == 0.0
+
+
+def test_a_decomposition_that_exceeds_income_is_flagged(
+        cbo_rates: CBOComponentRates, caplog):
+    """The ``other`` floor hides a component sum above income; say so."""
+    bad = pd.DataFrame({
+        "income": [50_000.0], "agi": [50_000.0], "weight": [1.0],
+        "filing_status": ["single"], "primary_wagp": [60_000.0],
+    })
+    with caplog.at_level(logging.WARNING, logger="tax_modeler.calibration.cbo_aging"):
+        age_filers_with_components(
+            bad, target_year=2024, base_year=2024, cbo_rates=cbo_rates,
+            hawaii_factors=_HI_OFF,
+        )
+    assert "aging will move income even at zero growth" in caplog.text
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="tax_modeler.calibration.cbo_aging"):
+        age_filers_with_components(
+            _make_units(), target_year=2024, base_year=2024, cbo_rates=cbo_rates,
+            hawaii_factors=_HI_OFF,
+        )
+    assert "aging will move income" not in caplog.text

@@ -203,6 +203,52 @@ def load_cbo_rates(
 # Per-filer component aging
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Share of Social Security that unit ``income`` counts
+# (``units.income.extract_person_income_components`` writes the 85% column).
+_SS_IN_INCOME = 0.85
+
+
+def _numeric_col(df: pd.DataFrame, name: str) -> np.ndarray:
+    if name in df.columns:
+        return df[name].fillna(0).astype(float).to_numpy()
+    return np.zeros(len(df))
+
+
+def _social_security(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """``(counted in income, full benefit)`` Social Security dollars per row.
+
+    Unit ``income`` holds 85% of each benefit (``primary_ssp`` /
+    ``secondary_ssp``); ``total_cash_income`` holds all of it
+    (``*_ssp_full``). Either column set alone is enough to recover both.
+    """
+    def _has(*names: str) -> bool:
+        return any(c in df.columns for c in names)
+
+    counted = _numeric_col(df, "primary_ssp") + _numeric_col(df, "secondary_ssp")
+    full = (_numeric_col(df, "primary_ssp_full")
+            + _numeric_col(df, "secondary_ssp_full"))
+    if not _has("primary_ssp", "secondary_ssp"):
+        counted = _SS_IN_INCOME * full
+    if not _has("primary_ssp_full", "secondary_ssp_full"):
+        full = counted / _SS_IN_INCOME
+    return counted, full
+
+
+def transfers_outside_income(df: pd.DataFrame) -> pd.Series:
+    """Dollars ``total_cash_income`` holds that unit ``income`` does not.
+
+    SSI, public assistance and the untaxed 15% of Social Security. They are
+    outside the CBO decomposition below (which sums to ``income``), so a
+    caller that wants them aged, such as SPM money income, has to do it
+    separately.
+    """
+    counted, full = _social_security(df)
+    amount = ((full - counted)
+              + _numeric_col(df, "primary_ssip") + _numeric_col(df, "secondary_ssip")
+              + _numeric_col(df, "primary_pap") + _numeric_col(df, "secondary_pap"))
+    return pd.Series(amount, index=df.index)
+
+
 def _component_amounts_for_filer(
     df: pd.DataFrame,
 ) -> Dict[str, pd.Series]:
@@ -210,17 +256,19 @@ def _component_amounts_for_filer(
 
     Uses PUMS-actual decomposition columns when present
     (``primary_wagp`` etc.) and falls back to share columns
-    (``synthetic_cg_share`` × ``income``) for synthesized rows. Total
-    across components should equal ``income`` (or close to it — small
-    drift is acceptable, the residual is bucketed into ``other``).
+    (``synthetic_cg_share`` × ``income``) for synthesized rows. The
+    components sum to ``income``, so aging to the base year with no growth
+    leaves ``income`` unchanged; the residual (OIP, rental, misc.) is
+    bucketed into ``other``. Every component is on the basis ``income`` uses
+    — in particular retirement holds the 85% of Social Security ``income``
+    counts, not the full benefit, and neither SSI nor public assistance,
+    which ``income`` excludes (see :func:`transfers_outside_income`).
     """
     inc = df["income"].astype(float).to_numpy()
     n = len(df)
 
     def _col(name: str) -> np.ndarray:
-        if name in df.columns:
-            return df[name].fillna(0).astype(float).to_numpy()
-        return np.zeros(n)
+        return _numeric_col(df, name)
 
     # Capital gains: prefer explicit column, else synthetic_cg_share * income
     cg = inc * _col("synthetic_cg_share")
@@ -243,16 +291,13 @@ def _component_amounts_for_filer(
     interest = _col("primary_intp") + _col("secondary_intp")
     dividends = _col("primary_div") + _col("secondary_div")
 
-    # Retirement (PUMS-actual; ssp_full preferred over ssp/0.85)
-    ssp = _col("primary_ssp_full") + _col("secondary_ssp_full")
-    if (ssp == 0).all():
-        ssp = (_col("primary_ssp") + _col("secondary_ssp")) / 0.85
-    retirement = (
-        _col("primary_retp") + _col("secondary_retp")
-        + ssp
-        + _col("primary_ssip") + _col("secondary_ssip")
-        + _col("primary_pap") + _col("secondary_pap")
-    )
+    # Retirement (PUMS-actual), as ``income`` counts it: RETP plus the taxable
+    # 85% of Social Security. Full Social Security, SSI and public assistance
+    # were in this bucket until 2026-09-30 although ``income`` holds none of
+    # the extra dollars, which pushed the component sum above ``income`` (the
+    # ``other`` floor below hid it) and raised income even at zero growth.
+    ssp_in_income, _ = _social_security(df)
+    retirement = _col("primary_retp") + _col("secondary_retp") + ssp_in_income
 
     # Other = residual to make components sum to income
     accounted = wages + business + cg + interest + dividends + retirement
@@ -338,6 +383,18 @@ def age_filers_with_components(
 
     out = df.copy()
     components = _component_amounts_for_filer(out)
+
+    # The decomposition must sum to ``income``: aging to the base year with no
+    # growth would otherwise move income. The ``other`` residual is floored at
+    # zero, which is how components summing to 1.5% too much went unnoticed.
+    inc_M = float((out["income"] * out["weight"]).sum() / 1e6)
+    comp_M = float((sum(components.values()) * out["weight"]).sum() / 1e6)
+    if inc_M > 0 and abs(comp_M / inc_M - 1) > 1e-3:
+        logger.warning(
+            "CBO decomposition sums to $%.0fM but income is $%.0fM (%+.2f%%): "
+            "aging will move income even at zero growth",
+            comp_M, inc_M, (comp_M / inc_M - 1) * 100,
+        )
 
     # Re-base the cumulative CBO factors to the *income dollar-year*.
     # ``cbo_rates.factor(comp, year)`` is cumulative growth from the CSV's

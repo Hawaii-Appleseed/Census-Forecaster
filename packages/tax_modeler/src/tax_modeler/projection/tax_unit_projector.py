@@ -307,12 +307,15 @@ def _add_spm_money_income(
     component moves money income by the same dollars:
 
     * County / BLS paths: ``income - income_base_year``.
-    * CBO path: the sum over components of aged minus base amounts. The aged
-      ``income`` re-sums the component decomposition, whose retirement
-      bucket holds full Social Security, SSI and public assistance where the
-      base ``income`` holds 85% of Social Security and neither of the others,
-      so ``income - income_base_year`` would add those amounts a second time
-      (``total_cash_income`` already has them), even at zero growth.
+    * CBO path: the sum over components of aged minus base amounts (the same
+      dollars as ``income - income_base_year``, since the decomposition sums
+      to ``income``), plus the transfers ``total_cash_income`` holds and
+      ``income`` does not (the untaxed 15% of Social Security, SSI, public
+      assistance) aged at the retirement bucket's CBO rate: they are
+      federally indexed, and left in base-year dollars they would fall
+      behind the target-year poverty line. Until 2026-09-30 the decomposition
+      put those dollars in the retirement bucket itself, which aged them by
+      accident but also inflated ``income``.
 
     Left in base-year dollars: the imputed employer FICA in
     ``total_cash_income`` on every path, and on the county / BLS paths the
@@ -326,14 +329,25 @@ def _add_spm_money_income(
         return df
     growth = df["income"].to_numpy(dtype=float) - df["income_base_year"].to_numpy(dtype=float)
     if use_cbo_components:
-        from tax_modeler.calibration.cbo_aging import _component_amounts_for_filer
+        from tax_modeler.calibration.cbo_aging import (
+            _component_amounts_for_filer,
+            transfers_outside_income,
+        )
 
-        base = _component_amounts_for_filer(base_df.loc[df.index])
+        base_units = base_df.loc[df.index]
+        base = _component_amounts_for_filer(base_units)
         if all(f"cbo_aged_{c}" in df.columns for c in base):
             growth = sum(
                 df[f"cbo_aged_{c}"].to_numpy(dtype=float) - amt.to_numpy(dtype=float)
                 for c, amt in base.items()
             )
+            # Every unit's retirement bucket grows by the same factor, so the
+            # ratio of sums recovers it (1.0 when there is no retirement base).
+            ret_base = base["retirement"].to_numpy(dtype=float)
+            ret_growth = (float(df["cbo_aged_retirement"].sum() / ret_base.sum())
+                          if abs(ret_base.sum()) > 1 else 1.0)
+            growth = growth + (ret_growth - 1.0) * transfers_outside_income(
+                base_units).to_numpy(dtype=float)
     tci = df["total_cash_income"].fillna(0.0).to_numpy(dtype=float)
     df["spm_money_income"] = np.maximum(tci + np.nan_to_num(growth), 0.0)
     return df

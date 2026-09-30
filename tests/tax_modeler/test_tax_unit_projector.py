@@ -377,10 +377,9 @@ def test_spm_money_income_ages_with_income_and_tci_stays_put():
 
 
 def test_cbo_path_money_income_adds_growth_not_the_decomposition_gap():
-    """CBO aging re-sums components whose retirement bucket counts full Social
-    Security and SSI, which ``income`` holds at 85% and not at all. At zero
-    growth that re-sum lifts a retiree's ``income``, but money income (TCI
-    already has both in full) must not move."""
+    """At zero growth CBO aging must move neither a retiree's ``income`` (the
+    decomposition once counted full Social Security and SSI, which ``income``
+    holds at 85% and not at all) nor money income (TCI already has both)."""
     from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
 
     base = _with_tci(_make_tax_units())
@@ -396,3 +395,32 @@ def test_cbo_path_money_income_adds_growth_not_the_decomposition_gap():
 
     proj = project_tax_units_forward(base, target_year=PUMS_INCOME_DOLLAR_YEAR, use_cbo_aging=True)
     assert proj["spm_money_income"].tolist() == pytest.approx(proj["total_cash_income"].tolist())
+    assert proj["income"].tolist() == pytest.approx(proj["income_base_year"].tolist())
+
+
+def test_cbo_path_money_income_ages_the_transfers_income_leaves_out():
+    """Money income grows on every dollar of the retiree's TCI: ``income``'s 85%
+    of Social Security through the decomposition, and the untaxed 15%, SSI and
+    public assistance at the same retirement rate. Left in base-year dollars
+    they would sink behind the target-year poverty line."""
+    from tax_modeler.calibration.cbo_aging import DEFAULT_HAWAII_FACTORS, load_cbo_rates
+    from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+
+    retiree = {
+        "filing_status": "single", "income": 8_500.0, "earned_income": 0.0,
+        "investment_income": 0.0, "num_dependents": 0, "num_qualifying_children": 0,
+        "dependents": [], "weight": 90, "county": "Honolulu",
+        "primary_wagp": 0.0, "primary_ssp": 8_500.0, "primary_ssp_full": 10_000.0,
+        "primary_ssip": 3_000.0, "primary_pap": 500.0, "total_cash_income": 13_500.0,
+    }
+    proj = project_tax_units_forward(
+        pd.DataFrame([retiree]), target_year=PUMS_INCOME_DOLLAR_YEAR + 3,
+        use_cbo_aging=True,
+    )
+    rates = load_cbo_rates()
+    f = rates.factor("retirement", PUMS_INCOME_DOLLAR_YEAR + 3) / rates.factor(
+        "retirement", PUMS_INCOME_DOLLAR_YEAR)
+    f = 1.0 + DEFAULT_HAWAII_FACTORS["retirement"] * (f - 1.0)
+    assert f > 1.0
+    assert proj["income"].iloc[0] == pytest.approx(8_500.0 * f)
+    assert proj["spm_money_income"].iloc[0] == pytest.approx(13_500.0 * f)
