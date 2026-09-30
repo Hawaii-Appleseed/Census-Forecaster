@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-09-29T05:23:56+00:00",
-  "git_sha": "dbf0054",
+  "created_at": "2026-09-30T03:39:06+00:00",
+  "git_sha": "68bc719",
   "script": "scripts/build_simulator_population.py",
   "params": {
     "years": [
@@ -16,29 +16,29 @@
         "alpha": 1.7,
         "top_premium": 0.003,
         "behavior": "high",
-        "tail_k": 1.820227450625545
+        "tail_k": 1.7742576758586206
       },
       "mid": {
         "label": "MID",
         "alpha": 1.5,
         "top_premium": 0.01,
         "behavior": "mid",
-        "tail_k": 1.4685309114915954
+        "tail_k": 1.420961744742082
       },
       "high": {
         "label": "HIGH",
         "alpha": 1.4,
         "top_premium": 0.023,
         "behavior": "low",
-        "tail_k": 1.257317205072942
+        "tail_k": 1.2342887240368283
       }
     }
   },
-  "params_fingerprint": "fc449bfafc60fc85",
+  "params_fingerprint": "3fe8198685046820",
   "inputs": {
     "calibrated_base": {
-      "created_at": "2026-09-28T18:02:11+00:00",
-      "git_sha": "75df88b",
+      "created_at": "2026-09-30T03:01:44+00:00",
+      "git_sha": "9dd0b5e",
       "n_units": 39990,
       "tax_year": 2023,
       "params_fingerprint": "ab6b63a25f3fa23b",
@@ -53,8 +53,8 @@
       "n_units": 39990
     },
     "population": {
-      "created_at": "2026-09-28T21:47:40+00:00",
-      "git_sha": "75df88b-dirty"
+      "created_at": "2026-09-30T03:20:43+00:00",
+      "git_sha": "9dd0b5e"
     }
   },
   "outputs": [
@@ -64,5 +64,5 @@
     "population.json",
     "population.npz"
   ],
-  "published_at": "2026-09-29T05:23:56+00:00"
+  "published_at": "2026-09-30T03:39:06+00:00"
 }
