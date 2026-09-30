@@ -41,6 +41,9 @@ _SUM_COLS: tuple[str, ...] = (
     # Income
     "income",
     "total_cash_income",
+    # Money income aged to the target year (projected frames only); the
+    # money-income term compute_spm_resources reads when present.
+    "spm_money_income",
     "earned_income",
     "wage_income",
     "investment_income",

@@ -16,9 +16,15 @@ Comparison frame:
 Delta = CD{N} full - TY2026 frozen law.
 
 Decomposed into:
-  bracket_delta: (CD{N} brackets + frozen 2026 SDs) - (frozen 2026 brackets + frozen 2026 SDs)
-  sd_delta:      Act 46 SD-expansion effect (ongoing current law, not the bill)
+  bracket_delta: (CD{N} brackets + Act 46 TY-yr SDs) - (frozen 2026 brackets + Act 46 TY-yr SDs)
+  sd_delta:      Act 46 SD-expansion effect (ongoing current law, not the bill):
+                 (frozen 2026 brackets + Act 46 TY-yr SDs) - (frozen 2026 brackets + frozen 2026 SDs)
   total_delta:   bracket_delta + sd_delta (= ITEP's headline number)
+
+All three regimes are scored on one TY-yr frame (score_regimes): only
+statute differs between them. Itemized-deduction amounts are an economic
+input, not statute, so the frozen baseline reads the same target-year
+amounts as the bill.
 
 Requires calibrated_base.pkl (run forecast_sb3125_enhanced.py --cd {N} first).
 
@@ -46,9 +52,9 @@ import pandas as pd
 from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
 from tax_modeler.pipeline import enrich_for_credits as _enrich_for_credits
 from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
 from tax_modeler.scenarios.top_income_synthesis import (
-    synthesize_top_filers, rescale_synthetic_tail_to_tax_target,
+    synthesize_top_filers, calibrate_synthetic_tail_to_tax_target,
     redistribute_mid_high_incomes,
 )
 from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
@@ -82,6 +88,44 @@ def _parse_args():
     return p.parse_args()
 
 
+def regime_systems(yr: int, get_scenario_system) -> tuple[TaxSystemConfig, TaxSystemConfig, TaxSystemConfig]:
+    """The three regimes for TY *yr*: (a) Act 46 frozen at TY2026, (b) frozen
+    2026 brackets + Act 46 TY-*yr* SDs, (c) the bill (CD{N} full)."""
+    cfg_a = TaxSystemRegistry.get_hb2306_orig_system(yr)  # frozen 2026
+    cfg_b = TaxSystemConfig(
+        name=f"frozen2026_brackets_act46_sds_{yr}",
+        year=yr,
+        bracket_year=2025,
+        standard_deduction_year=yr,
+        personal_exemption=TaxSystemRegistry.PERSONAL_EXEMPTIONS.get(2026, 1200),
+        description=f"Frozen 2026 brackets + Act46 TY{yr} SDs",
+    )
+    cfg_c = get_scenario_system(yr)                       # CD full
+    return cfg_a, cfg_b, cfg_c
+
+
+def score_regimes(projected: pd.DataFrame, yr: int, systems, calc):
+    """Per-unit net tax under each of *systems*, all on one TY-*yr* frame.
+
+    Returns ``(proj_target, taxes)``: the frame re-scored with TY-*yr*
+    itemized-deduction params, and one per-unit tax array per system.
+
+    Only statute may differ between regimes. The itemized amounts
+    (``hi_itemized_deduction``) are an economic input — the mortgage-interest
+    tiers scale with projected home values — so the frozen baseline reads the
+    same target-year amounts as the bill. Until September 2026 the frozen
+    regime was scored on a frame built with TY2026 params: TY-*yr* incomes
+    with TY2026 mortgage interest. In the CD2 run that put -$32.4M into the
+    TY2027 SD-expansion effect, which is exactly 0 by statute (Act 46's TY2027
+    SD equals its TY2026 SD), and -$346.3M into the 5-year total.
+    """
+    ded_params = scale_deduction_params_for_target_year(yr, geoid="15003")
+    proj_target = _compute_base_tax(
+        projected.copy(), tax_year=yr, deduction_params=ded_params,
+    )
+    return proj_target, tuple(per_unit_tax(proj_target, cfg, calc) for cfg in systems)
+
+
 def _bin_delta(inc, w, diffs):
     result = {}
     for label, (lo, hi) in INCOME_BINS.items():
@@ -113,10 +157,14 @@ def main(cd: str) -> None:
     units = _enrich_for_credits(units)
     units = impute_capital_gains_from_soi(units)
     # Re-score on the SAME deduction basis the base was calibrated under —
-    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3).
-    units = _compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-    units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-    units = _compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3). The
+    # tail is not aged to the PUMS dollar year (age_synthetic_tail):
+    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and
+    # replaces them with SOI tiers aged from TY2022, so its level is moot.
+    def score(u):
+        return _compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()
@@ -159,31 +207,10 @@ def main(cd: str) -> None:
         inc = projected["income"].to_numpy(dtype=float)
         w   = projected["weight"].to_numpy(dtype=float)
 
-        cfg_a = TaxSystemRegistry.get_hb2306_orig_system(yr)  # frozen 2026
-        cfg_c = get_scenario_system(yr)                        # CD full
-        from tax_modeler.config.tax_system_config import TaxSystemConfig
-        cfg_b = TaxSystemConfig(
-            name=f"frozen2026_brackets_act46_sds_{yr}",
-            year=yr,
-            bracket_year=2025,
-            standard_deduction_year=yr,
-            personal_exemption=TaxSystemRegistry.PERSONAL_EXEMPTIONS.get(2026, 1200),
-            description=f"Frozen 2026 brackets + Act46 TY{yr} SDs",
+        cfg_a, cfg_b, cfg_c = regime_systems(yr, get_scenario_system)
+        proj_target, (tax_a, tax_b, tax_c) = score_regimes(
+            projected, yr, (cfg_a, cfg_b, cfg_c), calc,
         )
-
-        ded_params_2026   = scale_deduction_params_for_target_year(2026, geoid="15003")
-        ded_params_target = scale_deduction_params_for_target_year(yr,   geoid="15003")
-
-        proj_frozen = _compute_base_tax(
-            projected.copy(), tax_year=2026, deduction_params=ded_params_2026,
-        )
-        proj_target = _compute_base_tax(
-            projected.copy(), tax_year=yr, deduction_params=ded_params_target,
-        )
-
-        tax_a = per_unit_tax(proj_frozen, cfg_a, calc)
-        tax_b = per_unit_tax(proj_target, cfg_b, calc)
-        tax_c = per_unit_tax(proj_target, cfg_c, calc)
 
         bracket_effect = (tax_c - tax_b) * w
         sd_effect      = (tax_b - tax_a) * w

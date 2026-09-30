@@ -65,6 +65,7 @@ from .projection import (
 )
 from .ensemble import combine_forecasts
 from .anchors import (
+    ANCHOR_CALIBRATION_HORIZON,
     AnchorRate,
     anchor_as_forecast,
     combined_anchor_rate,
@@ -144,6 +145,11 @@ def _project_anchor_only(
 
     Uses `train[-1].geoid` so county-level anchors read the right per-county
     series during back-test folds.
+
+    Every fold (all horizons) builds its SE with ANCHOR_CALIBRATION_HORIZON;
+    `project_ensemble_multi` passes the same constant, so the multi_anchor
+    κ / bias / conformal records fit here match the SE production applies
+    them to.
     """
     if not train:
         return None
@@ -151,6 +157,7 @@ def _project_anchor_only(
         indicator=indicator,
         end_year=anchor_year,
         calibration=per_source_rmse,
+        calibration_horizon=ANCHOR_CALIBRATION_HORIZON,
         geoid=train[-1].geoid,
     )
     if rate is None:

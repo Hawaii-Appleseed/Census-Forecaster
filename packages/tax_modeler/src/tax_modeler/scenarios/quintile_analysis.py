@@ -2,8 +2,9 @@
 Per-filer distributional analysis: Act 46 vs SB 3125 CD1.
 
 Computes bracket tax change and REEC credit savings impact per filer,
-bins into income quintiles (weight-cumulative, all filing statuses combined)
-and fixed income brackets, and returns summary DataFrames.
+bins into household-income quintiles (fifths of households by the PUMS
+household weight; dollar totals sum each filer's own weight x tax) and
+fixed income brackets, and returns summary DataFrames.
 
 Credit distribution methodology (attribute_credit_loss):
   A credit cut falls on the filers who claim the credit, not on everyone in
@@ -86,15 +87,18 @@ def per_unit_tax(
     Note on per-scenario itemization
     --------------------------------
     The SD-vs-itemize choice is computed per scenario via the ``max`` above
-    (correctly handling SD-changing bills). However, the underlying
+    (correctly handling SD-changing bills). The underlying
     ``hi_itemized_deduction`` *amount* is populated once during projection
-    using a single set of ``deduction_params`` (typically scaled to the
-    target year). For comparisons against frozen-law counterfactuals (e.g.
-    "Act 46 frozen at TY2026" baselines), callers should re-populate
-    ``hi_itemized_deduction`` per scenario with year-appropriate
-    ``scale_deduction_params_for_target_year(year)`` — frozen baselines use
-    TY2026 mortgage/SALT/charitable scales, projected scenarios use target-year
-    scales. See ``forecast_sb3125_cd1_vs_fy26base.py`` for the pattern.
+    from ``scale_deduction_params_for_target_year(target_year)``, and every
+    scenario compared in that year — frozen-law counterfactuals such as
+    "Act 46 frozen at TY2026" included — must be scored on that same frame.
+    The scaling only moves the mortgage-interest tiers with projected home
+    values: an economic input, not statute, so freezing a law does not freeze
+    it. Only the ``config`` (brackets, standard deduction, exemption) may
+    differ between the systems being compared. Scoring a frozen baseline on a
+    frame rebuilt with TY2026 params (TY-yr incomes, TY2026 mortgage
+    interest), as this note once advised, put about -$346M of spurious
+    SD-expansion cost into ``forecast_sb3125_vs_fy26base.py``'s CD2 table.
 
     If ``hi_itemized_deduction`` is missing (legacy data, pre-Act-46 backtests),
     falls back to scenario SD only; a NaN in it raises (see
@@ -293,35 +297,59 @@ def _change_shares(change: np.ndarray, loss: np.ndarray, q: np.ndarray, wts: np.
     return m, l_, 100.0 - m - l_
 
 
+# Tax units at or below this filer weight are left out of the distribution
+# tables: the survey's own $1M+ records, which the synthetic tail replaces and
+# which keep a weight of 0. Ranking and assignment use the same filter.
+_MIN_WEIGHT = 0.01
+
+
 def _household_income_table(tax_units: pd.DataFrame) -> pd.DataFrame:
     """Aggregate tax units to households (sum income per hh_id).
 
     Uses ``total_cash_income`` (ITEP-style TCI) when present, else falls
     back to ``income`` (AGI-like). TCI includes full Social Security,
     SSI, TANF, and imputed employer-side FICA, producing quintile
-    boundaries closer to ITEP's Who Pays? methodology.
+    boundaries closer to ITEP's Who Pays? methodology. Units with a filer
+    weight of ``_MIN_WEIGHT`` or less are left out, as
+    ``generate_quintile_report`` leaves them out.
 
     Returns a DataFrame indexed by hh_id with columns 'hh_income' and
-    'hh_weight' (taken as the first weight in the household — all tax
-    units within a household share the same PUMS household weight).
+    'hh_weight': the PUMS household weight (WGTP), which every tax unit of
+    a household shares. (The units' filer weights are raked one by one and
+    differ within most multi-unit households, so no one of them is the
+    household's weight.) Without an 'hh_weight' column the household's
+    first filer weight stands in.
     """
     if "hh_id" not in tax_units.columns:
         raise ValueError("tax_units missing 'hh_id' column required for household aggregation")
     income_col = "total_cash_income" if "total_cash_income" in tax_units.columns else "income"
-    g = tax_units[tax_units["weight"] > 0.01].groupby("hh_id", observed=True)
+    weight_col = "hh_weight" if "hh_weight" in tax_units.columns else "weight"
+    g = tax_units[tax_units["weight"] > _MIN_WEIGHT].groupby("hh_id", observed=True)
     return pd.DataFrame({
         "hh_income": g[income_col].sum(),
-        "hh_weight": g["weight"].first(),
+        "hh_weight": g[weight_col].first(),
     })
+
+
+def _household_breaks(hh: pd.DataFrame) -> np.ndarray:
+    """p20/p40/p60/p80 of 'hh_income' over households weighted by 'hh_weight'."""
+    hh = hh.sort_values("hh_income").reset_index(drop=True)
+    cum_w = hh["hh_weight"].cumsum() / hh["hh_weight"].sum()
+    breaks = []
+    for q in [0.20, 0.40, 0.60, 0.80]:
+        idx = (cum_w >= q).idxmax()
+        breaks.append(float(hh.loc[idx, "hh_income"]))
+    return np.array(breaks)
 
 
 def compute_quintile_breaks(tax_units: pd.DataFrame) -> np.ndarray:
     """Return the four household-income breakpoints (p20/p40/p60/p80).
 
-    Aggregates tax units to households (by hh_id), then computes weighted
-    quantiles on household income. This matches the ITEP/CTJ methodology
-    for state-level distributional analysis where multiple tax filers in
-    the same household are pooled before binning.
+    Aggregates tax units to households (by hh_id), then computes quantiles
+    of household income weighted by the PUMS household weight, so each
+    fifth holds a fifth of households. This matches the ITEP/CTJ
+    methodology for state-level distributional analysis where multiple tax
+    filers in the same household are pooled before binning.
 
     Use the 2026 base population to anchor quintile boundaries so they
     don't drift upward with projected income growth in later years.
@@ -330,13 +358,7 @@ def compute_quintile_breaks(tax_units: pd.DataFrame) -> np.ndarray:
     -------
     np.ndarray of shape (4,) — household-income thresholds at [p20, p40, p60, p80].
     """
-    hh = _household_income_table(tax_units).sort_values("hh_income").reset_index(drop=True)
-    cum_w = hh["hh_weight"].cumsum() / hh["hh_weight"].sum()
-    breaks = []
-    for q in [0.20, 0.40, 0.60, 0.80]:
-        idx = (cum_w >= q).idxmax()
-        breaks.append(float(hh.loc[idx, "hh_income"]))
-    return np.array(breaks)
+    return _household_breaks(_household_income_table(tax_units))
 
 
 # Hawaii Council on Revenues (COR) IIT projections, $M.
@@ -436,10 +458,11 @@ def generate_quintile_report(
         call the REEC distribution helper. If None, credit distribution
         is skipped and credit_change is set to 0.
     quintile_breaks:
-        Four AGI thresholds [p20, p40, p60, p80] from compute_quintile_breaks().
-        Pass the 2026 base-year breaks to anchor quintile boundaries across
-        all projection years. If None, breaks are computed from *projected*
-        (floating boundaries, not recommended for multi-year comparison).
+        Four household-income thresholds [p20, p40, p60, p80] from
+        compute_quintile_breaks(). Pass the 2026 base-year breaks to anchor
+        quintile boundaries across all projection years. If None, breaks are
+        computed from *projected* (floating boundaries, not recommended for
+        multi-year comparison).
     cor_scale_factor:
         If provided, output adds COR-scaled columns (``*_cor_$M``,
         ``avg_*_cor``, ``avg_per_hh_*_cor``). Use this when the report
@@ -459,6 +482,12 @@ def generate_quintile_report(
         quintile_df — 5-row quintile summary
         bracket_df  — income bracket breakdown
         perunit_df  — full per-filer detail
+
+    Quintiles are fifths of households: households are ranked on their
+    summed income and counted with the PUMS household weight (WGTP). Dollar
+    totals are sums over tax units of each unit's filer weight times its
+    tax, so the quintiles add up to the fiscal totals; per-household
+    averages divide them by the quintile's WGTP households.
     """
     # ── Per-unit bracket tax under both systems ───────────────────────────────
     act46_net = per_unit_tax(projected, baseline_cfg, calc)
@@ -468,11 +497,15 @@ def generate_quintile_report(
     # unit inherits its household's total income for the purpose of binning,
     # while tax/credit metrics remain per-unit.
     # Use TCI if available (includes full SSP, SSI, PAP, employer FICA).
+    # Summed over the units the tables keep, as compute_quintile_breaks sums
+    # it: a replaced $1M+ survey record must not move its household up.
     _hh_income_col = "total_cash_income" if "total_cash_income" in projected.columns else "income"
+    kept_income = projected[_hh_income_col].where(
+        projected["weight"].to_numpy(dtype=float) > _MIN_WEIGHT, 0.0)
     if "hh_id" in projected.columns:
-        hh_totals = projected.groupby("hh_id", observed=True)[_hh_income_col].transform("sum")
+        hh_totals = kept_income.groupby(projected["hh_id"], observed=True).transform("sum")
     else:
-        hh_totals = projected[_hh_income_col].copy()
+        hh_totals = kept_income
 
     pu = pd.DataFrame({
         "agi":            projected["income"].values,
@@ -508,35 +541,29 @@ def generate_quintile_report(
         pu["claim_prob"] = q_arr
 
     pu["total_change"] = pu["bracket_change"] + pu["credit_loss"]
-    pu = pu[pu["weight"] > 0.01].copy()
+    pu = pu[pu["weight"] > _MIN_WEIGHT].copy()
 
     # ── Quintile assignment (binned on HOUSEHOLD income, ITEP-style) ──────────
     pu_sorted = pu.sort_values("hh_income").reset_index(drop=True)
     q_labels = ["Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)"]
-    if quintile_breaks is not None:
-        # Anchor to 2026 household-income boundaries so quintile membership
-        # reflects where a household stood in the base-year distribution,
-        # not the projected year. All tax units in the same household share
-        # the same quintile assignment.
-        p20, p40, p60, p80 = quintile_breaks
-        hh_arr = pu_sorted["hh_income"].to_numpy()
-        q_codes = np.where(
-            hh_arr < p20, 0,
-            np.where(hh_arr < p40, 1,
-            np.where(hh_arr < p60, 2,
-            np.where(hh_arr < p80, 3, 4)))
-        )
-        pu_sorted["quintile"] = pd.Categorical.from_codes(q_codes, categories=q_labels, ordered=True)
-    else:
-        # Floating boundaries — derived from household-summed weights.
-        # Households are weighted once (not by tax-unit count) for cumulative
-        # share, then each tax unit inherits its household's quintile.
-        hh_first = pu_sorted.groupby("hh_income", as_index=False).first() if False else pu_sorted
-        cum_w = hh_first["weight"].cumsum() / hh_first["weight"].sum()
-        pu_sorted["quintile"] = pd.cut(
-            cum_w, bins=[0.0, 0.20, 0.40, 0.60, 0.80, 1.01],
-            labels=q_labels, include_lowest=True,
-        )
+    if quintile_breaks is None:
+        # Floating boundaries: this frame's own fifths of households,
+        # each household counted once with its household weight.
+        quintile_breaks = _household_breaks(
+            pu_sorted.groupby("hh_id", observed=True)[["hh_income", "hh_weight"]].first())
+    # With the 2026 base-year breaks, quintile membership reflects where a
+    # household stood in the base-year distribution, not the projected
+    # year. All tax units in the same household share the same quintile
+    # assignment.
+    p20, p40, p60, p80 = quintile_breaks
+    hh_arr = pu_sorted["hh_income"].to_numpy()
+    q_codes = np.where(
+        hh_arr < p20, 0,
+        np.where(hh_arr < p40, 1,
+        np.where(hh_arr < p60, 2,
+        np.where(hh_arr < p80, 3, 4)))
+    )
+    pu_sorted["quintile"] = pd.Categorical.from_codes(q_codes, categories=q_labels, ordered=True)
 
     # ── Income bracket assignment ─────────────────────────────────────────────
     hi_breaks = [float("-inf"), 10_000, 30_000, 60_000, 100_000,
@@ -558,25 +585,29 @@ def generate_quintile_report(
     pu_sorted["log_no_claim"] = np.log1p(-pu_sorted["claim_prob"].clip(upper=1 - 1e-12))
 
     # ── Household-level DataFrame (one row per household) ─────────────────────
-    # Sum tax changes across all filers in the same household; take the
-    # household's quintile and weights from the first filer (shared within HH).
-    # Two weights are tracked:
-    #   weight    — IPF-raked filer weight, calibrated to DOTAX → used for $M totals
-    #   hh_weight — PUMS WGTP, representative of ACS household universe → denominator
+    # A household's quintile, income and household weight are shared by its
+    # units. Two weights, for different things:
+    #   weight    — the IPF-raked filer weight, calibrated to DOTAX. It
+    #               differs between the units of most multi-unit households,
+    #               so each unit's tax is weighted by its own filer weight
+    #               before the household sums it (the *_w columns): the $M
+    #               totals are sum(weight x tax), the fiscal totals.
+    #   hh_weight — PUMS WGTP, the same for every unit of a household →
+    #               household counts, per-household denominators and shares.
+    # The household's unweighted summed change decides whether it pays more.
+    money = ["act46_tax", "cd1_tax", "bracket_change", "credit_loss", "total_change"]
     hh_pu = (
         pu_sorted
+        .assign(**{f"{c}_w": pu_sorted[c] * pu_sorted["weight"] for c in money})
         .groupby("hh_id", observed=True)
         .agg(
             quintile=("quintile", "first"),
             hh_income=("hh_income", "first"),
-            weight=("weight", "first"),
             hh_weight=("hh_weight", "first"),
-            act46_tax=("act46_tax", "sum"),
-            cd1_tax=("cd1_tax", "sum"),
             bracket_change=("bracket_change", "sum"),
             credit_loss=("credit_loss", "sum"),
-            total_change=("total_change", "sum"),
             log_no_claim=("log_no_claim", "sum"),
+            **{f"{c}_w": (f"{c}_w", "sum") for c in money},
         )
         .reset_index()
     )
@@ -586,34 +617,32 @@ def generate_quintile_report(
     def _hh_agg(g):
         """Quintile aggregation at the household level.
 
-        fw (filer weight) drives $M totals — calibrated to DOTAX.
-        hw (household weight, WGTP) drives counts and per-HH averages —
-        representative of the full ACS household universe including
-        non-filing households that appear in PUMS but produce no tax units.
+        $M totals: filer weight x tax, summed over the quintile's tax units
+        (calibrated to DOTAX; they add up to the fiscal totals).
+        hw (household weight, WGTP) drives household counts, per-household
+        averages and the shares of households paying more or less.
         """
-        fw = g["weight"]     # calibrated filer weight → revenue totals
         hw = g["hh_weight"]  # PUMS WGTP → household counts / per-HH averages
         hw_sum = hw.sum()
-        fw_sum = fw.sum()
+        claimants = (hw * g["claim_prob"]).sum()
         return pd.Series({
             "household_count":           hw_sum,
-            "avg_per_hh_act46_tax":      (g["act46_tax"] * fw).sum() / hw_sum,
-            "avg_per_hh_cd1_tax":        (g["cd1_tax"] * fw).sum() / hw_sum,
-            "avg_per_hh_bracket_change": (g["bracket_change"] * fw).sum() / hw_sum,
-            "avg_per_hh_credit_loss":    (g["credit_loss"] * fw).sum() / hw_sum,
-            "avg_per_hh_total_change":   (g["total_change"] * fw).sum() / hw_sum,
-            "total_act46_$M":            (g["act46_tax"] * fw).sum() / 1e6,
-            "total_cd1_$M":              (g["cd1_tax"] * fw).sum() / 1e6,
-            "total_bracket_$M":          (g["bracket_change"] * fw).sum() / 1e6,
-            "total_credit_loss_$M":      (g["credit_loss"] * fw).sum() / 1e6,
-            "total_change_$M":           (g["total_change"] * fw).sum() / 1e6,
+            "avg_per_hh_act46_tax":      g["act46_tax_w"].sum() / hw_sum,
+            "avg_per_hh_cd1_tax":        g["cd1_tax_w"].sum() / hw_sum,
+            "avg_per_hh_bracket_change": g["bracket_change_w"].sum() / hw_sum,
+            "avg_per_hh_credit_loss":    g["credit_loss_w"].sum() / hw_sum,
+            "avg_per_hh_total_change":   g["total_change_w"].sum() / hw_sum,
+            "total_act46_$M":            g["act46_tax_w"].sum() / 1e6,
+            "total_cd1_$M":              g["cd1_tax_w"].sum() / 1e6,
+            "total_bracket_$M":          g["bracket_change_w"].sum() / 1e6,
+            "total_credit_loss_$M":      g["credit_loss_w"].sum() / 1e6,
+            "total_change_$M":           g["total_change_w"].sum() / 1e6,
             **dict(zip(("pct_pay_more", "pct_pay_less", "pct_no_change"), _change_shares(
                 g["bracket_change"].to_numpy(), g["credit_loss"].to_numpy(),
                 g["claim_prob"].to_numpy(), hw.to_numpy(), no_change_tolerance), strict=True)),
-            "pct_credit_claimant":       (hw * g["claim_prob"]).sum() / hw_sum * 100,
+            "pct_credit_claimant":       claimants / hw_sum * 100,
             "avg_credit_loss_per_claimant": (
-                (g["credit_loss"] * fw).sum() / (hw * g["claim_prob"]).sum()
-                if (hw * g["claim_prob"]).sum() > 0 else 0.0),
+                g["credit_loss_w"].sum() / claimants if claimants > 0 else 0.0),
         })
 
     def _agg(g):

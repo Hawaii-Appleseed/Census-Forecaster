@@ -7,7 +7,10 @@ US baseline — historically ~14-18% higher for renters.
 
 This module ships an approximate lookup table for the most recent
 publication years and a function that interpolates by household
-composition. Replace the table with a CSV import (and read it via
+composition. Years past the table raise unless the caller passes
+``extrapolate=True``, which indexes the latest tabled year forward by the
+same CPI assumption used for projected-year credit parameters. Replace the
+table with a CSV import (and read it via
 ``state_config.HAWAII.spm_thresholds_csv``) when production-grade
 analysis is needed; the API contract here will not change.
 
@@ -63,6 +66,36 @@ _TENURE_BASE_SCALE: dict[Tenure, float] = {
     "owner_with_mortgage": 1.00,
     "owner_no_mortgage": 0.84,
 }
+
+
+def _base_threshold_2a2c_renter(year: int, *, extrapolate: bool = False) -> float:
+    """Contiguous-US 2A2C renter base threshold for ``year``.
+
+    Tabled years return the table value. With ``extrapolate=True``, a year
+    past the last tabled year indexes that year's value forward by
+    ``CREDIT_PARAM_CPI_GROWTH``/yr, compounded: the chained-CPI assumption
+    the projector and ``compute_base_tax`` use to extrapolate federal credit
+    and bracket parameters past the last Rev. Proc., so a projected-year
+    poverty run prices its threshold in the same dollars as its credits.
+    The published SPM thresholds have grown faster than chained CPI
+    (TY2022-2024: +4.8%/yr), so the extrapolated threshold is if anything
+    low. Anything else raises ``ConfigError``; nothing extrapolates unless
+    the caller asks.
+    """
+    if year in _BASE_THRESHOLD_2A2C_RENTER:
+        return float(_BASE_THRESHOLD_2A2C_RENTER[year])
+    last = max(_BASE_THRESHOLD_2A2C_RENTER)
+    if extrapolate and year > last:
+        from tax_modeler.credits.eitc import CREDIT_PARAM_CPI_GROWTH
+
+        return float(
+            _BASE_THRESHOLD_2A2C_RENTER[last] * (1.0 + CREDIT_PARAM_CPI_GROWTH) ** (year - last)
+        )
+    raise ConfigError(
+        f"No Hawaii SPM threshold available for year={year}"
+        + ("" if extrapolate else " (pass extrapolate=True for later years)"),
+        available=sorted(_BASE_THRESHOLD_2A2C_RENTER),
+    )
 
 
 def _hawaii_geo_multiplier(tenure: Tenure) -> float:
@@ -128,6 +161,7 @@ def threshold_for_units(
     tenure_col: str = "tenure",
     n_adults_col: str = "n_adults",
     n_children_col: str = "n_children",
+    extrapolate: bool = False,
 ):
     """Vectorized per-row SPM threshold lookup using composition + tenure.
 
@@ -147,6 +181,9 @@ def threshold_for_units(
 
     Falls back to ``"renter"`` when ``tenure`` is missing — the most
     conservative assumption (renter thresholds are highest).
+
+    ``extrapolate`` is passed to :func:`hawaii_spm_threshold`: off by
+    default, so a year past the table raises.
     """
     import numpy as np
     import pandas as pd
@@ -173,6 +210,7 @@ def threshold_for_units(
             n_adults=int(n_adults[i]),
             n_children=int(n_children[i]),
             tenure=ten,  # type: ignore[arg-type]
+            extrapolate=extrapolate,
         )
     return pd.Series(out, index=units.index)
 
@@ -183,6 +221,7 @@ def hawaii_spm_threshold(
     n_adults: int = 2,
     n_children: int = 2,
     tenure: Tenure = "renter",
+    extrapolate: bool = False,
 ) -> float:
     """Approximate Hawaii SPM threshold for a household of the given composition.
 
@@ -192,25 +231,26 @@ def hawaii_spm_threshold(
     Parameters
     ----------
     year:
-        Calendar year. Must be in the available table.
+        Calendar year. Must be in the available table unless
+        ``extrapolate`` is set.
     n_adults, n_children:
         Household composition. Defaults match the Census base reference
         unit (2 adults + 2 children) so calling with no args returns the
         published two-adult-two-child threshold.
     tenure:
         ``"renter"``, ``"owner_with_mortgage"``, or ``"owner_no_mortgage"``.
+    extrapolate:
+        For a year past the table, index the latest tabled year forward by
+        the credit-parameter CPI assumption (see
+        :func:`_base_threshold_2a2c_renter`) instead of raising. Off by
+        default.
     """
-    if year not in _BASE_THRESHOLD_2A2C_RENTER:
-        raise ConfigError(
-            f"No Hawaii SPM threshold available for year={year}",
-            available=sorted(_BASE_THRESHOLD_2A2C_RENTER),
-        )
+    base = _base_threshold_2a2c_renter(year, extrapolate=extrapolate)
     if tenure not in _TENURE_BASE_SCALE:
         raise ConfigError(
             f"Unknown tenure={tenure!r}",
             available=sorted(_TENURE_BASE_SCALE),
         )
-    base = _BASE_THRESHOLD_2A2C_RENTER[year]
     # Census applies the geographic multiplier per-tenure (housing-share
     # weighted) — not the flat constant the previous implementation used.
     geo_adj = _hawaii_geo_multiplier(tenure)
@@ -222,7 +262,9 @@ def hawaii_spm_threshold(
     )
 
 
-def spm_threshold_table(year: int) -> dict[tuple[int, int, Tenure], float]:
+def spm_threshold_table(
+    year: int, *, extrapolate: bool = False,
+) -> dict[tuple[int, int, Tenure], float]:
     """Pre-computed (n_adults, n_children, tenure) → threshold dict for vectorized lookup.
 
     Useful when assigning thresholds to a unit DataFrame:
@@ -237,6 +279,7 @@ def spm_threshold_table(year: int) -> dict[tuple[int, int, Tenure], float]:
         for n_children in range(0, 7):
             for tenure in ("renter", "owner_with_mortgage", "owner_no_mortgage"):
                 out[(n_adults, n_children, tenure)] = hawaii_spm_threshold(
-                    year, n_adults=n_adults, n_children=n_children, tenure=tenure  # type: ignore[arg-type]
+                    year, n_adults=n_adults, n_children=n_children, tenure=tenure,  # type: ignore[arg-type]
+                    extrapolate=extrapolate,
                 )
     return out

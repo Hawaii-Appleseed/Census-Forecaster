@@ -9,8 +9,10 @@ Why this script exists
 at TY2026**. That baseline already banks Act 46's first two phase-in steps:
 the standard deduction has already gone $4,400 -> $8,800 (TY2024) -> $16,000
 (TY2026) for joint filers, and the TY2025 bracket vintage is already in
-force. So its "total cost" (-$1.85B over 2027-2031) is *not* the cost of
-Hawaii's income tax cuts — it is only the slice still in the future as of
+force. So its "total cost" (about -$1.4B over 2027-2031 since its frozen
+baseline has been scored on target-year itemized deductions, September 29,
+2026; -$1.85B and later -$1.78B were published before that) is *not* the
+cost of Hawaii's income tax cuts — it is only the slice still in the future as of
 2026.
 
 ITEP's widely-cited ~$1.2-1.4B/yr figure for Act 46 is measured against
@@ -41,8 +43,10 @@ year. Until September 28, 2026 this script built its own population
 `forecast_sb3125_vs_fy26base.py` still does), on which C ran about 70% above
 the page's figure for the same comparison.
 
-So the ``memo_vs_frozen_2026`` column no longer reproduces that script's
-published vs-frozen table, which is still computed on the other population.
+Both scripts score the frozen baseline on the target year's itemized
+deductions (that script used TY2026 deduction scales until September 29,
+2026, a defect), so the ``memo_vs_frozen_2026`` column differs from its
+vs-frozen table only through the population and gains base.
 
 Capital gains
 -------------
@@ -110,8 +114,8 @@ def main() -> None:
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
 
-    units, tail_k = build_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
-                                cal_tax_year=cal_tax_year)
+    units, tail_k = build_units(base, alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM,
+                                ded_params=cal_ded_params, cal_tax_year=cal_tax_year)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     page = pd.read_csv(ENHANCED) if ENHANCED.exists() else None

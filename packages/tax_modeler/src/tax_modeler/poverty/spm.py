@@ -33,6 +33,12 @@ _EMPLOYEE_FICA_RATE = 0.0765
 # callers know which path fired.
 _FEDERAL_FALLBACK_EFFECTIVE_RATE = 0.10
 
+# Money income aged to the target year, written by
+# ``project_tax_units_forward``. ``total_cash_income`` stays in base-year
+# dollars on projected frames (quintile binning ranks on it), so the SPM
+# resource sum reads this column whenever a frame carries it.
+AGED_MONEY_INCOME_COL = "spm_money_income"
+
 
 @dataclass(frozen=True)
 class SPMResourceMeta:
@@ -52,7 +58,7 @@ class SPMResourceMeta:
 def compute_spm_resources(
     units: pd.DataFrame,
     *,
-    money_income_col: str = "total_cash_income",
+    money_income_col: Optional[str] = None,
     state_tax_col: str = "hi_tax_liability",
     eitc_col: str = "eitc_amount",
     refundable_ctc_col: str = "ctc_refundable",
@@ -77,6 +83,7 @@ def compute_spm_resources(
     # behavior knobs
     federal_tax_fallback: bool = True,
     tax_year: Optional[int] = None,
+    extrapolate: bool = False,
     filing_status_col: str = "filing_status",
     earned_income_col: str = "earned_income",
     out_col: str = "spm_resources",
@@ -97,6 +104,20 @@ def compute_spm_resources(
     estimate if the column isn't supplied (since ``tax_modeler`` is
     Hawaii-focused and doesn't compute federal liability natively).
 
+    ``money_income_col`` defaults to ``spm_money_income`` when the frame
+    carries it (a projected frame: money income aged to the target year by
+    :func:`~tax_modeler.projection.tax_unit_projector.project_tax_units_forward`)
+    and to ``total_cash_income`` otherwise. On a projected frame
+    ``total_cash_income`` is still in base-year dollars while the credits and
+    taxes are target-year amounts on aged incomes, so mixing the two
+    understated resources.
+
+    ``extrapolate`` lets the federal-tax fallback score a ``tax_year`` past
+    the last published Rev. Proc. (CPI-extrapolated parameters) instead of
+    dropping to the flat-rate estimate. Off by default, like the threshold
+    extrapolation in :func:`~tax_modeler.poverty.impact.compute_poverty_impact`,
+    which passes the same flag here.
+
     Returns
     -------
     (units_out, meta):
@@ -105,6 +126,11 @@ def compute_spm_resources(
         amounts that fed into the calculation (for audit). ``meta`` is
         a :class:`SPMResourceMeta` with the provenance.
     """
+    if money_income_col is None:
+        money_income_col = (
+            AGED_MONEY_INCOME_COL if AGED_MONEY_INCOME_COL in units.columns
+            else "total_cash_income"
+        )
     if money_income_col not in units.columns:
         raise DataValidationError(
             f"compute_spm_resources requires {money_income_col!r}; "
@@ -187,6 +213,7 @@ def compute_spm_resources(
                 # assistance and full Social Security overstated tax.
                 income_col="federal_agi" if "federal_agi" in df.columns else money_income_col,
                 filing_status_col=filing_status_col,
+                extrapolate=extrapolate,
             )
             federal_tax = df_fed["federal_tax_liability"].fillna(0).to_numpy(
                 dtype=float,
@@ -344,6 +371,11 @@ def compute_spm_resources(
     df[out_col] = resources
 
     notes: list[str] = []
+    if money_income_col == AGED_MONEY_INCOME_COL:
+        notes.append(
+            f"money income from {AGED_MONEY_INCOME_COL!r}: total_cash_income "
+            "aged to the projection year with the tax inputs."
+        )
     if federal_source == "fallback_rate":
         notes.append(
             f"federal_tax estimated as {_FEDERAL_FALLBACK_EFFECTIVE_RATE:.0%} of "

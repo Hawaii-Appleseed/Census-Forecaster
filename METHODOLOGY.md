@@ -129,6 +129,28 @@ component (`trend_ensemble`, `multi_anchor`) — the v3 calibration
 records are keyed by component method, not by the blended
 `ensemble_multi_anchor` label.
 
+**Anchor SE convention (fold/production parity).** `combined_anchor_rate`
+turns each source's calibration RMSE into a per-year log-rate SE as
+`rmse / ANCHOR_CALIBRATION_HORIZON` (= 2, `acs/anchors.py`), and
+`anchor_as_forecast` scales that by the real horizon `h`, so the pre-κ
+`multi_anchor` SE grows as `h·rmse/2`. The divisor describes the
+calibration, not the forecast: every fold (`calibration._project_anchor_only`)
+and the production consumer (`ensemble.project_ensemble_multi`) pass the
+same constant at every `h`, because the `multi_anchor` κ / bias / conformal
+records were fit on SEs built that way. The per-source RMSE is pooled over
+h=1..5, so 2 is a nominal scale the per-h-bucket κ absorbs; changing it
+means regenerating `data/anchors/calibration.json`. From `3a1e744` (April
+2026) until 2026-09-29 production divided by the target `h` instead, so its
+pre-κ SE was ≈ `rmse` at every horizon — about 2× the fold SE at h=1 and
+0.4–0.8× at h=3–5 — and anchored-indicator intervals were too wide at h=1
+and too narrow at long horizons. Pooled blend CI90 coverage on the six
+rate-anchored indicators (`use_ml=False`, anchors 2017–2019, inside the κ
+tuning window) went from 95.9 / 93.0 / 82.3 / 86.3 / 82.8% at h=1..5 to
+88.7 / 93.0 / 86.4 / 92.4 / 91.8%. Rate-blend points do not move (fixed
+macro weight); S1701 points move slightly through the inverse-variance
+fusion with the SAIPE level anchor. The Kalman member keeps its own
+convention (`calibration_horizon=1`) and is calibrated separately.
+
 ### 5. Fallback chain
 
 The lookup for both `b` and κ walks four levels. At each level, a
@@ -230,7 +252,10 @@ Key patterns:
   long-horizon, small-county cells (heterogeneous rent dynamics nationwide).
 - **Multi-anchor CIs are inherently conservative** — bisection correctly
   deflates κ below 1.0 for income/rent/home-value multi_anchor cells.
-  The model's blended uncertainty already exceeds actual error.
+  The model's blended uncertainty already exceeds actual error. (This
+  describes the calibration folds. Until 2026-09-29 the production
+  consumer built a different pre-κ SE — see §4, *Anchor SE convention* —
+  so shipped multi_anchor intervals were not conservative at h≥3.)
 - **Educational attainment is stable** — κ < 1 on some cells; near-zero
   bias; series is well-specified by the trend model alone.
 - **Unemployment is under-covered at 79.7%.** This is a known model
@@ -1069,7 +1094,8 @@ quantities), the pipeline rolls them up to SPM-unit granularity
 before threshold comparison:
 
 * **Sum across tax units in the same SPM unit**: every SPM-resource
-  component — `total_cash_income`, `eitc_amount`, `ctc_refundable`,
+  component — `total_cash_income` (and `spm_money_income` on projected
+  frames), `eitc_amount`, `ctc_refundable`,
   `hi_eitc_amount`, all benefit imputations (SNAP, housing subsidy,
   WIC, LIHEAP, CCSP, school lunch), all tax liabilities (federal,
   state, payroll), MOOP, childcare expense, work expense, RxKids
@@ -1089,6 +1115,35 @@ before threshold comparison:
   persons hits the ACS person count (~1.3M for Hawaii) directly.
 
 Implementation: `tax_modeler.poverty.spm_aggregation.aggregate_to_spm_units`.
+
+### Projected-year SPM poverty (money income and thresholds)
+
+`project_tax_units_forward` leaves `total_cash_income` (TCI) in base-year
+(2024) dollars, because Act 24 quintile binning ranks households on it. It
+also writes `spm_money_income`: TCI plus the dollars the projector's aging
+added. On the county and BLS paths that is `income − income_base_year`; on
+the CBO path it is the sum over components of aged minus base amounts, which
+leaves out the gap between the component decomposition and base `income`
+(full Social Security, SSI and public assistance). `compute_spm_resources`
+reads `spm_money_income` whenever a frame has it, so money income is in the
+same dollars as the credits and taxes it is combined with (target-year
+amounts on aged incomes). Until 2026-09-29 it read the unaged TCI, which put
+2024-dollar money income against TY2028 taxes and credits and overstated the
+working-family-credits poverty effect about threefold. Left in base-year
+dollars: imputed employer FICA, and on the county/BLS paths the untaxed 15%
+of Social Security, SSI and public assistance.
+
+SPM thresholds past the table (last year 2025, itself a projection) raise
+unless the caller opts in with `extrapolate=True`
+(`compute_poverty_impact(extrapolate_thresholds=True)`), which indexes the
+2025 base forward at `CREDIT_PARAM_CPI_GROWTH` (2.1%/yr chained CPI), the
+rate used for federal credit and bracket parameters past the last Rev. Proc.
+The same flag lets `compute_spm_resources`' federal-tax fallback extrapolate
+its parameters rather than drop to the flat-rate estimate. Published SPM
+thresholds grew 4.8%/yr over 2022–2024, so the extrapolated line is if
+anything low; the count of people crossing it is sensitive to that choice
+(a few heavily weighted SPM units sit near the line), while the poverty gap
+moves smoothly.
 
 ### Threshold lookup
 
@@ -1662,11 +1717,34 @@ limitation notes are added once rather than duplicated. Pinned by
 `tests/census_forecaster/test_macro_monthly_merge.py`. The two lost
 series were restored from `12f8415` and re-fetched.
 
-Not affected: `RRVRUSQ156N` / `RHORUSQ156N` (HVS vacancy and
-homeownership) are **quarterly**, and `_SCREEN_CADENCES` deliberately
-excludes quarterly from `macro_monthly.json` — they live in
-`national_macro.json` as annual feature-channel inputs and were never
-part of this file.
+Not affected *in this file*: `RRVRUSQ156N` / `RHORUSQ156N` (HVS vacancy
+and homeownership) are **quarterly**, and `_SCREEN_CADENCES` deliberately
+keeps quarterly series out of `macro_monthly.json`. They were **not** safe
+elsewhere, and the claim first written here — that they "were always intact
+in `national_macro.json`" — was false. `refresh_national_macro.main()` had
+the same replace-not-merge defect in its own write: it started from an empty
+dict and wrote only what fetched, never reading the committed file. The
+2026-08-06 run (`a1e378c`) therefore deleted all four FRED series
+(`mortgage30`, `dgs10`, `rental_vacancy`, `homeownership`) from
+`national_macro.json`; `ef96a9f` restored the data by hand without fixing the
+script, and the 2026-09-23 refresh (`587d3e3`) deleted them again. That left
+7 of the 22 `natl_*` ML feature columns all-NaN, and the 2026-09-24
+`calibration.json` was fitted without them. The script's "keeping previous"
+warning was false, and `test_bundled_national_macro_loads` checked
+`set(data) <= names`, so it accepted the loss.
+
+Fixed 2026-09-29: `main()` seeds every registry series from the committed
+file and each successful fetch overwrites only its own series; a failed or
+zero-row fetch warns and keeps the previous values, and a final `::warning`
+names every series carried over unrefreshed. The file gains a per-series
+`series_fetch_date`, so staleness shows in the committed data, not only in
+CI logs. The write is refused only if the merged result would be empty. The
+four series were re-fetched from FRED on 2026-09-29 (history identical to the
+`ef96a9f` values; only the partial-2026 means moved), the bundled-file test
+now requires the file's series to equal `NATIONAL_SERIES`, and the merge is
+pinned by `tests/census_forecaster/test_refresh_national_macro.py`.
+`calibration.json` was regenerated on 2026-09-29 with all 22 columns
+populated.
 
 ### Hawaii indicator intake, round 3 (2026-08-06)
 

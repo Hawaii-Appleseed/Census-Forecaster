@@ -1,6 +1,6 @@
 {
- "web_format_version": 2,
- "model_version": "2026-09-28+0c65205fae",
+ "web_format_version": 3,
+ "model_version": "2026-09-30+cbaf772bd4",
  "years": [
   2027,
   2028,
@@ -102,7 +102,7 @@
      1.3799924819585399,
      2.8200329717155443,
      2.0053037880719824,
-     0.8537003578639066
+     0.7950039058107164
     ],
     "2028": [
      0.0,
@@ -111,7 +111,7 @@
      1.4024204092590489,
      2.82413323530307,
      2.114565628393798,
-     0.8552492640432314
+     0.7967421606032311
     ],
     "2029": [
      0.0,
@@ -120,7 +120,7 @@
      1.4308221015120037,
      2.8927221008805915,
      2.220684301537277,
-     0.8588053763296228
+     0.8002357554196203
     ],
     "2030": [
      0.0,
@@ -129,7 +129,7 @@
      1.4506046760146585,
      2.935890557842515,
      2.3620534017142325,
-     0.8604514880488572
+     0.8020863996891492
     ],
     "2031": [
      0.0,
@@ -138,7 +138,7 @@
      1.4830267503248113,
      3.003024146928786,
      2.5546129184552293,
-     0.8632701715417079
+     0.8050177985512061
     ]
    },
    "mid": {
@@ -149,7 +149,7 @@
      1.3799924819585399,
      2.8200329717155443,
      2.0053037880719824,
-     0.8537003578639066
+     0.7950039058107164
     ],
     "2028": [
      0.0,
@@ -158,7 +158,7 @@
      1.4024204092590489,
      2.82413323530307,
      2.114565628393798,
-     0.8552492640432314
+     0.7967421606032311
     ],
     "2029": [
      0.0,
@@ -167,7 +167,7 @@
      1.4308221015120037,
      2.8927221008805915,
      2.220684301537277,
-     0.8588053763296228
+     0.8002357554196203
     ],
     "2030": [
      0.0,
@@ -176,7 +176,7 @@
      1.4506046760146585,
      2.935890557842515,
      2.3620534017142325,
-     0.8604514880488572
+     0.8020863996891492
     ],
     "2031": [
      0.0,
@@ -185,7 +185,7 @@
      1.4830267503248113,
      3.003024146928786,
      2.5546129184552293,
-     0.8632701715417079
+     0.8050177985512061
     ]
    },
    "high": {
@@ -196,7 +196,7 @@
      1.3799924819585399,
      2.8200329717155443,
      2.0053037880719824,
-     0.8537003578639066
+     0.7950039058107164
     ],
     "2028": [
      0.0,
@@ -205,7 +205,7 @@
      1.4024204092590489,
      2.82413323530307,
      2.114565628393798,
-     0.8552492640432314
+     0.7967421606032311
     ],
     "2029": [
      0.0,
@@ -214,7 +214,7 @@
      1.4308221015120037,
      2.8927221008805915,
      2.220684301537277,
-     0.8588053763296228
+     0.8002357554196203
     ],
     "2030": [
      0.0,
@@ -223,7 +223,7 @@
      1.4506046760146585,
      2.935890557842515,
      2.3620534017142325,
-     0.8604514880488572
+     0.8020863996891492
     ],
     "2031": [
      0.0,
@@ -232,7 +232,7 @@
      1.4830267503248113,
      3.003024146928786,
      2.5546129184552293,
-     0.8632701715417079
+     0.8050177985512061
     ]
    }
   }
@@ -2557,8 +2557,8 @@
   }
  },
  "provenance": {
-  "created_at": "2026-09-28T18:02:11+00:00",
-  "git_sha": "75df88b",
+  "created_at": "2026-09-30T03:01:44+00:00",
+  "git_sha": "9dd0b5e",
   "n_units": 39990,
   "tax_year": 2023,
   "params_fingerprint": "ab6b63a25f3fa23b",
@@ -2614,436 +2614,430 @@
    "offset": 1083200
   },
   {
-   "name": "hhfw",
-   "dtype": "f8",
-   "length": 25361,
-   "offset": 1108568
-  },
-  {
    "name": "agi_2027",
    "dtype": "f8",
    "length": 40014,
-   "offset": 1311456
+   "offset": 1108568
   },
   {
    "name": "item_2027",
    "dtype": "f8",
    "length": 40014,
-   "offset": 1631568
+   "offset": 1428680
   },
   {
    "name": "cgcls_2027",
    "dtype": "u1",
    "length": 40014,
-   "offset": 1951680
+   "offset": 1748792
   },
   {
    "name": "ovr_low_2027_idx",
    "dtype": "u4",
    "length": 682,
-   "offset": 1991696
+   "offset": 1788808
   },
   {
    "name": "ovr_low_2027_agi",
    "dtype": "f8",
    "length": 682,
-   "offset": 1994424
+   "offset": 1791536
   },
   {
    "name": "ovr_low_2027_item",
    "dtype": "f8",
    "length": 682,
-   "offset": 1999880
+   "offset": 1796992
   },
   {
    "name": "cgcls_low_2027_idx",
    "dtype": "u4",
    "length": 6,
-   "offset": 2005336
+   "offset": 1802448
   },
   {
    "name": "cgcls_low_2027_val",
    "dtype": "u1",
    "length": 6,
-   "offset": 2005360
+   "offset": 1802472
   },
   {
    "name": "ovr_high_2027_idx",
    "dtype": "u4",
    "length": 682,
-   "offset": 2005368
+   "offset": 1802480
   },
   {
    "name": "ovr_high_2027_agi",
    "dtype": "f8",
    "length": 682,
-   "offset": 2008096
+   "offset": 1805208
   },
   {
    "name": "ovr_high_2027_item",
    "dtype": "f8",
    "length": 682,
-   "offset": 2013552
+   "offset": 1810664
   },
   {
    "name": "cgcls_high_2027_idx",
    "dtype": "u4",
    "length": 10,
-   "offset": 2019008
+   "offset": 1816120
   },
   {
    "name": "cgcls_high_2027_val",
    "dtype": "u1",
    "length": 10,
-   "offset": 2019048
+   "offset": 1816160
   },
   {
    "name": "agi_2028",
    "dtype": "f8",
    "length": 40014,
-   "offset": 2019064
+   "offset": 1816176
   },
   {
    "name": "item_2028",
    "dtype": "f8",
    "length": 40014,
-   "offset": 2339176
+   "offset": 2136288
   },
   {
    "name": "cgcls_2028",
    "dtype": "u1",
    "length": 40014,
-   "offset": 2659288
+   "offset": 2456400
   },
   {
    "name": "ovr_low_2028_idx",
    "dtype": "u4",
    "length": 714,
-   "offset": 2699304
+   "offset": 2496416
   },
   {
    "name": "ovr_low_2028_agi",
    "dtype": "f8",
    "length": 714,
-   "offset": 2702160
+   "offset": 2499272
   },
   {
    "name": "ovr_low_2028_item",
    "dtype": "f8",
    "length": 714,
-   "offset": 2707872
+   "offset": 2504984
   },
   {
    "name": "cgcls_low_2028_idx",
    "dtype": "u4",
    "length": 6,
-   "offset": 2713584
+   "offset": 2510696
   },
   {
    "name": "cgcls_low_2028_val",
    "dtype": "u1",
    "length": 6,
-   "offset": 2713608
+   "offset": 2510720
   },
   {
    "name": "ovr_high_2028_idx",
    "dtype": "u4",
    "length": 714,
-   "offset": 2713616
+   "offset": 2510728
   },
   {
    "name": "ovr_high_2028_agi",
    "dtype": "f8",
    "length": 714,
-   "offset": 2716472
+   "offset": 2513584
   },
   {
    "name": "ovr_high_2028_item",
    "dtype": "f8",
    "length": 714,
-   "offset": 2722184
+   "offset": 2519296
   },
   {
    "name": "cgcls_high_2028_idx",
    "dtype": "u4",
    "length": 13,
-   "offset": 2727896
+   "offset": 2525008
   },
   {
    "name": "cgcls_high_2028_val",
    "dtype": "u1",
    "length": 13,
-   "offset": 2727952
+   "offset": 2525064
   },
   {
    "name": "agi_2029",
    "dtype": "f8",
    "length": 40014,
-   "offset": 2727968
+   "offset": 2525080
   },
   {
    "name": "item_2029",
    "dtype": "f8",
    "length": 40014,
-   "offset": 3048080
+   "offset": 2845192
   },
   {
    "name": "cgcls_2029",
    "dtype": "u1",
    "length": 40014,
-   "offset": 3368192
+   "offset": 3165304
   },
   {
    "name": "ovr_low_2029_idx",
    "dtype": "u4",
    "length": 741,
-   "offset": 3408208
+   "offset": 3205320
   },
   {
    "name": "ovr_low_2029_agi",
    "dtype": "f8",
    "length": 741,
-   "offset": 3411176
+   "offset": 3208288
   },
   {
    "name": "ovr_low_2029_item",
    "dtype": "f8",
    "length": 741,
-   "offset": 3417104
+   "offset": 3214216
   },
   {
    "name": "cgcls_low_2029_idx",
    "dtype": "u4",
    "length": 7,
-   "offset": 3423032
+   "offset": 3220144
   },
   {
    "name": "cgcls_low_2029_val",
    "dtype": "u1",
    "length": 7,
-   "offset": 3423064
+   "offset": 3220176
   },
   {
    "name": "ovr_high_2029_idx",
    "dtype": "u4",
    "length": 741,
-   "offset": 3423072
+   "offset": 3220184
   },
   {
    "name": "ovr_high_2029_agi",
    "dtype": "f8",
    "length": 741,
-   "offset": 3426040
+   "offset": 3223152
   },
   {
    "name": "ovr_high_2029_item",
    "dtype": "f8",
    "length": 741,
-   "offset": 3431968
+   "offset": 3229080
   },
   {
    "name": "cgcls_high_2029_idx",
    "dtype": "u4",
    "length": 22,
-   "offset": 3437896
+   "offset": 3235008
   },
   {
    "name": "cgcls_high_2029_val",
    "dtype": "u1",
    "length": 22,
-   "offset": 3437984
+   "offset": 3235096
   },
   {
    "name": "agi_2030",
    "dtype": "f8",
    "length": 40014,
-   "offset": 3438008
+   "offset": 3235120
   },
   {
    "name": "item_2030",
    "dtype": "f8",
    "length": 40014,
-   "offset": 3758120
+   "offset": 3555232
   },
   {
    "name": "cgcls_2030",
    "dtype": "u1",
    "length": 40014,
-   "offset": 4078232
+   "offset": 3875344
   },
   {
    "name": "ovr_low_2030_idx",
    "dtype": "u4",
    "length": 779,
-   "offset": 4118248
+   "offset": 3915360
   },
   {
    "name": "ovr_low_2030_agi",
    "dtype": "f8",
    "length": 779,
-   "offset": 4121368
+   "offset": 3918480
   },
   {
    "name": "ovr_low_2030_item",
    "dtype": "f8",
    "length": 779,
-   "offset": 4127600
+   "offset": 3924712
   },
   {
    "name": "cgcls_low_2030_idx",
    "dtype": "u4",
    "length": 16,
-   "offset": 4133832
+   "offset": 3930944
   },
   {
    "name": "cgcls_low_2030_val",
    "dtype": "u1",
    "length": 16,
-   "offset": 4133896
+   "offset": 3931008
   },
   {
    "name": "ovr_high_2030_idx",
    "dtype": "u4",
    "length": 779,
-   "offset": 4133912
+   "offset": 3931024
   },
   {
    "name": "ovr_high_2030_agi",
    "dtype": "f8",
    "length": 779,
-   "offset": 4137032
+   "offset": 3934144
   },
   {
    "name": "ovr_high_2030_item",
    "dtype": "f8",
    "length": 779,
-   "offset": 4143264
+   "offset": 3940376
   },
   {
    "name": "cgcls_high_2030_idx",
    "dtype": "u4",
    "length": 13,
-   "offset": 4149496
+   "offset": 3946608
   },
   {
    "name": "cgcls_high_2030_val",
    "dtype": "u1",
    "length": 13,
-   "offset": 4149552
+   "offset": 3946664
   },
   {
    "name": "agi_2031",
    "dtype": "f8",
    "length": 40014,
-   "offset": 4149568
+   "offset": 3946680
   },
   {
    "name": "item_2031",
    "dtype": "f8",
    "length": 40014,
-   "offset": 4469680
+   "offset": 4266792
   },
   {
    "name": "cgcls_2031",
    "dtype": "u1",
    "length": 40014,
-   "offset": 4789792
+   "offset": 4586904
   },
   {
    "name": "ovr_low_2031_idx",
    "dtype": "u4",
    "length": 806,
-   "offset": 4829808
+   "offset": 4626920
   },
   {
    "name": "ovr_low_2031_agi",
    "dtype": "f8",
    "length": 806,
-   "offset": 4833032
+   "offset": 4630144
   },
   {
    "name": "ovr_low_2031_item",
    "dtype": "f8",
    "length": 806,
-   "offset": 4839480
+   "offset": 4636592
   },
   {
    "name": "cgcls_low_2031_idx",
    "dtype": "u4",
    "length": 13,
-   "offset": 4845928
+   "offset": 4643040
   },
   {
    "name": "cgcls_low_2031_val",
    "dtype": "u1",
    "length": 13,
-   "offset": 4845984
+   "offset": 4643096
   },
   {
    "name": "ovr_high_2031_idx",
    "dtype": "u4",
    "length": 806,
-   "offset": 4846000
+   "offset": 4643112
   },
   {
    "name": "ovr_high_2031_agi",
    "dtype": "f8",
    "length": 806,
-   "offset": 4849224
+   "offset": 4646336
   },
   {
    "name": "ovr_high_2031_item",
    "dtype": "f8",
    "length": 806,
-   "offset": 4855672
+   "offset": 4652784
   },
   {
    "name": "cgcls_high_2031_idx",
    "dtype": "u4",
    "length": 28,
-   "offset": 4862120
+   "offset": 4659232
   },
   {
    "name": "cgcls_high_2031_val",
    "dtype": "u1",
    "length": 28,
-   "offset": 4862232
+   "offset": 4659344
   },
   {
    "name": "tail_low_idx",
    "dtype": "u4",
    "length": 24,
-   "offset": 4862264
+   "offset": 4659376
   },
   {
    "name": "tail_low_weight",
    "dtype": "f8",
    "length": 24,
-   "offset": 4862360
+   "offset": 4659472
   },
   {
    "name": "tail_low_cg",
    "dtype": "f8",
    "length": 24,
-   "offset": 4862552
+   "offset": 4659664
   },
   {
    "name": "tail_high_idx",
    "dtype": "u4",
    "length": 24,
-   "offset": 4862744
+   "offset": 4659856
   },
   {
    "name": "tail_high_weight",
    "dtype": "f8",
    "length": 24,
-   "offset": 4862840
+   "offset": 4659952
   },
   {
    "name": "tail_high_cg",
    "dtype": "f8",
    "length": 24,
-   "offset": 4863032
+   "offset": 4660144
   }
  ]
 }

@@ -12,12 +12,13 @@ total cash income, and the LOW/HIGH scenarios carry only the units that
 differ from MID (the top-income premium rows, and the 24 synthetic $1M+ units,
 whose weight and capital-gains share also depend on the tail's Pareto index).
 
-The distributional tables group units into households and weight each
-household's summed change by one member's filer weight, the first member in
-``generate_quintile_report``'s sort. That choice is recorded here per
-household and year (``hhfw_<year>``), with the household-income fifth
-(``quint_<year>``) and the projected frame's row order (``order_<year>``), so
-the browser kernel and :func:`frame_for` reproduce the published tables.
+The distributional tables rank households on their summed total cash income
+and cut them into fifths of households by the PUMS household weight
+(``hh_weight``); a fifth's dollar totals sum each unit's change times its own
+filer weight (``generate_quintile_report``). Each household's fifth is
+recorded here per year (``quint_<year>``), with the projected frame's row
+order (``order_<year>``), so the browser kernel and :func:`frame_for`
+reproduce the published tables.
 
 Capital gains: the arrays carry the model's own gains share (``cg``). The
 simulator and the Act 24 page score on the DOTAX-anchored base instead
@@ -39,7 +40,7 @@ from .scenarios import SCENARIOS, YEARS
 FILING_STATUSES = ("single", "married_filing_jointly", "head_of_household",
                    "married_filing_separately")
 QUINTILE_LABELS = ("Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)")
-NO_QUINTILE = 255   # units with weight <= 0.01, which the tables drop
+NO_QUINTILE = 255   # households whose units all weigh <= 0.01, which the tables drop
 FORMAT_VERSION = 1
 
 
@@ -89,7 +90,8 @@ def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...]) -> 
 
     sc = SCENARIOS[key]
     base, ded_params, meta = load_calibrated_base(calibrated_path)
-    units, tail_k = build_units(base, alpha=sc.alpha, ded_params=ded_params,
+    units, tail_k = build_units(base, alpha=sc.alpha, top_premium=sc.top_premium,
+                                ded_params=ded_params,
                                 cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True)
     out = {"units": units, "tail_k": tail_k, "years": {},
            "calibrated_meta": {k: v for k, v in meta.items() if k != "deduction_params"}}
@@ -102,9 +104,8 @@ def _positions(frame_ids: np.ndarray, canon_index: dict[str, int]) -> np.ndarray
     return np.fromiter((canon_index[f] for f in frame_ids), dtype=np.int64, count=len(frame_ids))
 
 
-def _distribution_choices(projected: pd.DataFrame, breaks: np.ndarray, year: int):
-    """Per household: the fifth ``generate_quintile_report`` assigns and the
-    filer weight it multiplies the household's summed change by."""
+def _household_quintiles(projected: pd.DataFrame, breaks: np.ndarray, year: int) -> pd.Series:
+    """Per household: the fifth ``generate_quintile_report`` assigns."""
     from tax_modeler.config.tax_system_config import TaxCalculator
     from tax_modeler.reform.income_tax_spec import current_law_system
     from tax_modeler.scenarios.quintile_analysis import generate_quintile_report
@@ -113,9 +114,7 @@ def _distribution_choices(projected: pd.DataFrame, breaks: np.ndarray, year: int
     _, _, pu_sorted = generate_quintile_report(
         projected, cfg, cfg, {}, TaxCalculator(), scenario_params=None,
         quintile_breaks=breaks)
-    first = pu_sorted.groupby("hh_id", observed=True).agg(
-        weight=("weight", "first"), quintile=("quintile", "first"))
-    return first
+    return pu_sorted.groupby("hh_id", observed=True)["quintile"].first()
 
 
 def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = None) -> Population:
@@ -178,13 +177,12 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         arrays[f"agi_{y}"], arrays[f"item_{y}"], arrays[f"tci_{y}"] = agi, item, tci
         arrays[f"order_{y}"] = pos.astype(np.int32)
 
-        first = _distribution_choices(proj, breaks, y)
+        fifth = _household_quintiles(proj, breaks, y)
         hh_of = {h: i for i, h in enumerate(hh_ids)}
-        hi = np.fromiter((hh_of[str(h)] for h in first.index), dtype=np.int64, count=len(first))
-        hhfw = np.full(H, np.nan); quint = np.full(H, NO_QUINTILE, dtype=np.uint8)
-        hhfw[hi] = first["weight"].to_numpy(np.float64)
-        quint[hi] = first["quintile"].cat.codes.to_numpy().astype(np.uint8)
-        arrays[f"hhfw_{y}"], arrays[f"quint_{y}"] = hhfw, quint
+        hi = np.fromiter((hh_of[str(h)] for h in fifth.index), dtype=np.int64, count=len(fifth))
+        quint = np.full(H, NO_QUINTILE, dtype=np.uint8)
+        quint[hi] = fifth.cat.codes.to_numpy().astype(np.uint8)
+        arrays[f"quint_{y}"] = quint
 
         # ---- LOW / HIGH: only what differs from MID ------------------------
         for k in keys:

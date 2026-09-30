@@ -46,7 +46,7 @@ from tax_modeler.pipeline import _compute_base_tax, _enrich_for_credits
 from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
 from tax_modeler.config.tax_system_config import TaxCalculator
 from tax_modeler.scenarios.top_income_synthesis import (
-    synthesize_top_filers, rescale_synthetic_tail_to_tax_target,
+    synthesize_top_filers, calibrate_synthetic_tail_to_tax_target,
     redistribute_mid_high_incomes,
 )
 from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
@@ -165,10 +165,14 @@ def main(bill: str = "sb3125_cd1") -> None:
     units = _enrich_for_credits(units)              # adds total_cash_income for TCI quintile binning
     units = impute_capital_gains_from_soi(units)    # Phase 3: CG rate cap for $100K-$1M filers
     # Re-score on the SAME deduction basis the base was calibrated under —
-    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3).
-    units = _compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-    units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-    units = _compute_base_tax(units, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3). The
+    # tail is not aged to the PUMS dollar year (age_synthetic_tail):
+    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and
+    # replaces them with SOI tiers aged from TY2022, so its level is moot.
+    def score(u):
+        return _compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()

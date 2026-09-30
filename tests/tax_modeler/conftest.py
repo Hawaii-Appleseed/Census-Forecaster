@@ -123,9 +123,10 @@ def sample_household_data() -> pd.DataFrame:
 
 @pytest.fixture(scope="session")
 def cg_page():
-    """The capital-gains page's ``Scorer`` class, ``BETA`` and ``CAP_CURRENT``,
-    read from ``forecast_cg_rate_options.py`` without importing it: importing
-    the script turns warnings and logging off for the whole test process."""
+    """The capital-gains page's ``Scorer`` class, ``distribution`` function
+    (with its ``_GROUPS``), ``BETA`` and ``CAP_CURRENT``, read from
+    ``forecast_cg_rate_options.py`` without importing it: importing the
+    script turns warnings and logging off for the whole test process."""
     import ast
     import types
 
@@ -135,10 +136,12 @@ def cg_page():
     tree = ast.parse(path.read_text())
     wanted = [n for n in tree.body
               if (isinstance(n, ast.ClassDef) and n.name == "Scorer")
+              or (isinstance(n, ast.FunctionDef) and n.name == "distribution")
               or (isinstance(n, ast.Assign)
-                  and any(isinstance(t, ast.Name) and t.id in ("BETA", "CAP_CURRENT")
+                  and any(isinstance(t, ast.Name) and t.id in ("BETA", "CAP_CURRENT", "_GROUPS")
                           for t in n.targets))]
     ns: dict = {"np": np, "pd": pd}
     exec(compile(ast.Module(body=wanted, type_ignores=[]), str(path), "exec"), ns)
     return types.SimpleNamespace(Scorer=ns["Scorer"], BETA=ns["BETA"],
-                                 CAP_CURRENT=ns["CAP_CURRENT"])
+                                 CAP_CURRENT=ns["CAP_CURRENT"],
+                                 distribution=ns["distribution"], GROUPS=ns["_GROUPS"])

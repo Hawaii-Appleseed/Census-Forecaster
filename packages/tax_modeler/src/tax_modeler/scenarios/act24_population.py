@@ -8,8 +8,10 @@ estimates use.
 Two steps:
 
 * :func:`build_units` — the calibrated TY2023 base plus the synthetic $1M+
-  tail (Pareto ``alpha``), capital-gains shares, and the tail rescaled to the
-  DOTAX $1M+ tax target, re-scored on the calibration's deduction basis.
+  tail (Pareto ``alpha``), capital-gains shares, and the tail calibrated to
+  the DOTAX TY2022 $1M+ tax target (iterated until re-scoring lands on it)
+  and then aged to the PUMS income dollar year with the scenario's
+  top-income premium, re-scored on the calibration's deduction basis.
 * :func:`project_units` — one tax year: county income growth, the top-income
   growth premium, an optional recession shock, then the tax of every unit
   whose income those steps changed is recomputed.
@@ -34,11 +36,19 @@ def build_units(
     base_calibrated: pd.DataFrame,
     *,
     alpha: float,
+    top_premium: float,
     ded_params,
     cal_tax_year: int,
     enrich: bool = False,
 ) -> tuple[pd.DataFrame, float]:
     """Synthesize the $1M+ tail on the calibrated base; return (units, tail_k).
+
+    The tail's incomes are scaled until its re-scored tax is DOTAX's TY2022
+    $1M+ tax (``calibrate_synthetic_tail_to_tax_target``; ``tail_k`` is that
+    scale), then aged from TY2022 to the PUMS income dollar year
+    (``age_synthetic_tail``), since :func:`project_units` grows every unit
+    from there. The aging includes 2022-2024 of the top-income premium, so
+    ``top_premium`` must be the one the scenario projects with.
 
     ``ded_params`` / ``cal_tax_year`` are the deduction params and vintage the
     base was calibrated under; re-scoring on any other basis derives a wrong
@@ -48,19 +58,22 @@ def build_units(
     unchanged.
     """
     from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-    from tax_modeler.pipeline import _compute_base_tax, _enrich_for_credits
+    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.top_income_synthesis import (
-        rescale_synthetic_tail_to_tax_target,
+        age_synthetic_tail,
+        calibrate_synthetic_tail_to_tax_target,
         synthesize_top_filers,
     )
 
+    def score(u: pd.DataFrame) -> pd.DataFrame:
+        return compute_base_tax(u, deduction_params=ded_params, tax_year=cal_tax_year)
+
     units = synthesize_top_filers(base_calibrated, pareto_alpha=alpha)
     if enrich:
-        units = _enrich_for_credits(units)
+        units = enrich_for_credits(units)
     units = impute_capital_gains_from_soi(units)    # CG rate cap for $100K-$1M filers
-    units = _compute_base_tax(units, deduction_params=ded_params, tax_year=cal_tax_year)
-    units, tail_k = rescale_synthetic_tail_to_tax_target(units)
-    units = _compute_base_tax(units, deduction_params=ded_params, tax_year=cal_tax_year)
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units = score(age_synthetic_tail(units, top_premium=top_premium))
     return units, tail_k
 
 
@@ -116,7 +129,7 @@ def mid_gains_factors(
     the other scenarios' gains move with their own top incomes."""
     from tax_modeler.calibration.cg_anchor import anchor_factors
 
-    units, _ = build_units(base_calibrated, alpha=alpha, ded_params=ded_params,
-                           cal_tax_year=cal_tax_year)
+    units, _ = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
+                           ded_params=ded_params, cal_tax_year=cal_tax_year)
     return {int(y): anchor_factors(project_units(units, year=y, top_premium=top_premium), y)
             for y in years}

@@ -129,9 +129,11 @@ jobs:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
           # National CPI (from the panel) + BLS AHE/LFPR/emp-pop/JOLTS
-          # (keyless) + FRED mortgage/10yr/HVS (keyless CSV). Each block
-          # degrades with a ::warning and keeps previously committed data;
-          # aborts only if nothing fetched.
+          # (keyless) + FRED mortgage/10yr/HVS (keyless CSV). The write
+          # merges into the committed national_macro.json: each block
+          # degrades with a ::warning and keeps previously committed data
+          # (series_fetch_date marks what went stale); aborts only if the
+          # merged file would be empty.
           uv run python -m census_forecaster.scripts.refresh_national_macro
 
       - name: Refresh EIA Hawaii electricity price

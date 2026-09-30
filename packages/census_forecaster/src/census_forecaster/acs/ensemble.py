@@ -990,6 +990,7 @@ def project_ensemble_multi(
     from .anchors import (
         combined_anchor_rate, anchor_as_forecast, load_calibration,
         combined_level_anchor, level_anchor_as_forecast, METHOD_LEVEL_ANCHOR,
+        ANCHOR_CALIBRATION_HORIZON,
     )
     from .strata import classify_horizon
 
@@ -1142,12 +1143,17 @@ def project_ensemble_multi(
     # Multi-source macro anchor. `combined_anchor_rate` expects the
     # `rmse_by_indicator_source` slice — pass it explicitly so the full
     # calibration dict can be threaded through here without confusion.
+    # `calibration_horizon` is the RMSE→per-year-SE divisor the calibration
+    # folds used (calibration._project_anchor_only), NOT this forecast's h:
+    # anchor_as_forecast already multiplies the per-year SE by h, and the
+    # multi_anchor κ / bias / conformal records below were fit on SEs built
+    # with this same constant at every horizon.
     per_source_calib = (calibration or {}).get("rmse_by_indicator_source")
     anchor_rate = combined_anchor_rate(
         indicator=indicator,
         end_year=end_year,
         calibration=per_source_calib,
-        calibration_horizon=max(int(round(horizon_years)), 1),
+        calibration_horizon=ANCHOR_CALIBRATION_HORIZON,
         geoid=geoid,
     )
     anchor_fp: ForecastPoint | None = None
