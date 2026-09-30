@@ -36,8 +36,9 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
-// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor)
-export const WEB_FORMAT_VERSION = 2;
+// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor,
+// 3 dropped hhfw for per-unit filer weights)
+export const WEB_FORMAT_VERSION = 3;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
