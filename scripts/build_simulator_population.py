@@ -270,7 +270,11 @@ def check_cg_page_parity(pop, out_dir: Path) -> list[str]:
 
     calc = TaxCalculator()
     params = SCENARIOS["mid"].behavioral_params
-    rev = pd.read_csv(CG_PAGE / "revenue_by_year.csv")
+    # round_trip: pandas' default parser is not correctly rounded and can land
+    # one ULP from Python's float(), which is what the site's CSV reader (and
+    # test_tax_simulator_compares_with_the_capital_gains_page) compares these
+    # published figures against exactly.
+    rev = pd.read_csv(CG_PAGE / "revenue_by_year.csv", float_precision="round_trip")
     rev = rev[(rev.law == "act24") & (rev.top_share == "central")].set_index(["tax_year", "option"])
     options = {"cap9": "cg_9", "ordinary": "cg_ordinary"}
     by_name = {d["name"]: d for d in presets(calc)}
