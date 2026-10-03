@@ -1746,6 +1746,22 @@ pinned by `tests/census_forecaster/test_refresh_national_macro.py`.
 `calibration.json` was regenerated on 2026-09-29 with all 22 columns
 populated.
 
+Follow-up 2026-09-30: that merge still let a *partial* fetch replace a
+longer series. `fetch_bls_monthly` retries a series BLS dropped from the
+batch one year-chunk at a time; a retry that fetched its first chunk and then
+raised (`REQUEST_NOT_PROCESSED` at the keyless daily limit) kept the first
+chunk's rows, so `main()` counted the series as refreshed. A reviewer
+reproduced `unemp` going from 2005-2026 to 2005-2014, stamped fetched today,
+absent from the carried-over warning, and the truncated rows were merged into
+`macro_monthly.json` as well. Now the retry is all-or-nothing, and `_refresh`
+refuses any fetch that lacks a committed year: it warns naming the lost years,
+keeps the previous series and its `series_fetch_date`, and keeps the rows out
+of `macro_monthly.json`. The same gate catches a batch response that omits a
+series from one chunk without erroring, and a truncated FRED or CPI-panel
+series. Consequence: a narrower `--start-year` refreshes nothing (with a
+warning per series) instead of deleting the early years. Pinned by the
+"partial fetch" tests in `test_refresh_national_macro.py`.
+
 ### Hawaii indicator intake, round 3 (2026-08-06)
 
 **DBEDT MEI expanded from 2 series to 13 per geography** (65 series

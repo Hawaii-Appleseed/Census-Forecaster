@@ -31,6 +31,16 @@ overwrites its own series, and a failed or empty fetch emits
 fetched. The write aborts (exit 2) only if the merged result would be
 empty — no committed file and nothing fetched.
 
+A fetch that returns *less history* than the committed series is treated
+as a failed fetch, not a refresh: ``_refresh`` refuses to replace a series
+whose new years do not cover every committed year, warns naming the lost
+years, and carries the previous series over. That closes the partial-fetch
+paths a plain overwrite leaves open — a BLS retry that fetches its first
+year-chunk and then hits the daily limit, or a batch response that drops a
+series from one chunk without erroring. The same gate keeps the truncated
+rows out of ``macro_monthly.json``. A narrower ``--start-year`` therefore
+refreshes nothing rather than deleting the early years.
+
 This used to be false. ``main()`` started from an empty dict and wrote
 only what fetched, so the "keeping previous" warning lied: the monthly
 CI refreshes of 2026-08-06 and 2026-09-23 each hit a FRED outage and
@@ -125,8 +135,13 @@ def fetch_bls_monthly(
                                      end_year=ye, api_key=api_key)
                 merged[sid].extend(raw.get(sid, []))
         except Exception as exc:  # noqa: BLE001
-            print(f"::warning::individual retry failed for {sid} ({exc})",
-                  file=sys.stderr)
+            # All-or-nothing: a retry that fetched its first chunk and then
+            # failed (REQUEST_NOT_PROCESSED at the daily limit) would leave
+            # a series that stops mid-history, which main() would treat as
+            # refreshed and write over the full committed series.
+            merged[sid] = []
+            print(f"::warning::individual retry failed for {sid} ({exc}); "
+                  "discarding its partial rows", file=sys.stderr)
 
     out: dict[str, list[dict]] = {}
     for sid, points in merged.items():
@@ -194,6 +209,17 @@ def aggregate_to_annual(rows: Sequence[dict]) -> dict[int, float]:
         if y is not None:
             by_year[y].append(float(r["value"]))
     return {y: round(sum(v) / len(v), 4) for y, v in sorted(by_year.items())}
+
+
+def _year_ranges(years: Sequence[int]) -> str:
+    """Compress years to ranges: ``[2005, 2006, 2007, 2010]`` → ``2005-2007, 2010``."""
+    runs: list[list[int]] = []
+    for y in sorted(set(years)):
+        if runs and y == runs[-1][1] + 1:
+            runs[-1][1] = y
+        else:
+            runs.append([y, y])
+    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in runs) or "none"
 
 
 def resample_monthly(rows: Sequence[dict]) -> list[dict]:
@@ -384,22 +410,39 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     monthly_for_screen: dict[str, list[dict]] = {}
     today = date.today().isoformat()
 
-    def _refresh(name: str, rows: Sequence[dict], source: str) -> None:
-        annual_by_name[name] = aggregate_to_annual(rows)
+    def _refresh(name: str, rows: Sequence[dict], source: str) -> bool:
+        """Replace ``name`` with the fetched rows; False if refused.
+
+        A refresh may extend or revise a series but never shorten it: if the
+        fetch lacks a committed year it is a partial fetch, so the previous
+        series (and its ``series_fetch_date``) stays and the caller must not
+        push the rows anywhere else, ``macro_monthly.json`` included.
+        """
+        new = aggregate_to_annual(rows)
+        old = annual_by_name.get(name, {})
+        lost = sorted(set(old) - set(new))
+        if lost:
+            print(f"::warning::{name}: fetch lacks {len(lost)} committed "
+                  f"year(s) ({_year_ranges(lost)}); fetched "
+                  f"{_year_ranges(list(new))}, committed "
+                  f"{_year_ranges(list(old))}. Treating it as a partial "
+                  "fetch; keeping previous", file=sys.stderr)
+            return False
+        annual_by_name[name] = new
         sources[name] = source
         fetched_on[name] = today
         refreshed.add(name)
+        return True
 
     # ---- Tier 0: CPI panel (no network) ----
     for s in cpi_specs:
         rows = read_cpi_panel_series(s.series_id)
-        if rows:
-            _refresh(s.name, rows, f"BLS CPI panel ({s.series_id})")
-            print(f"[cpi] {s.name}: {len(annual_by_name[s.name])} years "
-                  f"from panel", file=sys.stderr)
-        else:
+        if not rows:
             print(f"::warning::CPI panel missing {s.series_id}; keeping "
                   f"previous {s.name}", file=sys.stderr)
+        elif _refresh(s.name, rows, f"BLS CPI panel ({s.series_id})"):
+            print(f"[cpi] {s.name}: {len(annual_by_name[s.name])} years "
+                  f"from panel", file=sys.stderr)
 
     # ---- Tier 1: BLS keyless ----
     api_key = os.environ.get("BLS_API_KEY")
@@ -412,8 +455,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             start_year=args.start_year, end_year=args.end_year)
         for s in bls_specs:
             rows = bls_monthly.get(s.series_id, [])
-            if rows:
-                _refresh(s.name, rows, f"BLS API ({s.series_id})")
+            if rows and _refresh(s.name, rows, f"BLS API ({s.series_id})"):
                 if s.cadence in _SCREEN_CADENCES:
                     monthly_for_screen[s.series_id] = resample_monthly(rows)
                 print(f"[bls] {s.name}: {len(rows)} monthly prints",
@@ -435,7 +477,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 print(f"::warning::FRED returned no rows for {s.series_id}; "
                       f"keeping previous {s.name}", file=sys.stderr)
                 continue
-            _refresh(s.name, rows, f"FRED ({s.series_id})")
+            if not _refresh(s.name, rows, f"FRED ({s.series_id})"):
+                continue
             if s.cadence in _SCREEN_CADENCES:
                 monthly_for_screen[s.series_id] = resample_monthly(rows)
             print(f"[fred] {s.name}: {len(rows)} prints → "
