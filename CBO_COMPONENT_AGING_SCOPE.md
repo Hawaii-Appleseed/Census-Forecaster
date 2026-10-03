@@ -42,8 +42,8 @@ Source: https://www.cbo.gov/topics/budget/economic-projections
 | Personal interest income | `primary_intp` | ~4.0% |
 | Personal dividend income | `primary_div` | ~5.5% |
 | Capital gains realizations | `synthetic_cg_share × income` (synthesis); SOI bin imputation (mid-tier) | ~7-9% |
-| Pension and retirement | `primary_retp + primary_ssp_full` | ~4.0% |
-| Social security benefits | included in retirement above | ~4.0% |
+| Pension and retirement | `primary_retp + secondary_retp` | ~4.0% |
+| Social security benefits | 85% of the benefit, as `income` counts it (`primary_ssp + secondary_ssp`), in the retirement bucket; SSI, public assistance and the untaxed 15% are outside `income` (implemented 2026-09-30; originally `primary_ssp_full`, which inflated income) | ~4.0% |
 
 CBO publishes nominal levels per year, so growth rates derive directly. Interim updates (e.g. CBO Jan 2026 Outlook) refine the forecast — we'd cache the most recent vintage and re-run.
 

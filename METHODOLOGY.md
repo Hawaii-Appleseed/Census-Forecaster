@@ -1116,15 +1116,45 @@ before threshold comparison:
 
 Implementation: `tax_modeler.poverty.spm_aggregation.aggregate_to_spm_units`.
 
+### CBO component aging: the decomposition sums to `income`
+
+`age_filers_with_components` splits each unit's `income` into CBO components
+(wages, business, capital gains, interest, dividends, retirement, other),
+grows each at its own CBO rate scaled by the Hawaii calibration factor, and
+rewrites `income` as the sum. The split therefore has to add back to `income`
+at the base year, or aging moves income with no growth at all.
+
+Until 2026-09-30 it did not. Retirement was RETP plus all of Social Security,
+SSI and public assistance, while `income` holds 85% of Social Security
+(`primary_ssp`) and neither of the others. `other` is a residual floored at
+zero, so the excess was never netted out: aging to the base year with zero
+growth raised weighted income 1.55% on the tax-unit cache ($61,659M →
+$62,613M) and 2.04% on the calibrated base ($45,343M → $46,268M), across the
+12,328 of 39,990 units that have Social Security, SSI or public assistance.
+Units living on SSI or TANF alone, with no income, were handed income and
+taxed on it.
+
+Retirement is now RETP plus the 85% of Social Security `income` counts (the
+`*_ssp` columns, else 0.85 × `*_ssp_full`), so the components sum to `income`
+and a base-year round trip is exact. A warning fires if a decomposition sums
+more than 0.1% away from `income`, because the `other` floor is what hid the
+gap. The dollars total cash income holds and `income` does not (the untaxed
+15% of Social Security, SSI, public assistance) are outside the decomposition;
+`transfers_outside_income` returns them for callers that need them aged.
+Pinned by `tests/tax_modeler/test_cbo_aging.py`. Output effects, all small,
+are tabulated in `SB3125_CD1_FORECAST.md` (September 30, 2026): the Act 24
+tables do not change because they do not age through this function.
+
 ### Projected-year SPM poverty (money income and thresholds)
 
 `project_tax_units_forward` leaves `total_cash_income` (TCI) in base-year
 (2024) dollars, because Act 24 quintile binning ranks households on it. It
 also writes `spm_money_income`: TCI plus the dollars the projector's aging
 added. On the county and BLS paths that is `income − income_base_year`; on
-the CBO path it is the sum over components of aged minus base amounts, which
-leaves out the gap between the component decomposition and base `income`
-(full Social Security, SSI and public assistance). `compute_spm_resources`
+the CBO path it is the same dollars (the decomposition sums to `income`) plus
+the transfers TCI holds and `income` does not (the untaxed 15% of Social
+Security, SSI and public assistance), aged at the retirement bucket's CBO rate
+so they keep pace with the target-year poverty line. `compute_spm_resources`
 reads `spm_money_income` whenever a frame has it, so money income is in the
 same dollars as the credits and taxes it is combined with (target-year
 amounts on aged incomes). Until 2026-09-29 it read the unaged TCI, which put
