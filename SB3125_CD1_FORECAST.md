@@ -7,11 +7,123 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** September 30, 2026
+**Last updated:** October 5, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
 > **Maintenance note:** This document must be updated whenever forecast methodology changes — including parameter recalibration, new behavioral channels, tax treatment corrections, or data source changes. Update the relevant section(s) and the Results table before committing.
+
+---
+
+## Council on Revenues, September 3, 2026 vintage — October 5, 2026 (review only; no model result changes)
+
+COR met on **September 3, 2026** (letter dated September 9). The monthly
+refresh picked the meeting up on September 23 (`cor_iit_projections.json`,
+issue #13), so the COR-scaled columns in this document's tables were already on
+this vintage. This section is the human review that issue asked for: what COR
+changed, what its letter now says about Acts 46 and 24, and whether the FY→TY
+mapping still holds. **The review itself moves no headline table.**
+
+**What COR changed.** It raised its General Fund growth forecast for FY2027
+from 1.0% to 2.5% and for FY2028 from 1.9% to 3.0%, revised FY2029-FY2032, and
+added FY2033 (3.7%). It cited slow tourism recovery, inflation, historical
+growth trends, federal policy changes, the war in the Middle East, and the
+multi-year phase-in of the income tax cuts.
+
+| Fiscal year | Growth, May 21 → Sept 3 | General Fund tax revenue, May 21 → Sept 3 ($M) |
+|---|---|---:|
+| 2027 | 1.0% → 2.5% | 9,822.1 → 10,037.9 |
+| 2028 | 1.9% → 3.0% | 10,008.7 → 10,339.1 |
+| 2029 | 2.5% → 3.0% | 10,258.9 → 10,649.2 |
+| 2030 | 1.8% → 1.7% | 10,443.6 → 10,830.3 |
+| 2031 | 3.1% → 3.7% | 10,767.3 → 11,231.0 |
+| 2032 | 3.4% → 3.3% | 11,133.4 → 11,601.6 |
+| 2033 | new: 3.7% | new: 12,030.9 |
+
+**The individual income tax line this model uses** (DOTAX attachment 1, $M by
+tax year, TY(n) = FY(n+1); the table in *COR projections are now
+auto-refreshed* is the March 10 → May 21 move):
+
+| TY | May 21 | Sept 3 | Δ | % |
+|---|---:|---:|---:|---:|
+| 2025 (preliminary) | 3,139.079 | 3,120.844 | −18.235 | −0.6% |
+| 2026 | 2,923.065 | 3,050.119 | +127.054 | +4.3% |
+| 2027 | 2,874.134 | 3,070.958 | +196.824 | +6.8% |
+| 2028 | 2,872.305 | 3,086.701 | +214.396 | +7.5% |
+| 2029 | 2,780.166 | 3,002.744 | +222.578 | +8.0% |
+| 2030 | 2,881.860 | 3,138.371 | +256.511 | +8.9% |
+| 2031 | 2,971.795 | 3,252.054 | +280.259 | +9.4% |
+| 2032 | none | 3,421.492 | new | |
+
+**The FY→TY mapping still holds.** The attachment's span moved one year
+(FY2024-FY2032 → FY2025-FY2033). The parser read all nine columns, and the
+bundled values match the attachment's Individual Income Tax row exactly, so
+`FY(n+1) = TY(n)` is unchanged: TY2027 is FY2028. The new FY2033 column is
+TY2032, past this model's TY2027-TY2031 horizon.
+
+**Act 46: COR's estimate did not change.** The letter's General Fund loss
+figures ($596.6M in FY2026 through $1,453.2M in FY2032) are numerically
+identical to the May 21 letter's, so the Act 46 cross-check (the model 20.7%
+below over five years, in the September 29 section) and the *Practical
+guidance* under the ITEP reconciliation stand.
+
+**Act 24: COR's first estimate.** The May 21 letter predates the act. The
+September 9 letter adjusts the forecast for it, as DOTAX's estimate of the
+whole act: the bracket changes (second bracket 3.2% → 2.5%, third 5.5% → 5%, a
+new 13% top bracket) and its credit changes (the RETITC, Capital Goods Excise,
+Renewable Fuels Production, High Technology Business Investment, Research
+Activities and Technology Infrastructure Renovation credits). The estimated
+gain to the General Fund is $145.2M in FY2028, $222.7M in FY2029, $233.5M in
+FY2030, $284.7M in FY2031, $297.3M in FY2032 and $308.9M in FY2033. Against
+this model (CD2, post-behavioral bracket change plus the credit overlay, $M; TY
+n is FY n+1):
+
+| TY (FY) | DOTAX | LOW | MID | HIGH | MID as % of DOTAX |
+|---|---:|---:|---:|---:|---:|
+| 2027 (2028) | 145.2 | 105.1 | 111.1 | 144.9 | 76.5% |
+| 2028 (2029) | 222.7 | 121.1 | 140.9 | 180.3 | 63.3% |
+| 2029 (2030) | 233.5 | 132.3 | 158.8 | 203.7 | 68.0% |
+| 2030 (2031) | 284.7 | 159.2 | 194.9 | 245.5 | 68.5% |
+| 2031 (2032) | 297.3 | 170.0 | 204.6 | 262.4 | 68.8% |
+| **5-year** | **1,183.4** | **687.6** | **810.4** | **1,036.9** | **68.5%** |
+
+DOTAX's figure is above MID in every year and above HIGH in every year but the
+first (TY2027: HIGH $144.9M against $145.2M). The shape agrees (DOTAX's
+roughly doubles from FY2028 to FY2032; MID rises 1.8×). Two known differences
+could account for the level gap, and the letter alone cannot separate them: the
+model's levels run 13–18% below COR (*Baseline Validation*, updated below), and
+DOTAX's figure includes three credit provisions the overlay does not score (the
+Renewable Fuels Production, High Technology Business Investment and Technology
+Infrastructure Renovation credits; the overlay covers REEC, CGEC and TCRA).
+Treat DOTAX's estimate as an upper reference for MID, not a calibration target.
+
+**Where the model uses the vintage.** `cor_scale_factor_for_year` feeds only
+the parallel diagnostic columns (`bracket_delta_cor_scaled_$M`, `*_cor_$M`).
+The published columns were produced after the September 23 refresh and already
+carry this vintage: the TY2027 factor is 1.217 (COR $3,071.0M over the MID Act
+46 baseline of $2,522.9M), up from 1.139 on the May 21 vintage, and TY2031 is
+1.185 (was 1.083). Nothing in the headline tables uses it.
+
+**A second, stale copy of the vintage, now fixed.** `calibration/forward_targets.py`
+kept its own hand-typed COR dict, left on the **March 10** vintage when
+`scenarios/quintile_analysis.py` moved to the bundled file, and the guard test
+covered only the other copy. A new COR meeting therefore never reached the
+forward targets, and the *statute-vs-COR wedge* the recalibrator logs was
+computed against a vintage two meetings old. It now loads from the bundled file
+(the literal is a missing-file fallback) and `test_cor_iit.py` pins it. **No
+published table depends on it**: the frozen-baseline table and the
+capital-gains page rerun identically (the $1M+ synthesis only logs its COR tax
+target, and the Phase 2 tax multipliers are not used by the scenario scripts,
+which re-score statutorily). What changes is the diagnostic, statutory tax over
+the COR target for TY2027–TY2031: 0.960 / 1.052 / 1.076 / 1.119 / 1.168 →
+0.883 / 0.960 / 0.985 / 1.016 / 1.058.
+
+**Data drift since the published run.** The tables in this document come from
+the October 1 runs. Rerun on the October 5 refreshed anchors (BEA per-capita
+income, LAUS, the regenerated calibration), the Act 24 bracket columns are
+identical and the credit overlay moves by at most $0.11M a year, taking MID's
+five-year total from $810.4M to $810.1M (−0.04%). That is the monthly refresh
+feeding REEC growth, not the COR work; the published figures are unchanged.
 
 ---
 
@@ -1030,6 +1142,9 @@ than replacing them. Every fiscal-impact number in Section 10 is computed from
 the unscaled bracket delta and is unaffected. The scale factor itself rises
 ~1.7% at TY2027 (1.2613 → 1.2831 against a $2.24B microsim baseline).
 
+*The next vintage change (May 21 → September 3, 2026) is tabulated in the
+October 5, 2026 section at the top of this document.*
+
 ---
 
 ## Reconciliation to ITEP's ~$1.4B Act 46 figure (added August 19, 2026)
@@ -1110,7 +1225,8 @@ General Fund letter states DOTAX's estimated loss from Act 46 directly: "$596.6
 million in FY 2026, $740.1 million in FY 2027, $922.7 million in FY 2028,
 $1,052.6 million in FY 2029, $1,262.3 million in FY 2030, $1,347.5 million in
 FY 2031, and **$1,453.2 million in FY 2032**." That is the *official State*
-figure, and it independently corroborates ITEP's ~$1.4B. Against our column
+figure, and it independently corroborates ITEP's ~$1.4B (the September 9, 2026 letter
+restates the identical figures). Against our column
 A+B (FY→TY shifted):
 
 | Tax Year | This model (A+B) | COR official | Gap | % below |
@@ -1905,8 +2021,9 @@ The tables below show every bracket for each filing status and each effective pe
 | Source | Description | Use |
 |--------|-------------|-----|
 | **DOTAX TY2023 aggregate statistics** | Revenue by filing status and AGI bracket | IPF calibration targets |
-| **Hawaii Council on Revenues (COR)** — newest General Fund meeting, auto-refreshed into `data/cor/cor_iit_projections.json` (currently **May 21, 2026**) | Individual income tax line-item projections by fiscal year, from the DOTAX Tax Research & Planning attachment | Baseline validation + `cor_scale_factor_for_year` diagnostic columns |
-| **COR / DOTAX Act 46 fiscal estimate** (May 21, 2026 letter) | Act 46 General Fund loss: $740.1M FY2027 rising to $1,453.2M FY2032 | Official cross-check on the pre-Act-46 reconciliation |
+| **Hawaii Council on Revenues (COR)** — newest General Fund meeting, auto-refreshed into `data/cor/cor_iit_projections.json` (currently **September 3, 2026**) | Individual income tax line-item projections by fiscal year, from the DOTAX Tax Research & Planning attachment | Baseline validation + `cor_scale_factor_for_year` diagnostic columns |
+| **COR / DOTAX Act 46 fiscal estimate** (May 21 and September 9, 2026 letters, identical) | Act 46 General Fund loss: $740.1M FY2027 rising to $1,453.2M FY2032 | Official cross-check on the pre-Act-46 reconciliation |
+| **COR / DOTAX Act 24 fiscal estimate** (September 9, 2026 letter) | Act 24 gain to the General Fund: $145.2M FY2028 rising to $308.9M FY2033 | Upper reference for MID (October 5, 2026 section) |
 
 ### Legal / Statutory
 | Source | Description |
@@ -2734,6 +2851,24 @@ not being actively re-derived.
 quintile script re-run with income-range output.*
 
 ### Baseline Validation
+
+**Updated October 5, 2026** (COR vintage of September 3; model after the
+September 29–30 fixes). The MID Act 46 baseline, which now includes the
+calibrated and aged $1M+ tail, against COR's individual income tax line ($M;
+TY n = FY n+1):
+
+| TY | Model | COR | Gap | % below COR |
+|---|---:|---:|---:|---:|
+| 2027 | 2,522.9 | 3,071.0 | 548.0 | 17.8% |
+| 2028 | 2,689.1 | 3,086.7 | 397.6 | 12.9% |
+| 2029 | 2,552.0 | 3,002.7 | 450.8 | 15.0% |
+| 2030 | 2,664.9 | 3,138.4 | 473.5 | 15.1% |
+| 2031 | 2,744.8 | 3,252.1 | 507.2 | 15.6% |
+
+The gap is 13–18% with no trend, the coverage difference described below.
+The August 19 figures that follow (about $2.24B against $2.87B, 22%) are
+superseded: both sides moved, the model baseline with the tail fixes and COR
+with its September 3 revision (+6.8% at TY2027).
 
 **Updated August 19, 2026** (COR vintage refresh): the microsim TY2027 Act 46
 baseline is approximately $2.24B against COR's **$2.87B** projection for TY2027
