@@ -37,6 +37,7 @@ For target year Y:
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
@@ -44,15 +45,25 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# COR March 10, 2026 forecast for Hawaii Individual Income Tax.
-# Source: files.hawaii.gov/tax/useful/cor/2026gf03-10_attach_1.pdf
+# COR Hawaii Individual Income Tax projections, loaded from the bundled file
+# that ``census_forecaster.scripts.refresh_cor_iit`` keeps on the newest
+# General Fund meeting (the monthly refresh-data workflow runs it). This used
+# to be a second hand-typed copy, left on the March 10, 2026 vintage when
+# ``scenarios.quintile_analysis`` moved to the file, so a new COR meeting never
+# reached the forward targets (and the statute-vs-COR wedge was computed
+# against a vintage two meetings old).
 #
 # YEAR CONVENTION: keys are TAX years (TY). COR publishes FISCAL years
 # (Jul-Jun); the mapping is FY(n+1) = TY(n) per DOTAX fiscal-note convention
 # — e.g. the FY 2026 collections forecast anchors TY 2025 liability. All
 # model outputs are labeled in TAX years; convert to FY (= TY+1) when
 # comparing against COR/fiscal-note tables.
-DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = {
+#
+# The literal below is a LAST-RESORT fallback for an installation whose data
+# file is missing; it is the March 10, 2026 vintage
+# (files.hawaii.gov/tax/useful/cor/2026gf03-10_attach_1.pdf). Do not hand-edit
+# it to refresh — run the script.
+_COR_FALLBACK_M: Dict[int, float] = {
     2025: 2_986.920,   # FY 2026
     2026: 2_900.330,   # FY 2027
     2027: 2_825.329,   # FY 2028
@@ -61,6 +72,25 @@ DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = {
     2030: 2_851.075,   # FY 2031
     2031: 2_944.872,   # FY 2032
 }
+
+
+def _load_cor_projections() -> Dict[int, float]:
+    try:
+        from census_forecaster.cor import load_cor_iit_projections
+
+        return load_cor_iit_projections(by="tax_year")
+    except Exception:  # noqa: BLE001 - never let a data-file problem break calibration
+        warnings.warn(
+            "bundled COR projections unavailable; falling back to the "
+            "hardcoded March 10, 2026 vintage. Run "
+            "`python -m census_forecaster.scripts.refresh_cor_iit` to restore.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return dict(_COR_FALLBACK_M)
+
+
+DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = _load_cor_projections()
 
 # DOTAX TY2022 baseline (Table A8, resident-only). Mirrors the constants in
 # ``simultaneous_calibrator.py`` — defined here too so this module is

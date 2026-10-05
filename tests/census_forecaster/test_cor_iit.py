@@ -138,3 +138,14 @@ def test_tax_modeler_consumes_the_bundled_vintage():
         reason="tax_modeler not installed (census-forecaster-only environment)",
     )
     assert qa.DEFAULT_COR_IIT_PROJECTIONS_M == load_cor_iit_projections()
+
+
+def test_forward_targets_consume_the_bundled_vintage():
+    """``calibration.forward_targets`` once kept its own hand-typed copy, left
+    on the March 10, 2026 vintage after the other consumer moved to the file,
+    so a new COR meeting never reached it. Same skip rationale as above."""
+    ft = pytest.importorskip(
+        "tax_modeler.calibration.forward_targets",
+        reason="tax_modeler not installed (census-forecaster-only environment)",
+    )
+    assert ft.DEFAULT_COR_IIT_PROJECTIONS_M == load_cor_iit_projections()
