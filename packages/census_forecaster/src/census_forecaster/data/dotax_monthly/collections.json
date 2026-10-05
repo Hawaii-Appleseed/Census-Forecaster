@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-09-23",
+  "fetch_date": "2026-10-05",
   "limitations": [
     "Collections are cash-basis by *deposit* month \u2014 payment-deadline timing (estimated-tax due dates, filing season) makes single months noisy; compare year-over-year same-month or rolling windows only.",
     "Withholding growth conflates wage growth with WITHHOLDING-RATE policy: the Act 46 (2024) bracket cuts phase in from TY2025 and mechanically depress withholding relative to wages. GE&Use (rate-stable) is the cleaner pure-activity gauge.",

@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-09-23",
+  "fetch_date": "2026-10-05",
   "limitations": [
     "Monthly cadence throughout; BLS unemployment is seasonally adjusted, Zillow indexes are smoothed + seasonally adjusted (ZHVI) / smoothed (ZORI).",
     "Zillow monthly values are subject to revision; final value settles ~1 year after first print.",
@@ -4054,12 +4054,17 @@
       },
       {
         "period": "M07",
-        "value": 37.65,
+        "value": 37.64,
         "year": 2026
       },
       {
         "period": "M08",
-        "value": 37.75,
+        "value": 37.76,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 37.81,
         "year": 2026
       }
     ],
@@ -6166,62 +6171,62 @@
       },
       {
         "period": "M01",
-        "value": 133300.67,
+        "value": 133543.36,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 123857.63,
+        "value": 123857.54,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 138069.54,
+        "value": 137942.16,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 124221.5,
+        "value": 123304.95,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 119595.55,
+        "value": 117446.52,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 142396.43,
+        "value": 138506.08,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 142670.9,
+        "value": 144281.74,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 124209.32,
+        "value": 123367.18,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 117307.72,
+        "value": 105295.77,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 129590.66,
+        "value": 108070.46,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 106778.55,
+        "value": 105940.26,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 147931.94,
+        "value": 152290.46,
         "year": 2025
       },
       {
@@ -6257,6 +6262,11 @@
       {
         "period": "M07",
         "value": 147985.24,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 117307.18,
         "year": 2026
       }
     ],
@@ -8363,62 +8373,62 @@
       },
       {
         "period": "M01",
-        "value": 325358.51,
+        "value": 325460.87,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 318196.35,
+        "value": 318196.22,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 394164.99,
+        "value": 377002.22,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 371204.47,
+        "value": 361576.33,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 368802.99,
+        "value": 355249.08,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 402688.06,
+        "value": 379428.57,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 402020.03,
+        "value": 399530.24,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 363815.78,
+        "value": 362124.75,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 293414.58,
+        "value": 322847.35,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 324123.06,
+        "value": 321013.88,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 307496.07,
+        "value": 304382.0,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 348731.56,
+        "value": 345583.91,
         "year": 2025
       },
       {
@@ -8454,6 +8464,11 @@
       {
         "period": "M07",
         "value": 387170.69,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 349948.43,
         "year": 2026
       }
     ],
@@ -10560,62 +10575,62 @@
       },
       {
         "period": "M01",
-        "value": 100837.31,
+        "value": 101421.69,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 98146.89,
+        "value": 98146.8,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 114912.73,
+        "value": 118870.58,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 111509.25,
+        "value": 113802.53,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 107576.75,
+        "value": 108167.48,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 130158.98,
+        "value": 128255.51,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 131536.87,
+        "value": 133944.67,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 116910.93,
+        "value": 116200.38,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 97857.79,
+        "value": 88038.39,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 111644.59,
+        "value": 97698.39,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 95846.75,
+        "value": 97876.45,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 113693.78,
+        "value": 113540.87,
         "year": 2025
       },
       {
@@ -10651,6 +10666,11 @@
       {
         "period": "M07",
         "value": 134330.77,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 110043.74,
         "year": 2026
       }
     ],
@@ -12757,62 +12777,62 @@
       },
       {
         "period": "M01",
-        "value": 176598.0,
+        "value": 176853.94,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 180144.75,
+        "value": 179845.86,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 214869.11,
+        "value": 216287.28,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 191247.98,
+        "value": 191108.38,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 185882.3,
+        "value": 182881.0,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 217349.78,
+        "value": 212212.64,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 222105.48,
+        "value": 224661.66,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 191617.74,
+        "value": 198602.07,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 175994.33,
+        "value": 162586.67,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 168267.93,
+        "value": 176285.25,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 176557.58,
+        "value": 182186.57,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 219719.64,
+        "value": 218230.3,
         "year": 2025
       },
       {
@@ -14924,62 +14944,62 @@
       },
       {
         "period": "M01",
-        "value": 617389.6,
+        "value": 618697.6,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 605731.94,
+        "value": 605732.12,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 735864.64,
+        "value": 728911.51,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 678812.22,
+        "value": 672825.38,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 662773.22,
+        "value": 654099.65,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 741244.54,
+        "value": 720425.51,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 748337.66,
+        "value": 749618.66,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 665568.63,
+        "value": 666342.0,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 550799.0,
+        "value": 550782.79,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 591419.0,
+        "value": 591414.09,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 591772.86,
+        "value": 590364.8,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 690655.3,
+        "value": 691874.51,
         "year": 2025
       },
       {
@@ -15015,6 +15035,11 @@
       {
         "period": "M07",
         "value": 763306.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 639688.32,
         "year": 2026
       }
     ],
@@ -17121,62 +17146,62 @@
       },
       {
         "period": "M01",
-        "value": 159311.89,
+        "value": 160211.53,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 141968.19,
+        "value": 142336.74,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 158259.67,
+        "value": 157795.86,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 139871.26,
+        "value": 138960.64,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 130213.4,
+        "value": 128546.14,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 155217.38,
+        "value": 151487.58,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 160835.72,
+        "value": 161876.37,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 141620.87,
+        "value": 142022.34,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 128617.1,
+        "value": 118085.12,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 146002.38,
+        "value": 126593.05,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 124356.31,
+        "value": 124447.58,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 166314.95,
+        "value": 172588.74,
         "year": 2025
       },
       {
@@ -17212,6 +17237,11 @@
       {
         "period": "M07",
         "value": 161920.55,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 134235.49,
         "year": 2026
       }
     ],
@@ -19318,62 +19348,62 @@
       },
       {
         "period": "M01",
-        "value": 457277.68,
+        "value": 451444.95,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 431349.43,
+        "value": 438195.51,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 525981.71,
+        "value": 502063.52,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 487706.98,
+        "value": 470637.07,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 466401.07,
+        "value": 459436.34,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 512198.06,
+        "value": 486339.56,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 518561.87,
+        "value": 525172.62,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 497264.72,
+        "value": 504844.97,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 411643.75,
+        "value": 447567.08,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 452374.19,
+        "value": 454554.32,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 425966.74,
+        "value": 426367.37,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 492320.75,
+        "value": 499074.77,
         "year": 2025
       },
       {
@@ -19409,6 +19439,11 @@
       {
         "period": "M07",
         "value": 499197.11,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 474741.87,
         "year": 2026
       }
     ],
@@ -21515,62 +21550,62 @@
       },
       {
         "period": "M01",
-        "value": 26011.21,
+        "value": 26668.17,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 18110.56,
+        "value": 18479.2,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 20190.12,
+        "value": 19818.33,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 15649.76,
+        "value": 15641.03,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 10617.86,
+        "value": 11099.62,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 12820.95,
+        "value": 12892.24,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 18164.82,
+        "value": 17370.47,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 17411.55,
+        "value": 18655.15,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 11309.37,
+        "value": 12767.15,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 16411.71,
+        "value": 18522.59,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 17577.76,
+        "value": 18507.33,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 18383.01,
+        "value": 20298.27,
         "year": 2025
       },
       {
@@ -21606,6 +21641,11 @@
       {
         "period": "M07",
         "value": 13935.31,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 16928.3,
         "year": 2026
       }
     ],
@@ -23712,62 +23752,62 @@
       },
       {
         "period": "M01",
-        "value": 131919.17,
+        "value": 125984.08,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 113153.08,
+        "value": 119999.29,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 131816.72,
+        "value": 124853.04,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 116502.52,
+        "value": 108723.59,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 97598.09,
+        "value": 104187.26,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 109509.99,
+        "value": 106468.25,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 116541.85,
+        "value": 123918.04,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 133448.94,
+        "value": 142720.22,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 118229.17,
+        "value": 124508.85,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 128251.13,
+        "value": 133540.44,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 118470.68,
+        "value": 121985.37,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 143589.19,
+        "value": 153490.87,
         "year": 2025
       },
       {
@@ -23803,6 +23843,11 @@
       {
         "period": "M07",
         "value": 112026.43,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 124793.44,
         "year": 2026
       }
     ],
@@ -25909,62 +25954,62 @@
       },
       {
         "period": "M01",
-        "value": 9324.67,
+        "value": 9496.73,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 7828.67,
+        "value": 7622.51,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 8586.61,
+        "value": 8874.46,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 7570.07,
+        "value": 7442.18,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 5667.58,
+        "value": 5135.59,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 5370.17,
+        "value": 5717.12,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 9977.25,
+        "value": 8548.63,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 7392.62,
+        "value": 8111.36,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 4246.9,
+        "value": 4568.64,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 6107.26,
+        "value": 6469.9,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 8011.4,
+        "value": 8582.4,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 9226.89,
+        "value": 10119.71,
         "year": 2025
       },
       {
@@ -26000,6 +26045,11 @@
       {
         "period": "M07",
         "value": 5643.43,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 5953.62,
         "year": 2026
       }
     ],
@@ -28106,62 +28156,62 @@
       },
       {
         "period": "M01",
-        "value": 28458.26,
+        "value": 29167.75,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 22695.72,
+        "value": 22847.53,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 23468.04,
+        "value": 23557.95,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 18949.68,
+        "value": 19150.68,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 11991.17,
+        "value": 11844.58,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 12505.8,
+        "value": 13311.51,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 15500.68,
+        "value": 14848.14,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 15965.42,
+        "value": 17306.17,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 10637.78,
+        "value": 11839.28,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 14306.19,
+        "value": 15565.07,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 28163.66,
+        "value": 29936.71,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 26300.74,
+        "value": 28044.6,
         "year": 2025
       },
       {
@@ -30273,62 +30323,62 @@
       },
       {
         "period": "M01",
-        "value": 155759.0,
+        "value": 150981.0,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 133960.0,
+        "value": 142122.0,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 154145.0,
+        "value": 148160.0,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 131464.0,
+        "value": 124483.0,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 103604.0,
+        "value": 110474.0,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 114487.0,
+        "value": 112160.0,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 122457.0,
+        "value": 131777.0,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 141207.0,
+        "value": 151162.0,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 124061.0,
+        "value": 131239.0,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 135793.0,
+        "value": 141052.0,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 136299.0,
+        "value": 140668.0,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 159608.0,
+        "value": 170253.0,
         "year": 2025
       },
       {
@@ -30364,6 +30414,11 @@
       {
         "period": "M07",
         "value": 117950.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 130474.0,
         "year": 2026
       }
     ],
@@ -32470,62 +32525,62 @@
       },
       {
         "period": "M01",
-        "value": 110161.98,
+        "value": 110918.42,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 105975.56,
+        "value": 105769.31,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 123499.34,
+        "value": 127772.54,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 119079.32,
+        "value": 121292.35,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 113244.33,
+        "value": 113303.07,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 135529.15,
+        "value": 134029.76,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 141514.11,
+        "value": 143320.98,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 124303.56,
+        "value": 124311.75,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 102104.69,
+        "value": 92626.45,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 117751.85,
+        "value": 104168.29,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 103858.15,
+        "value": 106458.85,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 122920.67,
+        "value": 123660.58,
         "year": 2025
       },
       {
@@ -32561,6 +32616,11 @@
       {
         "period": "M07",
         "value": 139974.2,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 115997.37,
         "year": 2026
       }
     ],
@@ -34667,62 +34727,62 @@
       },
       {
         "period": "M01",
-        "value": 205056.26,
+        "value": 206021.69,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 202840.47,
+        "value": 202693.39,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 238337.15,
+        "value": 239845.23,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 210197.66,
+        "value": 210259.05,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 197873.48,
+        "value": 194725.58,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 229855.59,
+        "value": 225524.15,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 237606.16,
+        "value": 239509.79,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 207583.17,
+        "value": 215908.24,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 186632.11,
+        "value": 174425.95,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 182574.12,
+        "value": 191850.32,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 204721.25,
+        "value": 212123.27,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 246020.38,
+        "value": 246274.91,
         "year": 2025
       },
       {
@@ -36834,62 +36894,62 @@
       },
       {
         "period": "M01",
-        "value": 773148.6,
+        "value": 769678.6,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 739691.94,
+        "value": 747854.12,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 890009.64,
+        "value": 877071.51,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 810276.22,
+        "value": 797308.38,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 766377.22,
+        "value": 764573.65,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 855731.54,
+        "value": 832585.51,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 870794.66,
+        "value": 881395.66,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 806775.63,
+        "value": 817504.0,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 674860.0,
+        "value": 682021.79,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 727212.0,
+        "value": 732466.09,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 728071.86,
+        "value": 731032.8,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 850263.3,
+        "value": 862127.51,
         "year": 2025
       },
       {
@@ -36925,6 +36985,11 @@
       {
         "period": "M07",
         "value": 881256.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 770162.32,
         "year": 2026
       }
     ],
@@ -38463,6 +38528,11 @@
         "period": "M07",
         "value": 2554.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 2512.0,
+        "year": 2026
       }
     ],
     "DBEDT_CONDO_INVENTORY_MAUI": [
@@ -39118,27 +39188,32 @@
       },
       {
         "period": "M03",
-        "value": 934.0,
+        "value": 936.0,
         "year": 2026
       },
       {
         "period": "M04",
-        "value": 956.0,
+        "value": 958.0,
         "year": 2026
       },
       {
         "period": "M05",
-        "value": 923.0,
+        "value": 924.0,
         "year": 2026
       },
       {
         "period": "M06",
-        "value": 934.0,
+        "value": 937.0,
         "year": 2026
       },
       {
         "period": "M07",
-        "value": 878.0,
+        "value": 886.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 839.0,
         "year": 2026
       }
     ],
@@ -40271,6 +40346,11 @@
       {
         "period": "M07",
         "value": 838750.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 493000.0,
         "year": 2026
       }
     ],
@@ -42469,6 +42549,11 @@
         "period": "M07",
         "value": 504500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 510000.0,
+        "year": 2026
       }
     ],
     "DBEDT_CONDO_MEDIAN_KAUAI": [
@@ -43549,7 +43634,7 @@
       },
       {
         "period": "M08",
-        "value": 675000.0,
+        "value": 680000.0,
         "year": 2025
       },
       {
@@ -43605,6 +43690,11 @@
       {
         "period": "M07",
         "value": 901938.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 999999.0,
         "year": 2026
       }
     ],
@@ -45136,12 +45226,17 @@
       },
       {
         "period": "M06",
-        "value": 630000.0,
+        "value": 625000.0,
         "year": 2026
       },
       {
         "period": "M07",
         "value": 690000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 564950.0,
         "year": 2026
       }
     ],
@@ -45974,6 +46069,11 @@
       {
         "period": "M07",
         "value": 42.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 31.0,
         "year": 2026
       }
     ],
@@ -48172,6 +48272,11 @@
         "period": "M07",
         "value": 416.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 365.0,
+        "year": 2026
       }
     ],
     "DBEDT_CONDO_SALES_KAUAI": [
@@ -48952,7 +49057,7 @@
       },
       {
         "period": "M08",
-        "value": 25.0,
+        "value": 26.0,
         "year": 2025
       },
       {
@@ -49008,6 +49113,11 @@
       {
         "period": "M07",
         "value": 18.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 15.0,
         "year": 2026
       }
     ],
@@ -50546,6 +50656,11 @@
         "period": "M07",
         "value": 82.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 68.0,
+        "year": 2026
       }
     ],
     "DBEDT_CONDO_SALES_STATEWIDE": [
@@ -51626,7 +51741,7 @@
       },
       {
         "period": "M08",
-        "value": 510.0,
+        "value": 511.0,
         "year": 2025
       },
       {
@@ -51682,6 +51797,11 @@
       {
         "period": "M07",
         "value": 558.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 479.0,
         "year": 2026
       }
     ],
@@ -53878,6 +53998,11 @@
       },
       {
         "period": "M07",
+        "value": 6600.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 6600.0,
         "year": 2026
       }
@@ -56077,6 +56202,11 @@
         "period": "M07",
         "value": 18800.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 18700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_ACCOM_KAUAI": [
@@ -58273,6 +58403,11 @@
       {
         "period": "M07",
         "value": 4700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4600.0,
         "year": 2026
       }
     ],
@@ -60471,6 +60606,11 @@
         "period": "M07",
         "value": 11000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 10900.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_ACCOM_STATEWIDE": [
@@ -62666,6 +62806,11 @@
       },
       {
         "period": "M07",
+        "value": 41000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 40900.0,
         "year": 2026
       }
@@ -64865,6 +65010,11 @@
         "period": "M07",
         "value": 1900.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1800.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_ARTS_HONOLULU": [
@@ -67060,6 +67210,11 @@
       },
       {
         "period": "M07",
+        "value": 8800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 8700.0,
         "year": 2026
       }
@@ -69257,6 +69412,11 @@
       },
       {
         "period": "M07",
+        "value": 1500.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1400.0,
         "year": 2026
       }
@@ -71454,6 +71614,11 @@
       },
       {
         "period": "M07",
+        "value": 2500.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 2400.0,
         "year": 2026
       }
@@ -73653,6 +73818,11 @@
         "period": "M07",
         "value": 14000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 13800.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_CONSTR_HAWAII": [
@@ -75850,6 +76020,11 @@
         "period": "M07",
         "value": 4200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4200.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_CONSTR_HONOLULU": [
@@ -78045,7 +78220,12 @@
       },
       {
         "period": "M07",
-        "value": 29700.0,
+        "value": 29900.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 29500.0,
         "year": 2026
       }
     ],
@@ -80244,6 +80424,11 @@
         "period": "M07",
         "value": 2400.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 2300.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_CONSTR_MAUI": [
@@ -82441,6 +82626,11 @@
         "period": "M07",
         "value": 5200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 5200.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_CONSTR_STATEWIDE": [
@@ -84636,6 +84826,11 @@
       },
       {
         "period": "M07",
+        "value": 41700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 41400.0,
         "year": 2026
       }
@@ -86835,6 +87030,11 @@
         "period": "M07",
         "value": 1300.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1300.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_EDU_HONOLULU": [
@@ -89031,6 +89231,11 @@
       {
         "period": "M07",
         "value": 11400.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 10700.0,
         "year": 2026
       }
     ],
@@ -91229,6 +91434,11 @@
         "period": "M07",
         "value": 200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 300.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_EDU_MAUI": [
@@ -93424,6 +93634,11 @@
       },
       {
         "period": "M07",
+        "value": 1300.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1300.0,
         "year": 2026
       }
@@ -95623,6 +95838,11 @@
         "period": "M07",
         "value": 14300.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 13500.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_FINANCE_HAWAII": [
@@ -97818,6 +98038,11 @@
       },
       {
         "period": "M07",
+        "value": 2600.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 2600.0,
         "year": 2026
       }
@@ -100017,6 +100242,11 @@
         "period": "M07",
         "value": 19900.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 20300.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_FINANCE_KAUAI": [
@@ -102212,6 +102442,11 @@
       },
       {
         "period": "M07",
+        "value": 1100.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1100.0,
         "year": 2026
       }
@@ -104411,6 +104646,11 @@
         "period": "M07",
         "value": 2600.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 2700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_FINANCE_STATEWIDE": [
@@ -106607,6 +106847,11 @@
       {
         "period": "M07",
         "value": 26300.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 26600.0,
         "year": 2026
       }
     ],
@@ -108805,6 +109050,11 @@
         "period": "M07",
         "value": 7000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 7100.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_FOOD_HONOLULU": [
@@ -111001,6 +111251,11 @@
       {
         "period": "M07",
         "value": 46700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 46400.0,
         "year": 2026
       }
     ],
@@ -113199,6 +113454,11 @@
         "period": "M07",
         "value": 4700.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_FOOD_MAUI": [
@@ -115394,7 +115654,12 @@
       },
       {
         "period": "M07",
-        "value": 9800.0,
+        "value": 9700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 9500.0,
         "year": 2026
       }
     ],
@@ -117591,7 +117856,12 @@
       },
       {
         "period": "M07",
-        "value": 68400.0,
+        "value": 68500.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 67900.0,
         "year": 2026
       }
     ],
@@ -119790,6 +120060,11 @@
         "period": "M07",
         "value": 15000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 14500.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_GOVT_HONOLULU": [
@@ -121986,6 +122261,11 @@
       {
         "period": "M07",
         "value": 91700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 89500.0,
         "year": 2026
       }
     ],
@@ -124184,6 +124464,11 @@
         "period": "M07",
         "value": 5100.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4900.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_GOVT_MAUI": [
@@ -126381,6 +126666,11 @@
         "period": "M07",
         "value": 9200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 9000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_GOVT_STATEWIDE": [
@@ -128576,7 +128866,12 @@
       },
       {
         "period": "M07",
-        "value": 121300.0,
+        "value": 121200.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 118300.0,
         "year": 2026
       }
     ],
@@ -130773,7 +131068,12 @@
       },
       {
         "period": "M07",
-        "value": 8300.0,
+        "value": 8400.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 8500.0,
         "year": 2026
       }
     ],
@@ -132970,7 +133270,12 @@
       },
       {
         "period": "M07",
-        "value": 59400.0,
+        "value": 59300.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 59200.0,
         "year": 2026
       }
     ],
@@ -135167,6 +135472,11 @@
       },
       {
         "period": "M07",
+        "value": 2800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 2800.0,
         "year": 2026
       }
@@ -137366,6 +137676,11 @@
         "period": "M07",
         "value": 8400.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 8400.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_HEALTH_STATEWIDE": [
@@ -139563,6 +139878,11 @@
         "period": "M07",
         "value": 79200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 79000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_INFO_HAWAII": [
@@ -141758,6 +142078,11 @@
       },
       {
         "period": "M07",
+        "value": 600.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 600.0,
         "year": 2026
       }
@@ -143957,6 +144282,11 @@
         "period": "M07",
         "value": 5700.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 5700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_INFO_KAUAI": [
@@ -146152,6 +146482,11 @@
       },
       {
         "period": "M07",
+        "value": 200.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 200.0,
         "year": 2026
       }
@@ -148351,6 +148686,11 @@
         "period": "M07",
         "value": 500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 500.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_INFO_STATEWIDE": [
@@ -150546,6 +150886,11 @@
       },
       {
         "period": "M07",
+        "value": 7100.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 7100.0,
         "year": 2026
       }
@@ -152745,6 +153090,11 @@
         "period": "M07",
         "value": 1600.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1600.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_MANUF_HONOLULU": [
@@ -154940,6 +155290,11 @@
       },
       {
         "period": "M07",
+        "value": 9600.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 9600.0,
         "year": 2026
       }
@@ -157139,6 +157494,11 @@
         "period": "M07",
         "value": 600.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 600.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_MANUF_MAUI": [
@@ -159336,6 +159696,11 @@
         "period": "M07",
         "value": 1000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_MANUF_STATEWIDE": [
@@ -161531,6 +161896,11 @@
       },
       {
         "period": "M07",
+        "value": 12800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 12700.0,
         "year": 2026
       }
@@ -163730,6 +164100,11 @@
         "period": "M07",
         "value": 2500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 2500.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_OTHER_HONOLULU": [
@@ -165927,6 +166302,11 @@
         "period": "M07",
         "value": 19800.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 20100.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_OTHER_KAUAI": [
@@ -168122,6 +168502,11 @@
       },
       {
         "period": "M07",
+        "value": 1300.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1300.0,
         "year": 2026
       }
@@ -170321,6 +170706,11 @@
         "period": "M07",
         "value": 3200.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 3300.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_OTHER_STATEWIDE": [
@@ -172518,6 +172908,11 @@
         "period": "M07",
         "value": 26700.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 27000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_PRIVATE_HAWAII": [
@@ -174713,7 +175108,12 @@
       },
       {
         "period": "M07",
-        "value": 57800.0,
+        "value": 57900.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 58000.0,
         "year": 2026
       }
     ],
@@ -176910,7 +177310,12 @@
       },
       {
         "period": "M07",
-        "value": 365500.0,
+        "value": 365600.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 364800.0,
         "year": 2026
       }
     ],
@@ -179107,7 +179512,12 @@
       },
       {
         "period": "M07",
-        "value": 28500.0,
+        "value": 28400.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 28300.0,
         "year": 2026
       }
     ],
@@ -181306,6 +181716,11 @@
         "period": "M07",
         "value": 66300.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 66100.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_PRIVATE_STATEWIDE": [
@@ -183501,7 +183916,12 @@
       },
       {
         "period": "M07",
-        "value": 517800.0,
+        "value": 518300.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 516900.0,
         "year": 2026
       }
     ],
@@ -185700,6 +186120,11 @@
         "period": "M07",
         "value": 6100.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 6100.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_PROF_HONOLULU": [
@@ -187895,7 +188320,12 @@
       },
       {
         "period": "M07",
-        "value": 55900.0,
+        "value": 55800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 56200.0,
         "year": 2026
       }
     ],
@@ -190092,6 +190522,11 @@
       },
       {
         "period": "M07",
+        "value": 3000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 3100.0,
         "year": 2026
       }
@@ -192291,6 +192726,11 @@
         "period": "M07",
         "value": 7000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 7100.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_PROF_STATEWIDE": [
@@ -194487,6 +194927,11 @@
       {
         "period": "M07",
         "value": 72000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 72700.0,
         "year": 2026
       }
     ],
@@ -196685,6 +197130,11 @@
         "period": "M07",
         "value": 10100.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 10000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_RETAIL_HONOLULU": [
@@ -198881,6 +199331,11 @@
       {
         "period": "M07",
         "value": 40700.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 40400.0,
         "year": 2026
       }
     ],
@@ -201079,6 +201534,11 @@
         "period": "M07",
         "value": 3800.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 3700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_RETAIL_MAUI": [
@@ -203276,6 +203736,11 @@
         "period": "M07",
         "value": 8500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 8400.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_RETAIL_STATEWIDE": [
@@ -205471,7 +205936,12 @@
       },
       {
         "period": "M07",
-        "value": 63100.0,
+        "value": 63000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 62500.0,
         "year": 2026
       }
     ],
@@ -207668,6 +208138,11 @@
       },
       {
         "period": "M07",
+        "value": 3200.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 3200.0,
         "year": 2026
       }
@@ -209867,6 +210342,11 @@
         "period": "M07",
         "value": 25600.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 25700.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_TRANSPORT_KAUAI": [
@@ -212062,6 +212542,11 @@
       },
       {
         "period": "M07",
+        "value": 1800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1800.0,
         "year": 2026
       }
@@ -214261,6 +214746,11 @@
         "period": "M07",
         "value": 4000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4000.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_TRANSPORT_STATEWIDE": [
@@ -216458,6 +216948,11 @@
         "period": "M07",
         "value": 34500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 34600.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_WHOLESALE_HAWAII": [
@@ -218653,6 +219148,11 @@
       },
       {
         "period": "M07",
+        "value": 1800.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 1800.0,
         "year": 2026
       }
@@ -220852,6 +221352,11 @@
         "period": "M07",
         "value": 13600.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 13600.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_WHOLESALE_KAUAI": [
@@ -223047,6 +223552,11 @@
       },
       {
         "period": "M07",
+        "value": 500.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 500.0,
         "year": 2026
       }
@@ -225246,6 +225756,11 @@
         "period": "M07",
         "value": 1400.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1400.0,
+        "year": 2026
       }
     ],
     "DBEDT_JOBS_WHOLESALE_STATEWIDE": [
@@ -227441,6 +227956,11 @@
       },
       {
         "period": "M07",
+        "value": 17200.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
         "value": 17200.0,
         "year": 2026
       }
@@ -229640,6 +230160,11 @@
         "period": "M07",
         "value": 78518.95,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 45163.06,
+        "year": 2026
       }
     ],
     "DBEDT_PERMITS_HONOLULU": [
@@ -231831,6 +232356,16 @@
       {
         "period": "M06",
         "value": 238014.61,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 321255.94,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 172433.85,
         "year": 2026
       }
     ],
@@ -234029,6 +234564,11 @@
         "period": "M07",
         "value": 12713.59,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 7303.16,
+        "year": 2026
       }
     ],
     "DBEDT_PERMITS_MAUI": [
@@ -236220,6 +236760,16 @@
       {
         "period": "M06",
         "value": 44807.92,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 64553.51,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 48094.12,
         "year": 2026
       }
     ],
@@ -238413,6 +238963,16 @@
         "period": "M06",
         "value": 342843.62,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 477042.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 272994.2,
+        "year": 2026
       }
     ],
     "DBEDT_SF_INVENTORY_HONOLULU": [
@@ -239950,6 +240510,11 @@
         "period": "M07",
         "value": 802.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 794.0,
+        "year": 2026
       }
     ],
     "DBEDT_SF_INVENTORY_MAUI": [
@@ -240510,7 +241075,7 @@
       },
       {
         "period": "M08",
-        "value": 363.0,
+        "value": 365.0,
         "year": 2024
       },
       {
@@ -240615,17 +241180,22 @@
       },
       {
         "period": "M05",
-        "value": 455.0,
+        "value": 456.0,
         "year": 2026
       },
       {
         "period": "M06",
-        "value": 472.0,
+        "value": 475.0,
         "year": 2026
       },
       {
         "period": "M07",
-        "value": 469.0,
+        "value": 479.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 473.0,
         "year": 2026
       }
     ],
@@ -241702,7 +242272,7 @@
       },
       {
         "period": "M08",
-        "value": 527000.0,
+        "value": 523500.0,
         "year": 2025
       },
       {
@@ -241758,6 +242328,11 @@
       {
         "period": "M07",
         "value": 535000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 580000.0,
         "year": 2026
       }
     ],
@@ -243956,6 +244531,11 @@
         "period": "M07",
         "value": 1224500.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1240000.0,
+        "year": 2026
       }
     ],
     "DBEDT_SF_MEDIAN_KAUAI": [
@@ -245092,6 +245672,11 @@
       {
         "period": "M07",
         "value": 1195000.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1088000.0,
         "year": 2026
       }
     ],
@@ -246630,6 +247215,11 @@
         "period": "M07",
         "value": 1150000.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1200000.0,
+        "year": 2026
       }
     ],
     "DBEDT_SF_SALES_HAWAII": [
@@ -247405,7 +247995,7 @@
       },
       {
         "period": "M08",
-        "value": 165.0,
+        "value": 166.0,
         "year": 2025
       },
       {
@@ -247461,6 +248051,11 @@
       {
         "period": "M07",
         "value": 183.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 153.0,
         "year": 2026
       }
     ],
@@ -249659,6 +250254,11 @@
         "period": "M07",
         "value": 300.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 264.0,
+        "year": 2026
       }
     ],
     "DBEDT_SF_SALES_KAUAI": [
@@ -250495,6 +251095,11 @@
       {
         "period": "M07",
         "value": 35.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 28.0,
         "year": 2026
       }
     ],
@@ -252033,6 +252638,11 @@
         "period": "M07",
         "value": 55.0,
         "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 64.0,
+        "year": 2026
       }
     ],
     "DBEDT_SF_SALES_STATEWIDE": [
@@ -253113,7 +253723,7 @@
       },
       {
         "period": "M08",
-        "value": 514.0,
+        "value": 515.0,
         "year": 2025
       },
       {
@@ -253169,6 +253779,11 @@
       {
         "period": "M07",
         "value": 573.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 509.0,
         "year": 2026
       }
     ],
@@ -254555,66 +255170,6 @@
       },
       {
         "period": "M01",
-        "value": 1250174.57,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 997904.22,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 1061101.17,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 935313.57,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 909369.93,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 1103525.54,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 1101933.86,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 920500.67,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 800965.91,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 931262.72,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 841719.57,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 1258446.65,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 1188758.52,
         "year": 2026
       },
@@ -254646,6 +255201,11 @@
       {
         "period": "M07",
         "value": 953434.37,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 745269.02,
         "year": 2026
       }
     ],
@@ -256032,66 +256592,6 @@
       },
       {
         "period": "M01",
-        "value": 2471779.02,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 2196372.2,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 2652846.82,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 2496020.59,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 2573810.06,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 2908562.29,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 2868677.48,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 2513227.68,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 1928302.45,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 2104332.41,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 2282772.73,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 2383219.89,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 2799869.33,
         "year": 2026
       },
@@ -256123,6 +256623,11 @@
       {
         "period": "M07",
         "value": 2457083.74,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 2177603.82,
         "year": 2026
       }
     ],
@@ -257509,66 +258014,6 @@
       },
       {
         "period": "M01",
-        "value": 831432.89,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 748565.92,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 847059.25,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 807823.8,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 819835.68,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 988842.47,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 1002076.1,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 847869.47,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 694407.48,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 780583.44,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 776264.13,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 866461.28,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 880078.97,
         "year": 2026
       },
@@ -257600,6 +258045,11 @@
       {
         "period": "M07",
         "value": 853705.72,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 676432.37,
         "year": 2026
       }
     ],
@@ -258983,66 +259433,6 @@
         "period": "M12",
         "value": 1746841.92,
         "year": 2024
-      },
-      {
-        "period": "M01",
-        "value": 1579232.32,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 1479210.34,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 1659080.06,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 1430674.28,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 1396153.76,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 1692626.56,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 1714914.61,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 1429513.09,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 1274706.77,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 1240936.36,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 1439785.95,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 1829028.77,
-        "year": 2025
       },
       {
         "period": "M01",
@@ -261153,62 +261543,62 @@
       },
       {
         "period": "M01",
-        "value": 6132618.81,
+        "value": 6145956.51,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 5422052.68,
+        "value": 5421907.17,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 6220087.32,
+        "value": 6199701.1,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 5669832.25,
+        "value": 5659316.38,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 5699169.42,
+        "value": 5617702.57,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 6693556.86,
+        "value": 6444194.3,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 6687602.05,
+        "value": 6688384.74,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 5711110.9,
+        "value": 5707777.96,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 4698382.61,
+        "value": 4690651.96,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 5057114.94,
+        "value": 5099785.17,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 5340542.38,
+        "value": 5162221.96,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 6337156.6,
+        "value": 6273738.35,
         "year": 2025
       },
       {
@@ -261244,6 +261634,11 @@
       {
         "period": "M07",
         "value": 5771078.74,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4798739.57,
         "year": 2026
       }
     ],
@@ -262630,62 +263025,62 @@
       },
       {
         "period": "M01",
-        "value": 1406340.6,
+        "value": 1415049.07,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 1114253.02,
+        "value": 1118383.12,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 1180640.03,
+        "value": 1195980.08,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 1040864.73,
+        "value": 1039380.22,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 955713.45,
+        "value": 955134.02,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 1153020.76,
+        "value": 1122925.54,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 1190319.89,
+        "value": 1190548.69,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 999513.26,
+        "value": 998563.26,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 845612.54,
+        "value": 776011.47,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 1008441.43,
+        "value": 928319.88,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 936748.5,
+        "value": 905037.57,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 1346363.88,
+        "value": 1363171.88,
         "year": 2025
       },
       {
@@ -262721,6 +263116,11 @@
       {
         "period": "M07",
         "value": 1011121.88,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 825203.73,
         "year": 2026
       }
     ],
@@ -264107,62 +264507,62 @@
       },
       {
         "period": "M01",
-        "value": 3440249.74,
+        "value": 3401913.67,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 3056973.06,
+        "value": 3075833.0,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 3619344.41,
+        "value": 3446223.39,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 3373285.57,
+        "value": 3246995.18,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 3243743.88,
+        "value": 3173463.42,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 3669417.24,
+        "value": 3490102.92,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 3668278.4,
+        "value": 3686204.19,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 3440425.14,
+        "value": 3433785.31,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 2718225.15,
+        "value": 2996526.35,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 2912272.88,
+        "value": 2997129.13,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 3065845.04,
+        "value": 2903570.29,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 3357983.72,
+        "value": 3378040.27,
         "year": 2025
       },
       {
@@ -264198,6 +264598,11 @@
       {
         "period": "M07",
         "value": 3226835.28,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 3025085.02,
         "year": 2026
       }
     ],
@@ -265584,66 +265989,6 @@
       },
       {
         "period": "M01",
-        "value": 156166.03,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 116348.8,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 119538.86,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 105551.16,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 46343.52,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 49495.22,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 88386.03,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 79012.59,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 44646.63,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 77178.7,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 95028.93,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 87917.23,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 91097.91,
         "year": 2026
       },
@@ -265675,6 +266020,11 @@
       {
         "period": "M07",
         "value": 57687.52,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 79934.71,
         "year": 2026
       }
     ],
@@ -267061,66 +267411,6 @@
       },
       {
         "period": "M01",
-        "value": 968470.72,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 860600.87,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 966497.58,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 877264.98,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 669933.82,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 760854.95,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 799600.92,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 927197.46,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 789922.71,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 807940.46,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 783072.31,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 974763.82,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 1032235.49,
         "year": 2026
       },
@@ -267152,6 +267442,11 @@
       {
         "period": "M07",
         "value": 769751.54,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 847481.19,
         "year": 2026
       }
     ],
@@ -268538,66 +268833,6 @@
       },
       {
         "period": "M01",
-        "value": 50875.45,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 47645.66,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 50213.52,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 38252.31,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 15663.29,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 20329.44,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 35146.33,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 28592.61,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 13882.7,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 20068.17,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 39234.22,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 43839.91,
-        "year": 2025
-      },
-      {
-        "period": "M01",
         "value": 47417.34,
         "year": 2026
       },
@@ -268629,6 +268864,11 @@
       {
         "period": "M07",
         "value": 17304.67,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 24467.36,
         "year": 2026
       }
     ],
@@ -270012,66 +270252,6 @@
         "period": "M12",
         "value": 225408.65,
         "year": 2024
-      },
-      {
-        "period": "M01",
-        "value": 250554.21,
-        "year": 2025
-      },
-      {
-        "period": "M02",
-        "value": 198982.37,
-        "year": 2025
-      },
-      {
-        "period": "M03",
-        "value": 201636.8,
-        "year": 2025
-      },
-      {
-        "period": "M04",
-        "value": 146389.64,
-        "year": 2025
-      },
-      {
-        "period": "M05",
-        "value": 78562.98,
-        "year": 2025
-      },
-      {
-        "period": "M06",
-        "value": 66891.11,
-        "year": 2025
-      },
-      {
-        "period": "M07",
-        "value": 88508.93,
-        "year": 2025
-      },
-      {
-        "period": "M08",
-        "value": 96828.85,
-        "year": 2025
-      },
-      {
-        "period": "M09",
-        "value": 64603.35,
-        "year": 2025
-      },
-      {
-        "period": "M10",
-        "value": 96026.27,
-        "year": 2025
-      },
-      {
-        "period": "M11",
-        "value": 224252.45,
-        "year": 2025
-      },
-      {
-        "period": "M12",
-        "value": 210657.18,
-        "year": 2025
       },
       {
         "period": "M01",
@@ -272182,62 +272362,62 @@
       },
       {
         "period": "M01",
-        "value": 1426066.41,
+        "value": 1403635.67,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 1223577.69,
+        "value": 1251543.21,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 1337886.77,
+        "value": 1303486.36,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 1167458.09,
+        "value": 1114264.07,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 810503.6,
+        "value": 849725.47,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 897570.72,
+        "value": 907400.81,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 1011642.2,
+        "value": 1059926.47,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 1131631.52,
+        "value": 1215062.45,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 913055.39,
+        "value": 984117.8,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 1001213.61,
+        "value": 1061760.36,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 1141587.91,
+        "value": 1182359.33,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 1317178.14,
+        "value": 1405154.74,
         "year": 2025
       },
       {
@@ -272273,6 +272453,11 @@
       {
         "period": "M07",
         "value": 925789.26,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1019884.04,
         "year": 2026
       }
     ],
@@ -273659,62 +273844,62 @@
       },
       {
         "period": "M01",
-        "value": 882308.34,
+        "value": 890293.99,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 796211.58,
+        "value": 796945.82,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 897272.77,
+        "value": 954359.77,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 846076.12,
+        "value": 888500.04,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 835498.97,
+        "value": 864701.28,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 1009171.9,
+        "value": 1000050.09,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 1037222.43,
+        "value": 1048680.77,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 876462.09,
+        "value": 878460.52,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 708290.19,
+        "value": 630809.08,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 800651.61,
+        "value": 751740.91,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 815498.34,
+        "value": 820479.4,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 910301.19,
+        "value": 905485.56,
         "year": 2025
       },
       {
@@ -273750,6 +273935,11 @@
       {
         "period": "M07",
         "value": 871010.39,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 700899.73,
         "year": 2026
       }
     ],
@@ -275136,62 +275326,62 @@
       },
       {
         "period": "M01",
-        "value": 1829786.54,
+        "value": 1842335.44,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 1678192.71,
+        "value": 1682288.44,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 1860716.86,
+        "value": 1906624.21,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 1577063.92,
+        "value": 1598705.01,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 1474716.74,
+        "value": 1474129.33,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 1759517.68,
+        "value": 1738516.56,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 1803423.54,
+        "value": 1822877.56,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 1526341.94,
+        "value": 1612031.31,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 1339310.12,
+        "value": 1271422.84,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 1336962.63,
+        "value": 1484355.61,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 1664038.4,
+        "value": 1715494.03,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 2039685.95,
+        "value": 2032195.39,
         "year": 2025
       },
       {
@@ -277303,62 +277493,62 @@
       },
       {
         "period": "M01",
-        "value": 7558685.22,
+        "value": 7549592.18,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 6645630.37,
+        "value": 6673450.38,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 7557974.08,
+        "value": 7503187.46,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 6837290.34,
+        "value": 6773580.45,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 6509673.03,
+        "value": 6467428.04,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 7591127.58,
+        "value": 7351595.11,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 7699244.25,
+        "value": 7748311.21,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 6842742.42,
+        "value": 6922840.42,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 5611438.0,
+        "value": 5674769.75,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 6058328.54,
+        "value": 6161545.53,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 6482130.29,
+        "value": 6344581.29,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 7654334.74,
+        "value": 7678893.09,
         "year": 2025
       },
       {
@@ -277394,6 +277584,11 @@
       {
         "period": "M07",
         "value": 6696868.01,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 5818623.61,
         "year": 2026
       }
     ],
@@ -278615,52 +278810,52 @@
       },
       {
         "period": "M01",
-        "value": 308423.42,
+        "value": 314374.14,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 271198.13,
+        "value": 272155.29,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 273665.33,
+        "value": 276314.06,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 247627.45,
+        "value": 247771.34,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 229571.37,
+        "value": 229075.53,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 259821.05,
+        "value": 253238.55,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 284413.93,
+        "value": 285260.85,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 237256.55,
+        "value": 238092.35,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 228840.93,
+        "value": 212074.29,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 279077.8,
+        "value": 258030.85,
         "year": 2025
       },
       {
@@ -278706,6 +278901,11 @@
       {
         "period": "M07",
         "value": 276280.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 202638.79,
         "year": 2026
       }
     ],
@@ -279912,52 +280112,52 @@
       },
       {
         "period": "M01",
-        "value": 771999.79,
+        "value": 761670.08,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 675708.81,
+        "value": 681630.12,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 932485.86,
+        "value": 892969.38,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 755444.51,
+        "value": 729635.22,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 787513.41,
+        "value": 777555.84,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 915456.55,
+        "value": 870670.36,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 860853.59,
+        "value": 864863.6,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 809507.49,
+        "value": 809293.39,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 645709.66,
+        "value": 714521.74,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 724006.39,
+        "value": 746553.45,
         "year": 2025
       },
       {
@@ -280003,6 +280203,11 @@
       {
         "period": "M07",
         "value": 885345.93,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 754523.27,
         "year": 2026
       }
     ],
@@ -281224,52 +281429,52 @@
       },
       {
         "period": "M01",
-        "value": 259186.98,
+        "value": 262315.79,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 228876.45,
+        "value": 229936.59,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 231291.59,
+        "value": 247430.3,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 222534.66,
+        "value": 235262.62,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 240104.2,
+        "value": 250276.27,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 265934.46,
+        "value": 267101.67,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 281779.54,
+        "value": 287239.25,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 235106.99,
+        "value": 236422.67,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 211157.56,
+        "value": 189105.64,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 243299.32,
+        "value": 228705.84,
         "year": 2025
       },
       {
@@ -281315,6 +281520,11 @@
       {
         "period": "M07",
         "value": 284188.34,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 210525.99,
         "year": 2026
       }
     ],
@@ -282536,52 +282746,52 @@
       },
       {
         "period": "M01",
-        "value": 549312.91,
+        "value": 556096.74,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 544842.46,
+        "value": 546917.22,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 546937.7,
+        "value": 557775.45,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 452004.95,
+        "value": 457588.97,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 424800.2,
+        "value": 421013.55,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 522313.65,
+        "value": 515629.13,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 524016.41,
+        "value": 529305.36,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 441214.62,
+        "value": 471059.78,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 442973.9,
+        "value": 422131.13,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 446153.81,
+        "value": 496867.21,
         "year": 2025
       },
       {
@@ -283818,62 +284028,62 @@
       },
       {
         "period": "M01",
-        "value": 1888923.1,
+        "value": 1894456.75,
         "year": 2025
       },
       {
         "period": "M02",
-        "value": 1720625.86,
+        "value": 1730639.21,
         "year": 2025
       },
       {
         "period": "M03",
-        "value": 1984380.47,
+        "value": 1974489.2,
         "year": 2025
       },
       {
         "period": "M04",
-        "value": 1677611.56,
+        "value": 1670258.15,
         "year": 2025
       },
       {
         "period": "M05",
-        "value": 1681989.18,
+        "value": 1677921.19,
         "year": 2025
       },
       {
         "period": "M06",
-        "value": 1963525.71,
+        "value": 1906639.71,
         "year": 2025
       },
       {
         "period": "M07",
-        "value": 1951063.46,
+        "value": 1966669.06,
         "year": 2025
       },
       {
         "period": "M08",
-        "value": 1723085.65,
+        "value": 1754868.2,
         "year": 2025
       },
       {
         "period": "M09",
-        "value": 1528682.05,
+        "value": 1537832.8,
         "year": 2025
       },
       {
         "period": "M10",
-        "value": 1692537.31,
+        "value": 1730157.35,
         "year": 2025
       },
       {
         "period": "M11",
-        "value": 1761598.89,
+        "value": 1728881.56,
         "year": 2025
       },
       {
         "period": "M12",
-        "value": 2106698.84,
+        "value": 2104493.97,
         "year": 2025
       },
       {
@@ -283909,6 +284119,11 @@
       {
         "period": "M07",
         "value": 1985724.96,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 1584541.16,
         "year": 2026
       }
     ],
@@ -290237,7 +290452,7 @@
       },
       {
         "period": "M09",
-        "value": 1382.0,
+        "value": 2007.33,
         "year": 2026
       }
     ],
@@ -291771,6 +291986,11 @@
         "period": "M06",
         "value": 47.55,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 43.28,
+        "year": 2026
       }
     ],
     "EIA_HI_ELEC_RES": [
@@ -293302,6 +293522,11 @@
       {
         "period": "M06",
         "value": 52.72,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 48.0,
         "year": 2026
       }
     ],
@@ -294835,6 +295060,11 @@
         "period": "M06",
         "value": 739.3792,
         "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 813.3704,
+        "year": 2026
       }
     ],
     "EIA_HI_ELEC_SALES_RES": [
@@ -296366,6 +296596,11 @@
       {
         "period": "M06",
         "value": 217.769,
+        "year": 2026
+      },
+      {
+        "period": "M07",
+        "value": 246.6492,
         "year": 2026
       }
     ],
@@ -298683,6 +298918,11 @@
       {
         "period": "M07",
         "value": 318.0,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 253.0,
         "year": 2026
       }
     ],
@@ -303648,6 +303888,66 @@
         "period": "M12",
         "value": 168308.42,
         "year": 2024
+      },
+      {
+        "period": "M01",
+        "value": 160211.53,
+        "year": 2025
+      },
+      {
+        "period": "M02",
+        "value": 142336.74,
+        "year": 2025
+      },
+      {
+        "period": "M03",
+        "value": 157795.86,
+        "year": 2025
+      },
+      {
+        "period": "M04",
+        "value": 138960.64,
+        "year": 2025
+      },
+      {
+        "period": "M05",
+        "value": 128546.14,
+        "year": 2025
+      },
+      {
+        "period": "M06",
+        "value": 151487.58,
+        "year": 2025
+      },
+      {
+        "period": "M07",
+        "value": 161876.37,
+        "year": 2025
+      },
+      {
+        "period": "M08",
+        "value": 142022.34,
+        "year": 2025
+      },
+      {
+        "period": "M09",
+        "value": 118085.12,
+        "year": 2025
+      },
+      {
+        "period": "M10",
+        "value": 126593.05,
+        "year": 2025
+      },
+      {
+        "period": "M11",
+        "value": 124447.58,
+        "year": 2025
+      },
+      {
+        "period": "M12",
+        "value": 172588.74,
+        "year": 2025
       }
     ],
     "HTA_VISITORS_HONOLULU": [
@@ -305750,6 +306050,66 @@
         "period": "M12",
         "value": 533419.69,
         "year": 2024
+      },
+      {
+        "period": "M01",
+        "value": 451444.95,
+        "year": 2025
+      },
+      {
+        "period": "M02",
+        "value": 438195.51,
+        "year": 2025
+      },
+      {
+        "period": "M03",
+        "value": 502063.52,
+        "year": 2025
+      },
+      {
+        "period": "M04",
+        "value": 470637.07,
+        "year": 2025
+      },
+      {
+        "period": "M05",
+        "value": 459436.34,
+        "year": 2025
+      },
+      {
+        "period": "M06",
+        "value": 486339.56,
+        "year": 2025
+      },
+      {
+        "period": "M07",
+        "value": 525172.62,
+        "year": 2025
+      },
+      {
+        "period": "M08",
+        "value": 504844.97,
+        "year": 2025
+      },
+      {
+        "period": "M09",
+        "value": 447567.08,
+        "year": 2025
+      },
+      {
+        "period": "M10",
+        "value": 454554.32,
+        "year": 2025
+      },
+      {
+        "period": "M11",
+        "value": 426367.37,
+        "year": 2025
+      },
+      {
+        "period": "M12",
+        "value": 499074.77,
+        "year": 2025
       }
     ],
     "HTA_VISITORS_KAUAI": [
@@ -307852,6 +308212,66 @@
         "period": "M12",
         "value": 123767.88,
         "year": 2024
+      },
+      {
+        "period": "M01",
+        "value": 110918.42,
+        "year": 2025
+      },
+      {
+        "period": "M02",
+        "value": 105769.31,
+        "year": 2025
+      },
+      {
+        "period": "M03",
+        "value": 127772.54,
+        "year": 2025
+      },
+      {
+        "period": "M04",
+        "value": 121292.35,
+        "year": 2025
+      },
+      {
+        "period": "M05",
+        "value": 113303.07,
+        "year": 2025
+      },
+      {
+        "period": "M06",
+        "value": 134029.76,
+        "year": 2025
+      },
+      {
+        "period": "M07",
+        "value": 143320.98,
+        "year": 2025
+      },
+      {
+        "period": "M08",
+        "value": 124311.75,
+        "year": 2025
+      },
+      {
+        "period": "M09",
+        "value": 92626.45,
+        "year": 2025
+      },
+      {
+        "period": "M10",
+        "value": 104168.29,
+        "year": 2025
+      },
+      {
+        "period": "M11",
+        "value": 106458.85,
+        "year": 2025
+      },
+      {
+        "period": "M12",
+        "value": 123660.58,
+        "year": 2025
       }
     ],
     "HTA_VISITORS_MAUI": [
@@ -309954,6 +310374,66 @@
         "period": "M12",
         "value": 232361.83,
         "year": 2024
+      },
+      {
+        "period": "M01",
+        "value": 206021.69,
+        "year": 2025
+      },
+      {
+        "period": "M02",
+        "value": 202693.39,
+        "year": 2025
+      },
+      {
+        "period": "M03",
+        "value": 239870.77,
+        "year": 2025
+      },
+      {
+        "period": "M04",
+        "value": 210314.02,
+        "year": 2025
+      },
+      {
+        "period": "M05",
+        "value": 194725.58,
+        "year": 2025
+      },
+      {
+        "period": "M06",
+        "value": 225627.7,
+        "year": 2025
+      },
+      {
+        "period": "M07",
+        "value": 240182.29,
+        "year": 2025
+      },
+      {
+        "period": "M08",
+        "value": 215908.24,
+        "year": 2025
+      },
+      {
+        "period": "M09",
+        "value": 174478.68,
+        "year": 2025
+      },
+      {
+        "period": "M10",
+        "value": 191850.32,
+        "year": 2025
+      },
+      {
+        "period": "M11",
+        "value": 212123.27,
+        "year": 2025
+      },
+      {
+        "period": "M12",
+        "value": 246274.91,
+        "year": 2025
       }
     ],
     "HTA_VISITORS_STATEWIDE": [
@@ -312056,6 +312536,66 @@
         "period": "M12",
         "value": 889558.75,
         "year": 2024
+      },
+      {
+        "period": "M01",
+        "value": 769678.6,
+        "year": 2025
+      },
+      {
+        "period": "M02",
+        "value": 747854.12,
+        "year": 2025
+      },
+      {
+        "period": "M03",
+        "value": 877071.51,
+        "year": 2025
+      },
+      {
+        "period": "M04",
+        "value": 797308.38,
+        "year": 2025
+      },
+      {
+        "period": "M05",
+        "value": 764573.65,
+        "year": 2025
+      },
+      {
+        "period": "M06",
+        "value": 832585.51,
+        "year": 2025
+      },
+      {
+        "period": "M07",
+        "value": 881395.66,
+        "year": 2025
+      },
+      {
+        "period": "M08",
+        "value": 817504.0,
+        "year": 2025
+      },
+      {
+        "period": "M09",
+        "value": 682021.79,
+        "year": 2025
+      },
+      {
+        "period": "M10",
+        "value": 732466.09,
+        "year": 2025
+      },
+      {
+        "period": "M11",
+        "value": 731032.8,
+        "year": 2025
+      },
+      {
+        "period": "M12",
+        "value": 862127.51,
+        "year": 2025
       }
     ],
     "JTS000000000000000JOR": [
@@ -313352,6 +313892,11 @@
       {
         "period": "M07",
         "value": 4.4,
+        "year": 2026
+      },
+      {
+        "period": "M08",
+        "value": 4.3,
         "year": 2026
       }
     ],
@@ -315947,6 +316492,11 @@
         "period": "M08",
         "value": 61.6,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 61.8,
+        "year": 2026
       }
     ],
     "LNS12300000": [
@@ -317244,6 +317794,11 @@
         "period": "M08",
         "value": 59.1,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 59.2,
+        "year": 2026
       }
     ],
     "LNS14000000": [
@@ -318540,6 +319095,11 @@
       {
         "period": "M08",
         "value": 4.1,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 4.2,
         "year": 2026
       }
     ],
@@ -324667,6 +325227,11 @@
         "period": "M08",
         "value": 1387.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 1365.0,
+        "year": 2026
       }
     ],
     "RDC_ACTIVE_HONOLULU": [
@@ -325278,6 +325843,11 @@
       {
         "period": "M08",
         "value": 3494.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 3483.0,
         "year": 2026
       }
     ],
@@ -325891,6 +326461,11 @@
         "period": "M08",
         "value": 414.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 385.0,
+        "year": 2026
       }
     ],
     "RDC_ACTIVE_MAUI": [
@@ -326502,6 +327077,11 @@
       {
         "period": "M08",
         "value": 1400.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 1367.0,
         "year": 2026
       }
     ],
@@ -327115,6 +327695,11 @@
         "period": "M08",
         "value": 86.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 92.0,
+        "year": 2026
       }
     ],
     "RDC_DOM_HONOLULU": [
@@ -327726,6 +328311,11 @@
       {
         "period": "M08",
         "value": 73.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 76.0,
         "year": 2026
       }
     ],
@@ -328339,6 +328929,11 @@
         "period": "M08",
         "value": 103.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 116.0,
+        "year": 2026
       }
     ],
     "RDC_DOM_MAUI": [
@@ -328950,6 +329545,11 @@
       {
         "period": "M08",
         "value": 115.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 117.0,
         "year": 2026
       }
     ],
@@ -329563,6 +330163,11 @@
         "period": "M08",
         "value": 500.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 493.0,
+        "year": 2026
       }
     ],
     "RDC_LIST_PPSF_HONOLULU": [
@@ -330174,6 +330779,11 @@
       {
         "period": "M08",
         "value": 708.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 705.0,
         "year": 2026
       }
     ],
@@ -330787,6 +331397,11 @@
         "period": "M08",
         "value": 1040.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 1019.0,
+        "year": 2026
       }
     ],
     "RDC_LIST_PPSF_MAUI": [
@@ -331398,6 +332013,11 @@
       {
         "period": "M08",
         "value": 900.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 894.0,
         "year": 2026
       }
     ],
@@ -332011,6 +332631,11 @@
         "period": "M08",
         "value": 599925.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 599000.0,
+        "year": 2026
       }
     ],
     "RDC_LIST_PRICE_HONOLULU": [
@@ -332622,6 +333247,11 @@
       {
         "period": "M08",
         "value": 674000.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 675000.0,
         "year": 2026
       }
     ],
@@ -333235,6 +333865,11 @@
         "period": "M08",
         "value": 1550000.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 1507750.0,
+        "year": 2026
       }
     ],
     "RDC_LIST_PRICE_MAUI": [
@@ -333846,6 +334481,11 @@
       {
         "period": "M08",
         "value": 999000.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 995000.0,
         "year": 2026
       }
     ],
@@ -334459,6 +335099,11 @@
         "period": "M08",
         "value": 316.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 250.0,
+        "year": 2026
       }
     ],
     "RDC_NEW_LISTINGS_HONOLULU": [
@@ -335070,6 +335715,11 @@
       {
         "period": "M08",
         "value": 904.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 884.0,
         "year": 2026
       }
     ],
@@ -335683,6 +336333,11 @@
         "period": "M08",
         "value": 68.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 44.0,
+        "year": 2026
       }
     ],
     "RDC_NEW_LISTINGS_MAUI": [
@@ -336294,6 +336949,11 @@
       {
         "period": "M08",
         "value": 204.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 182.0,
         "year": 2026
       }
     ],
@@ -336907,6 +337567,11 @@
         "period": "M08",
         "value": 275.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 259.0,
+        "year": 2026
       }
     ],
     "RDC_PENDING_HONOLULU": [
@@ -337518,6 +338183,11 @@
       {
         "period": "M08",
         "value": 1124.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 1034.0,
         "year": 2026
       }
     ],
@@ -338131,6 +338801,11 @@
         "period": "M08",
         "value": 66.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 68.0,
+        "year": 2026
       }
     ],
     "RDC_PENDING_MAUI": [
@@ -338742,6 +339417,11 @@
       {
         "period": "M08",
         "value": 208.0,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 183.0,
         "year": 2026
       }
     ],
@@ -339355,6 +340035,11 @@
         "period": "M08",
         "value": 0.1983,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.1894,
+        "year": 2026
       }
     ],
     "RDC_PENDING_RATIO_HONOLULU": [
@@ -339966,6 +340651,11 @@
       {
         "period": "M08",
         "value": 0.3217,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.2969,
         "year": 2026
       }
     ],
@@ -340579,6 +341269,11 @@
         "period": "M08",
         "value": 0.1594,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.1766,
+        "year": 2026
       }
     ],
     "RDC_PENDING_RATIO_MAUI": [
@@ -341190,6 +341885,11 @@
       {
         "period": "M08",
         "value": 0.1486,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.1339,
         "year": 2026
       }
     ],
@@ -341803,6 +342503,11 @@
         "period": "M08",
         "value": 0.1772,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.167,
+        "year": 2026
       }
     ],
     "RDC_PRICE_CUTS_HONOLULU": [
@@ -342414,6 +343119,11 @@
       {
         "period": "M08",
         "value": 0.1432,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.1425,
         "year": 2026
       }
     ],
@@ -343027,6 +343737,11 @@
         "period": "M08",
         "value": 0.1519,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.048,
+        "year": 2026
       }
     ],
     "RDC_PRICE_CUTS_MAUI": [
@@ -343638,6 +344353,11 @@
       {
         "period": "M08",
         "value": 0.1323,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.1251,
         "year": 2026
       }
     ],
@@ -344251,6 +344971,11 @@
         "period": "M08",
         "value": 0.0021,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.0031,
+        "year": 2026
       }
     ],
     "RDC_PRICE_HIKES_HONOLULU": [
@@ -344862,6 +345587,11 @@
       {
         "period": "M08",
         "value": 0.0042,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.0037,
         "year": 2026
       }
     ],
@@ -345475,6 +346205,11 @@
         "period": "M08",
         "value": 0.0,
         "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.0,
+        "year": 2026
       }
     ],
     "RDC_PRICE_HIKES_MAUI": [
@@ -346086,6 +346821,11 @@
       {
         "period": "M08",
         "value": 0.0022,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 0.0,
         "year": 2026
       }
     ],

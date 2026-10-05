@@ -2,7 +2,7 @@
   "aggregation_method": "december",
   "frequency": "monthly_aggregated_to_annual",
   "geography": "county",
-  "last_refresh": "2026-09",
+  "last_refresh": "2026-10",
   "limitations": [
     "ZORI uses asking rents from listings; tilts toward newly-vacant units, not in-place tenants. ACS B25058/B25064 captures occupied-unit rents. Used as a YoY *change* anchor.",
     "ZORI history starts 2015; pre-2015 years have no county values.",

@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-09-29",
+  "fetch_date": "2026-10-05",
   "limitations": [
     "The refresh MERGES into this file: a series whose fetch fails keeps its previously committed values rather than being dropped. fetch_date is when the file was last written; series_fetch_date is when each series was last actually fetched, and an older date there means that series is stale.",
     "Each value is the CALENDAR-YEAR MEAN level in the series' native units (index level, rate %, or yield %). The forecaster applies the log-change / diff / level transform at row-build time (see acs/ml_features NATIONAL_SERIES col_policy).",
@@ -29,7 +29,7 @@
       "2023": 33.6958,
       "2024": 35.0575,
       "2025": 36.4425,
-      "2026": 37.4575
+      "2026": 37.4967
     },
     "cpi_allitems": {
       "2010": 218.0555,
@@ -215,7 +215,7 @@
       "2023": 60.3167,
       "2024": 60.0667,
       "2025": 59.7727,
-      "2026": 59.15
+      "2026": 59.1556
     },
     "homeownership": {
       "1965": 63.025,
@@ -303,7 +303,7 @@
       "2023": 5.625,
       "2024": 4.65,
       "2025": 4.275,
-      "2026": 4.3714
+      "2026": 4.3625
     },
     "lfpr": {
       "2005": 66.0333,
@@ -327,7 +327,7 @@
       "2023": 62.6083,
       "2024": 62.5917,
       "2025": 62.4364,
-      "2026": 61.7625
+      "2026": 61.7667
     },
     "mortgage30": {
       "1971": 7.5418,
@@ -482,24 +482,24 @@
       "2023": 3.625,
       "2024": 4.025,
       "2025": 4.2636,
-      "2026": 4.25
+      "2026": 4.2444
     }
   },
   "series_fetch_date": {
-    "ahe": "2026-09-23",
-    "cpi_allitems": "2026-09-23",
-    "cpi_food": "2026-09-23",
-    "cpi_gas": "2026-09-23",
-    "cpi_housing": "2026-09-23",
-    "cpi_rent": "2026-09-23",
+    "ahe": "2026-10-05",
+    "cpi_allitems": "2026-10-05",
+    "cpi_food": "2026-10-05",
+    "cpi_gas": "2026-10-05",
+    "cpi_housing": "2026-10-05",
+    "cpi_rent": "2026-10-05",
     "dgs10": "2026-09-29",
-    "emp_pop": "2026-09-23",
+    "emp_pop": "2026-10-05",
     "homeownership": "2026-09-29",
-    "jolts_openings": "2026-09-23",
-    "lfpr": "2026-09-23",
+    "jolts_openings": "2026-10-05",
+    "lfpr": "2026-10-05",
     "mortgage30": "2026-09-29",
     "rental_vacancy": "2026-09-29",
-    "unemp": "2026-09-23"
+    "unemp": "2026-10-05"
   },
   "sources": {
     "ahe": "BLS API (CES0500000003)",

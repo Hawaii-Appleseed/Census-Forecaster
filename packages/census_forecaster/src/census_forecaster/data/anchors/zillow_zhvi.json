@@ -2,7 +2,7 @@
   "aggregation_method": "december",
   "frequency": "monthly_aggregated_to_annual",
   "geography": "county",
-  "last_refresh": "2026-09",
+  "last_refresh": "2026-10",
   "limitations": [
     "ZHVI is a hedonic estimate of typical home value; not a transaction-weighted price. Differs from ACS B25077 median *owner-reported* value by ~10-30% level offset; used here as a YoY *change* anchor where the offset cancels.",
     "Coverage gaps in low-population rural counties; missing geoids fall back to ACS-only models without anchor support.",
