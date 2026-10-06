@@ -228,3 +228,44 @@ class TestAnchorAsForecastIntegration:
         fp1 = anchor_as_forecast(latest, target_year=2026, anchor_rate=rate)
         fp2 = anchor_as_forecast(latest, target_year=2030, anchor_rate=rate)
         assert fp2.se_forecast > fp1.se_forecast
+
+
+# ---------------------------------------------------------------------------
+# Stale-anchor warning: once per anchor per process
+# ---------------------------------------------------------------------------
+
+def test_stale_anchor_warns_once_per_process(capsys, monkeypatch):
+    """Every forecast reloads the registry, and the warning used to print on each
+    load: 153,000 identical lines in a single CI refresh log."""
+    from census_forecaster.acs.sources import base
+
+    monkeypatch.setattr(base, "_STALE_WARNED", set())
+    for _ in range(50):
+        base.AnchorSource._maybe_warn_stale("pce_deflator", "2020-01")
+        base.AnchorSource._maybe_warn_stale("hud_fmr_honolulu", "2020-01")
+    lines = capsys.readouterr().err.splitlines()
+    assert len(lines) == 2
+    assert lines[0].startswith("[anchor:pce_deflator] last_refresh 2020-01 is ")
+    assert "months old (>6)" in lines[0]
+    assert lines[1].startswith("[anchor:hud_fmr_honolulu]")
+
+
+def test_a_refreshed_anchor_that_goes_stale_again_warns_again(capsys, monkeypatch):
+    from census_forecaster.acs.sources import base
+
+    monkeypatch.setattr(base, "_STALE_WARNED", set())
+    base.AnchorSource._maybe_warn_stale("pce_deflator", "2020-01")
+    base.AnchorSource._maybe_warn_stale("pce_deflator", "2021-01")
+    assert len(capsys.readouterr().err.splitlines()) == 2
+
+
+def test_fresh_or_missing_last_refresh_does_not_warn(capsys, monkeypatch):
+    from datetime import date
+
+    from census_forecaster.acs.sources import base
+
+    monkeypatch.setattr(base, "_STALE_WARNED", set())
+    base.AnchorSource._maybe_warn_stale("a", date.today().strftime("%Y-%m"))
+    base.AnchorSource._maybe_warn_stale("b", None)
+    base.AnchorSource._maybe_warn_stale("c", "not-a-date")
+    assert capsys.readouterr().err == ""
