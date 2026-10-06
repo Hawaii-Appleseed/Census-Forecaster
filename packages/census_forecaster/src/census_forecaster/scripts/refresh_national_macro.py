@@ -43,8 +43,9 @@ refreshes nothing rather than deleting the early years.
 
 This used to be false. ``main()`` started from an empty dict and wrote
 only what fetched, so the "keeping previous" warning lied: the monthly
-CI refreshes of 2026-08-06 and 2026-09-23 each hit a FRED outage and
-deleted ``mortgage30``, ``dgs10``, ``rental_vacancy`` and
+CI refreshes of 2026-08-06 and 2026-09-23 each hit FRED read timeouts
+(not an outage: ``fetch_fred_csv`` sent a custom User-Agent, which FRED stalls
+from datacenter IPs) and deleted ``mortgage30``, ``dgs10``, ``rental_vacancy`` and
 ``homeownership`` from the bundle (7 of the 22 ``natl_*`` feature
 columns went all-NaN). ``ef96a9f`` hand-restored the file once without
 fixing the script. Pinned by the merge tests in
@@ -156,10 +157,20 @@ def fetch_fred_csv(series_id: str, *, timeout: float = 30.0) -> list[dict]:
     """Download a FRED series CSV → ``[{date: 'YYYY-MM-DD', value: float}]``.
 
     Missing observations (FRED sentinel ``.``) are dropped.
+
+    Send NO custom ``User-Agent``. From a datacenter IP (a GitHub runner) FRED
+    stalls any request that carries one, a browser's included, until it hits
+    the read timeout, while requests' default gets HTTP 200 in under a second.
+    A runner probe on 2026-10-06, 12 requests each way across three series:
+    default UA 6/6 answered in 0.2-0.5 s; ``census-forecaster/1.0`` and a
+    ``Mozilla/5.0`` UA both 12/12 read timeouts. From a residential IP every
+    UA works, so a local run never shows it. This fetcher used to set
+    ``census-forecaster/1.0`` and timed out in every monthly CI refresh from
+    2026-08-06 to 2026-10-05; ``refresh_hawaii_indicators`` sends no UA and
+    always worked.
     """
     url = FRED_CSV_TMPL.format(sid=series_id)
-    resp = requests.get(url, timeout=timeout,
-                        headers={"User-Agent": "census-forecaster/1.0"})
+    resp = requests.get(url, timeout=timeout)
     resp.raise_for_status()
     reader = csv.DictReader(io.StringIO(resp.text))
     # FRED CSV columns: observation_date,<SERIES_ID>
