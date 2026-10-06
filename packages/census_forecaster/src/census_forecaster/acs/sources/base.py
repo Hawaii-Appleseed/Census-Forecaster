@@ -29,6 +29,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+# (anchor name, last_refresh) pairs already warned about in this process.
+_STALE_WARNED: set[tuple[str, str]] = set()
+
 _ANCHOR_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "anchors"
 
 
@@ -120,8 +123,16 @@ class AnchorSource:
 
     @staticmethod
     def _maybe_warn_stale(name: str, last_refresh: str | None) -> None:
-        """Emit a stderr warning if `last_refresh` is older than 6 months."""
+        """Emit a stderr warning if `last_refresh` is older than 6 months.
+
+        Once per anchor per process: every scenario year and every forecast
+        reloads the registry, and unthrottled this printed the same four lines
+        153,000 times in one CI refresh (a 108 MB log in which the warnings that
+        mattered were unfindable).
+        """
         if not last_refresh or not isinstance(last_refresh, str):
+            return
+        if (name, last_refresh) in _STALE_WARNED:
             return
         try:
             year_str, month_str = last_refresh.split("-", 1)
@@ -135,6 +146,7 @@ class AnchorSource:
         delta_months = (today.year - year) * 12 + (today.month - month)
         if delta_months > 6:
             import sys as _sys
+            _STALE_WARNED.add((name, last_refresh))
             print(
                 f"[anchor:{name}] last_refresh {last_refresh} is "
                 f"{delta_months} months old (>6); consider running the "
@@ -344,7 +356,9 @@ _REGISTRY_SPEC = [
     # (−12.9% relative) at Bates-Granger weight 0.571; the anchor member
     # alone runs 6.91% vs trend 7.97%. Raw blend coverage 95.6% — the
     # slight over-coverage is what the κ machinery deflates, exactly as
-    # it already does for B19013's multi_anchor (κ ≈ 0.715).
+    # it already does for B19013's multi_anchor (κ ≈ 0.715). (Measured on the
+    # January 2026 file; the live QCEW series reproduces the anchor-alone
+    # figure, 6.90%. See METHODOLOGY.md, "Annual ACS anchors".)
     ("qcew_hawaii_wages.json", 1,  # final annual averages release ~Aug of year+1
      ("B19013_001E", "B20002_001E"), 0.005, "state", "rate", 0.0),
     # HUD FMR Honolulu — *validation* anchor for rent (lags 2y so its

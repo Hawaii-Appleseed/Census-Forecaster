@@ -1,30 +1,32 @@
 {
-  "source": "BEA",
-  "series_id": "BEA NIPA Table 2.3.4 line 1 (Personal consumption expenditures price index)",
-  "title": "Personal Consumption Expenditures: Chain-type Price Index (annual, 2017=100)",
   "frequency": "annual",
-  "units": "index, 2017=100",
-  "last_refresh": "2026-01",
+  "last_refresh": "2026-10",
   "limitations": [
     "National-level price index; Hawaii cost-of-living deviates persistently above the national average so the *level* differs from Honolulu CPI but YoY rates are tightly correlated.",
     "PCE deflator weights expenditure shares differently from CPI (chain-weighted Fisher index, broader scope including imputed services).",
-    "Often revised in subsequent annual GDP releases (typically <0.2 pp on YoY rate)."
+    "Often revised in subsequent annual GDP releases (typically <0.2 pp on YoY rate).",
+    "Replaced in full on 2026-10 from the live series: the January 2026 file was not on the 2017=100 base it was titled with."
   ],
+  "series_id": "BEA NIPA Table 2.3.4 line 1 (Personal consumption expenditures price index), via FRED DPCERG3A086NBEA",
+  "source": "BEA",
+  "title": "Personal Consumption Expenditures: Chain-type Price Index (annual, 2017=100)",
+  "units": "index, 2017=100",
   "values_by_year": {
-    "2010": 87.421,
-    "2011": 89.742,
-    "2012": 91.412,
-    "2013": 92.704,
-    "2014": 94.130,
-    "2015": 94.241,
-    "2016": 95.246,
-    "2017": 97.001,
-    "2018": 99.114,
-    "2019": 100.498,
-    "2020": 101.673,
-    "2021": 105.793,
-    "2022": 112.391,
-    "2023": 116.625,
-    "2024": 119.663
+    "2010": 90.514,
+    "2011": 92.804,
+    "2012": 94.534,
+    "2013": 95.781,
+    "2014": 97.121,
+    "2015": 97.299,
+    "2016": 98.284,
+    "2017": 100.0,
+    "2018": 102.047,
+    "2019": 103.509,
+    "2020": 104.666,
+    "2021": 108.895,
+    "2022": 116.038,
+    "2023": 120.505,
+    "2024": 123.662,
+    "2025": 126.866
   }
 }

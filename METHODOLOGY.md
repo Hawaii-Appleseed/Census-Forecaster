@@ -803,7 +803,10 @@ conceptually closest cell to a payroll-tax wage base) improves the
 blend RMSE 10.47% → 9.12% on 2,977 folds, with the anchor member alone
 at 6.91% vs trend 7.97%. Raw blend coverage 95.6% — mild over-coverage
 of exactly the kind κ already deflates for B19013. Registry:
-`sources/base.py` (affinity extended).
+`sources/base.py` (affinity extended). *Re-checked 2026-10-06 on the live QCEW
+series, after the January file turned out not to reproduce from QCEW (see
+"Annual ACS anchors" in the data-intake sections): anchor alone 6.90% against
+the 6.91% recorded here, so the gate stands.*
 
 **Recency-weighted bias: NULL — keep the unweighted estimator.** The
 hypothesis was that the frozen COVID-era dollar bias (−7…−9%) should
@@ -1807,6 +1810,68 @@ worked: in three runs its FRED fetch of `HIBPPRIV` succeeded seconds after
 national-macro's four timed out. `fetch_fred_csv` now sends none, verified from
 a runner (all four series in 0.1-0.3 s), and both FRED fetchers have a test
 asserting no custom User-Agent.
+
+### Annual ACS anchors: refresh and provenance audit (2026-10-06)
+
+Four bundled anchors (`pce_deflator`, `qcew_hawaii_wages`, `fred_hi_hpi`,
+`hud_fmr_honolulu`) were hand-compiled in January 2026 with no refresh step, so
+they sat at 2024 while the package's own staleness warning counted the months
+(it printed 153,000 times in one CI log; it now prints once per anchor per
+process). All four are live inputs to `project_ensemble_multi`: QCEW is the best
+single income anchor (B19013 RMSE 7.8%) and the only anchor for worker earnings
+(B20002).
+
+Checking what a refresh would fetch showed that the files do not reproduce from
+the sources they name:
+
+| Series | Year | Stored | Live source |
+|---|---|---:|---:|
+| QCEW Hawaii average annual pay (total covered, all industries) | 2019 | 52,852 | 52,686 |
+| | 2020 | 54,908 | 57,934 |
+| | 2022 | 60,132 | 61,483 |
+| | 2024 | 64,956 | 67,366 |
+| FHFA Hawaii HPI (annual mean of `HISTHPI` quarters) | 2018 | 612.60 | 612.53 |
+| | 2021 | 786.94 | 709.78 |
+| | 2023 | 906.38 | 864.10 |
+| | 2024 | 941.55 | 907.66 |
+| PCE price index, 2017=100 | 2017 | 97.001 | 100.000 |
+| | 2024 | 119.663 | 123.662 |
+
+QCEW agreed within 1% through 2019, then ran 2-5% low: pay growth in 2020 is
++3.9% in the file and +10.0% in QCEW (a pandemic composition effect), and the
+file's `series_id` (`ENU1500010010`) is monthly employment, not pay. The HPI
+matches the true annual mean in 2018-2019 and differs by up to 11% elsewhere
+with no consistent rule. The PCE file is not on the base its title gives, and
+its year-over-year changes are off by up to 0.3 pp. How the January values were
+produced is not recorded.
+
+**Fix.** `scripts/refresh_annual_anchors.py` rewrites the three from their live
+series (PCE and HPI from FRED's keyless CSV, QCEW from BLS API series
+`ENU1500050010`), monthly in `refresh-data` ahead of the calibration steps. Same
+failure posture as the national-macro refresh: each anchor is independent, a
+failed fetch keeps the committed file and its `last_refresh` (so the staleness
+warning stays honest), a fetch that lacks a committed year is refused as
+partial, and an implausible value raises. HPI is the mean of the four quarters,
+complete years only; the Q4 reading, which the file's notes had named, calibrates
+identically (B25077 multi-anchor RMSE 9.34% against 9.33%). **`hud_fmr_honolulu`
+is not handled**: it has the same problem, its only keyless source is a HUD
+workbook, and its API needs a token; it still warns (once).
+
+**Effect** (calibration regenerated on the replaced files; full suite passes).
+Log-rate RMSE by anchor, stored → live: B19013 PCE 9.94% → 10.06%, B19013 QCEW
+7.84% → 7.85%, B20002 QCEW 8.38% → 8.26%, B25077 HPI 11.74% → 12.62%. The
+multi-anchor method: B19013 7.00% → 7.03%, B20002 6.91% → 6.90%, B25077 8.74% →
+9.33% (trend 11.53%, ML 9.86%, both unchanged). Post-override 90% coverage stays
+at 91.0% / 92.7% / 93.5%. Production point forecasts move by at most 0.02%
+(B19013), 0.08% (B20002) and 0.7% (B25077, mean 0.25%); the B20002 90% band
+narrows at long horizons (Honolulu 2028: -27%) as the calibrated κ follows the
+cleaner anchor. **The tax model is unaffected**: its county income-growth factor
+(`_fetch_growth_factor`, all four counties, TY2026-TY2031) is bit-identical,
+because that path does not use these anchors.
+
+Home value is the one cost: the January HPI file happened to track ACS median
+home value better than the true FHFA series does (anchor RMSE +7.5%). The
+multi-anchor forecast is still better than trend (9.33% against 11.53%).
 
 ### Hawaii indicator intake, round 3 (2026-08-06)
 

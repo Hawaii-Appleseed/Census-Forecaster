@@ -148,6 +148,10 @@ benefit to — and no risk from — feeding in finer-grained timing.
    accurate for that specific measurement gets more weight. This anchor
    role doesn't apply to non-dollar measurements like the poverty rate,
    since there's no equivalent "real measured total" to anchor those to.
+   These anchor series are re-fetched from their sources every month (PCE
+   prices, FHFA home prices and QCEW wages directly; each keeps its last
+   good copy if a fetch fails). Until October 2026 three of them were
+   hand-typed approximations that did not match their sources; they now do.
 
 Separately from all of this, there's also a genuine **publication-delay**
 concept for BLS data — nothing to do with the modeling above. Honolulu's
