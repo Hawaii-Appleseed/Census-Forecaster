@@ -356,7 +356,9 @@ _REGISTRY_SPEC = [
     # (−12.9% relative) at Bates-Granger weight 0.571; the anchor member
     # alone runs 6.91% vs trend 7.97%. Raw blend coverage 95.6% — the
     # slight over-coverage is what the κ machinery deflates, exactly as
-    # it already does for B19013's multi_anchor (κ ≈ 0.715).
+    # it already does for B19013's multi_anchor (κ ≈ 0.715). (Measured on the
+    # January 2026 file; the live QCEW series reproduces the anchor-alone
+    # figure, 6.90%. See METHODOLOGY.md, "Annual ACS anchors".)
     ("qcew_hawaii_wages.json", 1,  # final annual averages release ~Aug of year+1
      ("B19013_001E", "B20002_001E"), 0.005, "state", "rate", 0.0),
     # HUD FMR Honolulu — *validation* anchor for rent (lags 2y so its
