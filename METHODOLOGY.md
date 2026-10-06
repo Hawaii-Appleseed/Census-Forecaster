@@ -1792,6 +1792,22 @@ series. Consequence: a narrower `--start-year` refreshes nothing (with a
 warning per series) instead of deleting the early years. Pinned by the
 "partial fetch" tests in `test_refresh_national_macro.py`.
 
+Follow-up 2026-10-06: the FRED read-timeouts that started all of this were not
+an outage and not transient (the 2026-08-06 paragraph above calls them
+transient). `fetch_fred_csv` sent `User-Agent: census-forecaster/1.0`, and FRED
+stalls any request with a custom or browser-like User-Agent when it comes from a
+datacenter IP until the read timeout, while requests' default gets HTTP 200 in
+under a second. A probe on a GitHub runner (3 series × 3 User-Agents × 2
+rounds) got the default 6/6 in 0.2-0.5 s and both others 12/12 read timeouts;
+from a residential IP every User-Agent works, so a local run never showed it.
+Every monthly CI refresh from 2026-08-06 through 2026-10-05 therefore lost
+`mortgage30`, `dgs10`, `rental_vacancy` and `homeownership` (carried over, last
+fetched 2026-09-29). `refresh_hawaii_indicators` sends no User-Agent and always
+worked: in three runs its FRED fetch of `HIBPPRIV` succeeded seconds after
+national-macro's four timed out. `fetch_fred_csv` now sends none, verified from
+a runner (all four series in 0.1-0.3 s), and both FRED fetchers have a test
+asserting no custom User-Agent.
+
 ### Hawaii indicator intake, round 3 (2026-08-06)
 
 **DBEDT MEI expanded from 2 series to 13 per geography** (65 series
