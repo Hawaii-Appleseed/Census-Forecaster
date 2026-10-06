@@ -95,6 +95,28 @@ def test_fetch_fred_csv_parses_and_skips_missing(monkeypatch):
                     {"date": "2023-01-19", "value": 6.15}]
 
 
+def test_fred_request_carries_no_custom_user_agent(monkeypatch):
+    """FRED stalls requests with a custom or browser-like User-Agent when they
+    come from a datacenter IP (GitHub runner probe, 2026-10-06: default UA 6/6
+    answered in under a second, custom and browser UAs 12/12 read timeouts), so
+    every monthly CI refresh since 2026-08-06 lost its four FRED series. It works
+    from a residential IP with any UA, so only this assertion catches it."""
+    seen = {}
+
+    class _Resp:
+        text = "observation_date,DGS10\n2023-01-05,3.5\n"
+        def raise_for_status(self): pass
+
+    def fake_get(url, **kw):
+        seen.update(kw)
+        return _Resp()
+
+    monkeypatch.setattr(script.requests, "get", fake_get)
+    script.fetch_fred_csv("DGS10")
+    headers = {k.lower() for k in (seen.get("headers") or {})}
+    assert "user-agent" not in headers, seen.get("headers")
+
+
 # ---------------------------------------------------------------------------
 # CPI-panel reader
 # ---------------------------------------------------------------------------

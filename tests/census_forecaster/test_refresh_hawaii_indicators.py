@@ -39,6 +39,23 @@ def test_fred_parses_and_skips_missing(monkeypatch):
     ]
 
 
+def test_fred_request_carries_no_custom_user_agent(monkeypatch):
+    """Same rule as refresh_national_macro.fetch_fred_csv: FRED stalls any custom
+    or browser-like User-Agent from a datacenter IP. This module's ``_UA`` is for
+    Socrata (which rejects UA-less requests), not for FRED; this fetcher is the
+    one that has always worked in CI because it sends none."""
+    seen = {}
+
+    def fake_get(url, **kw):
+        seen.update(kw)
+        return _Resp(text=FRED_CSV)
+
+    monkeypatch.setattr(hi.requests, "get", fake_get)
+    hi.fetch_fred_monthly("HIPHCI")
+    headers = {k.lower() for k in (seen.get("headers") or {})}
+    assert "user-agent" not in headers, seen.get("headers")
+
+
 def test_fred_rejects_malformed_header(monkeypatch):
     monkeypatch.setattr(hi.requests, "get", lambda *a, **k: _Resp(text="onecol\n1\n"))
     with pytest.raises(ValueError, match="unexpected CSV header"):
