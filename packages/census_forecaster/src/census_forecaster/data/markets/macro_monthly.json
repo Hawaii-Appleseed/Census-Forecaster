@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-10-05",
+  "fetch_date": "2026-10-06",
   "limitations": [
     "Monthly cadence throughout; BLS unemployment is seasonally adjusted, Zillow indexes are smoothed + seasonally adjusted (ZHVI) / smoothed (ZORI).",
     "Zillow monthly values are subject to revision; final value settles ~1 year after first print.",
@@ -288005,7 +288005,17 @@
       },
       {
         "period": "M08",
-        "value": 4.6533,
+        "value": 4.6843,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 4.989,
+        "year": 2026
+      },
+      {
+        "period": "M10",
+        "value": 5.26,
         "year": 2026
       }
     ],
@@ -324613,7 +324623,17 @@
       },
       {
         "period": "M08",
-        "value": 6.69,
+        "value": 6.6675,
+        "year": 2026
+      },
+      {
+        "period": "M09",
+        "value": 6.8625,
+        "year": 2026
+      },
+      {
+        "period": "M10",
+        "value": 7.28,
         "year": 2026
       }
     ],

@@ -1,5 +1,5 @@
 {
-  "fetch_date": "2026-10-05",
+  "fetch_date": "2026-10-06",
   "limitations": [
     "The refresh MERGES into this file: a series whose fetch fails keeps its previously committed values rather than being dropped. fetch_date is when the file was last written; series_fetch_date is when each series was last actually fetched, and an older date there means that series is stale.",
     "Each value is the CALENDAR-YEAR MEAN level in the series' native units (index level, rate %, or yield %). The forecaster applies the log-change / diff / level transform at row-build time (see acs/ml_features NATIONAL_SERIES col_policy).",
@@ -191,7 +191,7 @@
       "2023": 3.959,
       "2024": 4.208,
       "2025": 4.2932,
-      "2026": 4.4539
+      "2026": 4.4711
     },
     "emp_pop": {
       "2005": 62.6833,
@@ -385,7 +385,7 @@
       "2023": 6.8067,
       "2024": 6.7212,
       "2025": 6.5951,
-      "2026": 6.4087
+      "2026": 6.431
     },
     "rental_vacancy": {
       "1956": 6.05,
@@ -486,20 +486,20 @@
     }
   },
   "series_fetch_date": {
-    "ahe": "2026-10-05",
-    "cpi_allitems": "2026-10-05",
-    "cpi_food": "2026-10-05",
-    "cpi_gas": "2026-10-05",
-    "cpi_housing": "2026-10-05",
-    "cpi_rent": "2026-10-05",
-    "dgs10": "2026-09-29",
-    "emp_pop": "2026-10-05",
-    "homeownership": "2026-09-29",
-    "jolts_openings": "2026-10-05",
-    "lfpr": "2026-10-05",
-    "mortgage30": "2026-09-29",
-    "rental_vacancy": "2026-09-29",
-    "unemp": "2026-10-05"
+    "ahe": "2026-10-06",
+    "cpi_allitems": "2026-10-06",
+    "cpi_food": "2026-10-06",
+    "cpi_gas": "2026-10-06",
+    "cpi_housing": "2026-10-06",
+    "cpi_rent": "2026-10-06",
+    "dgs10": "2026-10-06",
+    "emp_pop": "2026-10-06",
+    "homeownership": "2026-10-06",
+    "jolts_openings": "2026-10-06",
+    "lfpr": "2026-10-06",
+    "mortgage30": "2026-10-06",
+    "rental_vacancy": "2026-10-06",
+    "unemp": "2026-10-06"
   },
   "sources": {
     "ahe": "BLS API (CES0500000003)",
