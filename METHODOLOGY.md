@@ -1853,9 +1853,8 @@ failed fetch keeps the committed file and its `last_refresh` (so the staleness
 warning stays honest), a fetch that lacks a committed year is refused as
 partial, and an implausible value raises. HPI is the mean of the four quarters,
 complete years only; the Q4 reading, which the file's notes had named, calibrates
-identically (B25077 multi-anchor RMSE 9.34% against 9.33%). **`hud_fmr_honolulu`
-is not handled**: it has the same problem, its only keyless source is a HUD
-workbook, and its API needs a token; it still warns (once).
+identically (B25077 multi-anchor RMSE 9.34% against 9.33%). `hud_fmr_honolulu`
+has the same problem and was handled the next day (see the HUD section below).
 
 **Effect** (calibration regenerated on the replaced files; full suite passes).
 Log-rate RMSE by anchor, stored → live: B19013 PCE 9.94% → 10.06%, B19013 QCEW
@@ -1865,13 +1864,108 @@ multi-anchor method: B19013 7.00% → 7.03%, B20002 6.91% → 6.90%, B25077 8.74
 at 91.0% / 92.7% / 93.5%. Production point forecasts move by at most 0.02%
 (B19013), 0.08% (B20002) and 0.7% (B25077, mean 0.25%); the B20002 90% band
 narrows at long horizons (Honolulu 2028: -27%) as the calibrated κ follows the
-cleaner anchor. **The tax model is unaffected**: its county income-growth factor
+cleaner anchor. The tax model's county income-growth factor
 (`_fetch_growth_factor`, all four counties, TY2026-TY2031) is bit-identical,
-because that path does not use these anchors.
+because that path does not use these anchors. *(This originally read "the tax
+model is unaffected", which was too broad: the tax model also reads the
+ensemble's home-value factor, and the HPI replacement moved it. See the
+correction under the HUD section below.)*
 
 Home value is the one cost: the January HPI file happened to track ACS median
 home value better than the true FHFA series does (anchor RMSE +7.5%). The
 multi-anchor forecast is still better than trend (9.33% against 11.53%).
+
+### HUD Fair Market Rent anchor: verified and refreshed (2026-10-07)
+
+`hud_fmr_honolulu`, the anchor the section above left alone, had the same
+defect: it does not reproduce from HUD's own series. Checked against HUD's
+combined history workbook (`FMR_2Bed_1983_2027.xlsx`, last modified
+2026-08-31; Honolulu County, row `1500399999`; column `fmrYY_2` is the
+2-bedroom FMR for fiscal year YY):
+
+| FY | Stored | HUD | Stored vs HUD |
+|---|---:|---:|---:|
+| 2011 | 1,896 | 1,702 | +11.4% |
+| 2015 | 1,937 | 1,810 | +7.0% |
+| 2018 | 1,986 | 2,031 | -2.2% |
+| 2020 | 2,261 | 2,160 | +4.7% |
+| 2021 | 2,376 | 2,073 | +14.6% |
+| 2022 | 2,469 | 2,240 | +10.2% |
+| 2024 | 2,599 | 2,388 | +8.8% |
+
+None of the 15 stored years matches (mean gap 6.0%, maximum 14.6%), and the
+file stopped at FY2024 while FY2025-FY2027 (2,687, 2,642, 2,542) are published.
+The forecast uses the anchor as year-over-year change, and that is where the file
+is weakest: its changes differ from HUD's by 3.6 percentage points on average
+(9.1 at most: FY2021 is +5.1% in the file and -4.0% in HUD's series), and the two
+series' changes correlate at 0.17.
+
+**Fix.** HUD's API needs a registered token, which this project does not hold;
+the workbook needs none. `refresh_annual_anchors.py` gains HUD as a fourth
+anchor, monthly in `refresh-data`, with the posture of the other three: each
+anchor independent, a failed fetch keeps the committed file and its
+`last_refresh`, a fetch that lacks a committed year is refused as partial. The
+workbook has one row per FMR area and, per fiscal year, `msaYY` (the FMR area
+code), `fmrYY_2` (the dollars) and `fmrYY` (the percentile the FMR was set at,
+40 or 50; not a rent). The parser raises, rather than write a misaligned series,
+on a missing or duplicated row, a fractional dollar value, a gap in the years, a
+value outside the plausible range (a percentile read as dollars fails it), or an
+FMR area code other than the two Honolulu has had (`METRO26180M26180` through
+FY2015, `METRO46520M46520` from FY2016: the same county, recoded). HUD set
+Honolulu's FMR at the 50th percentile in FY2012-FY2017 and the 40th otherwise,
+so the series has level shifts at FY2012 and FY2018 that are methodology, not
+rent; the file's `limitations` say so.
+
+**huduser.gov needs a browser User-Agent**, the opposite of FRED. A probe from a
+GitHub runner on 2026-10-07 (throwaway branch, deleted): with a browser UA the
+workbook came back HTTP 200 with all 2,471,963 bytes in 0.8-1.0 s, 5 of 5 (curl
+and requests; the SHA-256 matches the file downloaded locally); with requests'
+default UA or curl's, HTTP 202 with an empty body, 4 of 4. A status-only check
+would read that 202 as success, so the fetcher accepts only a 200 that holds a
+zip, and tests pin it. The file name carries the end year (`..._1983_2027`), so
+the fetcher tries next year, this year and last year in turn (HUD answers 404
+for a name it has not published).
+
+**Effect** (calibration regenerated on the corrected file; full suite passes).
+The corrected series tracks ACS rent better than the hand-compiled one did:
+anchor-alone log-rate RMSE 12.36% -> 10.07% for B25064 (gross rent) and 13.04% ->
+10.55% for B25058 (contract rent). The other rent anchors (Zillow ZORI 7.39% /
+7.92%, CPI rent 9.14% / 9.73%, BEA RPP 15.97% / 16.23%) and the trend and ML
+members are unchanged. The blended multi-anchor forecast is marginally worse,
+7.65% -> 7.81% and 7.92% -> 7.97%, with post-override 90% coverage 94.3% -> 93.1%
+and 94.4% -> 93.8% (κ stays 0.715). In `calibration.json` only those two
+indicators' multi-anchor records changed. Production point forecasts for the four
+counties' two rent indicators (2025-2028) fall 1.1% on average (-0.5% to -1.8%);
+their 90% bands change by -6% to +14% depending on the cell, +1% on average.
+Honolulu gross rent for 2026 goes from $2,169 to $2,155 and for 2028 from $2,447
+to $2,409; the HUD anchor's weight in that blend goes from 0.16 to 0.22 and its
+rate from +4.55% to +3.72%. The registry's 2-year lag means a forecast anchored
+at ACS 2024 sees HUD through FY2022 only, so FY2023-FY2027 (FY2025 is +12.5%)
+enter as later ACS years arrive.
+
+**The tax model is unaffected, checked this time on what it reads.** Everything
+it takes from the ACS ensemble (`project_acs_supplement`: home-value,
+poverty-rate and rent levels and growth factors for the four counties and
+Kalawao's Maui proxy, 2025-2031, 35 county-years) was snapshotted before and
+after. Home value and poverty are bit-identical in all 35. The rent factor
+changed (1.5% on average, 2.3% at most) but no adjustment consumes it.
+
+#### Correction to the 2026-10-06 section: the tax model does read one anchored output
+
+That section said the tax model was unaffected by the replaced anchors, on the
+evidence that its county income-growth factor was bit-identical. That checked one
+of its two ensemble inputs. The other is the B25077 home-value factor in
+`project_acs_supplement`, which scales the itemized deduction's mortgage-interest
+tiers, and the HPI replacement moved it: all 35 county-years changed, by 0.41% on
+average and 1.07% at most (Maui TY2031, 1.5817 -> 1.5986; Honolulu TY2027, 1.1965
+-> 1.1937); poverty and rent did not. Rerun end to end on the commits either side
+of that change (`7ec36f3` and `dbd1865`; the enhanced scorer, CD2, all four
+scenarios), the Act 46 baseline moves by up to $2.0M a year (0.07%) and the Act 24
+headline columns by at most $0.05M (10 of 60 cells differ by 0.1 in the first
+decimal); MID's five-year static gain goes from $443.25M to $443.22M. One ordinary
+monthly refresh (`dbd1865` to the 2026-10-07 data commit) moved neither factor,
+so this was a one-time effect of replacing a hand-compiled input, not drift. The
+Act 24 forecast doc records the same numbers.
 
 ### Hawaii indicator intake, round 3 (2026-08-06)
 

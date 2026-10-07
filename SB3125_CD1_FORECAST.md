@@ -125,6 +125,20 @@ identical and the credit overlay moves by at most $0.11M a year, taking MID's
 five-year total from $810.4M to $810.1M (−0.04%). That is the monthly refresh
 feeding REEC growth, not the COR work; the published figures are unchanged.
 
+**The October 6 anchor replacement also reaches these tables, by one path.**
+Replacing the PCE, HPI and QCEW anchors (METHODOLOGY.md, "Annual ACS anchors")
+moved the ensemble's B25077 home-value forecast, whose growth factor scales the
+mortgage-interest tiers of the itemized deduction; the income-growth path is
+unaffected, and an earlier version of that section said the tax model as a whole
+was. Rerun end to end on the commits either side of it (CD2, all four
+scenarios), the Act 46 baseline moves by up to $2.0M a year (0.07%; MID +$0.6M in
+TY2027, −$2.0M in TY2031) and the Act 24 bracket and total-impact columns by at
+most $0.05M, so 10 of the 60 headline cells differ by 0.1 in the first decimal.
+MID's five-year static gain goes from $443.25M to $443.22M and its total impact
+from $810.10M to $810.15M. The tables above were not regenerated for it. The
+later HUD rent-anchor correction moves nothing the tax model reads (its
+home-value and poverty factors are bit-identical).
+
 ---
 
 ## CBO Social Security aging — September 30, 2026 (supersedes the frozen-baseline table below)
