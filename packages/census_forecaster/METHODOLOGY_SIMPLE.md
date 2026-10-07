@@ -149,9 +149,12 @@ benefit to — and no risk from — feeding in finer-grained timing.
    role doesn't apply to non-dollar measurements like the poverty rate,
    since there's no equivalent "real measured total" to anchor those to.
    These anchor series are re-fetched from their sources every month (PCE
-   prices, FHFA home prices and QCEW wages directly; each keeps its last
-   good copy if a fetch fails). Until October 2026 three of them were
-   hand-typed approximations that did not match their sources; they now do.
+   prices, FHFA home prices, QCEW wages and HUD's Fair Market Rent for
+   Honolulu directly; each keeps its last good copy if a fetch fails).
+   Until October 2026 all four were hand-typed approximations that did not
+   match their sources; they now do. (In the HUD rent file's case the
+   year-to-year changes, which are what the forecast uses, had almost no
+   relationship to HUD's real ones: a correlation of 0.17.)
 
 Separately from all of this, there's also a genuine **publication-delay**
 concept for BLS data — nothing to do with the modeling above. Honolulu's

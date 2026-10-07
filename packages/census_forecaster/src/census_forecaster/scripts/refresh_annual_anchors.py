@@ -1,6 +1,6 @@
 """Refresh the annual ACS anchors no other refresh script owns.
 
-Three bundled anchor files in ``data/anchors/``, each fetched in full from its
+Four bundled anchor files in ``data/anchors/``, each fetched in full from its
 source and rewritten whole:
 
 1. ``pce_deflator.json``       — BEA PCE chain-type price index, annual, 2017=100
@@ -12,6 +12,10 @@ source and rewritten whole:
 3. ``qcew_hawaii_wages.json``  — BLS QCEW Hawaii statewide average annual pay,
    all industries, total covered (BLS API ``ENU1500050010``, period A01).
    Anchors B19013 and B20002.
+4. ``hud_fmr_honolulu.json``   — HUD Fair Market Rent, 2-bedroom, Urban Honolulu
+   HI MSA (Honolulu County), by HUD fiscal year, from HUD's combined history
+   workbook ``FMR_2Bed_1983_<year>.xlsx`` (keyless; needs openpyxl, the
+   ``dotax`` extra). Anchors B25058 and B25064 (rent).
 
 Why this exists: until 2026-10 these were hand-compiled files, stale since
 January 2026 with no refresh step, and they do not reproduce from the sources
@@ -21,8 +25,10 @@ $67,366); the HPI differed from the true annual mean by up to 11% (2021: 786.9
 against 709.8) with no consistent rule; the PCE file's 2017 value was 97.0 in a
 file titled 2017=100 and its year-over-year changes were off by up to 0.3 pp.
 Its ``series_id`` for QCEW (``ENU1500010010``) is monthly employment, not pay.
-``hud_fmr_honolulu.json`` has the same problem and is NOT handled here: its only
-keyless source is a HUD workbook, and its API needs a token.
+The HUD file matched HUD's own 2-bedroom FMR in no year (2021 $2,376 against
+$2,073, 2024 $2,599 against $2,388; its 2020-21 change was +5.1% against HUD's
+-4.0%) and stopped at FY2024 although FY2025-FY2027 are published. HUD's API
+needs a registered token, so this reads the workbook, which does not.
 
 Failure posture mirrors ``refresh_national_macro``: each anchor is independent;
 a failed fetch warns and leaves the committed file (and its ``last_refresh``, so
@@ -31,6 +37,9 @@ year is treated as partial and refused; a layout change (missing quarter,
 implausible value) raises rather than writing a misaligned series.
 
 FRED requests carry NO custom User-Agent: see ``refresh_national_macro.fetch_fred_csv``.
+HUD is the opposite: huduser.gov answers a request without a browser-like
+User-Agent with HTTP 202 and an empty body, so ``fetch_hud_workbook`` sends one
+and treats anything but a 200 holding a zip as an error.
 
 Usage
 -----
@@ -41,14 +50,19 @@ Usage
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
+import re
 import sys
+import zipfile
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from statistics import mean
 from typing import Optional, Sequence
+
+import requests
 
 from ..bls.client import fetch_cpi_data
 from .refresh_national_macro import fetch_fred_csv
@@ -60,11 +74,28 @@ ANCHORS_DIR = _PKG_DATA / "anchors"
 #: First year kept; matches the files this replaces (2010 onward).
 FIRST_YEAR = 2010
 
+#: HUD publishes one combined 2-bedroom history workbook; the end year in its
+#: name moves each autumn (``FMR_2Bed_1983_2027.xlsx`` as of 2026-10).
+HUD_FMR_URL_TMPL = "https://www.huduser.gov/portal/datasets/FMR/FMR_2Bed_1983_{year}.xlsx"
+
+#: huduser.gov needs a browser-like User-Agent: requests' default and curl's
+#: both get HTTP 202 and an empty body. Runner probe, 2026-10-07: this UA 5/5
+#: HTTP 200 with the full 2,471,963-byte file in about 0.9 s (curl and requests);
+#: the default UA 4/4 HTTP 202, 0 bytes. The opposite of FRED's rule.
+HUD_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+
+#: Honolulu County's whole-county row in the workbook (state 15 + county 003 +
+#: county-subdivision 99999). Its HUD FMR area is the Urban Honolulu MSA: coded
+#: METRO26180M26180 through FY2015 and METRO46520M46520 from FY2016.
+HUD_HONOLULU_FIPS = "1500399999"
+_HUD_AREA_CODES = frozenset({"METRO26180M26180", "METRO46520M46520"})
+
 #: Plausible value ranges per anchor: a value outside raises (layout change).
 _RANGES = {
     "pce_deflator.json": (50.0, 400.0),
     "fred_hi_hpi.json": (100.0, 5000.0),
     "qcew_hawaii_wages.json": (20_000.0, 250_000.0),
+    "hud_fmr_honolulu.json": (500.0, 10_000.0),    # USD/month; a percentile (40/50) would fail
 }
 
 ANCHOR_SPECS: tuple[dict, ...] = (
@@ -147,6 +178,37 @@ ANCHOR_SPECS: tuple[dict, ...] = (
             "effect), and its series id was monthly employment.",
         ],
     },
+    {
+        "filename": "hud_fmr_honolulu.json",
+        "kind": "hud_fmr_workbook",
+        "hud_fips": HUD_HONOLULU_FIPS,
+        "source": "HUD",
+        "series_id": ("HUD Fair Market Rents — Urban Honolulu, HI MSA (Honolulu "
+                      "County; METRO46520M46520, METRO26180M26180 before FY2016), "
+                      "2BR, from the FMR_2Bed_1983_<year> workbook"),
+        "title": ("Fair Market Rent, Honolulu MSA, 2-bedroom, by HUD fiscal year "
+                  "(Oct 1 prior year - Sep 30)"),
+        "frequency": "annual (FY-aligned)",
+        "units": "USD per month, gross rent (includes utility allowances)",
+        "limitations": [
+            "FMRs are administrative: a percentile of recent-mover gross rents, "
+            "not a direct rent estimate. HUD set Honolulu's at the 40th "
+            "percentile in FY2010-FY2011 and from FY2018, and at the 50th in "
+            "FY2012-FY2017, so the series has level shifts at those boundaries "
+            "that are methodology, not rent.",
+            "Lag: FMRs are built from ACS data a few years old plus HUD's trend "
+            "adjustments, so their rate of change lags spot rent by 1-2 years.",
+            "Honolulu only; neighbor-island county FMRs (Hawaii, Kauai, Maui) "
+            "are published separately.",
+            "Enters the rent blend as one of four anchors (with Zillow ZORI, "
+            "CPI rent and BEA RPP) at a weight set by back-test. It is a "
+            "lagging administrative series, not a forecast of contract rent.",
+            "Replaced in full on 2026-10 from HUD's published workbook: the "
+            "January 2026 file matched HUD's 2-bedroom FMR in no year (up to "
+            "15% off; its 2020-21 change was +5.1% against HUD's -4.0%) and "
+            "stopped at FY2024. FY2025-FY2027 are included.",
+        ],
+    },
 )
 
 
@@ -185,6 +247,101 @@ def annual_from_bls(points: Sequence[dict], first_year: int = FIRST_YEAR) -> dic
     """BLS API points ``[{year, period, value}]`` → ``{year: value}`` for period A01."""
     out = {int(p["year"]): float(p["value"]) for p in points
            if p["period"] == "A01" and int(p["year"]) >= first_year}
+    return dict(sorted(out.items()))
+
+
+def _hud_fmr_year(column: object) -> Optional[int]:
+    """``'fmr24_2'`` -> 2024 and ``'fmr99_2'`` -> 1999; None for any other column.
+
+    ``fmrYY_2`` is the 2-bedroom FMR for fiscal year YY. The workbook spans 1983
+    onward, so 00-50 reads as 20xx and 51-99 as 19xx.
+    """
+    m = re.fullmatch(r"fmr(\d{2})_2", str(column or ""))
+    if not m:
+        return None
+    yy = int(m.group(1))
+    return 2000 + yy if yy <= 50 else 1900 + yy
+
+
+def _strip_core_dates(content: bytes) -> bytes:
+    """Drop ``dcterms:created`` / ``modified`` from a workbook's core properties.
+
+    HUD has shipped workbooks whose dates openpyxl cannot read (it raises
+    ``ValueError`` or ``TypeError`` on load). They are metadata; nothing here
+    uses them.
+    """
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(content)) as zin, \
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                data = re.sub(rb"<dcterms:(created|modified)\b[^>]*?(?:/>|>.*?</dcterms:\1>)",
+                              b"", data, flags=re.S)
+            zout.writestr(item.filename, data)
+    return out.getvalue()
+
+
+def _open_hud_workbook(content: bytes):
+    try:
+        import openpyxl
+    except ImportError as exc:  # pragma: no cover - the dotax extra ships it
+        raise RuntimeError("openpyxl is required for the HUD FMR anchor "
+                           "(pip install 'census-forecaster[dotax]')") from exc
+    opts = {"read_only": True, "data_only": True}
+    try:
+        return openpyxl.load_workbook(io.BytesIO(content), **opts)
+    except (ValueError, TypeError):
+        return openpyxl.load_workbook(io.BytesIO(_strip_core_dates(content)), **opts)
+
+
+def annual_from_hud_workbook(content: bytes, fips: str = HUD_HONOLULU_FIPS,
+                             first_year: int = FIRST_YEAR) -> dict[int, int]:
+    """HUD combined 2BR workbook -> ``{fiscal year: 2-bedroom FMR in dollars}`` for one area.
+
+    One row per FMR area, keyed by ``fips`` (state + county + county-subdivision),
+    and per fiscal year YY three columns: ``msaYY`` (the FMR area code),
+    ``fmrYY_2`` (the 2-bedroom FMR, the value taken) and ``fmrYY`` (the percentile
+    it was set at, 40 or 50; not a rent). Raises rather than write a misaligned
+    series: no ``fips`` column, not exactly one row for the area, a fractional
+    dollar value, an FMR area code other than the two Honolulu has had, or a gap
+    in the years.
+    """
+    wb = _open_hud_workbook(content)
+    try:
+        rows = wb.active.iter_rows(values_only=True)
+        index = {name: i for i, name in enumerate(next(rows, None) or ()) if name}
+        if "fips" not in index:
+            raise ValueError("HUD workbook has no 'fips' column in its header row: layout change?")
+        matches = [r for r in rows if str(r[index["fips"]]).strip() == fips]
+    finally:
+        wb.close()
+    if len(matches) != 1:
+        raise ValueError(f"HUD workbook has {len(matches)} rows for fips {fips}, expected 1: "
+                         "layout change?")
+    row = matches[0]
+
+    def cell(name: str):
+        i = index.get(name)
+        return row[i] if i is not None and i < len(row) else None
+
+    out: dict[int, int] = {}
+    for name in index:
+        year = _hud_fmr_year(name)
+        if year is None or year < first_year or cell(name) in (None, ""):
+            continue
+        area = cell(f"msa{name[3:5]}")
+        if area not in _HUD_AREA_CODES:
+            raise ValueError(f"FY{year}: FMR area code {area!r} for fips {fips} is not one of "
+                             f"{sorted(_HUD_AREA_CODES)}: did HUD re-delineate the area?")
+        dollars = float(cell(name))
+        if dollars != round(dollars):
+            raise ValueError(f"FY{year}: 2BR FMR {cell(name)!r} is not whole dollars: layout change?")
+        out[year] = int(round(dollars))
+    years = sorted(out)
+    if not years or years != list(range(years[0], years[-1] + 1)):
+        raise ValueError(f"HUD workbook fiscal years {years} are not one contiguous run: "
+                         "layout change?")
     return dict(sorted(out.items()))
 
 
@@ -235,6 +392,27 @@ def fetch_bls_annual(series_id: str, api_key: Optional[str], *, first_year: int 
     return points
 
 
+def fetch_hud_workbook(*, today: Optional[date] = None, timeout: float = 90.0) -> bytes:
+    """Newest ``FMR_2Bed_1983_<year>.xlsx`` as bytes.
+
+    The end year in the name moves each autumn, so try next year, this year and
+    last year in turn; HUD answers 404 for a name it has not published. A request
+    it dislikes gets HTTP 202 and an empty body, which a status-only check would
+    take for success, so anything but a 200 holding a zip raises.
+    """
+    year = (today or date.today()).year
+    for end_year in (year + 1, year, year - 1):
+        url = HUD_FMR_URL_TMPL.format(year=end_year)
+        resp = requests.get(url, headers={"User-Agent": HUD_USER_AGENT}, timeout=timeout)
+        if resp.status_code == 404:
+            continue
+        if resp.status_code != 200 or resp.content[:2] != b"PK":
+            raise RuntimeError(f"{url}: HTTP {resp.status_code}, {len(resp.content)} bytes, "
+                               "not a workbook (bot challenge?)")
+        return resp.content
+    raise RuntimeError(f"no FMR_2Bed_1983_<year>.xlsx published for {year - 1}-{year + 1}")
+
+
 def fetch_values(spec: dict, api_key: Optional[str], first_year: int = FIRST_YEAR) -> dict[int, float]:
     kind = spec["kind"]
     if kind == "fred_annual":
@@ -244,6 +422,8 @@ def fetch_values(spec: dict, api_key: Optional[str], first_year: int = FIRST_YEA
     elif kind == "bls_annual":
         values = annual_from_bls(fetch_bls_annual(spec["bls_id"], api_key, first_year=first_year),
                                  first_year)
+    elif kind == "hud_fmr_workbook":
+        values = annual_from_hud_workbook(fetch_hud_workbook(), spec["hud_fips"], first_year)
     else:  # pragma: no cover - spec typo
         raise ValueError(f"unknown anchor kind {kind!r}")
     if not values:
@@ -264,7 +444,8 @@ def _read_previous(path: Path) -> dict[int, float]:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Refresh the PCE, FHFA Hawaii HPI and QCEW Hawaii anchors.")
+    parser = argparse.ArgumentParser(
+        description="Refresh the PCE, FHFA Hawaii HPI, QCEW Hawaii wage and HUD FMR anchors.")
     parser.add_argument("--out", type=Path, default=ANCHORS_DIR,
                         help="Output directory (default: data/anchors/).")
     parser.add_argument("--first-year", type=int, default=FIRST_YEAR)
@@ -275,7 +456,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.dry_run:
         for spec in ANCHOR_SPECS:
-            src = spec.get("fred_id") or spec.get("bls_id")
+            src = spec.get("fred_id") or spec.get("bls_id") or spec.get("hud_fips")
             print(f"[dry-run] {spec['filename']}: {spec['kind']} {src}", file=sys.stderr)
         return 0
 

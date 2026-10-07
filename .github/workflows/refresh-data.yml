@@ -82,15 +82,18 @@ jobs:
             uv run python -m census_forecaster.scripts.refresh_bea_anchors --verify
           fi
 
-      - name: Refresh PCE, FHFA Hawaii HPI and QCEW Hawaii wage anchors
+      - name: Refresh PCE, FHFA Hawaii HPI, QCEW Hawaii wage and HUD FMR anchors
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
           # PCE price index and FHFA HPI come from FRED's keyless CSV (no custom
           # User-Agent: FRED stalls those from datacenter IPs); QCEW pay comes
-          # from the BLS API. Each anchor is independent: a failed fetch warns
-          # and keeps the committed file and its last_refresh, so the staleness
-          # warning stays honest. Runs before the calibration regeneration below.
+          # from the BLS API; HUD's 2-bedroom FMR comes from its keyless history
+          # workbook (a browser User-Agent: without one huduser.gov answers HTTP
+          # 202 and an empty body). Each anchor is independent: a failed fetch
+          # warns and keeps the committed file and its last_refresh, so the
+          # staleness warning stays honest. Runs before the calibration
+          # regeneration below.
           uv run python -m census_forecaster.scripts.refresh_annual_anchors
 
       - name: Refresh Zillow + BLS LAUS county anchors
