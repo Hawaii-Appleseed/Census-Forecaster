@@ -4,9 +4,13 @@ No network: every fetcher is monkeypatched.
 """
 from __future__ import annotations
 
+import io
 import json
+import re
+import zipfile
 from datetime import date
 
+import openpyxl
 import pytest
 
 from census_forecaster.acs.sources.base import AnchorSource
@@ -152,7 +156,7 @@ def test_a_failed_fetch_leaves_the_file_and_its_last_refresh(tmp_path, monkeypat
     assert json.loads((tmp_path / "pce_deflator.json").read_text())["last_refresh"] != "2026-01"
     err = capsys.readouterr().err
     assert "::warning::qcew_hawaii_wages.json: fetch failed" in err
-    assert "1 of 3 anchors not refreshed: qcew_hawaii_wages.json" in err
+    assert f"1 of {len(SPECS)} anchors not refreshed: qcew_hawaii_wages.json" in err
     # --strict turns the same failure into a non-zero exit
     assert ra.main(["--out", str(tmp_path), "--strict"]) == 1
 
@@ -182,6 +186,146 @@ def test_fred_fetch_is_the_shared_ua_free_fetcher():
     refresh_national_macro.fetch_fred_csv). Reusing that function is what keeps
     these anchors off the same trap; a private copy could reintroduce it."""
     assert ra.fetch_fred_csv is nm.fetch_fred_csv
+
+
+# ---------------------------------------------------------------------------
+# HUD FMR workbook
+# ---------------------------------------------------------------------------
+
+HUD_ROWS = {2009: 1631, 2010: 1704, 2011: 1702, 2012: 1767, 2013: 1833, 2014: 1820,
+            2015: 1810, 2016: 1985, 2017: 1982, 2018: 2031}
+
+
+def _area(year: int) -> str:
+    return "METRO26180M26180" if year <= 2015 else "METRO46520M46520"
+
+
+def _hud_workbook(honolulu, *, area=_area, with_fips=True, dup=False, core_date=None) -> bytes:
+    """A miniature of HUD's ``FMR_2Bed_1983_<year>.xlsx``: ``fips`` and descriptive
+    columns, then ``msaYY, fmrYY_2, fmrYY`` per fiscal year (newest first), one row
+    per FMR area. Hawaii County rides along as a decoy with different numbers, and
+    ``fmrYY`` carries the percentile (40, or 50 for FY2012-FY2017) as in the real file."""
+    years = sorted(honolulu, reverse=True)
+    header = ["fips" if with_fips else "id", "census_region", "state", "county", "cousub", "name"]
+    for y in years:
+        header += [f"msa{y % 100:02d}", f"fmr{y % 100:02d}_2", f"fmr{y % 100:02d}"]
+
+    def row(fips, name, values, code):
+        r = [fips, 4, "15", fips[2:5], "99999", name]
+        for y in years:
+            r += [code(y), values[y], 50 if 2012 <= y <= 2017 else 40]
+        return r
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(header)
+    ws.append(row("1500199999", "Hawaii County", {y: 1111 for y in years}, lambda y: "NCNTY15001N15001"))
+    ws.append(row("1500399999", "Honolulu County", honolulu, area))
+    if dup:
+        ws.append(row("1500399999", "Honolulu County", honolulu, area))
+    buf = io.BytesIO()
+    wb.save(buf)
+    return _with_core_date(buf.getvalue(), core_date) if core_date else buf.getvalue()
+
+
+def _with_core_date(data: bytes, value: str) -> bytes:
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(data)) as zin, \
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            blob = zin.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                blob = re.sub(rb"(<dcterms:created[^>]*>)[^<]*(</dcterms:created>)",
+                              rb"\g<1>" + value.encode() + rb"\g<2>", blob)
+            zout.writestr(item.filename, blob)
+    return out.getvalue()
+
+
+def test_hud_workbook_takes_the_honolulu_row_and_the_2br_column_from_first_year():
+    got = ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS))
+    assert got == {y: v for y, v in HUD_ROWS.items() if y >= 2010}      # not Hawaii County's 1111
+    assert all(isinstance(v, int) for v in got.values())                  # dollars, not the 40/50 percentile
+
+
+def test_hud_workbook_accepts_both_honolulu_area_codes_and_rejects_a_new_one():
+    ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS))                  # 26180 through FY2015, 46520 after
+    recoded = lambda y: "METRO99999M99999" if y == 2018 else _area(y)     # noqa: E731
+    with pytest.raises(ValueError, match="FMR area code 'METRO99999M99999'"):
+        ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS, area=recoded))
+
+
+def test_hud_workbook_layout_changes_raise():
+    with pytest.raises(ValueError, match="no 'fips' column"):
+        ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS, with_fips=False))
+    with pytest.raises(ValueError, match="0 rows for fips 1500399998"):
+        ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS), fips="1500399998")
+    with pytest.raises(ValueError, match="2 rows for fips 1500399999"):
+        ra.annual_from_hud_workbook(_hud_workbook(HUD_ROWS, dup=True))
+
+
+def test_hud_workbook_fractional_dollars_and_year_gaps_raise():
+    with pytest.raises(ValueError, match="not whole dollars"):
+        ra.annual_from_hud_workbook(_hud_workbook({**HUD_ROWS, 2018: 2031.5}))
+    with pytest.raises(ValueError, match="not one contiguous run"):
+        ra.annual_from_hud_workbook(_hud_workbook({**HUD_ROWS, 2014: None}))
+
+
+@pytest.mark.parametrize("bad", ["not-a-date", "2026-08-31"])
+def test_hud_workbook_with_a_malformed_core_date_still_parses(bad):
+    """HUD has shipped workbooks openpyxl cannot open for their dcterms dates
+    (ValueError for garbage, TypeError for a bare date). The dates are metadata."""
+    data = _hud_workbook(HUD_ROWS, core_date=bad)
+    stripped = _hud_workbook(HUD_ROWS, core_date="2026-08-31T00:00:00Z")
+    assert ra.annual_from_hud_workbook(data) == ra.annual_from_hud_workbook(stripped)
+    wb = openpyxl.load_workbook(io.BytesIO(ra._strip_core_dates(data)), read_only=True)
+    assert wb.sheetnames == ["Sheet"]                                     # opens once the dates are gone
+    wb.close()
+
+
+class _Resp:
+    def __init__(self, status_code, content=b""):
+        self.status_code, self.content = status_code, content
+
+
+def test_hud_fetch_tries_next_year_first_and_sends_a_browser_user_agent(monkeypatch):
+    calls = []
+    book = _Resp(200, b"PK\x03\x04 a workbook")
+
+    def get(url, headers=None, timeout=None):
+        calls.append((url, headers))
+        return _Resp(404, b"<html>not published</html>") if "2027" in url else book
+
+    monkeypatch.setattr(ra.requests, "get", get)
+    assert ra.fetch_hud_workbook(today=date(2026, 1, 5)) == book.content
+    assert [u.rsplit("_", 1)[1] for u, _ in calls] == ["2027.xlsx", "2026.xlsx"]
+    assert all("Mozilla/5.0" in h["User-Agent"] for _, h in calls)
+
+
+@pytest.mark.parametrize("resp", [_Resp(202, b""), _Resp(403, b"<html>blocked</html>"),
+                                  _Resp(200, b"<html>challenge</html>"), _Resp(200, b"")])
+def test_hud_fetch_refuses_anything_but_a_200_holding_a_zip(monkeypatch, resp):
+    """HUD answers a request it dislikes with HTTP 202 and an empty body; a check on
+    the status alone would take that for success (2026-10-07 runner probe)."""
+    monkeypatch.setattr(ra.requests, "get", lambda url, headers=None, timeout=None: resp)
+    with pytest.raises(RuntimeError, match="not a workbook"):
+        ra.fetch_hud_workbook(today=date(2026, 10, 7))
+
+
+def test_hud_fetch_gives_up_when_no_candidate_year_is_published(monkeypatch):
+    monkeypatch.setattr(ra.requests, "get",
+                        lambda url, headers=None, timeout=None: _Resp(404, b"<html/>"))
+    with pytest.raises(RuntimeError, match="no FMR_2Bed_1983_<year>.xlsx published for 2025-2027"):
+        ra.fetch_hud_workbook(today=date(2026, 10, 7))
+
+
+def test_hud_spec_flows_through_fetch_values_and_rejects_the_percentile_column(monkeypatch):
+    spec = SPECS["hud_fmr_honolulu.json"]
+    monkeypatch.setattr(ra, "fetch_hud_workbook", lambda: _hud_workbook(HUD_ROWS))
+    assert ra.fetch_values(spec, None)[2018] == 2031
+    # a column mix-up that put the percentile (40) where the dollars belong
+    monkeypatch.setattr(ra, "fetch_hud_workbook", lambda: _hud_workbook({y: 40 for y in HUD_ROWS}))
+    with pytest.raises(ValueError, match="outside"):
+        ra.fetch_values(spec, None)
 
 
 # ---------------------------------------------------------------------------

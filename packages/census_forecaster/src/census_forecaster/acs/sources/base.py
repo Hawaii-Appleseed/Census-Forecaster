@@ -361,8 +361,13 @@ _REGISTRY_SPEC = [
     # figure, 6.90%. See METHODOLOGY.md, "Annual ACS anchors".)
     ("qcew_hawaii_wages.json", 1,  # final annual averages release ~Aug of year+1
      ("B19013_001E", "B20002_001E"), 0.005, "state", "rate", 0.0),
-    # HUD FMR Honolulu — *validation* anchor for rent (lags 2y so its
-    # back-test weight will be small; primarily used for checks).
+    # HUD FMR Honolulu — anchors gross/contract rent. Lags 2y. Replaced
+    # 2026-10 by HUD's published 2BR series: the hand-compiled file matched
+    # it in no year. Anchor alone vs ACS rent, log-rate RMSE (B25064 /
+    # B25058): 12.4% / 13.0% -> 10.1% / 10.6%, against Zillow ZORI 7.4% /
+    # 7.9% and CPI rent 9.1% / 9.7%; the blended multi_anchor moved 7.65% ->
+    # 7.81% and 7.92% -> 7.97%. See METHODOLOGY.md, "HUD Fair Market Rent
+    # anchor".
     ("hud_fmr_honolulu.json", 2,
      ("B25058_001E", "B25064_001E"), 0.010, "any", "rate", 0.0),
     # FHFA HPI Hawaii — anchors home-value.
