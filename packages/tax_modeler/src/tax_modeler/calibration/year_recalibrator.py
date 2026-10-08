@@ -243,15 +243,13 @@ def project_and_recalibrate(
     # Real bracket density is bottom-loaded (Pareto-like), so a uniform
     # assumption over-projects upward migration into top brackets (~2× too
     # many $300-400K filers at TY2027 under uniform vs PUMS-derived).
-    from tax_modeler.calibration.forward_targets import (
-        empirical_density_from_pums,
-        _DOTAX_FILER_TARGETS_2022,
-    )
+    from tax_modeler.calibration import dotax_base
+    from tax_modeler.calibration.forward_targets import empirical_density_from_pums
     pre_aging = units.copy() if "income" in units.columns else _alias_columns(units)
     if "income" not in pre_aging.columns and "agi" in pre_aging.columns:
         pre_aging["income"] = pre_aging["agi"]
     empirical_density = empirical_density_from_pums(
-        pre_aging, _DOTAX_FILER_TARGETS_2022,
+        pre_aging, dotax_base.filer_targets(),
     )
     forward = build_targets(
         target_year,
@@ -338,8 +336,9 @@ def project_and_recalibrate(
         import numpy as np
         from tax_modeler.pipeline import _compute_base_tax as _compute_base_tax_2
 
-        fwd_1m_count = int(forward.filer_targets.get((1_000_000, float(np.inf)), 1_824))
-        fwd_1m_tax_M = float(forward.tax_targets.get((1_000_000, float(np.inf)), 663.0))
+        top = (1_000_000, float(np.inf))
+        fwd_1m_count = int(forward.filer_targets.get(top, dotax_base.filer_targets()[top]))
+        fwd_1m_tax_M = float(forward.tax_targets.get(top, dotax_base.tax_targets_M()[top]))
         pre_1m = float(raked.loc[raked["agi"] >= 1_000_000, "weight"].sum())
 
         if use_soi_anchor:

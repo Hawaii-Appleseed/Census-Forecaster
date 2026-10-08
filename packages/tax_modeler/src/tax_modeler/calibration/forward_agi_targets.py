@@ -9,15 +9,16 @@ top-1% mobility, CBO 2018 microsim overview, TPC 2013 tech doc).
 
 Methodology (Hybrid: DOTAX bin shape × CBO total)
 -------------------------------------------------
-1. **Baseline (TY2022)**: HI resident AGI per AGI bracket from DOTAX
-   *Individual Income Tax Statistics 2022, Table A-1* (resident taxable
-   returns). The ``$400K+`` aggregate ($11,149M, 8,867 filers) is
-   subdivided into the 4 finer DOTAX brackets ($400K-$500K, $500K-$750K,
-   $750K-$1M, $1M+) by filer-count proportions × per-bracket avg AGI
-   from SOI Table 1.4 (national, scaled to HI count).
+1. **Baseline (DOTAX, ``dotax_base.BASE_YEAR`` = TY2023)**: HI resident AGI
+   per AGI bracket from DOTAX *Individual Income Tax Statistics*, Table A-1
+   (resident taxable returns). The ``$400K+`` aggregate ($9,319M, 8,917 filers
+   in TY2023) is subdivided into the 4 finer DOTAX brackets ($400K-$500K,
+   $500K-$750K, $750K-$1M, $1M+) in proportion to each bracket's A-8 tax before
+   credits over its effective rate on Hawaiʻi AGI (``dotax_base.agi_targets_M``).
+   TY2022's split used filer-count proportions × SOI Table 1.4 average AGI.
 
 2. **$1M+ tier breakdown**: 5 tiers from SOI Table 1.4 ($1M-$1.5M,
-   $1.5M-$2M, $2M-$5M, $5M-$10M, $10M+). HI's 1,824 $1M+ filers
+   $1.5M-$2M, $2M-$5M, $5M-$10M, $10M+). HI's $1M+ filers (1,704 in TY2023)
    distributed proportionally across tiers using national tier counts;
    tier avg AGI from SOI Table 1.4. Tier AGI mass = HI tier count ×
    tier avg AGI.
@@ -49,41 +50,15 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from tax_modeler.calibration import dotax_base
 from tax_modeler.calibration.cbo_aging import net_growth_factor
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# DOTAX TY2022 baseline (Table A-1, resident taxable returns)
+# Baseline AGI by bracket: ``dotax_base.agi_targets_M(year)`` (Table A-1)
 # ---------------------------------------------------------------------------
-# AGI in $M per bracket. The $400K+ aggregate from Table A-1 ($11,149M for
-# 8,867 filers) is subdivided here using filer-count proportions from
-# DOTAX_FILER_TARGETS × tier-average AGI from SOI Table 1.4 national.
-#
-# Sub-bracket avg AGI (HI residents, anchored to SOI Table 1.4 nat'l avg):
-#   $400K-$500K:   ~$447K        (8,867 × 32.2% = 2,856 filers; AGI=$1,277M)
-#   $500K-$750K:   ~$612K        (2,549 filers; AGI=$1,560M)
-#   $750K-$1M:     ~$865K        (1,004 filers; AGI=$868M)
-#   $1M+:          ~$3.5M        (1,824 filers; AGI=$7,444M from SOI tiers)
-# Sum = $11,149M ✓ matches Table A-1 aggregate.
-_DOTAX_AGI_TARGETS_2022_M: Dict[Tuple[float, float], float] = {
-    (0,         10_000):     240.0,
-    (10_000,    20_000):     836.0,
-    (20_000,    30_000):   1_377.0,
-    (30_000,    40_000):   2_050.0,
-    (40_000,    50_000):   2_375.0,
-    (50_000,    75_000):   5_567.0,
-    (75_000,   100_000):   4_744.0,
-    (100_000,  150_000):   7_525.0,
-    (150_000,  200_000):   4_796.0,
-    (200_000,  300_000):   4_517.0,
-    (300_000,  400_000):   2_079.0,
-    (400_000,  500_000):   1_277.0,
-    (500_000,  750_000):   1_560.0,
-    (750_000, 1_000_000):    868.0,
-    (1_000_000, np.inf):   7_444.0,
-}
 
 # Bracket-level CBO aging compositions (rough average shares by income bracket).
 # Anchored on SOI Table 1.4 national bin compositions for $200K+, and BEA
@@ -153,7 +128,7 @@ def _component_growth_factor(
     year: int,
     cbo_rates,
     hawaii_factors: Dict[str, float],
-    base_year: int = 2022,
+    base_year: int = dotax_base.BASE_YEAR,
 ) -> float:
     """Composition-weighted CBO growth factor for one bracket/tier.
 
@@ -171,7 +146,7 @@ def _component_growth_factor(
     for component, share in composition.items():
         if share <= 0:
             continue
-        cbo_factor = cbo_rates.factor(component, year)
+        cbo_factor = cbo_rates.growth(component, year, base_year)
         hi_factor = hawaii_factors.get(component, 1.0)
         net_factor = net_growth_factor(cbo_factor, hi_factor)
         factor += share * net_factor
@@ -184,9 +159,10 @@ def build_agi_targets(
     cbo_vintage: str = "2025-01",
     hawaii_factors: Optional[Dict[str, float]] = None,
     base_agi: Optional[Dict[Tuple[float, float], float]] = None,
-    base_year: int = 2022,
+    base_year: int = dotax_base.BASE_YEAR,
     include_soi_tiers: bool = True,
-    soi_tier_total_filers: int = 1_824,
+    soi_tier_total_filers: Optional[int] = None,
+    soi_year: int = 2022,
 ) -> ForwardAGITargets:
     """Construct ``ForwardAGITargets`` for the given year.
 
@@ -199,15 +175,18 @@ def build_agi_targets(
     hawaii_factors:
         Per-component HI calibration. Defaults to ``DEFAULT_HAWAII_FACTORS``.
     base_agi:
-        Override TY2022 baseline AGI per bracket (mainly for testing).
+        Override the baseline AGI per bracket (mainly for testing).
     base_year:
-        Calendar year of the baseline.
+        DOTAX edition the baseline comes from (``dotax_base``).
     include_soi_tiers:
         If True (default), build per-tier targets within $1M+ in addition
         to the aggregate $1M+ bracket target.
     soi_tier_total_filers:
-        HI $1M+ filer count (DOTAX TY2022). Used to allocate national SOI
-        tier proportions to HI.
+        HI $1M+ filer count (default: DOTAX ``base_year``'s). Used to allocate
+        national SOI tier proportions to HI.
+    soi_year:
+        IRS SOI Table 1.4 vintage the tier averages come from. Those are
+        national TY2022 dollars, so they age from this year, not ``base_year``.
     """
     from tax_modeler.calibration.cbo_aging import (
         load_cbo_rates,
@@ -216,7 +195,9 @@ def build_agi_targets(
 
     cbo_rates = load_cbo_rates(cbo_vintage)
     hi = dict(hawaii_factors or DEFAULT_HAWAII_FACTORS)
-    bagi = dict(base_agi or _DOTAX_AGI_TARGETS_2022_M)
+    bagi = dict(base_agi or dotax_base.agi_targets_M(base_year))
+    if soi_tier_total_filers is None:
+        soi_tier_total_filers = dotax_base.filer_targets(base_year)[(1_000_000, np.inf)]
 
     # ── Per-bracket AGI mass ──────────────────────────────────────────────────
     bracket_targets: Dict[Tuple[float, float], float] = {}
@@ -233,7 +214,7 @@ def build_agi_targets(
         from tax_modeler.calibration.soi_top_anchor import load_soi_top_anchors
 
         try:
-            anchors = load_soi_top_anchors(year=2022)
+            anchors = load_soi_top_anchors(year=soi_year)
             total_nat_returns = sum(a.n_returns_national for a in anchors)
             for a in anchors:
                 tier_share = a.n_returns_national / total_nat_returns
@@ -258,7 +239,7 @@ def build_agi_targets(
                     "retirement":    a.retirement_share,
                     "other":         other_share,
                 }
-                gf = _component_growth_factor(comp, year, cbo_rates, hi, base_year)
+                gf = _component_growth_factor(comp, year, cbo_rates, hi, soi_year)
                 aged_tier_avg_agi = a.avg_agi * gf
                 tier_targets[(tier_lo, tier_hi)] = (
                     tier_filers * aged_tier_avg_agi / 1e6

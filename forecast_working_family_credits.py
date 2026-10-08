@@ -30,11 +30,19 @@ TY2025 are CPI-extrapolated.
 
 State credits: each tax unit's credit under the expanded law (40%; Act 163
 table) and the reverted law (20%; prior table), computed from the statutory
-schedules in tax_modeler.credits. Take-up is a uniform claim probability per
-credit, set so modeled TY2023 dollars match DOTAX ("Tax Credits Claimed",
-TY2023, Table A-1: EITC $77.05M, food/excise $63.96M) and held constant.
-Check: DOTAX claim counts (Table A-2) and, out of sample, TY2022 food/excise
-dollars under the old table ($24.96M).
+schedules in tax_modeler.credits. Take-up is a uniform factor per credit, held
+constant, set so modeled dollars match DOTAX in the latest year it reports each
+credit:
+  - EITC: TY2024, DOTAX's Earned Income Tax Credit Report (Act 107), Table 1's
+    NEW credit claimed for the year, all filers: $76.98M on 78,399 claims.
+    New, not applied: applied ($78.5M) adds legacy nonrefundable carryforwards
+    that the 40% rate does not touch and Act 25 (2025) ends.
+  - Food/excise: TY2023, "Tax Credits Claimed by Hawaiʻi Taxpayers" Table A-1:
+    $63.96M (the report that carries this credit).
+Checks: the EITC report's claims, its distribution by federal AGI range and by
+filing status (eitc_check_ty2024.csv); the Credits Claimed claim counts; and,
+out of sample, TY2023 EITC dollars and TY2022 food/excise dollars under the old
+table ($24.96M).
 
 Food/excise amounts are fixed dollars and income ceilings are not indexed, so
 the credit shrinks in real terms as incomes grow; the EITC follows the
@@ -53,7 +61,8 @@ income, in both cases.
 
 Outputs (runs/working_family_credits/):
   revenue_by_year.csv      $M by year: expanded vs reverted, per credit, and claimants
-  calibration.csv          take-up factors and the TY2022/TY2023 checks
+  calibration.csv          take-up factors and the TY2022-TY2024 checks
+  eitc_check_ty2024.csv    modeled EITC by federal AGI range and filing status vs DOTAX
   distribution_ty2028.csv  loss by household-income fifth
   by_family_type_ty2028.csv loss by family type (single, single parent, couple)
   poverty_ty2028.csv       SPM poverty with and without the expansions
@@ -77,12 +86,16 @@ sys.path.insert(0, str(REPO / "scripts"))
 OUT_DIR = REPO / "runs" / "working_family_credits"
 PUMS_DIR = REPO / "packages" / "data" / "raw" / "pums_2024_1yr"
 
-YEARS = [2022, 2023, 2027, 2028, 2029, 2030, 2031]
+YEARS = [2022, 2023, 2024, 2027, 2028, 2029, 2030, 2031]
 SCORE_YEARS = [2028, 2029, 2030, 2031]
 POVERTY_YEAR = 2028
-CAL_YEAR = 2023
+CAL_YEAR = 2023         # food/excise: the year DOTAX's Credits Claimed report fits it to
+EITC_CAL_YEAR = 2024    # EITC: the latest year of DOTAX's Earned Income Tax Credit Report
 
 # DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 ($K) and A-2 (claims).
+# The EITC rows here are the out-of-sample check for TY2023: the EITC report puts that
+# year's credit applied at $75.6M, against Table A-1's $77.05M, so the two reports
+# differ by about 2% for the same year.
 DOTAX = {
     2022: {"eitc_$M": 19.786, "eitc_claims": 60_903, "food_$M": 24.961, "food_claims": 208_786},
     2023: {"eitc_$M": 77.054, "eitc_claims": 84_470, "food_$M": 63.957, "food_claims": 249_806},
@@ -159,15 +172,20 @@ def run() -> None:
         frames[yr] = (u, state_credits(u))
         print(f"  TY{yr} built ({time.perf_counter() - t0:.0f}s)", flush=True)
 
-    # Take-up: a uniform factor per credit matching TY2023 dollars under Act 163.
-    # Below 1 it is a claim probability (food/excise: not every eligible
-    # household files). Slightly above 1 (the state EITC, whose federal base
-    # the model runs a few percent short) it is a dollar scale; claim
-    # probabilities are capped at 1 wherever they are used.
-    u23, c23 = frames[CAL_YEAR]
-    w23 = u23["weight"].to_numpy(dtype=float)
-    p_eitc = DOTAX[CAL_YEAR]["eitc_$M"] * 1e6 / float((c23["eitc_expanded"] * w23).sum())
-    p_food = DOTAX[CAL_YEAR]["food_$M"] * 1e6 / float((c23["food_expanded"] * w23).sum())
+    # Take-up: a uniform factor per credit matching DOTAX's dollars under Act 163, in
+    # the latest year it reports each credit (EITC_CAL_YEAR, CAL_YEAR). Below 1 it is a
+    # claim probability (not every eligible household files). Above 1 it is a dollar
+    # scale (the model's base runs short); claim probabilities are capped at 1 wherever
+    # they are used.
+    from tax_modeler.calibration import dotax_base
+
+    eitc_dotax = dotax_base.eitc_new_credit(EITC_CAL_YEAR)
+    uE, cE = frames[EITC_CAL_YEAR]
+    wE = uE["weight"].to_numpy(dtype=float)
+    p_eitc = eitc_dotax["dollars_M"] * 1e6 / float((cE["eitc_expanded"] * wE).sum())
+    uF, cF = frames[CAL_YEAR]
+    wF = uF["weight"].to_numpy(dtype=float)
+    p_food = DOTAX[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
     if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10):
         raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}")
 
@@ -181,19 +199,23 @@ def run() -> None:
     rev["total_loss_$M"] = rev["eitc_loss_$M"] + rev["food_loss_$M"]
     rev.to_csv(OUT_DIR / "revenue_by_year.csv", index=False)
 
-    r22 = rev.set_index("tax_year").loc[2022]
-    r23 = rev.set_index("tax_year").loc[2023]
+    r = rev.set_index("tax_year")
+    r22, r23, r24 = r.loc[2022], r.loc[2023], r.loc[EITC_CAL_YEAR]
     cal = pd.DataFrame([
         {"check": "take-up factor, EITC", "model": p_eitc, "dotax": None},
         {"check": "take-up factor, food/excise", "model": p_food, "dotax": None},
-        {"check": "TY2023 EITC $M (fit)", "model": r23["eitc_expanded_$M"], "dotax": DOTAX[2023]["eitc_$M"]},
+        {"check": "TY2024 EITC $M (fit)", "model": r24["eitc_expanded_$M"], "dotax": eitc_dotax["dollars_M"]},
+        {"check": "TY2024 EITC claims", "model": r24["eitc_claimants"], "dotax": eitc_dotax["claims"]},
+        {"check": "TY2023 EITC $M (out of sample)", "model": r23["eitc_expanded_$M"], "dotax": DOTAX[2023]["eitc_$M"]},
+        {"check": "TY2023 EITC claims (out of sample)", "model": r23["eitc_claimants"], "dotax": DOTAX[2023]["eitc_claims"]},
         {"check": "TY2023 food/excise $M (fit)", "model": r23["food_expanded_$M"], "dotax": DOTAX[2023]["food_$M"]},
-        {"check": "TY2023 EITC claims", "model": r23["eitc_claimants"], "dotax": DOTAX[2023]["eitc_claims"]},
         {"check": "TY2023 food/excise claims", "model": r23["food_claimants_expanded"], "dotax": DOTAX[2023]["food_claims"]},
         {"check": "TY2022 food/excise $M, prior table (out of sample)", "model": r22["food_reverted_$M"], "dotax": DOTAX[2022]["food_$M"]},
         {"check": "TY2022 food/excise claims, prior table", "model": r22["food_claimants_reverted"], "dotax": DOTAX[2022]["food_claims"]},
     ])
     cal.to_csv(OUT_DIR / "calibration.csv", index=False)
+    eitc_check(uE, cE, p_eitc, dotax_base.load_eitc_report(EITC_CAL_YEAR)).to_csv(
+        OUT_DIR / f"eitc_check_ty{EITC_CAL_YEAR}.csv", index=False)
 
     # Distribution and poverty, TY2028.
     u, c = frames[POVERTY_YEAR]
@@ -213,13 +235,61 @@ def run() -> None:
     write_run_manifest(
         OUT_DIR, script="forecast_working_family_credits.py",
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
+                "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),
                 "takeup_food": round(p_food, 4), "dotax": DOTAX},
         inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
-                "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2"},
+                "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2",
+                "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 "
+                              "(data/calibration/dotax_eitc_2024.json)"},
     )
     _print_summary(rev, cal)
     print(f"\nDone in {time.perf_counter() - t0:.0f}s -> {OUT_DIR.relative_to(REPO)}")
+
+
+EITC_RANGES = [("Under $15,000", -np.inf, 15_000), ("$15,000 to $29,999", 15_000, 30_000),
+               ("$30,000 to $44,999", 30_000, 45_000), ("$45,000 to $54,999", 45_000, 55_000),
+               ("$55,000 or more", 55_000, np.inf)]
+# DOTAX Table 4's rows against the model's filing statuses (qualifying surviving spouses file jointly).
+EITC_STATUS = [("Single", ("single",), ("Single",)),
+               ("Joint", ("married_filing_jointly",), ("Joint", "Qualifying surviving spouse")),
+               ("Married filing separately", ("married_filing_separately",), ("Married filing separately",)),
+               ("Head of household", ("head_of_household",), ("Head of household",))]
+
+
+def eitc_check(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, report: dict) -> pd.DataFrame:
+    """The calibration year's modeled EITC against the report's distribution.
+
+    By federal AGI range (Table 1's NEW credit, the quantity the factor is fitted
+    to) in claims and dollars. By filing status (Table 4 reports the credit APPLIED,
+    which includes legacy carryforwards) in shares of the total, since the levels
+    differ by that. The model is the resident population: the report's N-11 returns
+    are 94.6% of its claims and 97.3% of its dollars.
+    """
+    w = u["weight"].to_numpy(dtype=float)
+    e = c["eitc_expanded"].to_numpy(dtype=float)
+    claim = e > 0
+    q = min(p_eitc, 1.0)
+    agi = u["federal_agi"].to_numpy(dtype=float)
+    rows = []
+    for (label, lo, hi), r in zip(EITC_RANGES, report["table_1_by_federal_agi"]["ranges"], strict=True):
+        m = claim & (agi >= lo) & (agi < hi)
+        rows.append({"table": "federal AGI range", "group": label,
+                     "dotax_claims": r["new"]["claims"], "dotax_$M": r["new"]["dollars"] / 1e6,
+                     "model_claims": float(w[m].sum() * q), "model_$M": float((e * w)[m].sum() * p_eitc / 1e6)})
+    t4 = report["table_4_filing_status"]
+    fs = u["filing_status"].to_numpy()
+    for label, mine, theirs in EITC_STATUS:
+        m = claim & np.isin(fs, mine)
+        rows.append({"table": "filing status", "group": label,
+                     "dotax_claims": sum(t4[k]["claims"] for k in theirs),
+                     "dotax_$M": sum(t4[k]["dollars"] for k in theirs) / 1e6,
+                     "model_claims": float(w[m].sum() * q), "model_$M": float((e * w)[m].sum() * p_eitc / 1e6)})
+    out = pd.DataFrame(rows)
+    for col in ("claims", "$M"):
+        for who in ("dotax", "model"):
+            out[f"{who}_{col}_share"] = out.groupby("table")[f"{who}_{col}"].transform(lambda x: x / x.sum())
+    return out
 
 
 def _household_frame(u: pd.DataFrame) -> pd.DataFrame:

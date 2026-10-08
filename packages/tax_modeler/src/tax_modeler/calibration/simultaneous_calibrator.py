@@ -27,57 +27,18 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from tax_modeler.calibration import dotax_base
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Canonical DOTAX targets (Table A8, SOI 2022)
+# Canonical DOTAX targets (Table A-8 and Table 4, newest edition on file)
 # ---------------------------------------------------------------------------
+# One copy, in ``dotax_base`` (TY2023: 631,125 filers, $2,961M tax).
 
-# Filer counts by AGI bracket (total 618,423)
-DOTAX_FILER_TARGETS: Dict[Tuple[float, float], int] = {
-    (0, 10_000):          115_285,
-    (10_000, 20_000):      64_160,
-    (20_000, 30_000):      57_835,
-    (30_000, 40_000):      58_135,
-    (40_000, 50_000):      53_555,
-    (50_000, 75_000):      91_459,
-    (75_000, 100_000):     54_976,
-    (100_000, 150_000):    62_065,
-    (150_000, 200_000):    27_976,
-    (200_000, 300_000):    19_015,
-    (300_000, 400_000):     5_729,
-    (400_000, 500_000):     2_856,
-    (500_000, 750_000):     2_549,
-    (750_000, 1_000_000):   1_004,
-    (1_000_000, np.inf):    1_824,
-}
-
-# Tax liability by AGI bracket in $M (total $3,029M)
-DOTAX_TAX_TARGETS: Dict[Tuple[float, float], float] = {
-    (0, 10_000):           3.0,
-    (10_000, 20_000):     21.0,
-    (20_000, 30_000):     51.0,
-    (30_000, 40_000):     92.0,
-    (40_000, 50_000):    116.0,
-    (50_000, 75_000):    293.0,
-    (75_000, 100_000):   261.0,
-    (100_000, 150_000):  438.0,
-    (150_000, 200_000):  294.0,
-    (200_000, 300_000):  310.0,
-    (300_000, 400_000):  153.0,
-    (400_000, 500_000):  101.0,
-    (500_000, 750_000):  149.0,
-    (750_000, 1_000_000): 85.0,
-    (1_000_000, np.inf): 663.0,
-}
-
-# Filing status targets (total 618,423)
-DOTAX_STATUS_TARGETS: Dict[str, int] = {
-    'single':                     326_470,
-    'married_filing_jointly':     210_724,
-    'head_of_household':           65_638,
-    'married_filing_separately':   15_591,
-}
+DOTAX_FILER_TARGETS: Dict[Tuple[float, float], int] = dotax_base.filer_targets()
+DOTAX_TAX_TARGETS: Dict[Tuple[float, float], float] = dotax_base.tax_targets_M()
+DOTAX_STATUS_TARGETS: Dict[str, int] = dotax_base.status_targets()
 
 AGI_BRACKETS = sorted(DOTAX_FILER_TARGETS.keys())
 

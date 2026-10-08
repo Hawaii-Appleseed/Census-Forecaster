@@ -4,11 +4,11 @@ year (audit of September 29, 2026).
 (A) ``rescale_synthetic_tail_to_tax_target`` applied ``k = target / actual``
     once and claimed that landed within 0.5%. Tax is not proportional to
     income at the top (deduction, lower brackets, §235-51(f) alternative tax),
-    so the re-scored Act 24 tails overshot $663M by 2-4%.
+    so the re-scored Act 24 tails overshot the target (then $663M) by 2-4%.
     ``calibrate_synthetic_tail_to_tax_target`` iterates to the target.
-(B) The $663M target is DOTAX TY2022, but the projection grows every unit
-    from the PUMS income dollar year (2024), so the tail never received its
-    2022-2024 growth. ``age_synthetic_tail`` supplies it.
+(B) The target is a DOTAX tax year's ($441M, TY2023), but the projection grows
+    every unit from the PUMS income dollar year (2024), so the tail never
+    received its 2023-2024 growth. ``age_synthetic_tail`` supplies it.
 """
 from __future__ import annotations
 
@@ -91,24 +91,21 @@ class TestCalibrateToTaxTarget:
 
 
 # ---------------------------------------------------------------------------
-# (B) aging from TY2022 to the PUMS dollar year
+# (B) aging from the DOTAX base year to the PUMS dollar year
 # ---------------------------------------------------------------------------
 
 class TestAgeToPumsDollarYear:
 
-    def test_the_targets_are_ty2022(self):
-        from tax_modeler.calibration.forward_targets import (
-            _DOTAX_FILER_TARGETS_2022,
-            _DOTAX_TAX_TARGETS_2022,
-        )
+    def test_the_targets_are_the_dotax_base_year(self):
+        from tax_modeler.calibration import dotax_base
         top = (1_000_000, np.inf)
-        assert DOTAX_1M_PLUS_TARGET_TAX_YEAR == 2022
-        assert _DOTAX_FILER_TARGETS_2022[top] == tis.DOTAX_1M_PLUS_FILER_TARGET
-        assert _DOTAX_TAX_TARGETS_2022[top] == tis.DOTAX_1M_PLUS_TAX_TARGET_M
+        assert DOTAX_1M_PLUS_TARGET_TAX_YEAR == dotax_base.BASE_YEAR
+        assert dotax_base.filer_targets()[top] == tis.DOTAX_1M_PLUS_FILER_TARGET
+        assert dotax_base.tax_targets_M()[top] == tis.DOTAX_1M_PLUS_TAX_TARGET_M
 
     def test_observed_levels_are_the_projectors_anchors(self):
         # The bundled panel observation project_revenue_per_filer anchors
-        # Honolulu's growth on, in the PUMS dollar year and in TY2022.
+        # Honolulu's growth on, in the PUMS dollar year and in the DOTAX base year.
         from tax_modeler.projection.revenue_projection import project_revenue_per_filer
         for year in (PUMS_INCOME_DOLLAR_YEAR, DOTAX_1M_PLUS_TARGET_TAX_YEAR):
             proj = project_revenue_per_filer(target_year=2027, geoid="15003", anchor_year=year)

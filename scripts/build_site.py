@@ -90,6 +90,7 @@ WORKING_FAMILIES = Estimate(
     files={f: f"working_family_credits/{f}" for f in (
         "revenue_by_year.csv",
         "calibration.csv",
+        "eitc_check_ty2024.csv",
         "distribution_ty2028.csv",
         "by_family_type_ty2028.csv",
         "poverty_ty2028.csv",
@@ -824,6 +825,7 @@ def build_working_families() -> tuple[str, dict]:
     d = DATA / WORKING_FAMILIES.slug
     rev = {int(r["tax_year"]): r for r in read_csv(d / "revenue_by_year.csv")}
     cal = {r["check"]: r for r in read_csv(d / "calibration.csv")}
+    eitc_check = read_csv(d / "eitc_check_ty2024.csv")
     dist = read_csv(d / "distribution_ty2028.csv")
     fam = read_csv(d / "by_family_type_ty2028.csv")
     pov = read_csv(d / "poverty_ty2028.csv")[0]
@@ -857,6 +859,8 @@ def build_working_families() -> tuple[str, dict]:
               '<a href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=HB&amp;billnumber=2306&amp;year=2026">capitol.hawaii.gov</a>')
     T_dotax = ('Hawaiʻi Department of Taxation, “Tax Credits Claimed by Hawaiʻi Taxpayers,” Tax Years 2022 and 2023, '
                'Tables A-1 and A-2. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
+    T_eitc_report = ('Hawaiʻi Department of Taxation, “Earned Income Tax Credit Report, Tax Year 2024” (Act 107, SLH 2017), '
+                     'December 2025, Tables 1 to 4. <a href="https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf">files.hawaii.gov</a>')
     T_code = (f'Hawaiʻi Appleseed, <code>forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
               f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_working_family_credits.py">github.com</a>')
 
@@ -932,20 +936,40 @@ def build_working_families() -> tuple[str, dict]:
 <p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred. The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
 """, "poverty")
 
+    def vrow(label, key, kind, money, tag):
+        c = cal[key]
+        fmt = (lambda v: f"${v:,.1f}M") if money else (lambda v: f"{v:,.0f}")
+        return [label, fmt(c["dotax"]), fmt(c["model"]), tag]
+
     vrows = [
-        ["State EITC dollars, 2023", f"${cal['TY2023 EITC $M (fit)']['dotax']:,.1f}M", f"${cal['TY2023 EITC $M (fit)']['model']:,.1f}M", "Fitted"],
-        ["State EITC claims, 2023", f"{cal['TY2023 EITC claims']['dotax']:,.0f}", f"{cal['TY2023 EITC claims']['model']:,.0f}", "Check"],
-        ["Food/excise dollars, 2023", f"${cal['TY2023 food/excise $M (fit)']['dotax']:,.1f}M", f"${cal['TY2023 food/excise $M (fit)']['model']:,.1f}M", "Fitted"],
-        ["Food/excise claims, 2023", f"{cal['TY2023 food/excise claims']['dotax']:,.0f}", f"{cal['TY2023 food/excise claims']['model']:,.0f}", "Check"],
-        ["Food/excise dollars, 2022 (old table)", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['dotax']:,.1f}M", f"${cal['TY2022 food/excise $M, prior table (out of sample)']['model']:,.1f}M", "Check"],
-        ["Food/excise claims, 2022 (old table)", f"{cal['TY2022 food/excise claims, prior table']['dotax']:,.0f}", f"{cal['TY2022 food/excise claims, prior table']['model']:,.0f}", "Check"],
+        vrow("State EITC dollars, 2024", "TY2024 EITC $M (fit)", "", True, "Fitted"),
+        vrow("State EITC claims, 2024", "TY2024 EITC claims", "", False, "Check"),
+        vrow("State EITC dollars, 2023", "TY2023 EITC $M (out of sample)", "", True, "Check"),
+        vrow("State EITC claims, 2023", "TY2023 EITC claims (out of sample)", "", False, "Check"),
+        vrow("Food/excise dollars, 2023", "TY2023 food/excise $M (fit)", "", True, "Fitted"),
+        vrow("Food/excise claims, 2023", "TY2023 food/excise claims", "", False, "Check"),
+        vrow("Food/excise dollars, 2022 (old table)", "TY2022 food/excise $M, prior table (out of sample)", "", True, "Check"),
+        vrow("Food/excise claims, 2022 (old table)", "TY2022 food/excise claims, prior table", "", False, "Check"),
     ]
+    rng = [g for g in eitc_check if g["table"] == "federal AGI range"]
+    stat = {g["group"]: g for g in eitc_check if g["table"] == "filing status"}
+    rng_rows = [[g["group"], f"{g['dotax_claims']:,.0f}", f"{g['model_claims']:,.0f}",
+                 m1(g["dotax_$M"]), m1(g["model_$M"])] for g in rng]
+    stat_rows = [[k, pct(100 * g["dotax_claims_share"], 1) + "%", pct(100 * g["model_claims_share"], 1) + "%",
+                  pct(100 * g["dotax_$M_share"], 1) + "%", pct(100 * g["model_$M_share"], 1) + "%"]
+                 for k, g in stat.items()]
+    joint, single, hoh = stat["Joint"], stat["Single"], stat["Head of household"]
+    within_55 = max(abs(g["model_$M"] / g["dotax_$M"] - 1) for g in rng[:4])
     oos = cal['TY2022 food/excise $M, prior table (out of sample)']
     oos_off = 100 * abs(oos['model'] / oos['dotax'] - 1)
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
-<p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that 2023, the first year of the expansions, matches what the Department of Taxation actually paid, then holds that rate fixed.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
+<p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that the latest year the Department of Taxation reports it matches what the Department actually paid, then holds that rate fixed: 2024 for the earned income tax credit, the new credit claimed for that year,{notes.ref(T_eitc_report)} and 2023 for the food/excise credit.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
 {table(["Measure", "Department of Taxation", "Model", ""], vrows, caption="Table 5. Model Against Department of Taxation Records")}
+<p>The Department’s earned income tax credit report also breaks 2024 claims down by income and filing status, which checks who the model says receives the credit, not only how much. In each of the four income ranges under $55,000 the model’s dollars are within {pct(100 * within_55)} percent of the Department’s; at $55,000 and above it has ${m1(rng[4]['model_$M'])} million against ${m1(rng[4]['dotax_$M'])} million. By filing status it gives heads of household {pct(100 * hoh['model_$M_share'], 1)} percent of the dollars against the Department’s {pct(100 * hoh['dotax_$M_share'], 1)} percent, but more to married couples, {pct(100 * joint['model_$M_share'], 1)} percent against {pct(100 * joint['dotax_$M_share'], 1)} percent, and less to single filers, {pct(100 * single['model_$M_share'], 1)} percent against {pct(100 * single['dotax_$M_share'], 1)} percent. The total is fitted, so these differences move losses between family types, not the statewide figure.</p>
+{table(["Federal AGI", "Claims, Department", "Claims, model", "Dollars, Department ($M)", "Dollars, model ($M)"], rng_rows, caption="Table 6. State EITC by Income Range, 2024")}
+{table(["Filing status", "Share of claims, Department", "Share of claims, model", "Share of dollars, Department", "Share of dollars, model"], stat_rows, caption="Table 7. State EITC by Filing Status, 2024")}
+<p class="ha-est__source">The Department’s filing-status table reports the credit applied, which includes older nonrefundable credits carried forward, so it is compared in shares. The model counts Hawaiʻi residents; they are 94.6 percent of the Department’s claims and 97.3 percent of its dollars.</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
 <li><a href="../data/working-family-credits/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: both credits by tax year, renewed and expired, with claimants</li>
@@ -953,6 +977,7 @@ def build_working_families() -> tuple[str, dict]:
 <li><a href="../data/working-family-credits/by_family_type_ty2028.csv"><code>by_family_type_ty2028.csv</code></a>: loss by family type</li>
 <li><a href="../data/working-family-credits/poverty_ty2028.csv"><code>poverty_ty2028.csv</code></a>: poverty with the expansions renewed and expired</li>
 <li><a href="../data/working-family-credits/calibration.csv"><code>calibration.csv</code></a>: claim rates and the checks in Table 5</li>
+<li><a href="../data/working-family-credits/eitc_check_ty2024.csv"><code>eitc_check_ty2024.csv</code></a>: the earned income tax credit by income range and filing status, model and Department (Tables 6 and 7)</li>
 <li><a href="../data/working-family-credits/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
 </ul>
 """, "method")

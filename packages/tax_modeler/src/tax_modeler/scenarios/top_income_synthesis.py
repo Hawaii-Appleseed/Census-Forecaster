@@ -1,15 +1,15 @@
 """Top-income (1M+) synthesis wrapper for the SB3125 CD1 fiscal-impact pipeline.
 
 PUMS samples ultra-high-income filers very thinly: the calibrated tax units
-recover only ~19% of the DOTAX $1M+ filer count (342 weighted vs the 1,824
-target, DOTAX TY2022 Table A-8). The IPF rake's
+recover only ~20% of the DOTAX $1M+ filer count (342 weighted vs the 1,704
+target, DOTAX TY2023 Table A-8). The IPF rake's
 1.5x weight-cap prevents it from closing this gap on its own (a 5x
 adjustment would be needed).
 
 This module wraps :class:`UltraHighIncomeSynthesizerV2` to:
   1. Add Pareto-distributed synthetic $1M+ filers across realistic
      filing-status mix (MFJ 69% / Single 22% / HoH 5% / MFS 4% per
-     DOTAX Table A8 $400K+ data).
+     DOTAX Table A8 $400K+ data; TY2022).
   2. Use TOTAL income (incl. capital gains) as ``agi`` rather than
      ordinary-only, since Hawaii taxes CG at ordinary rates and the
      rest of this pipeline treats ``agi`` as total AGI.
@@ -27,37 +27,41 @@ synthetic rows have proper ``hi_tax_liability`` values.
 
 Then :func:`calibrate_synthetic_tail_to_tax_target` scales the tail's
 incomes until its re-scored tax is the DOTAX target, and
-:func:`age_synthetic_tail` moves it from the target's tax year (TY2022) to
+:func:`age_synthetic_tail` moves it from the target's tax year (TY2023) to
 the PUMS income dollar year the projection grows every unit from.
 
-DOTAX target source: DOTAX TY2022 Table A-8 (1,824 resident returns above
-$1M AGI owing $662.6M before credits; ``forward_targets``'
-``_DOTAX_*_TARGETS_2022`` and ``calibration.cg_anchor`` use the same
-figures).
+DOTAX target source: DOTAX TY2023 Table A-8 (1,704 resident returns above
+$1M AGI owing $441M before credits; TY2022 was 1,824 and $662.6M).
+``calibration.dotax_base`` holds the figures, so ``forward_targets``,
+``simultaneous_calibrator`` and ``calibration.cg_anchor`` use the same ones.
 """
 from __future__ import annotations
 
 import logging
 from typing import Callable, Dict
 
+import numpy as np
 import pandas as pd
 
+from tax_modeler.calibration import dotax_base
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
 
 logger = logging.getLogger(__name__)
 
-# DOTAX TY2022 Hawaii target for $1M+ AGI bracket (Table A-8)
-DOTAX_1M_PLUS_FILER_TARGET = 1_824
-DOTAX_1M_PLUS_TAX_TARGET_M = 663.0   # $ millions
+# DOTAX Hawaii target for the $1M+ AGI bracket (Table A-8, TY2023)
+_TOP = (1_000_000, np.inf)
+DOTAX_1M_PLUS_FILER_TARGET = dotax_base.filer_targets()[_TOP]
+DOTAX_1M_PLUS_TAX_TARGET_M = dotax_base.tax_targets_M()[_TOP]   # $ millions
 # The tax year the two targets above describe: a tail calibrated to them is
-# in TY2022 dollars (see age_synthetic_tail).
-DOTAX_1M_PLUS_TARGET_TAX_YEAR = 2022
+# in TY2023 dollars (see age_synthetic_tail).
+DOTAX_1M_PLUS_TARGET_TAX_YEAR = dotax_base.BASE_YEAR
 PARETO_ALPHA = 1.5                    # IRS SOI 2022 tail shape
 
 # DOTAX Table A8 targets for $500K-$1M (PUMS topcode-compression range)
-DOTAX_500K_750K_FILER_TARGET = 2_549
-DOTAX_750K_1M_FILER_TARGET   = 1_004
-DOTAX_500K_1M_TAX_TARGET_M   = 234.0   # $149M ($500K-$750K) + $85M ($750K-$1M)
+DOTAX_500K_750K_FILER_TARGET = dotax_base.filer_targets()[(500_000, 750_000)]
+DOTAX_750K_1M_FILER_TARGET   = dotax_base.filer_targets()[(750_000, 1_000_000)]
+DOTAX_500K_1M_TAX_TARGET_M   = (dotax_base.tax_targets_M()[(500_000, 750_000)]
+                                + dotax_base.tax_targets_M()[(750_000, 1_000_000)])
 
 HONOLULU_COUNTY = "Honolulu"
 HONOLULU_PUMA = "0301"               # urban Honolulu PUMA — high-income concentration
@@ -81,8 +85,8 @@ def synthesize_top_filers(
         ``income``, ``filing_status``, ``weight``, ``hi_tax_liability``,
         plus the standard tax-unit schema.
     target_tax_m : float
-        DOTAX $1M+ bracket tax target in $ millions. Defaults to $663M
-        (IRS SOI 2022 Hawaii).
+        DOTAX $1M+ bracket tax target in $ millions. Defaults to
+        ``DOTAX_1M_PLUS_TAX_TARGET_M`` ($441M, DOTAX TY2023 Table A-8).
     pareto_alpha : float
         Shape parameter for the Pareto income distribution above $1M.
     total_1m_filers : int
@@ -285,7 +289,7 @@ def rescale_synthetic_tail_to_tax_target(
 
     This closes the gap between Pareto-distribution-derived income levels and
     the DOTAX tax benchmark.  The Pareto synthesizer hits the filer
-    count target exactly but typically recovers only ~88% of the $663M tax
+    count target exactly but typically recovers only ~88% of the DOTAX tax
     target because the conditional-mean income per tier underestimates the
     very top of the tail.  A uniform income scale factor ``k`` applied to all
     synthetic filer incomes corrects this.
@@ -293,8 +297,8 @@ def rescale_synthetic_tail_to_tax_target(
     One step does not land on the target. Tax is not proportional to income
     even above $1M: the deduction, the lower brackets and the §235-51(f)
     alternative tax on gains make it roughly ``a·k − b``, so re-scoring after
-    this step misses in the direction of the step (the Act 24 MID tail:
-    $686.9M against $663M, k 1.4685 where 1.4210 lands). Use
+    this step misses in the direction of the step (the Act 24 MID tail on the
+    old TY2022 target: $686.9M against $663M, k 1.4685 where 1.4210 lands). Use
     :func:`calibrate_synthetic_tail_to_tax_target`, which iterates to the
     target; this is its first step.
 
@@ -308,7 +312,7 @@ def rescale_synthetic_tail_to_tax_target(
         Tax units after synthesis and base-tax computation.
     target_tax_m : float
         Target aggregate Hawaii tax for $1M+ synthetic filers, in $ millions.
-        Defaults to ``DOTAX_1M_PLUS_TAX_TARGET_M`` ($663M).
+        Defaults to ``DOTAX_1M_PLUS_TAX_TARGET_M`` ($441M, TY2023).
 
     Returns
     -------
@@ -427,7 +431,7 @@ def synthetic_tail_aging_factor(
     """Growth of the synthetic $1M+ tail from the DOTAX targets' tax year
     (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``) to ``year``:
 
-        B19013_Honolulu(year) / B19013_Honolulu(2022) × (1 + top_premium) ** (year − 2022)
+        B19013_Honolulu(year) / B19013_Honolulu(base) × (1 + top_premium) ** (year − base)
 
     The two growth steps the projection gives a Honolulu filer above $500K,
     over the years before its own base year: the county's median-income
@@ -445,17 +449,17 @@ def age_synthetic_tail(
     top_premium: float,
     year: int = PUMS_INCOME_DOLLAR_YEAR,
 ) -> pd.DataFrame:
-    """Move the tax-calibrated synthetic $1M+ tail from TY2022 dollars to
+    """Move the tax-calibrated synthetic $1M+ tail from TY2023 dollars to
     ``year`` (the PUMS income dollar year); re-score afterwards.
 
     Why: :func:`calibrate_synthetic_tail_to_tax_target` puts the tail at the
-    DOTAX TY2022 $1M+ tax (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``), but every PUMS
+    DOTAX TY2023 $1M+ tax (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``), but every PUMS
     unit is in ``PUMS_INCOME_DOLLAR_YEAR`` (2024) dollars and the projection
     grows every unit from there: the county B19013 factor from the
     projector's 2024 anchor, the top-income premium from
     ``TOP_INCOME_PREMIUM_BASE_YEAR`` (2024). Left at the TY2022 level the tail
-    never receives 2022-2024 growth, while the same pipeline ages DOTAX's
-    TY2022 capital gains from 2022 (``cg_anchor.cg_growth``). The tail is
+    never receives 2023-2024 growth, while the same pipeline ages DOTAX's
+    TY2023 capital gains from 2023 (``cg_anchor.cg_growth``). The tail is
     Honolulu's, so it grows by :func:`synthetic_tail_aging_factor`: Honolulu's
     observed B19013 growth times the scenario's premium.
 

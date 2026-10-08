@@ -259,11 +259,12 @@ def main(argv: Optional[list] = None) -> int:
 
     # 1A: HI EITC take-up calibration. Federal EITC was already calibrated
     # to IRS SOI via the line above; this drops filers who claim federal
-    # but not state EITC, anchored to the DOTAX TY 2023 actuals (Table A-2:
-    # 84,470 returns, Table A-1: $77.054M). Year pinned to 2023 because
-    # that is the first post-refundability year (Act 209, 2023) — using
-    # earlier years would understate take-up dramatically.
-    HI_EITC_ANCHOR_YEAR = 2023
+    # but not state EITC, anchored to the latest DOTAX actuals: TY 2024, the
+    # Earned Income Tax Credit Report's new credit claimed (78,399 claims,
+    # $76.981M). Pinned to a post-refundability year (Act 114, 2023; TY2023's
+    # Tax Credits Claimed row is 84,470 returns, $77.054M) — earlier years
+    # would understate take-up dramatically.
+    HI_EITC_ANCHOR_YEAR = 2024
     hi_eitc_takeup_diag = None
     if args.calibrate_hi_eitc_takeup:
         w = units["weight"].astype(float).to_numpy()
@@ -477,9 +478,9 @@ def main(argv: Optional[list] = None) -> int:
     lines.append("- TY 2025 federal EITC/CTC parameters used as TY 2028 proxy.")
     lines.append("- TCJA expiration (12/31/2025) not modeled. HI EITC ratio change is exact.")
     if hi_eitc_takeup_diag is not None:
-        lines.append("- HI EITC take-up anchored to DOTAX Tax Credits Claimed TY 2023 "
-                     "(84,470 returns, $77.05M; first refundable year per Act 209, 2023). "
-                     "Effective take-up ≈ 100% — refundable HI EITC auto-attaches to federal claim.")
+        lines.append("- HI EITC take-up anchored to DOTAX Earned Income Tax Credit Report TY 2024 "
+                     "(78,399 claims, $76.98M new credit; refundable from TY 2023 under Act 114, SLH 2022). "
+                     "High take-up of the federal claim — the refundable HI EITC auto-attaches to it.")
     if args.behavioral:
         lines.append(f"- LFP elasticity {args.lfp_elasticity} (Meyer-Rosenbaum 2001; range 0.3-0.7).")
         lines.append("- HoH scope includes single fathers (~10% of HoH per HI ACS S1101).")

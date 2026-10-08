@@ -7,11 +7,218 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** October 5, 2026
+**Last updated:** October 8, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
 > **Maintenance note:** This document must be updated whenever forecast methodology changes — including parameter recalibration, new behavioral channels, tax treatment corrections, or data source changes. Update the relevant section(s) and the Results table before committing.
+
+---
+
+## DOTAX TY2023 base and the TY2024 EITC report — October 8, 2026 (supersedes the Act 24 tables below)
+
+DOTAX published *Hawaiʻi Individual Income Tax Statistics, Tax Year 2023*
+(October 2026, `files.hawaii.gov/tax/stats/stats/indinc/2023indinc.pdf`) and its
+*Earned Income Tax Credit Report, Tax Year 2024* (December 2025,
+`.../act107_2017/act107_earnedincome_txcredit_2024.pdf`). The model had anchored
+on the TY2022 edition of the first; this rebases it on TY2023, and anchors the
+state EITC on the second. Every table in this section is a full rerun
+(`forecast_sb3125_enhanced.py --cd 2`, `forecast_act24_vs_pre_act46.py`,
+`forecast_sb3125_vs_fy26base.py --cd 2`, `forecast_cg_rate_options.py`,
+`scripts/build_simulator_population.py`, `forecast_working_family_credits.py`). The
+suite passes at 2,719 / 2 skipped (was 2,701 / 2), the simulator's JS tests at
+138 / 138, and the simulator build re-derives the Act 24 run and the
+capital-gains page on the new base.
+
+**The headline moves a lot, and one number drives it.** MID's five-year total
+falls **$810.4M → $555.6M (−31%)** and its static bracket gain **$443.2M →
+$165.0M (−63%)**. The $1M+ class owed **$441M on 1,704 returns in TY2023
+against $662.6M on 1,824 in TY2022**, and the Act 24 bracket gain is the small
+net of a top-bracket gain and middle-bracket cuts, so a smaller top tail moves it
+a long way: the tail's scale factor k falls from 1.4210 to 1.0410 (MID), and the
+Act 46 baseline falls $159M in TY2027. This was **not isolated by ablation**: the
+$1M+ target is the dominant change, but the other classes' counts and tax, the
+filing-status targets and the later growth base year move too. Read the five-year
+figures as having roughly **$1.1M of gain per $1M of the $1M+ tax target** (the
+two-point slope, $254.8M over $222M; not a derivative). The model anchors on one
+year of a series that swings: TY2021's resident gains in the $400K+ class were
+$4.2B, TY2022's $2.2B and TY2023's $2.0B. A multi-year anchor or a sensitivity
+run is the open question; this section does not take it.
+
+**What changed in the code.** `calibration/dotax_base.py` is now the one home for
+the DOTAX anchors (it replaces five hand-typed copies and two older
+orchestrators). It reads `data/calibration/dotax_indinc_2023.json` and
+`dotax_eitc_2024.json`, which `scripts/parse_dotax_indinc.py` and
+`scripts/parse_dotax_eitc_report.py` write from the PDFs, each table checked
+against its own printed total. The TY2022 constants are kept, so
+`build_targets(..., base_year=2022)` reproduces the earlier base. Rebased:
+`forward_targets` (counts, tax, filing status; growth now from 2023),
+`forward_agi_targets`, `simultaneous_calibrator`, both IPF orchestrators,
+`year_recalibrator`, `scenarios/top_income_synthesis` (the $1M+ and $500K–$1M
+targets, and the tail's aging now 2023 → 2024), and `calibration/cg_anchor` (Table
+21 gains, class returns, `cg_growth` from the base year). The CBO table is
+relative to 2022, so `CBOComponentRates.growth(component, year, from_year)` takes
+the ratio; the SOI tier averages still age from their own year, 2022.
+
+| Anchor (DOTAX, residents) | TY2022 | TY2023 |
+|---|---:|---:|
+| Returns, all classes (A-8) | 635,117 | 644,631 |
+| Filers, Loss class excluded | 618,423 | 631,125 |
+| Tax before credits | $3,029M | $2,960M |
+| $1M+ returns / tax before credits | 1,824 / $662.6M | 1,704 / $441M |
+| $400K+ returns (A-8) | 8,875 | 8,934 |
+| $400K+ taxable-return AGI (A-1) | $11,149M | $9,319M |
+| Net long-term gains, $400K+ class (Table 21) | $2,210M | $2,041M |
+| Net long-term gains, all classes | $2,995M | $2,646M |
+| Filing status: single / joint / head / separate | 335,198 / 216,358 / 67,393 / 16,007 | 341,973 / 216,407 / 69,345 / 16,718 |
+| Nonresident liability before credits | $300M | $283M |
+
+The TY2022 column is as this repo carried it (the TY2022 PDF was not re-read; the
+filing-status and nonresident rows are the 2022 figures printed in the TY2023
+report). **Two old copies disagreed:**
+`forward_targets` carried 8,233 returns at $400K+ and `cg_anchor` 8,875 (the A-8
+classes); the 642 gap was in the hand-typed forward table, and the TY2023 targets
+use A-8 as printed.
+The $400K+ AGI is split among its four classes by A-8's tax before credits over
+its effective rate on Hawaiʻi AGI, scaled to A-1's $9,319M (`dotax_base` docstring).
+
+**CD2 vs Act 46 baseline, post-behavioral ($M)** (the September 30 figures in
+brackets):
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION |
+|---|--:|--:|--:|--:|
+| 2027 | $58.3M [$105.1M] | **$62.6M [$111.1M]** | $87.5M [$144.9M] | $60.6M [$108.2M] |
+| 2028 | $72.2M [$121.1M] | **$90.8M [$140.9M]** | $121.9M [$180.3M] | $89.9M [$139.9M] |
+| 2029 | $84.4M [$132.3M] | **$108.1M [$158.8M]** | $143.7M [$203.7M] | $108.7M [$160.1M] |
+| 2030 | $111.7M [$159.2M] | **$142.9M [$194.9M]** | $183.3M [$245.5M] | $144.6M [$198.1M] |
+| 2031 | $122.9M [$170.0M] | **$151.1M [$204.6M]** | $197.6M [$262.4M] | $154.0M [$209.1M] |
+| **5-year total** | **$449.5M [$687.6M]** | **$555.6M [$810.4M]** | **$733.9M [$1,036.9M]** | **$557.8M [$815.3M]** |
+
+The credit overlay is unchanged ($456.0M over five years, MID): it reads DOTAX's
+*Tax Credits Claimed*, not this report. RECESSION still runs above MID in 2030–31,
+as before.
+
+**MID by component ($M):**
+
+| Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
+|---|--:|--:|--:|--:|--:|--:|
+| 2027 | $2,363.7M | $22.7M | −$9.1M | $13.6M | $49.0M | **$62.6M** |
+| 2028 | $2,522.8M | $26.9M | −$10.5M | $16.4M | $74.5M | **$90.8M** |
+| 2029 | $2,359.9M | $33.1M | −$13.5M | $19.6M | $88.5M | **$108.1M** |
+| 2030 | $2,464.6M | $38.3M | −$15.2M | $23.1M | $119.8M | **$142.9M** |
+| 2031 | $2,533.9M | $43.9M | −$17.0M | $26.9M | $124.2M | **$151.1M** |
+| **5-year** | | **$165.0M** | **−$65.3M** | **$99.6M** | **$456.0M** | **$555.6M** |
+
+Was: static $443.2M, behavioral −$89.2M, bracket $354.1M, total $810.4M. The tail
+is calibrated to $441M in place of $663M: k is 1.2605 / 1.0410 / 0.9046 / 1.0410
+(LOW / MID / HIGH / RECESSION) where it was 1.7743 / 1.4210 / 1.2343 (and
+RECESSION's MID value), aged ×1.0232 / 1.0303 / 1.0436 / 1.0334 from 2023 to 2024
+(B19013 105,205 / 103,131 = 1.0201, times (1 + premium)). The calibrated PUMS base
+holds 661 weighted $1M+ filers before synthesis against the 1,704 target.
+
+**Who pays (MID TY2027).** The top fifth carries the change (the September 30
+figures in brackets):
+
+| Fifth | Avg. total | Total $M | % paying more |
+|---|---:|---:|---:|
+| Q1 (bottom 20%) | **+5 [+6]** | +0.45 [+0.57] | 1.3% [1.3%] |
+| Q2 | **−39 [−37]** | −3.87 [−3.69] | 2.4% [2.4%] |
+| Q3 | **−45 [−41]** | −4.48 [−4.10] | 2.9% [2.9%] |
+| Q4 | **−41 [−36]** | −4.09 [−3.58] | 3.9% [3.9%] |
+| Q5 (top 20%) | **+609 [+1,126]** | +60.14 [+111.26] | 23.6% [21.8%] |
+
+**Act 24 against pre-Act-46 (2017) law, five years ($M)**
+(`forecast_act24_vs_pre_act46.py`; column C ties to the page's static change):
+
+| Tax Year | A: Act 46 banked ≤2026 | B: Act 46 remaining | C: Act 24 increment | **TOTAL vs pre-Act-46** | memo: vs frozen 2026 |
+|---|---:|---:|---:|---:|---:|
+| 2027 | −572.1 | −246.8 | +22.7 | **−796.2** | −224.1 |
+| 2028 | −580.6 | −267.0 | +26.9 | **−820.7** | −240.1 |
+| 2029 | −585.9 | −525.8 | +33.1 | **−1,078.5** | −492.6 |
+| 2030 | −594.1 | −549.9 | +38.3 | **−1,105.7** | −511.6 |
+| 2031 | −599.0 | −580.8 | +43.9 | **−1,135.9** | −536.9 |
+| **5-year** | **−2,931.6** | **−2,170.3** | **+164.9** | **−4,936.9** | **−2,005.3** |
+
+Was: A −$2,758.8M, B −$2,032.5M, C +$443.2M, total −$4,348.0M. Act 46's cost is
+$173M (A) and $138M (B) larger over five years on this base; not isolated.
+
+**Act 24 against Act 46 frozen at TY2026 (the ITEP frame), CD2, $M**
+(`forecast_sb3125_vs_fy26base.py --cd 2`; this path replaces the Pareto tail with
+SOI tiers sized to the forward $1M+ count and tax, so it moves through the
+forward targets, not the tail calibration):
+
+| TY | Bracket | SD expansion | Total | ITEP | Gap |
+|---|---:|---:|---:|---:|---:|
+| 2027 | −165.6 | 0.0 | −165.6 | −227.0 | +61.4 |
+| 2028 | −153.8 | −16.0 | −169.8 | −258.0 | +88.2 |
+| 2029 | −376.6 | −15.3 | −391.9 | −534.0 | +142.1 |
+| 2030 | −363.3 | −30.9 | −394.2 | −563.0 | +168.8 |
+| 2031 | −341.4 | −64.4 | −405.8 | −622.0 | +216.2 |
+| **5-yr** | **−1,400.7** | **−126.6** | **−1,527.4** | **−2,204.0** | **+676.6** |
+
+Was −$1,429.2M and a gap of +$774.8M (about 35% below ITEP; now about 31%). This
+frame moves the other way from the one above (more revenue foregone, −$98.2M over
+five years); not isolated. The statute-vs-COR wedge, a diagnostic, barely moves: 0.879 / 0.963 /
+0.985 / 1.019 / 1.062 (was 0.883 / 0.960 / 0.985 / 1.016 / 1.058).
+
+**Capital-gains page.** The base is DOTAX's TY2023 resident gains ($2,646M
+against $2,995M) grown from 2023, so TY2027's anchored gains fall $4,111M →
+$3,375M (−18%). Under Act 24 the ordinary-rate option's static
+revenue goes $169.8M → $146.1M in 2027 and $214.7M → $182.7M in 2031; the 9% cap
+option $57.8M → $49.1M and $72.1M → $60.8M. The nonresident add-on keeps its "TY2022 level"
+column on TY2022 nonresident gains (the spike year, grown from 2022); the "typical
+year" column now pools TY2018–2023 and rides the TY2023 resident base.
+`TOP_SHARE_1M` stays 0.80: the same arithmetic on TY2023 gives about 76% of Table
+21's $400K+ gains (81% net of the $400K–$1M classes), inside the 70–80% range the
+page already shows (`cg_anchor._TOP_SHARE_NOTE`).
+
+**State EITC anchored on the TY2024 report** (`forecast_working_family_credits.py`).
+The EITC report gives the credit by federal AGI range, residency and filing status
+for TY2024: 78,399 *new* claims worth $76,981,028; the credit *applied*,
+$78,514,304 on 80,279 claims, adds legacy nonrefundable carryforwards (TY2018–2022)
+that the 40% rate does not touch and Act 25 (2025) ends, so the **new credit is the
+anchor**. The factor now fits TY2024 dollars on the TY2024 population (0.981; was
+1.025 fitted on TY2023's $77.054M against a base that ran $1.9M short). The
+food/excise factor still fits TY2023 (0.7455), its credit's latest report.
+
+| TY | EITC loss | Food/excise loss | **Total** |
+|---|---:|---:|---:|
+| 2028 | $42.8M [$44.8M] | $33.7M | **$76.5M [$78.4M]** |
+| 2029 | $43.5M [$45.5M] | $32.2M | **$75.7M [$77.7M]** |
+| 2030 | $44.8M [$46.9M] | $31.6M | **$76.5M [$78.5M]** |
+| 2031 | $47.4M [$49.6M] | $30.8M | **$78.2M [$80.4M]** |
+| **TY2028–31** | **$178.5M [$186.8M]** | **$128.3M** | **$306.8M [$315.1M]** |
+
+Poverty (TY2028) is unchanged at 2,127 more people (521 children), the gap $16.0M
+(was $16.2M). Checks against the report (`eitc_check_ty2024.csv`; page Tables 5–7):
+dollars by federal AGI range are within about 11% in each of the four ranges under
+$55,000 (the model puts $1.4M at $55,000+ against $0.8M); by filing status the
+model gives heads of household 51.5% of dollars against 55.5%, **married couples
+41.8% against 28.9%, and single filers 6.6% against 15.3%**. Claims run 5.5% high
+(82,672 modeled against 78,399, all filers, with the model residents-only, whose
+share of claims is 94.6%). The total is fitted, so the composition gap moves losses
+between family types, not the statewide figure; a by-range or by-status reweight
+would be the fix and is not done. Out of sample, TY2023 is $73.7M against Tables
+A-1's $77.1M and the EITC report's $75.6M applied (the two DOTAX reports differ by
+2% for the same year). `forecast_hi_eitc_revert_20.py` and the admin-caseload table
+carry the same anchor (`hi_eitc`, 2024: 78,399 claims, $76.981M).
+
+**Not changed, and what to know.**
+- **Unit construction still targets TY2022 filing-status shares**
+  (`units/constructor._calculate_hybrid_weight`, `status/irs_based.calibrate_to_soi_totals`;
+  hand-tuned factors). The shares moved under a point (single 52.8% → 53.0%, joint
+  34.1% → 33.6%, head 10.6% → 10.8%), and the forecast path re-rakes to the
+  TY2023 status targets afterwards. The unit cache (built August 3) was not rebuilt.
+- `calibration/nonresident_uplift.py` (no callers) has its anchors on TY2023 but its
+  bracket uplift factors were derived on TY2022's Hawaiʻi-AGI table and not
+  re-derived (TY2023 prints nonresident liability by worldwide AGI only).
+- The REEC/CGEC credit overlay and every table that reads *Tax Credits Claimed* are
+  unchanged: this report holds no credit-type detail.
+- `deductions/parsers.py` still reads TY2022 raw CSVs (not present in this checkout).
+- **The manifests cite the commit these runs started from (`48761b8`), which does not
+  hold this code**, and the simulator's reads `48761b8-dirty`. Commit the code, then
+  rerun and import on that commit so the pages cite one that does (see
+  `tests/site/test_tax_simulator_version.py`).
 
 ---
 
@@ -141,7 +348,7 @@ home-value and poverty factors are bit-identical).
 
 ---
 
-## CBO Social Security aging — September 30, 2026 (supersedes the frozen-baseline table below)
+## CBO Social Security aging — September 30, 2026 (supersedes the frozen-baseline table below; its Act 24 figures were superseded October 8, 2026)
 
 The September 29 pipeline audit confirmed a defect in the per-component CBO
 aging (`age_filers_with_components`) that `forecast_sb3125_vs_fy26base.py`,
@@ -209,7 +416,7 @@ fractions of a percent, when next run.
 
 ---
 
-## Pipeline-audit fixes — September 29, 2026 (supersedes the tables below)
+## Pipeline-audit fixes — September 29, 2026 (supersedes the tables below; its Act 24 figures were superseded October 8, 2026)
 
 A review of the forecasting pipeline (September 29, 2026) found four errors
 that moved this document's Act 24 figures. All four are fixed, and every
@@ -2028,7 +2235,8 @@ The tables below show every bracket for each filing status and each effective pe
 | Source | Description | Use |
 |--------|-------------|-----|
 | **ACS 5-Year PUMS 2020–2024** | U.S. Census Bureau, Hawaii (State FIPS 15) — `psam_p15.csv` / `psam_h15.csv` | Base population of tax units |
-| **DOTAX Hawaiʻi Individual Income Tax Statistics, TY2022, Table A-8** | Resident filer count and tax by AGI class | Targets for top-income synthesis: 1,824 returns above $1M AGI owing $662.6M (the $663M target), a TY2022 level aged to the PUMS dollar year before projection (Step 6b) |
+| **DOTAX Hawaiʻi Individual Income Tax Statistics, TY2023** (Tables A-8, A-1, 4, 21, 17A; `calibration/dotax_base.py`) | Resident filer count and tax by AGI class, AGI, filing status, net long-term gains, nonresident liability | Calibration and forward targets, and top-income synthesis: 1,704 returns above $1M AGI owing $441M, a TY2023 level aged to the PUMS dollar year before projection (Step 6b). Was TY2022 (1,824 returns, $662.6M) until October 8, 2026 |
+| **DOTAX Earned Income Tax Credit Report, TY2024** (Act 107) | State EITC claims and dollars by federal AGI range, residency, filing status | Take-up anchor for the working-family credits page (78,399 new claims, $76.981M) |
 | **DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year 2023"** | Table A-1 (REEC aggregate), Table A-5 (REEC by AGI bin), line 1490 (CGEC) | Credit overlay baseline values |
 
 ### Administrative Benchmarks
@@ -2115,45 +2323,45 @@ Iterative Proportional Fitting (IPF) adjusts unit weights so the PUMS-derived to
 **Function:** `synthesize_top_filers()`  
 **File:** `packages/tax_modeler/src/tax_modeler/scenarios/top_income_synthesis.py`
 
-**Why this step exists:** The IPF rake can close small gaps but cannot close the 5× gap at $1M+. The ACS PUMS contains only ~342 weighted filers above $1M (after calibration) vs. the DOTAX/IRS SOI target of 1,824. This 5× undercount would make the 13% top bracket appear almost invisible in the model.
+**Why this step exists:** The IPF rake can close small gaps but cannot close the 2.6× gap at $1M+. The ACS PUMS contains only 661 weighted filers above $1M (after calibration) vs. the DOTAX target of 1,704 (TY2023 Table A-8; the TY2022 target was 1,824, against ~342 measured then). This undercount would make the 13% top bracket appear almost invisible in the model.
 
 **How it works:** Generates synthetic tax units with incomes drawn from a Pareto distribution with shape parameter α (default α = 1.5, calibrated to match the IRS SOI 2022 Hawaii tail shape). These units are given realistic filing-status mixes (drawn from the DOTAX TY2023 $1M+ filer population: ~65% MFJ, ~25% Single, ~8% HoH, ~2% MFS) and are added to the calibrated dataset. Base tax is recomputed for all units after synthesis.
 
-**Validation target:** 1,824 weighted $1M+ filers with $663M in aggregate tax (DOTAX TY2022 Table A-8: 1,824 resident returns above $1M AGI owing $662.6M before credits). The synthesis hits 100% of the filer count target by construction.
+**Validation target:** 1,704 weighted $1M+ filers with $441M in aggregate tax (DOTAX TY2023 Table A-8: 1,704 resident returns above $1M AGI owing $441M before credits; TY2022 was 1,824 and $662.6M). The synthesis hits 100% of the filer count target by construction.
 
 ### Step 6a — Synthetic Tail Tax-Target Calibration
 
 **Function:** `calibrate_synthetic_tail_to_tax_target()` (first step: `rescale_synthetic_tail_to_tax_target()`)  
 **File:** `packages/tax_modeler/src/tax_modeler/scenarios/top_income_synthesis.py`
 
-**Why this step exists:** The Pareto conditional-mean income formula slightly underestimates income concentration above ~$10M — the very top of the tail — causing the raw synthesis to recover only ~88% of the $663M tax benchmark. A 12% shortfall in the baseline tax at $1M+ directly translates to a ~12% undercount of marginal revenue from the 13% bracket, approximately $14–17M per year.
+**Why this step exists:** The Pareto conditional-mean income formula slightly underestimates income concentration above ~$10M — the very top of the tail — causing the raw synthesis to recover only ~88% of the DOTAX tax benchmark (measured on the TY2022 target, $663M). A 12% shortfall in the baseline tax at $1M+ directly translates to a ~12% undercount of marginal revenue from the 13% bracket, approximately $14–17M per year.
 
-**How it works:** After synthesis and a first `compute_base_tax()`, the synthetic rows' income columns (`income`, `agi`, `synthetic_total_income`, `earned_income`, `investment_income`, `primary_wagp`, `primary_intp`) are scaled by a uniform factor k and re-scored until the tail's Hawaii tax is within 0.1% of $663M. The first step is proportional, k = target / actual; later steps are secant updates on k. A single proportional step does not land on the target, because tax is not proportional to income even above $1M: the deduction, the lower brackets and the §235-51(f) alternative tax on gains make it roughly a·k − b. The single step used until September 29, 2026 overshot to $681.9M / $686.9M / $676.3M (LOW / MID / HIGH), 2.0–3.6% above the target; the iteration converges in two or three re-scores.
+**How it works:** After synthesis and a first `compute_base_tax()`, the synthetic rows' income columns (`income`, `agi`, `synthetic_total_income`, `earned_income`, `investment_income`, `primary_wagp`, `primary_intp`) are scaled by a uniform factor k and re-scored until the tail's Hawaii tax is within 0.1% of the target ($441M). The first step is proportional, k = target / actual; later steps are secant updates on k. A single proportional step does not land on the target, because tax is not proportional to income even above $1M: the deduction, the lower brackets and the §235-51(f) alternative tax on gains make it roughly a·k − b. The single step used until September 29, 2026 overshot to $681.9M / $686.9M / $676.3M (LOW / MID / HIGH), 2.0–3.6% above the target; the iteration converges in two or three re-scores.
 
 **Per-scenario k values:**
 
-| Scenario | Pareto α | tail_k | Tail tax after calibration (TY2022 level) |
+| Scenario | Pareto α | tail_k | Tail tax after calibration (TY2023 level) |
 |----------|----------|--------|--------------------------------------------|
-| LOW      | 1.7      | 1.7743 | 100.0% of $663M |
-| MID      | 1.5      | 1.4210 | 100.0% |
-| HIGH     | 1.4      | 1.2343 | 100.0% |
+| LOW      | 1.7      | 1.2605 | 100.0% of $441M |
+| MID      | 1.5      | 1.0410 | 100.0% |
+| HIGH     | 1.4      | 0.9046 | 100.0% |
 
-RECESSION uses α = 1.5, so its k is MID's. k is larger for LOW (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail). The §235-51(f) alternative tax raises k: capping gains at 7.25% lowers the tail's tax, so a larger scale is needed to reach the target. (Published before September 29, 2026 with the single step: 1.8202 / 1.4685 / 1.2573; earlier still 1.5745 / 1.2793 / 1.1001.)
+RECESSION uses α = 1.5, so its k is MID's. k is larger for LOW (α=1.7, thinner tail → lower initial tax capture) and smaller for HIGH (α=1.4, fatter tail). The §235-51(f) alternative tax raises k: capping gains at 7.25% lowers the tail's tax, so a larger scale is needed to reach the target. (On the TY2022 target, before October 8, 2026: 1.7743 / 1.4210 / 1.2343. Before September 29, 2026, with the single step: 1.8202 / 1.4685 / 1.2573; earlier still 1.5745 / 1.2793 / 1.1001.)
 
 ### Step 6b — Age the Tail to the PUMS Dollar Year
 
 **Function:** `age_synthetic_tail()` (factor: `synthetic_tail_aging_factor()`)  
 **File:** `packages/tax_modeler/src/tax_modeler/scenarios/top_income_synthesis.py`
 
-The $663M target is a TY2022 figure, but every PUMS unit is in 2024 dollars (the 2020–2024 5-year file), and Step 7 grows every unit from 2024: the county B19013 factor from the projector's 2024 anchor, and the Step 8 premium from its 2024 base year. So after calibration the tail's incomes are multiplied by
+The $441M target is a TY2023 figure, but every PUMS unit is in 2024 dollars (the 2020–2024 5-year file), and Step 7 grows every unit from 2024: the county B19013 factor from the projector's 2024 anchor, and the Step 8 premium from its 2024 base year. So after calibration the tail's incomes are multiplied by
 
 ```
-g = B19013_Honolulu(2024) / B19013_Honolulu(2022) × (1 + premium)^2 = 105,205 / 96,580 × (1 + p)^2
+g = B19013_Honolulu(2024) / B19013_Honolulu(2023) × (1 + premium) = 105,205 / 103,131 × (1 + p)
 ```
 
-and re-scored. The B19013 levels are the observed 1-year ACS values from the same bundled panel the projector anchors on (read, not typed), and p is the scenario's own top-income premium: g = 1.0958 (LOW), 1.1112 (MID), 1.1400 (HIGH), 1.1178 (RECESSION). The premium applies to 2022–2024 as well because the model observes only median income in those years; each scenario's premium is its assumption about how top incomes grew relative to it. Until September 29, 2026 the tail entered the projection at its TY2022 level and never received 2022–2024 growth, while the same pipeline aged DOTAX's TY2022 capital gains from 2022 (`cg_anchor.cg_growth`).
+and re-scored. The B19013 levels are the observed 1-year ACS values from the same bundled panel the projector anchors on (read, not typed), and p is the scenario's own top-income premium: g = 1.0232 (LOW), 1.0303 (MID), 1.0436 (HIGH), 1.0334 (RECESSION) (on the TY2022 target it was 1.0958 / 1.1112 / 1.1400 / 1.1178, over two years). The premium applies to 2023–2024 as well because the model observes only median income in those years; each scenario's premium is its assumption about how top incomes grew relative to it. Until September 29, 2026 the tail entered the projection at its base-year level and never received the growth to 2024, while the same pipeline aged DOTAX's capital gains from their own year (`cg_anchor.cg_growth`).
 
-The scripts that project with `project_and_recalibrate(use_soi_anchor=True)` (`forecast_sb3125_vs_fy26base.py`, `forecast_cg_rate_options.py`, `forecast_bill_quintile.py`) use the converging calibration but not the aging: the SOI anchor zeroes every unit above $1M, the Pareto rows included, and replaces them with SOI tier rows aged from TY2022, so the Pareto tail's starting level does not reach their results (checked: identical TY2027 output for the old, calibrated, and calibrated-and-aged tail). `forecast_sb3125_static_quintile.py` projects like Step 7 and is aged with p = 0.
+The scripts that project with `project_and_recalibrate(use_soi_anchor=True)` (`forecast_sb3125_vs_fy26base.py`, `forecast_cg_rate_options.py`, `forecast_bill_quintile.py`) use the converging calibration but not the aging: the SOI anchor zeroes every unit above $1M, the Pareto rows included, and replaces them with SOI tier rows aged from SOI's TY2022, so the Pareto tail's starting level does not reach their results (checked: identical TY2027 output for the old, calibrated, and calibrated-and-aged tail). `forecast_sb3125_static_quintile.py` projects like Step 7 and is aged with p = 0.
 
 ### Step 7 — Project to Target Year
 
@@ -2250,7 +2458,7 @@ final_tax         = ordinary_tax + cg_tax_capped
 
 **The statute's own formula** (`liability/cg_alternative.py`, `TaxSystemConfig.cg_alt_tax = "statute"`) is the lower of the regular tax and the bracket tax on the greater of taxable income less the gain and the taxable income taxed below 7.25%, plus 7.25% of the rest. The stack method above is never below it and differs only for filers whose taxable income other than gains is below the point where the brackets reach 7.25% and whose total taxable income is above it. This script and every registry system keep the stack method; the tax simulator uses the statute on a DOTAX-anchored gains base (see "Tax simulator v2: capital gains — September 27, 2026").
 
-**Model impact:** Correctly applying the CG cap reduces the simulated baseline tax on synthetic filers, which in turn requires a larger tail_k in Step 6a to reach the $663M target. The cap also reduces the static bracket delta — income that was previously over-taxed at bracket rates is correctly taxed at 7.25%, leaving less incremental revenue when the 13% bracket applies only to the ordinary component.
+**Model impact:** Correctly applying the CG cap reduces the simulated baseline tax on synthetic filers, which in turn requires a larger tail_k in Step 6a to reach the target. The cap also reduces the static bracket delta — income that was previously over-taxed at bracket rates is correctly taxed at 7.25%, leaving less incremental revenue when the 13% bracket applies only to the ordinary component.
 
 ### Step 11 — Bracket Schedules (Master CSV)
 
@@ -2500,7 +2708,7 @@ Four integrated scenarios: three behavioral sensitivity scenarios (no recession 
 | Per-filer effective deduction in compare_systems | Yes | **Yes** | Yes |
 | Macro shock | None | **None** | None |
 
-**Calibration anchor:** The model anchors to DOTAX's $663M baseline tax figure for $1M+ filers. The MID result ($629.6M) is ~7.5% below the official ~$680M estimate due to two corrections applied after the official score was produced: (1) §235-51(f) CG cap (7.25%) properly applied to synthetic $1M+ filers — reduces the bracket-delta contribution of capital gains income; (2) PTE election pool excludes CG income per statute and economic rationality (9% PTE > 7.25% CG cap) — reduces the PTE offset, which in turn reduces the net bracket gain. LOW reflects maximum plausible behavioral response (strong ETI, 90% PTE shift, severe OBBBA solar decay). HIGH reflects minimal behavioral response and optimistic demand assumptions.
+**Calibration anchor:** The model anchors to DOTAX's baseline tax figure for $1M+ filers ($441M, TY2023; it was $663M, TY2022, when the following comparison was made). The MID result then ($629.6M) was ~7.5% below the official ~$680M estimate due to two corrections applied after the official score was produced: (1) §235-51(f) CG cap (7.25%) properly applied to synthetic $1M+ filers — reduces the bracket-delta contribution of capital gains income; (2) PTE election pool excludes CG income per statute and economic rationality (9% PTE > 7.25% CG cap) — reduces the PTE offset, which in turn reduces the net bracket gain. LOW reflects maximum plausible behavioral response (strong ETI, 90% PTE shift, severe OBBBA solar decay). HIGH reflects minimal behavioral response and optimistic demand assumptions.
 
 ### 8b. Recession Scenario
 

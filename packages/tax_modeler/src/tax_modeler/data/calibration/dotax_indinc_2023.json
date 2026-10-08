@@ -1,0 +1,484 @@
+{
+  "source": {
+    "title": "Hawaiʻi Individual Income Tax Statistics, Tax Year 2023",
+    "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research & Planning",
+    "url": "https://files.hawaii.gov/tax/stats/stats/indinc/2023indinc.pdf",
+    "file": "2023indinc.pdf",
+    "sha256": "d4e6b053cb4883f95d2eed49e7878aa89cd28c62c41f7d575304fc326808d8b4",
+    "pages": 76,
+    "note": "Values as printed; dollar amounts in $M unless a key says otherwise."
+  },
+  "tax_year": 2023,
+  "table_a8_resident_liability": {
+    "classes": [
+      {
+        "agi_lo": null,
+        "agi_hi": 0.0,
+        "returns": 13506,
+        "tax_before_M": 0.0,
+        "avg_tax_before": 0.0,
+        "tax_after_M": -6.0,
+        "avg_tax_after": -429.0,
+        "etr_ti_before_pct": null,
+        "etr_ti_after_pct": null,
+        "etr_agi_before_pct": null,
+        "etr_agi_after_pct": null
+      },
+      {
+        "agi_lo": 0.0,
+        "agi_hi": 10000.0,
+        "returns": 110447,
+        "tax_before_M": 3.0,
+        "avg_tax_before": 0.0,
+        "tax_after_M": -27.0,
+        "avg_tax_after": -241.0,
+        "etr_ti_before_pct": 2.3,
+        "etr_ti_after_pct": -24.1,
+        "etr_agi_before_pct": 0.7,
+        "etr_agi_after_pct": -7.1
+      },
+      {
+        "agi_lo": 10000.0,
+        "agi_hi": 20000.0,
+        "returns": 63776,
+        "tax_before_M": 21.0,
+        "avg_tax_before": 335.0,
+        "tax_after_M": -16.0,
+        "avg_tax_after": -257.0,
+        "etr_ti_before_pct": 4.0,
+        "etr_ti_after_pct": -3.0,
+        "etr_agi_before_pct": 2.3,
+        "etr_agi_after_pct": -1.7
+      },
+      {
+        "agi_lo": 20000.0,
+        "agi_hi": 30000.0,
+        "returns": 56358,
+        "tax_before_M": 50.0,
+        "avg_tax_before": 880.0,
+        "tax_after_M": 16.0,
+        "avg_tax_after": 278.0,
+        "etr_ti_before_pct": 5.0,
+        "etr_ti_after_pct": 1.6,
+        "etr_agi_before_pct": 3.5,
+        "etr_agi_after_pct": 1.1
+      },
+      {
+        "agi_lo": 30000.0,
+        "agi_hi": 40000.0,
+        "returns": 58625,
+        "tax_before_M": 90.0,
+        "avg_tax_before": 1539.0,
+        "tax_after_M": 64.0,
+        "avg_tax_after": 1086.0,
+        "etr_ti_before_pct": 5.7,
+        "etr_ti_after_pct": 4.0,
+        "etr_agi_before_pct": 4.4,
+        "etr_agi_after_pct": 3.1
+      },
+      {
+        "agi_lo": 40000.0,
+        "agi_hi": 50000.0,
+        "returns": 54823,
+        "tax_before_M": 120.0,
+        "avg_tax_before": 2181.0,
+        "tax_after_M": 106.0,
+        "avg_tax_after": 1927.0,
+        "etr_ti_before_pct": 6.0,
+        "etr_ti_after_pct": 5.3,
+        "etr_agi_before_pct": 4.9,
+        "etr_agi_after_pct": 4.3
+      },
+      {
+        "agi_lo": 50000.0,
+        "agi_hi": 75000.0,
+        "returns": 96433,
+        "tax_before_M": 311.0,
+        "avg_tax_before": 3230.0,
+        "tax_after_M": 301.0,
+        "avg_tax_after": 3120.0,
+        "etr_ti_before_pct": 6.5,
+        "etr_ti_after_pct": 6.2,
+        "etr_agi_before_pct": 5.3,
+        "etr_agi_after_pct": 5.1
+      },
+      {
+        "agi_lo": 75000.0,
+        "agi_hi": 100000.0,
+        "returns": 57836,
+        "tax_before_M": 277.0,
+        "avg_tax_before": 4791.0,
+        "tax_after_M": 271.0,
+        "avg_tax_after": 4678.0,
+        "etr_ti_before_pct": 6.8,
+        "etr_ti_after_pct": 6.6,
+        "etr_agi_before_pct": 5.5,
+        "etr_agi_after_pct": 5.4
+      },
+      {
+        "agi_lo": 100000.0,
+        "agi_hi": 150000.0,
+        "returns": 65585,
+        "tax_before_M": 467.0,
+        "avg_tax_before": 7119.0,
+        "tax_after_M": 452.0,
+        "avg_tax_after": 6894.0,
+        "etr_ti_before_pct": 7.0,
+        "etr_ti_after_pct": 6.8,
+        "etr_agi_before_pct": 5.8,
+        "etr_agi_after_pct": 5.7
+      },
+      {
+        "agi_lo": 150000.0,
+        "agi_hi": 200000.0,
+        "returns": 30326,
+        "tax_before_M": 319.0,
+        "avg_tax_before": 10514.0,
+        "tax_after_M": 305.0,
+        "avg_tax_after": 10058.0,
+        "etr_ti_before_pct": 7.3,
+        "etr_ti_after_pct": 7.0,
+        "etr_agi_before_pct": 6.1,
+        "etr_agi_after_pct": 5.8
+      },
+      {
+        "agi_lo": 200000.0,
+        "agi_hi": 300000.0,
+        "returns": 21375,
+        "tax_before_M": 349.0,
+        "avg_tax_before": 16318.0,
+        "tax_after_M": 330.0,
+        "avg_tax_after": 15461.0,
+        "etr_ti_before_pct": 7.6,
+        "etr_ti_after_pct": 7.2,
+        "etr_agi_before_pct": 6.8,
+        "etr_agi_after_pct": 6.5
+      },
+      {
+        "agi_lo": 300000.0,
+        "agi_hi": 400000.0,
+        "returns": 6607,
+        "tax_before_M": 166.0,
+        "avg_tax_before": 25124.0,
+        "tax_after_M": 154.0,
+        "avg_tax_after": 23340.0,
+        "etr_ti_before_pct": 8.0,
+        "etr_ti_after_pct": 7.4,
+        "etr_agi_before_pct": 7.3,
+        "etr_agi_after_pct": 6.8
+      },
+      {
+        "agi_lo": 400000.0,
+        "agi_hi": 500000.0,
+        "returns": 2952,
+        "tax_before_M": 103.0,
+        "avg_tax_before": 34780.0,
+        "tax_after_M": 94.0,
+        "avg_tax_after": 31828.0,
+        "etr_ti_before_pct": 8.4,
+        "etr_ti_after_pct": 7.7,
+        "etr_agi_before_pct": 7.8,
+        "etr_agi_after_pct": 7.2
+      },
+      {
+        "agi_lo": 500000.0,
+        "agi_hi": 750000.0,
+        "returns": 3120,
+        "tax_before_M": 157.0,
+        "avg_tax_before": 50233.0,
+        "tax_after_M": 137.0,
+        "avg_tax_after": 43840.0,
+        "etr_ti_before_pct": 8.9,
+        "etr_ti_after_pct": 7.7,
+        "etr_agi_before_pct": 8.4,
+        "etr_agi_after_pct": 7.3
+      },
+      {
+        "agi_lo": 750000.0,
+        "agi_hi": 1000000.0,
+        "returns": 1158,
+        "tax_before_M": 87.0,
+        "avg_tax_before": 75059.0,
+        "tax_after_M": 72.0,
+        "avg_tax_after": 62183.0,
+        "etr_ti_before_pct": 9.3,
+        "etr_ti_after_pct": 7.7,
+        "etr_agi_before_pct": 8.8,
+        "etr_agi_after_pct": 7.3
+      },
+      {
+        "agi_lo": 1000000.0,
+        "agi_hi": null,
+        "returns": 1704,
+        "tax_before_M": 441.0,
+        "avg_tax_before": 258761.0,
+        "tax_after_M": 313.0,
+        "avg_tax_after": 183868.0,
+        "etr_ti_before_pct": 9.4,
+        "etr_ti_after_pct": 6.7,
+        "etr_agi_before_pct": 8.6,
+        "etr_agi_after_pct": 6.1
+      }
+    ],
+    "total": {
+      "returns": 644631,
+      "tax_before_M": 2960.0,
+      "tax_after_M": 2565.0
+    }
+  },
+  "table_a1_resident_taxable": {
+    "taxable_classes": [
+      {
+        "agi_lo": 0.0,
+        "agi_hi": 10000.0,
+        "returns": 35364,
+        "agi_M": 231.0,
+        "taxable_income_M": 111.0,
+        "tax_before_M": 3.0,
+        "tax_after_M": -6.8
+      },
+      {
+        "agi_lo": 10000.0,
+        "agi_hi": 20000.0,
+        "returns": 55687,
+        "agi_M": 831.0,
+        "taxable_income_M": 540.0,
+        "tax_before_M": 21.0,
+        "tax_after_M": -13.4
+      },
+      {
+        "agi_lo": 20000.0,
+        "agi_hi": 30000.0,
+        "returns": 53308,
+        "agi_M": 1334.0,
+        "taxable_income_M": 989.0,
+        "tax_before_M": 50.0,
+        "tax_after_M": 16.7
+      },
+      {
+        "agi_lo": 30000.0,
+        "agi_hi": 40000.0,
+        "returns": 57213,
+        "agi_M": 2004.0,
+        "taxable_income_M": 1595.0,
+        "tax_before_M": 90.0,
+        "tax_after_M": 64.1
+      },
+      {
+        "agi_lo": 40000.0,
+        "agi_hi": 50000.0,
+        "returns": 54078,
+        "agi_M": 2426.0,
+        "taxable_income_M": 1977.0,
+        "tax_before_M": 120.0,
+        "tax_after_M": 105.8
+      },
+      {
+        "agi_lo": 50000.0,
+        "agi_hi": 75000.0,
+        "returns": 95675,
+        "agi_M": 5868.0,
+        "taxable_income_M": 4825.0,
+        "tax_before_M": 311.0,
+        "tax_after_M": 300.9
+      },
+      {
+        "agi_lo": 75000.0,
+        "agi_hi": 100000.0,
+        "returns": 57507,
+        "agi_M": 4983.0,
+        "taxable_income_M": 4098.0,
+        "tax_before_M": 277.0,
+        "tax_after_M": 270.6
+      },
+      {
+        "agi_lo": 100000.0,
+        "agi_hi": 150000.0,
+        "returns": 65370,
+        "agi_M": 7963.0,
+        "taxable_income_M": 6642.0,
+        "tax_before_M": 467.0,
+        "tax_after_M": 452.1
+      },
+      {
+        "agi_lo": 150000.0,
+        "agi_hi": 200000.0,
+        "returns": 30251,
+        "agi_M": 5202.0,
+        "taxable_income_M": 4368.0,
+        "tax_before_M": 319.0,
+        "tax_after_M": 305.0
+      },
+      {
+        "agi_lo": 200000.0,
+        "agi_hi": 300000.0,
+        "returns": 21328,
+        "agi_M": 5090.0,
+        "taxable_income_M": 4568.0,
+        "tax_before_M": 349.0,
+        "tax_after_M": 330.5
+      },
+      {
+        "agi_lo": 300000.0,
+        "agi_hi": 400000.0,
+        "returns": 6596,
+        "agi_M": 2258.0,
+        "taxable_income_M": 2084.0,
+        "tax_before_M": 166.0,
+        "tax_after_M": 154.2
+      },
+      {
+        "agi_lo": 400000.0,
+        "agi_hi": null,
+        "returns": 8917,
+        "agi_M": 9319.0,
+        "taxable_income_M": 8618.0,
+        "tax_before_M": 787.0,
+        "tax_after_M": 616.0
+      }
+    ],
+    "taxable_total": {
+      "returns": 541294,
+      "agi_M": 47510.0
+    }
+  },
+  "table_4_filing_status": {
+    "resident": {
+      "Married Filing Jointly": 216407,
+      "Single": 341973,
+      "Married Filing Separately": 16718,
+      "Head of Household": 69345,
+      "Qualifying Widow(er)": 188
+    },
+    "resident_total": 644631,
+    "all_total": 754892,
+    "nonresident_total": 110261
+  },
+  "table_21_nltcg": {
+    "classes": [
+      {
+        "agi_lo": 0.0,
+        "agi_hi": 10000.0,
+        "res_returns": 70,
+        "res_amount_M": 1.0,
+        "nonres_returns": 45,
+        "nonres_amount_M": 5.7
+      },
+      {
+        "agi_lo": 10000.0,
+        "agi_hi": 20000.0,
+        "res_returns": 41,
+        "res_amount_M": 0.6,
+        "nonres_returns": 15,
+        "nonres_amount_M": 1.3
+      },
+      {
+        "agi_lo": 20000.0,
+        "agi_hi": 30000.0,
+        "res_returns": 227,
+        "res_amount_M": 0.2,
+        "nonres_returns": 53,
+        "nonres_amount_M": 0.2
+      },
+      {
+        "agi_lo": 30000.0,
+        "agi_hi": 40000.0,
+        "res_returns": 1423,
+        "res_amount_M": 3.0,
+        "nonres_returns": 127,
+        "nonres_amount_M": 0.7
+      },
+      {
+        "agi_lo": 40000.0,
+        "agi_hi": 50000.0,
+        "res_returns": 1843,
+        "res_amount_M": 6.8,
+        "nonres_returns": 98,
+        "nonres_amount_M": 1.2
+      },
+      {
+        "agi_lo": 50000.0,
+        "agi_hi": 75000.0,
+        "res_returns": 5434,
+        "res_amount_M": 27.0,
+        "nonres_returns": 316,
+        "nonres_amount_M": 4.9
+      },
+      {
+        "agi_lo": 75000.0,
+        "agi_hi": 100000.0,
+        "res_returns": 5674,
+        "res_amount_M": 40.7,
+        "nonres_returns": 280,
+        "nonres_amount_M": 8.5
+      },
+      {
+        "agi_lo": 100000.0,
+        "agi_hi": 150000.0,
+        "res_returns": 8246,
+        "res_amount_M": 97.2,
+        "nonres_returns": 436,
+        "nonres_amount_M": 24.0
+      },
+      {
+        "agi_lo": 150000.0,
+        "agi_hi": 200000.0,
+        "res_returns": 5575,
+        "res_amount_M": 101.2,
+        "nonres_returns": 321,
+        "nonres_amount_M": 29.9
+      },
+      {
+        "agi_lo": 200000.0,
+        "agi_hi": 300000.0,
+        "res_returns": 5235,
+        "res_amount_M": 172.0,
+        "nonres_returns": 461,
+        "nonres_amount_M": 78.0
+      },
+      {
+        "agi_lo": 300000.0,
+        "agi_hi": 400000.0,
+        "res_returns": 2186,
+        "res_amount_M": 154.9,
+        "nonres_returns": 264,
+        "nonres_amount_M": 66.4
+      },
+      {
+        "agi_lo": 400000.0,
+        "agi_hi": null,
+        "res_returns": 3850,
+        "res_amount_M": 2041.4,
+        "nonres_returns": 691,
+        "nonres_amount_M": 746.0
+      }
+    ],
+    "composite": {
+      "returns": 23,
+      "amount_M": 3.5
+    },
+    "total": {
+      "res_returns": 39804,
+      "res_amount_M": 2646.0,
+      "nonres_returns": 3130,
+      "nonres_amount_M": 970.0
+    }
+  },
+  "table_17a_nonresident_liability": {
+    "total": {
+      "returns": 110261,
+      "tax_before_M": 283.0,
+      "tax_after_M": 240.0
+    },
+    "agi_400k_plus": {
+      "returns": 20334,
+      "tax_before_M": 177.0,
+      "tax_after_M": 143.0
+    },
+    "composite": {
+      "returns": 1962,
+      "tax_before_M": 8.0,
+      "tax_after_M": 8.0
+    }
+  }
+}

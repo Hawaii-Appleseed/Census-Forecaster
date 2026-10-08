@@ -1,5 +1,5 @@
 """``act24_population.build_units``: the synthetic $1M+ tail is calibrated to
-DOTAX's TY2022 $1M+ tax until re-scoring lands on it, then aged to the PUMS
+DOTAX's TY2023 $1M+ tax until re-scoring lands on it, then aged to the PUMS
 income dollar year with the scenario's top-income premium (audit of September
 29, 2026; see test_top_income_synthesis.py)."""
 from __future__ import annotations
@@ -37,7 +37,7 @@ def no_synthesis(monkeypatch):
 
 
 @pytest.mark.parametrize("premium", [0.003, 0.010, 0.023])
-def test_tail_calibrated_to_ty2022_then_aged(no_synthesis, tail_units, ded_params, score,
+def test_tail_calibrated_to_the_dotax_year_then_aged(no_synthesis, tail_units, ded_params, score,
                                              premium):
     units, tail_k = build_units(tail_units, alpha=1.5, top_premium=premium,
                                 ded_params=ded_params, cal_tax_year=CAL_TAX_YEAR)

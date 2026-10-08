@@ -139,6 +139,15 @@ class CBOComponentRates:
         )
         return years[nearest]
 
+    def growth(self, component: str, year: int, from_year: int) -> float:
+        """Growth factor from ``from_year`` to ``year``.
+
+        The table is relative to ``base_year`` (2022), so a base that sits at
+        another year, such as the TY2023 DOTAX anchors, needs the ratio.
+        Equal to :meth:`factor` when ``from_year`` is ``base_year``.
+        """
+        return self.factor(component, year) / self.factor(component, from_year)
+
 
 def _default_csv_path(vintage: str) -> Path:
     repo_root = Path(__file__).resolve().parents[5]
