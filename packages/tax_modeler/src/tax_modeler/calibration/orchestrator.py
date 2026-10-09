@@ -22,6 +22,8 @@ import numpy as np
 import logging
 from typing import Dict, Tuple, List, Callable
 
+from tax_modeler.calibration import dotax_base
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,52 +40,12 @@ class CalibrationOrchestrator:
     within tolerance, or max iterations reached.
     """
     
-    # DOTax Table A8 targets (in millions $)
-    DOTAX_TAX_TARGETS = {
-        (0, 10000): 3.0,
-        (10000, 20000): 21.0,
-        (20000, 30000): 51.0,
-        (30000, 40000): 92.0,
-        (40000, 50000): 116.0,
-        (50000, 75000): 293.0,
-        (75000, 100000): 261.0,
-        (100000, 150000): 438.0,
-        (150000, 200000): 294.0,
-        (200000, 300000): 310.0,
-        (300000, 400000): 153.0,
-        (400000, 500000): 101.0,
-        (500000, 750000): 149.0,
-        (750000, 1000000): 85.0,
-        (1000000, float('inf')): 663.0,
-    }
-    
-    # DOTax filer count targets (CANONICAL TOTAL: 618,423)
-    DOTAX_FILER_TARGETS = {
-        (0, 10000): 115285,
-        (10000, 20000): 64160,
-        (20000, 30000): 57835,
-        (30000, 40000): 58135,
-        (40000, 50000): 53555,
-        (50000, 75000): 91459,
-        (75000, 100000): 54976,
-        (100000, 150000): 62065,
-        (150000, 200000): 27976,
-        (200000, 300000): 19015,
-        (300000, 400000): 5729,
-        (400000, 500000): 2856,
-        (500000, 750000): 2549,
-        (750000, 1000000): 1004,
-        (1000000, float('inf')): 1824,
-    }
-    
-    # DOTax filing status targets (adjusted to match filer count total of 618,423)
-    DOTAX_FILING_STATUS_TARGETS = {
-        'single': 326470,
-        'married_filing_jointly': 210724,
-        'head_of_household': 65638,
-        'married_filing_separately': 15591,
-    }
-    
+    # DOTAX targets: Table A-8 (tax, $M; filers) and Table 4 (filing status),
+    # newest edition on file. One copy in ``dotax_base``.
+    DOTAX_TAX_TARGETS = dotax_base.tax_targets_M()
+    DOTAX_FILER_TARGETS = dotax_base.filer_targets()
+    DOTAX_FILING_STATUS_TARGETS = dotax_base.status_targets()
+
     def __init__(self, max_iterations: int = 5, tolerance: float = 0.05):
         """
         Initialize calibration orchestrator.

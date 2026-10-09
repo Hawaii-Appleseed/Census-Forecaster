@@ -31,7 +31,7 @@ gain (less loss)", which includes short-term gains (already taxed at ordinary
 rates) and, above $1M, national tier shares. Against DOTAX that puts ~30% too
 much at the top and too little in the $200K-$400K range on this script's
 population ($400K+, TY2026; anchor_check.csv). So the base is
-re-anchored to DOTAX Table 21 (TY2022): resident net long-term capital gains
+re-anchored to DOTAX Table 21 (TY2023): resident net long-term capital gains
 eligible for the alternative rate, by Hawaii AGI class, grown to the tax year
 with the Hawaii-adjusted CBO capital-gains factor the projection itself uses.
 Classes map onto the projected population by weighted income rank (DOTAX Table
@@ -61,7 +61,7 @@ elasticity of ~0.6 with respect to the ~31% combined top rate (23.8% federal +
 
 Nonresidents: excluded from the headline, as in the ITEP figures. The add-on
 applies residents' revenue per dollar of gains, by AGI class, to DOTAX's
-nonresident gains — in a typical year (TY2018-2022 pooled nonresident/resident
+nonresident gains — in a typical year (TY2018-2023 pooled nonresident/resident
 ratio) and at the TY2022 ratio, when composite returns spiked.
 
 Requires data/artifacts/sb3125_calibrated_base.pkl (run
@@ -97,6 +97,7 @@ from tax_modeler.calibration.cg_anchor import (
     _TOP_SHARE_NOTE,
     DOTAX_NLTCG_NONRES,
     DOTAX_NLTCG_RES,
+    BASE_YEAR,
     DOTAX_RETURNS_2022,
     DOTAX_TOTAL_RETURNS_2022,
     TOP_SHARE_1M,
@@ -320,9 +321,10 @@ def _class_of(labels: np.ndarray) -> np.ndarray:
 def _nonresident_addon(yr, opt, labels, nltcg, w, changes) -> list[dict]:
     """Residents' revenue per $ of gains, by class, applied to DOTAX nonresident gains."""
     cls = _class_of(labels)
-    g = cg_growth(yr)
+    g = cg_growth(yr)                       # base year -> yr, for the resident gains
+    g22 = cg_growth(yr, from_year=2022)     # TY2022 -> yr, for that spike year's nonresident gains
     nr22 = dict(zip(_CLASSES, DOTAX_NLTCG_NONRES[2022], strict=True))
-    res22 = dict(zip(_CLASSES, DOTAX_NLTCG_RES[2022], strict=True))
+    res_base = dict(zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True))
     pooled = {c: sum(DOTAX_NLTCG_NONRES[y][i] for y in DOTAX_NLTCG_NONRES)
               / sum(DOTAX_NLTCG_RES[y][i] for y in DOTAX_NLTCG_RES)
               for i, c in enumerate(_CLASSES)}
@@ -335,8 +337,8 @@ def _nonresident_addon(yr, opt, labels, nltcg, w, changes) -> list[dict]:
             per_dollar[c] = (arr[m] * w[m]).sum() / base_amt if base_amt else 0.0
         rows.append({
             "tax_year": yr, "option": opt, "kind": kind,
-            "typical_year_M": sum(per_dollar[c] * pooled[c] * res22[c] * g for c in per_dollar),
-            "ty2022_level_M": sum(per_dollar[c] * nr22[c] * g for c in per_dollar),
+            "typical_year_M": sum(per_dollar[c] * pooled[c] * res_base[c] * g for c in per_dollar),
+            "ty2022_level_M": sum(per_dollar[c] * nr22[c] * g22 for c in per_dollar),
         })
     return rows
 
@@ -409,7 +411,7 @@ def run() -> None:
                 "options": dict(OPTIONS), "alpha": MID_ALPHA,
                 "top_premium": MID_TOP_PREMIUM, "cbo_vintage": "2025-01"},
         inputs={"tax_unit_cache": cache_provenance(),
-                "dotax": "Hawaii Individual Income Tax Statistics TY2018-2022, Tables 21/A-1/A-8"},
+                "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-8"},
     )
     print(f"\nSaved to {OUT_DIR}/  ({time.perf_counter() - wall:.0f}s)", flush=True)
 

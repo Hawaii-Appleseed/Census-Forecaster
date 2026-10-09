@@ -1,0 +1,197 @@
+{
+  "source": {
+    "title": "Earned Income Tax Credit Report, Tax Year 2024 (Act 107, SLH 2017)",
+    "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research and Planning",
+    "url": "https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf",
+    "file": "act107_earnedincome_txcredit_2024.pdf",
+    "sha256": "72e8868a9c0af8dc94e0c513f69e2bfd95366136bb19b9349c096ee12547f52b",
+    "pages": 7,
+    "note": "Dollars are whole dollars as printed. 'new' is the credit claimed for the tax year; 'applied' adds carryforwards used and subtracts those carried on."
+  },
+  "tax_year": 2024,
+  "table_1_by_federal_agi": {
+    "ranges": [
+      {
+        "federal_agi_range": "less than $15,000",
+        "carried_in": {
+          "claims": 7093,
+          "dollars": 4251540
+        },
+        "new": {
+          "claims": 28306,
+          "dollars": 15341832
+        },
+        "carried_out": {
+          "claims": 7056,
+          "dollars": 4241883
+        },
+        "applied": {
+          "claims": 28395,
+          "dollars": 15351489
+        },
+        "avg_per_claim": 541
+      },
+      {
+        "federal_agi_range": "$15,000 to $29,999",
+        "carried_in": {
+          "claims": 5140,
+          "dollars": 6361951
+        },
+        "new": {
+          "claims": 21269,
+          "dollars": 32830657
+        },
+        "carried_out": {
+          "claims": 4688,
+          "dollars": 6244563
+        },
+        "applied": {
+          "claims": 21736,
+          "dollars": 32948045
+        },
+        "avg_per_claim": 1516
+      },
+      {
+        "federal_agi_range": "$30,000 to $44,999",
+        "carried_in": {
+          "claims": 3322,
+          "dollars": 3848220
+        },
+        "new": {
+          "claims": 17880,
+          "dollars": 22847547
+        },
+        "carried_out": {
+          "claims": 2771,
+          "dollars": 3481635
+        },
+        "applied": {
+          "claims": 18268,
+          "dollars": 23214132
+        },
+        "avg_per_claim": 1271
+      },
+      {
+        "federal_agi_range": "$45,000 to $54,999",
+        "carried_in": {
+          "claims": 923,
+          "dollars": 1062058
+        },
+        "new": {
+          "claims": 8552,
+          "dollars": 5163793
+        },
+        "carried_out": {
+          "claims": 514,
+          "dollars": 699902
+        },
+        "applied": {
+          "claims": 8732,
+          "dollars": 5525949
+        },
+        "avg_per_claim": 633
+      },
+      {
+        "federal_agi_range": "$55,000 or more",
+        "carried_in": {
+          "claims": 1086,
+          "dollars": 1016760
+        },
+        "new": {
+          "claims": 2392,
+          "dollars": 797199
+        },
+        "carried_out": {
+          "claims": 287,
+          "dollars": 339270
+        },
+        "applied": {
+          "claims": 3148,
+          "dollars": 1474689
+        },
+        "avg_per_claim": 468
+      }
+    ],
+    "total": {
+      "federal_agi_range": "Total",
+      "carried_in": {
+        "claims": 17564,
+        "dollars": 16540529
+      },
+      "new": {
+        "claims": 78399,
+        "dollars": 76981028
+      },
+      "carried_out": {
+        "claims": 15316,
+        "dollars": 15007253
+      },
+      "applied": {
+        "claims": 80279,
+        "dollars": 78514304
+      },
+      "avg_per_claim": 978
+    }
+  },
+  "table_2_district": {
+    "Oʻahu (District 1)": {
+      "claims": 52488,
+      "dollars": 50017316,
+      "avg_per_claim": 953
+    },
+    "Maui (District 2)": {
+      "claims": 9352,
+      "dollars": 8928620,
+      "avg_per_claim": 955
+    },
+    "Hawaiʻi (District 3)": {
+      "claims": 14455,
+      "dollars": 15742869,
+      "avg_per_claim": 1089
+    },
+    "Kauaʻi (District 4)": {
+      "claims": 3984,
+      "dollars": 3825499,
+      "avg_per_claim": 960
+    }
+  },
+  "table_3_resident_status": {
+    "Forms N-11": {
+      "claims": 75946,
+      "dollars": 76429023,
+      "avg_per_claim": 1006
+    },
+    "Forms N-15": {
+      "claims": 4333,
+      "dollars": 2085281,
+      "avg_per_claim": 481
+    }
+  },
+  "table_4_filing_status": {
+    "Single": {
+      "claims": 28280,
+      "dollars": 11975115,
+      "avg_per_claim": 423
+    },
+    "Joint": {
+      "claims": 18571,
+      "dollars": 22656631,
+      "avg_per_claim": 1220
+    },
+    "Married filing separately": {
+      "claims": 209,
+      "dollars": 256668,
+      "avg_per_claim": 1228
+    },
+    "Head of household": {
+      "claims": 33166,
+      "dollars": 43557504,
+      "avg_per_claim": 1313
+    },
+    "Qualifying surviving spouse": {
+      "claims": 53,
+      "dollars": 68386,
+      "avg_per_claim": 1290
+    }
+  }
+}

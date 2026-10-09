@@ -3,7 +3,7 @@
 The model's own gains shares come from IRS SOI "net capital gain (less
 loss)", which includes short-term gains (already taxed at ordinary rates)
 and, above $1M, national tier shares. :func:`anchor_nltcg` rescales them so
-each DOTAX Hawaiʻi AGI class holds DOTAX's TY2022 resident net long-term
+each DOTAX Hawaiʻi AGI class holds DOTAX's TY2023 resident net long-term
 capital gain eligible for the HRS §235-51(f) alternative tax, grown to the
 tax year with the Hawaiʻi-adjusted CBO capital-gains factor
 (:func:`cg_growth`). Classes map onto a projected population by weighted
@@ -20,16 +20,24 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from tax_modeler.calibration import dotax_base
+
 TOP_SHARE_1M = 0.80
 TOP_SHARE_VARIANTS = {"central": TOP_SHARE_1M, "low": 0.70, "model": None}
 _TOP_SHARE_NOTE = """
-DOTAX TY2022: the $1M+ class (1,824 returns) owed $662.6M before credits
+Derivation (DOTAX TY2022): the $1M+ class (1,824 returns) owed $662.6M before credits
 (Table A-8) on roughly $6.75B of taxable income (Table A-1's $400K+ class, less
 the $400K-$1M classes at their average AGI). Under the 2018 schedule that is
 ~$725M at bracket rates, so the 3.75-point cap saved ~$62M, i.e. ~$1.66B of
 eligible gains — about 80% of the class's $2.21B (Table 21). The same arithmetic
 on the $400K-$1M classes gives ~$0.36B. The model's national-tier shares put
 ~92% above $1M; 70% brackets the downside.
+Cross-check (DOTAX TY2023, same arithmetic, approximate): the $1M+ class (1,704
+returns) owed $441M on ~$4.7B of taxable income (A-8's 9.4% effective rate), about
+$0.5B at bracket rates, so ~$58M saved and ~$1.55B of eligible gains: 76% of
+Table 21's $2.04B $400K+ total, 81% net of ~$0.36B for the $400K-$1M classes
+(TY2022's figure; TY2023's is not published separately). Inside the 70-80% range,
+so the share stands.
 """
 
 # DOTAX "Hawaiʻi Individual Income Tax Statistics" — "Income Eligible for the
@@ -42,6 +50,7 @@ DOTAX_NLTCG_RES = {
     2020: [99.694, 126.950, 127.985, 209.723, 166.122, 2675.089],
     2021: [166.188, 210.106, 216.483, 379.069, 299.145, 4217.475],
     2022: [88.198, 112.025, 126.019, 241.953, 216.944, 2210.277],
+    2023: dotax_base.nltcg_M(2023),   # PDF edition: published to $0.1M
 }
 # Nonresidents; composite returns folded into the top class.
 DOTAX_NLTCG_NONRES = {
@@ -50,25 +59,30 @@ DOTAX_NLTCG_NONRES = {
     2020: [37.284, 25.539, 23.598, 50.837, 37.860, 333.100 + 2.645],
     2021: [60.028, 52.293, 52.528, 110.191, 96.831, 906.710 + 12.951],
     2022: [30.754, 39.167, 41.897, 96.572, 108.494, 900.309 + 208.326],
+    2023: dotax_base.nltcg_M(2023, nonresident=True),
 }
-# DOTAX Table A-8 TY2022 resident returns by the same classes (the $100K-
-# class includes loss returns). Used to map classes onto income ranks.
-DOTAX_RETURNS_2022 = {
-    "100_150": 62_065, "150_200": 27_976, "200_300": 18_937, "300_400": 6_076,
-    "400_1m": 2_926 + 2_991 + 1_134, "1mp": 1_824,
-}
-DOTAX_TOTAL_RETURNS_2022 = 635_117
+# DOTAX Table A-8 resident returns by the same classes (the $100K- class
+# includes loss returns). Used to map classes onto income ranks.
+BASE_YEAR = dotax_base.BASE_YEAR
+DOTAX_RETURNS_2022 = dotax_base.cg_class_returns(2022)
+DOTAX_TOTAL_RETURNS_2022 = dotax_base.total_returns(2022)
+DOTAX_RETURNS = dotax_base.cg_class_returns(BASE_YEAR)
+DOTAX_TOTAL_RETURNS = dotax_base.total_returns(BASE_YEAR)
 
 
-def cg_growth(yr: int) -> float:
-    """TY2022 -> *yr* capital-gains growth: CBO Jan 2025 x the Hawaii CAGR ratio."""
+def cg_growth(yr: int, from_year: int = BASE_YEAR) -> float:
+    """``from_year`` -> *yr* capital-gains growth: CBO Jan 2025 x the Hawaii CAGR ratio.
+
+    ``from_year`` is the DOTAX edition the gains come from (default the base,
+    TY2023); the CBO table is relative to 2022, so it is a ratio of two years.
+    """
     from tax_modeler.calibration.cbo_aging import (
         DEFAULT_HAWAII_FACTORS,
         load_cbo_rates,
         net_growth_factor,
     )
     rates = load_cbo_rates("2025-01")
-    return net_growth_factor(rates.factor("capital_gains", yr),
+    return net_growth_factor(rates.growth("capital_gains", yr, from_year),
                              DEFAULT_HAWAII_FACTORS["capital_gains"])
 
 
@@ -87,12 +101,12 @@ def rank_classes(df: pd.DataFrame) -> np.ndarray:
     order = np.argsort(-inc, kind="stable")
     ws = w[order]
     cum_mid = (np.cumsum(ws) - ws / 2) / w.sum()
-    top_down = [("400p", DOTAX_RETURNS_2022["400_1m"] + DOTAX_RETURNS_2022["1mp"]),
-                ("300_400", DOTAX_RETURNS_2022["300_400"]),
-                ("200_300", DOTAX_RETURNS_2022["200_300"]),
-                ("150_200", DOTAX_RETURNS_2022["150_200"]),
-                ("100_150", DOTAX_RETURNS_2022["100_150"])]
-    edges = np.cumsum([n for _, n in top_down]) / DOTAX_TOTAL_RETURNS_2022
+    top_down = [("400p", DOTAX_RETURNS["400_1m"] + DOTAX_RETURNS["1mp"]),
+                ("300_400", DOTAX_RETURNS["300_400"]),
+                ("200_300", DOTAX_RETURNS["200_300"]),
+                ("150_200", DOTAX_RETURNS["150_200"]),
+                ("100_150", DOTAX_RETURNS["100_150"])]
+    edges = np.cumsum([n for _, n in top_down]) / DOTAX_TOTAL_RETURNS
     lab_sorted = np.select([cum_mid <= e for e in edges], [c for c, _ in top_down],
                            default="lt100")
     labels = np.empty(len(df), dtype=object)
@@ -112,7 +126,7 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
     model_cg = inc * df["synthetic_cg_share"].fillna(0.0).to_numpy(float)
     labels = rank_classes(df)
     g = cg_growth(yr)
-    target = {c: v * g * 1e6 for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[2022], strict=True)}
+    target = {c: v * g * 1e6 for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True)}
 
     groups = {c: [c] for c in ["100_150", "150_200", "200_300", "300_400"]}
     if top_share_1m is None:

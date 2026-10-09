@@ -13,9 +13,10 @@ import pytest
 from tax_modeler.calibration import cg_anchor
 from tax_modeler.calibration.cg_anchor import (
     _CLASSES,
+    BASE_YEAR,
     DOTAX_NLTCG_RES,
-    DOTAX_RETURNS_2022,
-    DOTAX_TOTAL_RETURNS_2022,
+    DOTAX_RETURNS,
+    DOTAX_TOTAL_RETURNS,
     TOP_SHARE_1M,
     anchor_nltcg,
     cg_growth,
@@ -23,7 +24,7 @@ from tax_modeler.calibration.cg_anchor import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-MOVED = {"_CLASSES", "_TOP_SHARE_NOTE", "DOTAX_NLTCG_NONRES", "DOTAX_NLTCG_RES",
+MOVED = {"BASE_YEAR", "_CLASSES", "_TOP_SHARE_NOTE", "DOTAX_NLTCG_NONRES", "DOTAX_NLTCG_RES",
          "DOTAX_RETURNS_2022", "DOTAX_TOTAL_RETURNS_2022", "TOP_SHARE_1M", "TOP_SHARE_VARIANTS",
          "anchor_nltcg", "cg_growth", "rank_classes"}
 
@@ -41,7 +42,7 @@ def _frame(n=20_000, seed=0):
 
 def _targets(yr, top_share):
     g = cg_growth(yr)
-    t = {c: v * g for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[2022], strict=True)}
+    t = {c: v * g for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True)}
     return {**{c: t[c] for c in _CLASSES[1:5]},
             "1mp": t["400p"] * top_share, "400_1m": t["400p"] * (1 - top_share)}
 
@@ -83,7 +84,7 @@ def test_rank_classes_follow_dotax_return_shares():
     srt = np.argsort(inc, kind="stable")
     assert (np.diff(code[srt]) >= 0).all()                     # never falls as income rises
     share = w[code >= 5].sum() / w.sum()
-    want = (DOTAX_RETURNS_2022["400_1m"] + DOTAX_RETURNS_2022["1mp"]) / DOTAX_TOTAL_RETURNS_2022
+    want = (DOTAX_RETURNS["400_1m"] + DOTAX_RETURNS["1mp"]) / DOTAX_TOTAL_RETURNS
     assert share == pytest.approx(want, abs=w.max() / w.sum())
     assert (inc[labels == "1mp"] >= 1e6).all() and (inc[labels == "400_1m"] < 1e6).all()
 

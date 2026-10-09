@@ -511,6 +511,20 @@ def test_admin_caseload_has_hi_eitc_anchor():
     assert 70 < hi.annual_dollars_millions < 90
 
 
+def test_admin_caseload_hi_eitc_anchor_ty2024():
+    """TY 2024 is the latest year: DOTAX's Earned Income Tax Credit Report
+    (Act 107), Table 1, NEW credit claimed: 78,399 claims, $76,981,028 (the
+    credit applied, $78.5M, adds legacy carryforwards and is not the anchor).
+    """
+    hi = AdminCaseload.load().target("hi_eitc", 2024)
+    assert hi.unit == "return"
+    assert hi.count == 78_399
+    assert hi.annual_dollars_millions == pytest.approx(76.981, abs=1e-3)
+    from tax_modeler.calibration import dotax_base
+    new = dotax_base.eitc_new_credit(2024)
+    assert (hi.count, hi.annual_dollars_millions) == (new["claims"], pytest.approx(new["dollars_M"], abs=1e-3))
+
+
 def test_calibrate_benefits_supports_hi_eitc(taxed_units):
     """calibrate_benefits zeros HI EITC for non-imputed units; preserves federal."""
     if "eitc_amount" not in taxed_units.columns:

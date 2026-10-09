@@ -109,6 +109,15 @@ simple adapters don't cover:
 Bundled in the wheel (~25 KB):
 - `data/tax_tables/hawaii_2022/*.csv` — bracket and exemption tables
 - `data/policy/baseline_2022_deductions.json` — standard/itemized policy baseline
+- `data/calibration/dotax_indinc_<year>.json` — the DOTAX *Individual Income
+  Tax Statistics* tables the calibration anchors on (A-8 filers and tax by AGI
+  class, A-1 AGI, Table 4 filing status, Table 21 capital gains, 17A
+  nonresidents), as printed. `calibration/dotax_base.py` reads them; a new
+  edition is one command:
+  `python scripts/parse_dotax_indinc.py <YEAR>indinc.pdf <YEAR>`
+  (PDF from `files.hawaii.gov/tax/stats/stats/indinc/<YEAR>indinc.pdf`), then
+  set `dotax_base.BASE_YEAR`. The parser checks every table against its own
+  printed total.
 
 Checked into the repo (~2 MB):
 - `data/tax_modeler/crosswalks/` — PUMA / district / ZIP geography

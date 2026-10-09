@@ -2,7 +2,8 @@
 
 Constructs filer-count, tax, and filing-status targets for any TY in 2025-2031
 from three inputs:
-    1. DOTAX TY2022 baseline (filer counts, tax, filing status)
+    1. DOTAX baseline (filer counts, tax, filing status): the TY2023 edition,
+       ``dotax_base.BASE_YEAR``
     2. Hawaii Council on Revenues IIT projection (FY27 anchor + back-cast)
     3. Top-bracket differential growth assumption (1pp/yr above general)
 
@@ -21,18 +22,18 @@ For target year Y:
   extrapolated at 2.5% nominal growth from the nearest anchor.
 
 * **Filer migration**: apply piecewise growth ``g_b(Y)`` per bracket:
-    - Below $200K: ``g_low = 1.025^(Y-2022)``
-    - At/above $200K: ``g_high = g_low * 1.010^(Y-2022)``  (top differential)
-  Build a CDF over TY2022 brackets, scale cut-points by ``g_b``, then
+    - Below $200K: ``g_low = 1.025^(Y-base)``
+    - At/above $200K: ``g_high = g_low * 1.010^(Y-base)``  (top differential)
+  Build a CDF over the baseline brackets, scale cut-points by ``g_b``, then
   re-bucket onto the fixed 15-bracket nominal schema. Total filer count is
-  held constant at 618,423 (Hawaii's filer base is near-stable).
+  grown at ``population_growth_rate`` (631,125 in the TY2023 baseline).
 
-* **Tax targets**: per-filer effective rate from TY2022 (``r_b = Tax_b / N_b``)
+* **Tax targets**: per-filer effective rate from the baseline (``r_b = Tax_b / N_b``)
   applied to the *forward* counts, with a small ``rate_drift`` uplift for
   bracket-creep into higher marginal rates. Then uniformly scaled so the sum
   exactly equals T_Y (consistency with COR).
 
-* **Filing status**: TY2022 totals scaled by ``total_Y / 618_423`` (≈1.0).
+* **Filing status**: baseline totals scaled by ``total_Y / baseline total`` (≈1.0).
 """
 from __future__ import annotations
 
@@ -42,6 +43,8 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 import numpy as np
+
+from tax_modeler.calibration import dotax_base
 
 logger = logging.getLogger(__name__)
 
@@ -92,55 +95,9 @@ def _load_cor_projections() -> Dict[int, float]:
 
 DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = _load_cor_projections()
 
-# DOTAX TY2022 baseline (Table A8, resident-only). Mirrors the constants in
-# ``simultaneous_calibrator.py`` — defined here too so this module is
-# self-contained for forward target construction.
-_DOTAX_FILER_TARGETS_2022: Dict[Tuple[float, float], int] = {
-    (0,         10_000):    115_285,
-    (10_000,    20_000):     64_160,
-    (20_000,    30_000):     57_835,
-    (30_000,    40_000):     58_135,
-    (40_000,    50_000):     53_555,
-    (50_000,    75_000):     91_459,
-    (75_000,   100_000):     54_976,
-    (100_000,  150_000):     62_065,
-    (150_000,  200_000):     27_976,
-    (200_000,  300_000):     19_015,
-    (300_000,  400_000):      5_729,
-    (400_000,  500_000):      2_856,
-    (500_000,  750_000):      2_549,
-    (750_000, 1_000_000):     1_004,
-    (1_000_000, np.inf):      1_824,
-}
-
-_DOTAX_TAX_TARGETS_2022: Dict[Tuple[float, float], float] = {
-    (0,         10_000):     3.0,
-    (10_000,    20_000):    21.0,
-    (20_000,    30_000):    51.0,
-    (30_000,    40_000):    92.0,
-    (40_000,    50_000):   116.0,
-    (50_000,    75_000):   293.0,
-    (75_000,   100_000):   261.0,
-    (100_000,  150_000):   438.0,
-    (150_000,  200_000):   294.0,
-    (200_000,  300_000):   310.0,
-    (300_000,  400_000):   153.0,
-    (400_000,  500_000):   101.0,
-    (500_000,  750_000):   149.0,
-    (750_000, 1_000_000):   85.0,
-    (1_000_000, np.inf):   663.0,
-}
-
-_DOTAX_STATUS_TARGETS_2022: Dict[str, int] = {
-    "single":                     326_470,
-    "married_filing_jointly":     210_724,
-    "head_of_household":           65_638,
-    "married_filing_separately":   15_591,
-}
-
-_TY2022_TOTAL_TAX_M = sum(_DOTAX_TAX_TARGETS_2022.values())     # 3030.0
-_TY2022_TOTAL_FILERS = sum(_DOTAX_FILER_TARGETS_2022.values())  # 618,423
-
+# The DOTAX baseline (Table A-8 filer counts and tax, Table 4 filing status) comes
+# from ``dotax_base``, which holds one copy for every module that anchors on it.
+# ``build_targets(base_year=...)`` picks the edition.
 
 @dataclass(frozen=True)
 class ForwardTargets:
@@ -215,9 +172,9 @@ def _migrate_filer_counts(
     *,
     empirical_density: Optional[Dict[Tuple[float, float], "np.ndarray"]] = None,
 ) -> Dict[Tuple[float, float], int]:
-    """Migrate TY2022 filer counts to a forward year via bracket-shift.
+    """Migrate baseline filer counts to a forward year via bracket-shift.
 
-    Each TY2022 bracket ``(lo, hi)`` is treated as having ``count`` filers
+    Each baseline bracket ``(lo, hi)`` is treated as having ``count`` filers
     distributed according to either:
       - a uniform density (legacy default) — assumes filers are spread evenly
         across the bracket, which over-projects upward migration because real
@@ -340,7 +297,7 @@ def build_targets(
     base_counts: Optional[Dict[Tuple[float, float], int]] = None,
     base_tax: Optional[Dict[Tuple[float, float], float]] = None,
     base_status: Optional[Dict[str, int]] = None,
-    base_year: int = 2022,
+    base_year: int = dotax_base.BASE_YEAR,
     include_agi_targets: bool = True,
     cbo_vintage: str = "2025-01",
     hawaii_factors: Optional[Dict[str, float]] = None,
@@ -371,14 +328,15 @@ def build_targets(
         most closely with the labor force. Set to 0.0 to hold filer count
         constant (legacy behavior).
     base_counts, base_tax, base_status:
-        Override the TY2022 baseline (mainly for testing the round-trip).
+        Override the DOTAX baseline (mainly for testing the round-trip).
     base_year:
-        Calendar year of the baseline; default 2022.
+        DOTAX edition the baseline comes from (``dotax_base``); default the
+        newest on file, TY2023. ``2022`` reproduces the earlier base.
     """
     cor = dict(cor_projections_M or DEFAULT_COR_IIT_PROJECTIONS_M)
-    bc = dict(base_counts or _DOTAX_FILER_TARGETS_2022)
-    bt = dict(base_tax    or _DOTAX_TAX_TARGETS_2022)
-    bs = dict(base_status or _DOTAX_STATUS_TARGETS_2022)
+    bc = dict(base_counts or dotax_base.filer_targets(base_year))
+    bt = dict(base_tax    or dotax_base.tax_targets_M(base_year))
+    bs = dict(base_status or dotax_base.status_targets(base_year))
 
     years = year - base_year
     g_low  = (1 + low_growth) ** years
@@ -415,7 +373,7 @@ def build_targets(
         scale = 1.0
     forward_tax = {b: v * scale for b, v in raw_tax.items()}
 
-    # ── 3. Filing status: scale TY2022 totals by total filer growth ─────────
+    # ── 3. Filing status: scale baseline totals by total filer growth ─────────
     base_total = sum(bc.values())
     new_total = sum(forward_counts.values())
     status_scale = new_total / base_total if base_total > 0 else 1.0
@@ -428,7 +386,7 @@ def build_targets(
         try:
             from tax_modeler.calibration.forward_agi_targets import build_agi_targets
             # Use the forward-projected $1M+ count to allocate SOI tier filers
-            fwd_1m_count = int(forward_counts.get((1_000_000, np.inf), 1_824))
+            fwd_1m_count = int(forward_counts.get((1_000_000, np.inf), bc[(1_000_000, np.inf)]))
             agi = build_agi_targets(
                 year,
                 cbo_vintage=cbo_vintage,

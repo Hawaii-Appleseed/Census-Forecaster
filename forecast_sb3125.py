@@ -111,14 +111,14 @@ if __name__ == "__main__":
         print(f"  Before: {before['filers_1m_plus']:,.0f} filers "
               f"({100*before['filer_target_ratio']:.1f}% of target), "
               f"${before['tax_1m_plus_$M']:,.1f}M tax "
-              f"({100*before['tax_target_ratio']:.1f}% of $663M)", flush=True)
+              f"({100*before['tax_target_ratio']:.1f}% of the DOTAX target)", flush=True)
         calibrated = synthesize_top_filers(calibrated)
         calibrated = _compute_base_tax(calibrated, deduction_params=CAL_DED_PARAMS, tax_year=2023)
         after = validate_top_synthesis(calibrated)
         print(f"  After:  {after['filers_1m_plus']:,.0f} filers "
               f"({100*after['filer_target_ratio']:.1f}% of target), "
               f"${after['tax_1m_plus_$M']:,.1f}M tax "
-              f"({100*after['tax_target_ratio']:.1f}% of $663M)", flush=True)
+              f"({100*after['tax_target_ratio']:.1f}% of the DOTAX target)", flush=True)
         print(f"  Filing mix at $1M+: MFJ {100*after['mfj_share']:.0f}% / "
               f"Single {100*after['single_share']:.0f}% / "
               f"HoH {100*after['hoh_share']:.0f}% / "
@@ -219,7 +219,7 @@ if __name__ == "__main__":
         print("\n" + "=" * 110, flush=True)
         print(f"SB 3125 CD{CD} FISCAL IMPACT ($ millions, vs. Act 46 baseline)", flush=True)
         print(f"  REEC demand scenario: obbba_mid (SEIA-anchored, Hawaii-tempered)", flush=True)
-        print(f"  Top-income synthesis: Pareto alpha=1.5, target 1,824 filers / $663M tax", flush=True)
+        print(f"  Top-income synthesis: Pareto alpha=1.5, target 1,704 filers / $441M tax (DOTAX TY2023)", flush=True)
         print("=" * 110, flush=True)
         print(df.to_string(index=False), flush=True)
         print("\nNote: positive total_impact_$M = revenue gained for the State", flush=True)

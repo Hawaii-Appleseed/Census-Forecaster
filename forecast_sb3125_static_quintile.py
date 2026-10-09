@@ -542,13 +542,13 @@ if __name__ == "__main__":
         units = synthesize_top_filers(units, pareto_alpha=PARETO_ALPHA)
         units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
         v = validate_top_synthesis(units)
-        # The tail is at DOTAX's TY2022 level; the projection below grows
+        # The tail is at DOTAX's TY2023 level; the projection below grows
         # every unit from the PUMS dollar year (2024), so age it there first.
         units = score(age_synthetic_tail(units, top_premium=TOP_PREMIUM))
         print(f"  {v['filers_1m_plus']:,.0f} filers @ $1M+ "
               f"({100*v['filer_target_ratio']:.1f}%), "
               f"${v['tax_1m_plus_$M']:,.1f}M tax "
-              f"({100*v['tax_target_ratio']:.1f}% of $663M target), "
+              f"({100*v['tax_target_ratio']:.1f}% of the DOTAX target), "
               f"tail_k={tail_k:.4f}, then aged to the PUMS dollar year, "
               f"in {time.perf_counter()-t0:.1f}s", flush=True)
 

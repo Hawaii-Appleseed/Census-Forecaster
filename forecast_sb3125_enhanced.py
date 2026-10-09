@@ -36,10 +36,10 @@ Improvements over forecast_sb3125.py:
   4. **Top-income growth premium** — Top earners (>$500K) get an additional
      premium above the median-anchored projection. Anchored to PUMS 2024
      base year (5-year vintage panel inflation-adjusted to 2024 dollars).
-     The synthetic $1M+ tail is calibrated to DOTAX's TY2022 $1M+ tax, so
-     it is first aged 2022 -> 2024 (Honolulu's observed B19013 growth and
-     two years of the scenario's premium; ``age_synthetic_tail``). Until
-     September 29, 2026 it entered the projection at its TY2022 level, and
+     The synthetic $1M+ tail is calibrated to DOTAX's TY2023 $1M+ tax, so
+     it is first aged 2023 -> 2024 (Honolulu's observed B19013 growth and
+     one year of the scenario's premium; ``age_synthetic_tail``). Until
+     September 29, 2026 it entered the projection at its base-year level, and
      its single-step rescale overshot the tax target by ~3.6% (MID).
 
   5. **Effective deductions plumbed through** — The bracket comparison
@@ -293,14 +293,14 @@ def run_one_scenario(
 
     # Synthesize fresh from the calibrated (no-synthesis) base, re-scored with
     # the SAME deduction params the base was calibrated under (C3), the tail
-    # calibrated to DOTAX's TY2022 $1M+ tax and aged to the PUMS dollar year
+    # calibrated to DOTAX's TY2023 $1M+ tax and aged to the PUMS dollar year
     # with this scenario's premium. Shared with the tax simulator's population
     # (tax_modeler.scenarios.act24_population).
     units, tail_k = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
                                 ded_params=ded_params, cal_tax_year=cal_tax_year)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
-          f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2022 tax, "
+          f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2023 tax, "
           f"aged x{synthetic_tail_aging_factor(top_premium):.4f} to "
           f"{PUMS_INCOME_DOLLAR_YEAR}: ${v['tax_1m_plus_$M']:,.1f}M tax", flush=True)
 
@@ -482,20 +482,25 @@ if __name__ == "__main__":
         # Validate post-rake AND post-synthesis (top-tier filers added in
         # synthesis fill the $1M+ bin which the IPF rake can't reach via its
         # 1.5x bin-cap). Calibration target is met after synthesis. The tail
-        # stays at the TY2022 level here (no aging), like the targets below.
+        # stays at the TY2023 level here (no aging), like the targets below.
         from tax_modeler.pipeline import compute_base_tax as _score_base
         from tax_modeler.scenarios.top_income_synthesis import (
             synthesize_top_filers as _synth,
             calibrate_synthetic_tail_to_tax_target as _calibrate_tail,
         )
+        from tax_modeler.calibration import dotax_base as _dotax_base
+        # The target the calibration rakes to (the $1M+ class on its window), not the printed total.
+        _DOTAX_BEFORE_M = sum(_dotax_base.tax_targets_M().values())
+        _DOTAX_AFTER_M = _dotax_base.load_indinc(_dotax_base.BASE_YEAR)[
+            "table_a8_resident_liability"]["total"]["tax_after_M"]
         _score = lambda u: _score_base(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)  # noqa: E731
         _vb, _ = _calibrate_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)), score=_score)
         _hi_tl = (_vb["hi_tax_liability"] * _vb["weight"]).sum() / 1e6
         _hi_st = (_vb["hi_state_tax"]     * _vb["weight"]).sum() / 1e6
         print(
             f"  CALIBRATION VALIDATION (post-rake + post-synthesis, itemized on):\n"
-            f"    hi_tax_liability:      ${_hi_tl:>7,.0f}M  (DOTAX Table A8 target: $3,030M)\n"
-            f"    hi_state_tax (net):    ${_hi_st:>7,.0f}M  (DOTAX TY2022 actual:  ~$2,400M)",
+            f"    hi_tax_liability:      ${_hi_tl:>7,.0f}M  (DOTAX Table A8 target: ${_DOTAX_BEFORE_M:,.0f}M)\n"
+            f"    hi_state_tax (net):    ${_hi_st:>7,.0f}M  (DOTAX TY{_dotax_base.BASE_YEAR} after credits: ${_DOTAX_AFTER_M:,.0f}M)",
             flush=True,
         )
 
