@@ -489,8 +489,10 @@ if __name__ == "__main__":
             calibrate_synthetic_tail_to_tax_target as _calibrate_tail,
         )
         from tax_modeler.calibration import dotax_base as _dotax_base
-        _a8 = _dotax_base.load_indinc(_dotax_base.BASE_YEAR)["table_a8_resident_liability"]["total"]
-        _DOTAX_BEFORE_M, _DOTAX_AFTER_M = _a8["tax_before_M"], _a8["tax_after_M"]
+        # The target the calibration rakes to (the $1M+ class on its window), not the printed total.
+        _DOTAX_BEFORE_M = sum(_dotax_base.tax_targets_M().values())
+        _DOTAX_AFTER_M = _dotax_base.load_indinc(_dotax_base.BASE_YEAR)[
+            "table_a8_resident_liability"]["total"]["tax_after_M"]
         _score = lambda u: _score_base(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)  # noqa: E731
         _vb, _ = _calibrate_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)), score=_score)
         _hi_tl = (_vb["hi_tax_liability"] * _vb["weight"]).sum() / 1e6

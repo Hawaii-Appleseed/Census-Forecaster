@@ -410,7 +410,7 @@ T_HRS_ALT_TAX = (
     'Hawaiʻi Revised Statutes §235-51(f), alternative tax on net capital gain. '
     '<a href="https://www.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0051.htm">capitol.hawaii.gov</a>')
 T_DOTAX_STATS = (
-    'Hawaiʻi Department of Taxation, “Hawaiʻi Individual Income Tax Statistics,” tax years 2018 to 2022 editions, '
+    'Hawaiʻi Department of Taxation, “Hawaiʻi Individual Income Tax Statistics,” tax years 2018 to 2023 editions, '
     'Tables 21, A-1 and A-8. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
 
 
