@@ -44,7 +44,8 @@ below). The response is close to linear, **about $1.08M of five-year gain per $1
 the $1M+ tax target**. The model anchors that class on one year of a series that
 swings: TY2021's resident gains in the $400K+ class were $4.2B, TY2022's $2.2B and
 TY2023's $2.0B. The tables in this section keep the TY2023 anchor; the sensitivity
-shows what a TY2022/2023 average would give (MID **$675.0M**).
+shows what multi-year averages would give: MID **$670.8M** on TY2019–2023 and
+**$763.2M** on TY2021–2023.
 
 **What changed in the code.** `calibration/dotax_base.py` is now the one home for
 the DOTAX anchors (it replaces five hand-typed copies and two older
@@ -64,7 +65,7 @@ the ratio; the SOI tier averages still age from their own year, 2022.
 | Anchor (DOTAX, residents) | TY2022 | TY2023 |
 |---|---:|---:|
 | Returns, all classes (A-8) | 635,117 | 644,631 |
-| Filers, Loss class excluded | 618,423 | 631,125 |
+| Filers, Loss class excluded | 621,026 (the model carried 618,423) | 631,125 |
 | Tax before credits | $3,029M | $2,960M |
 | $1M+ returns / tax before credits | 1,824 / $662.6M | 1,704 / $441M |
 | $400K+ returns (A-8) | 8,875 | 8,934 |
@@ -74,12 +75,16 @@ the ratio; the SOI tier averages still age from their own year, 2022.
 | Filing status: single / joint / head / separate | 335,198 / 216,358 / 67,393 / 16,007 | 341,973 / 216,407 / 69,345 / 16,718 |
 | Nonresident liability before credits | $300M | $283M |
 
-The TY2022 column is as this repo carried it (the TY2022 PDF was not re-read; the
-filing-status and nonresident rows are the 2022 figures printed in the TY2023
-report). **Two old copies disagreed:**
-`forward_targets` carried 8,233 returns at $400K+ and `cg_anchor` 8,875 (the A-8
-classes); the 642 gap was in the hand-typed forward table, and the TY2023 targets
-use A-8 as printed.
+The TY2022 column was checked against the TY2022 edition's own Table A-8
+(`indinc/archive/2022indinc.pdf`; the filing-status and nonresident rows are the 2022
+figures the TY2023 report prints). **The old hand-typed TY2022 table was wrong in six
+classes.** `forward_targets` carried 8,233 returns at $400K+ against A-8's 8,875, while
+`cg_anchor` carried A-8's own classes, which were right. The hand-typed counts differ at
+$30K–$40K (58,135 against 59,827), $200K–$300K (19,015 / 18,937), $300K–$400K (5,729 /
+6,076), $400K–$500K (2,856 / 2,926), $500K–$750K (2,549 / 2,991) and $750K–$1M (1,004 /
+1,134): 2,603 returns in all, 618,423 against A-8's 621,026 without the Loss class. The
+tax column and the $1M+ row (1,824 / $663M) were right. The September 30 tables
+therefore rest on slightly wrong filer counts; the TY2023 targets use A-8 as printed.
 The $400K+ AGI is split among its four classes by A-8's tax before credits over
 its effective rate on Hawaiʻi AGI, scaled to A-1's $9,319M (`dotax_base` docstring).
 
@@ -224,22 +229,38 @@ carry the same anchor (`hi_eitc`, 2024: 78,399 claims, $76.981M).
   `model_version` (which hashes its provenance) changed.
 
 **Sensitivity: the $1M+ anchor (October 8, 2026).** The model anchors the $1M+ class
-(Table A-8's top row: returns and tax before credits) on one year, so this reruns
-Act 24 with only that row changed. Everything else stays on TY2023, including the gains
-base, the filing-status and filer targets and the class ranks. Two variants:
+(Table A-8's top row: returns and tax before credits) on one year, TY2023, so this
+reruns Act 24 with only that row changed. Everything else stays on TY2023: the gains
+base, the filer and filing-status targets, the class ranks. The row, as each edition
+prints it (TY2019–2022 from
+`files.hawaii.gov/tax/stats/stats/indinc/archive/<year>indinc.pdf`):
+
+| TY | $1M+ returns | Tax before credits | All resident tax | $1M+ share |
+|---|---:|---:|---:|---:|
+| 2019 | 1,163 | $413M | $2,462M | 16.8% |
+| 2020 | 1,387 | $415M | $2,578M | 16.1% |
+| 2021 | 2,086 | $799M | $3,155M | 25.3% |
+| 2022 | 1,824 | $663M | $3,029M | 21.9% |
+| 2023 | 1,704 | $441M | $2,960M | 14.9% |
+
+The variants, all simple averages of the levels (returns and tax each):
 
 | $1M+ class | Returns | Tax before credits |
 |---|---:|---:|
 | TY2023 (the tables above) | 1,704 | $441.0M |
-| **Average of TY2022 and TY2023** | **1,764** | **$552.0M** |
+| **5-year average, TY2019–2023** | **1,633** | **$546.2M** |
+| 2-year average, TY2022–2023 | 1,764 | $552.0M |
+| **3-year average, TY2021–2023** | **1,871** | **$634.3M** |
 | TY2022, the rest TY2023 | 1,824 | $663.0M |
 
 `scripts/sensitivity/sitecustomize.py` rewrites that row as `dotax_base` reads it, in
-every process including the scenario workers (7 per run confirmed); its docstring gives
-the commands, one scratch copy of the scripts per variant because they write fixed
-paths. In the TY2022 variant the tail's scale factors come out at 1.7743 / 1.4210 /
-1.2343, the values this document recorded on the TY2022 base; the average's are 1.5243 /
-1.2374 / 1.0750 / 1.2374 (LOW / MID / HIGH / RECESSION).
+every process including the scenario workers (7 processes per variant across the three
+runs, confirmed); its docstring has the commands, one scratch copy of the scripts per
+variant because they write fixed paths. In the TY2022 variant the tail's scale factors
+come out at 1.7743 / 1.4210 / 1.2343, the values this document recorded on the TY2022
+base. The others' are 1.6193 / 1.3157 / 1.1429 / 1.3157 (5-year), 1.5243 / 1.2374 /
+1.0750 / 1.2374 (2-year) and 1.6393 / 1.3322 / 1.1573 / 1.3322 (3-year), LOW / MID /
+HIGH / RECESSION.
 
 **Act 24 vs Act 46, five-year total impact ($M):**
 
@@ -247,50 +268,71 @@ paths. In the TY2022 variant the tail's scale factors come out at 1.7743 / 1.421
 |---|--:|--:|--:|--:|
 | TY2022 on every anchor (published September 30) | 687.6 | 810.4 | 1,036.9 | 815.3 |
 | TY2022 for the $1M+ class, rest TY2023 | 673.0 | 795.0 | 1,015.3 | 797.9 |
-| **Average of TY2022 and TY2023** | **554.9** | **675.0** | **877.1** | **677.6** |
+| **3-year average, TY2021–2023** | **633.0** | **763.2** | **980.9** | **763.6** |
+| 2-year average, TY2022–2023 | 554.9 | 675.0 | 877.1 | 677.6 |
+| **5-year average, TY2019–2023** | **555.7** | **670.8** | **870.8** | **673.3** |
 | TY2023 (the tables above) | 449.5 | 555.6 | 733.9 | 557.8 |
 
-Static bracket gain, five years: MID $443.2M published, $428.0M, **$296.1M**, $165.0M.
-MID by year (total / static bracket, $M):
+Static bracket gain, five years, MID: $443.2M published, $428.0M (TY2022 class),
+**$393.3M** (3-year), $296.1M (2-year), **$290.9M** (5-year), $165.0M (TY2023). MID by
+year (total / static bracket, $M):
 
-| Tax Year | TY2022 for $1M+ | **Average** | TY2023 |
-|---|---:|---:|---:|
-| 2027 | 108.7 / 72.5 | **86.7 / 48.6** | 62.6 / 22.7 |
-| 2028 | 136.2 / 76.4 | **113.7 / 51.9** | 90.8 / 26.9 |
-| 2029 | 155.8 / 85.5 | **132.2 / 59.5** | 108.1 / 33.1 |
-| 2030 | 192.2 / 92.9 | **167.8 / 65.9** | 142.9 / 38.3 |
-| 2031 | 202.1 / 100.7 | **174.6 / 70.2** | 151.1 / 43.9 |
+| Tax Year | TY2022 class | **3-year** | **5-year** | TY2023 |
+|---|---:|---:|---:|---:|
+| 2027 | 108.7 / 72.5 | **101.7 / 65.0** | **85.1 / 46.9** | 62.6 / 22.7 |
+| 2028 | 136.2 / 76.4 | **131.3 / 71.1** | **114.0 / 52.0** | 90.8 / 26.9 |
+| 2029 | 155.8 / 85.5 | **151.0 / 80.1** | **132.0 / 59.1** | 108.1 / 33.1 |
+| 2030 | 192.2 / 92.9 | **184.8 / 84.8** | **165.4 / 63.2** | 142.9 / 38.3 |
+| 2031 | 202.1 / 100.7 | **194.4 / 92.3** | **174.3 / 69.7** | 151.1 / 43.9 |
 
-The average lands on the line between the two ends: interpolating at $552M gives
-$675.3M against the $675.0M run. The Act 46 baseline (MID, TY2027) is $2,645.2M /
-$2,510.0M / $2,363.7M across the three anchors, against $2,523.0M published.
+The response is close to linear in the class's tax: the line through the two ends
+(MID $555.6M at $441.0M, $795.0M at $663.0M) is **$1.078M of five-year gain per $1M**,
+and it predicts $669.0M for the 5-year average (run: $670.8M), $675.3M for the 2-year
+($675.0M) and $764.1M for the 3-year ($763.2M). The Act 46 baseline (MID, TY2027) is
+$2,363.7M / $2,492.9M / $2,510.0M / $2,606.8M / $2,645.2M from TY2023 up to the TY2022
+class, against $2,523.0M published.
+
+**Why the 5-year average is about the 2-year one, and a normalization.** TY2019–20's
+$1M+ tax ($413M, $415M) offsets TY2021's $799M. An average of nominal levels also
+understates TY2023-scale, because resident tax was $2.46–2.58B in TY2019–20 against
+$2.96B in TY2023. Averaging the class's share of resident tax instead (table above)
+and applying it to TY2023's $2,960M gives $562.3M on the 5-year window (mean share
+19.0%) and $612.8M on the 3-year (20.7%); on the line above that is MID **$686M** and
+**$741M**. These two are interpolated, not run, and hold the return count at the
+level averages. Taken together, a window of three to five years moves MID's
+five-year total to between about $671M and $763M (about $686M to $741M normalized),
+against $555.6M on TY2023 alone. Which window is a judgment: the 3-year window gives
+TY2021's boom a third of the weight and the 5-year window a fifth, and neither says
+what a normal year is. The tables above, the site and the PR keep the TY2023 anchor.
 
 **The other two frames do not depend on the class the same way** (five years, $M):
 
-| | Published | TY2022 for $1M+ | **Average** | TY2023 |
-|---|--:|--:|--:|--:|
-| Act 24 vs Act 46 frozen at TY2026 (ITEP frame) | −1,429.2 | −1,506.6 | **−1,517.0** | −1,527.4 |
-| Gap to ITEP | +774.8 | +697.4 | **+687.0** | +676.6 |
-| Pre-Act-46 (2017) law: A + B, Act 46's cost | −4,791.3 | −5,112.4 | **−5,107.2** | −5,101.9 |
-| Pre-Act-46: C, Act 24 increment | +443.3 | +427.9 | **+296.1** | +164.9 |
-| Pre-Act-46: total | −4,348.0 | −4,684.4 | **−4,811.2** | −4,936.9 |
+| | Published | TY2022 class | 3-year | 5-year | TY2023 |
+|---|--:|--:|--:|--:|--:|
+| Act 24 vs Act 46 frozen at TY2026 (ITEP frame) | −1,429.2 | −1,506.6 | −1,498.4 | −1,539.8 | −1,527.4 |
+| Gap to ITEP | +774.8 | +697.4 | +705.6 | +664.2 | +676.6 |
+| Pre-Act-46 (2017) law: A + B, Act 46's cost | −4,791.3 | −5,112.4 | −5,115.9 | −5,097.1 | −5,101.9 |
+| Pre-Act-46: C, Act 24 increment | +443.3 | +427.9 | +393.3 | +290.9 | +164.9 |
+| Pre-Act-46: total | −4,348.0 | −4,684.4 | −4,722.6 | −4,806.3 | −4,936.9 |
 
-In the frozen frame the class accounts for $20.8M of the $98.2M move from the
-published figure (21%) and the other anchors for $77.4M (79%). In Act 46's cost it
-barely matters (A + B: −$321.1M from the other anchors, +$10.5M from the class,
-−$310.6M in all). So the
-$1M+ anchor matters for the Act 24 increment, and the other TY2023 anchors, the
-class counts and tax below $1M, for how much Act 46 costs and for the ITEP-frame gap.
-The decomposition is one path (published → the rest at TY2022's class → the class);
-taken in the other order it would differ by the interaction, which was not measured.
+On the Act 24 increment the class accounts for $239.4M of the $254.8M drop from the
+published figure (94%); every other TY2023 anchor together, $15.4M, a figure that
+includes the correction of the old hand-typed counts above. In the frozen frame the
+class accounts for $20.8M of the $98.2M move (21%) and the other anchors for $77.4M
+(79%). In Act 46's cost it barely matters (A + B: −$321.1M from the other anchors,
++$10.5M from the class, −$310.6M in all). So the $1M+ anchor matters for the Act 24
+increment, and the other TY2023 anchors, the class counts and tax below $1M, for how
+much Act 46 costs and for the ITEP-frame gap. The decomposition is one path
+(published → the rest at TY2022's class → the class); taken in the other order it
+would differ by the interaction, which was not measured.
 
 **What it does not cover.** The capital-gains page and the simulator were not rerun.
 The class's tax also shifts how Table A-1's $400K+ AGI is split among its four classes
 (a side effect; `year_recalibrator` rakes the $1M+ tiers, not the bracket-level AGI
-targets, by default), and the gains base stays on TY2023. The sensitivity varies one row; it does not
-say which year is right. An average treats TY2022 and TY2023 as equally typical, and
-TY2022's $1M+ tax of $663M, high against TY2023's $441M, is a single observation
-too. The tables above, the site and the PR keep the TY2023 anchor.
+targets, by default), and the gains base stays on TY2023. It varies one row: it does
+not average the other classes, the gains base or the filing-status targets, and the
+average is of nominal levels (the share-normalized values are interpolated). It does
+not say which year is right.
 
 ---
 

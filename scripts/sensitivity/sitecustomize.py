@@ -12,13 +12,21 @@ directory on ``PYTHONPATH``, including the scenario workers
 ``forecast_sb3125_enhanced.py`` spawns, which a patch made in the parent would
 miss. ``DOTAX_SENS_TOP`` selects the $1M+ values:
 
-    avg    the average of TY2022 (1,824 returns, $663.0M, the figure the model
-           carried) and TY2023 (1,704, $441M): 1,764 returns, $552.0M
-    y2022  the TY2022 values; with the rest on TY2023 this isolates the class
+    avg     the average of TY2022 (1,824 returns, $663.0M) and TY2023 (1,704,
+            $441M): 1,764 returns, $552.0M
+    y2022   the TY2022 values; with the rest on TY2023 this isolates the class
+    custom  ``DOTAX_SENS_TOP_RETURNS`` and ``DOTAX_SENS_TOP_TAX_M`` as given. The
+            multi-year windows in SB3125_CD1_FORECAST.md are simple averages of
+            Table A-8's $1M+ row (returns / tax before credits, $M):
+              TY2019-23  1,633 / 546.2    TY2021-23  1,871 / 634.33
+            from TY2019 1,163 / 413, TY2020 1,387 / 415, TY2021 2,086 / 799,
+            TY2022 1,824 / 663, TY2023 1,704 / 441 (each edition's own table;
+            TY2019-2022 are at files.hawaii.gov/tax/stats/stats/indinc/archive/)
 
 Unset, it does nothing. ``DOTAX_SENS_MARK`` is a path prefix; each process that
 applies the override writes ``<prefix>.<pid>``, so a run can confirm that its
-workers did (7 files for the enhanced run: the parent and six workers).
+workers did: 7 files per variant across the three runs below (the enhanced run's
+parent and its 4 scenario workers, plus the frozen-baseline and pre-Act-46 runs).
 
 The forecast scripts write to fixed paths (``runs/``, the calibrated-base
 pickle), so run each variant in its own copy:
@@ -31,9 +39,12 @@ pickle), so run each variant in its own copy:
         <repo>/.venv/bin/python forecast_sb3125_enhanced.py --cd 2
     # then, once data/artifacts/sb3125_calibrated_base.pkl exists in $V, the
     # same prefix on forecast_sb3125_vs_fy26base.py --cd 2 and
-    # forecast_act24_vs_pre_act46.py
+    # forecast_act24_vs_pre_act46.py, run from $V (the scripts find their
+    # output and artifact directories next to themselves; from the repo they
+    # would read the repo's calibrated base and overwrite its runs/)
 
-The enhanced run's log confirms it: "Synthesis: 1,764 filers @ $1M+" for ``avg``.
+The enhanced run's log confirms it: "Synthesis: 1,764 filers @ $1M+" for ``avg``,
+and the mark files number 7 (above).
 Under ``y2022`` the tail scale factors come out at 1.7743 / 1.4210 / 1.2343, the
 values the model recorded on the TY2022 base.
 
@@ -63,8 +74,11 @@ if _MODE:
             tax = (tax_2023 + _TY2022_TAX_M) / 2
         elif _MODE == "y2022":
             returns, tax = _TY2022_RETURNS, _TY2022_TAX_M
+        elif _MODE == "custom":
+            returns = int(os.environ["DOTAX_SENS_TOP_RETURNS"])
+            tax = float(os.environ["DOTAX_SENS_TOP_TAX_M"])
         else:
-            raise ValueError(f"DOTAX_SENS_TOP must be 'avg' or 'y2022', not {_MODE!r}")
+            raise ValueError(f"DOTAX_SENS_TOP must be 'avg', 'y2022' or 'custom', not {_MODE!r}")
         top["returns"], top["tax_before_M"] = returns, tax
         a8["total"]["returns"] += returns - returns_2023
         a8["total"]["tax_before_M"] += tax - tax_2023

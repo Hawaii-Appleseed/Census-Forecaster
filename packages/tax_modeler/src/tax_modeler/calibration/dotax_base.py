@@ -16,9 +16,14 @@ Vintages
       printed table value or a documented derivation from one (below).
 2022  The constants that were hand-typed here before, verbatim, so a run can be
       reproduced on the old base (``build_targets(..., base_year=2022)``).
-      Caveat: two TY2022 copies in this repo disagree. ``forward_targets``
-      counted 8,233 resident returns at $400K+ and ``cg_anchor`` 8,875 (A-8's
-      own classes); the 642 gap is in the old hand-typed table.
+      Caveat: the filer counts are wrong in six classes. Checked against the
+      TY2022 edition's own Table A-8 (``indinc/archive/2022indinc.pdf``), the
+      hand-typed counts differ at $30K-$40K (58,135 against 59,827), $200K-$300K
+      (19,015 / 18,937), $300K-$400K (5,729 / 6,076), $400K-$500K (2,856 /
+      2,926), $500K-$750K (2,549 / 2,991) and $750K-$1M (1,004 / 1,134), and
+      total 618,423 against A-8's 621,026 without the Loss class. The tax column
+      and the $1M+ row (1,824 / $663M) match. ``cg_anchor``'s own A-8 classes
+      were right. The values stay as typed so the old base reproduces.
 
 Derivations for 2023
 --------------------
