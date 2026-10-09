@@ -86,7 +86,7 @@ def parse_a8(pages: list[str]) -> dict:
     text = _find_page(pages, "TAX LIABILITIES AND EFFECTIVE TAX RATES FOR RESIDENTS",
                       "TOTAL - ALL RESIDENT RETURNS")
     row = re.compile(
-        rf"^(Loss|\$[\d,]+ to under \$[\d,]+|\$1,000,000 and over) ([\d,]+) "
+        rf"^(Loss|\$[\d,]+ (?:to under|[\"“”″]) \$[\d,]+|\$1,000,000 and over) ([\d,]+) "
         rf"({_NUM}) ({_NUM}) ({_NUM}) ({_NUM}) ({_PCT}) ({_PCT}) ({_PCT}) ({_PCT})$")
     rows, total = [], None
     for line in text.splitlines():

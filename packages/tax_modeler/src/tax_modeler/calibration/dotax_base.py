@@ -28,8 +28,24 @@ Vintages
 Derivations for 2023
 --------------------
 * Filer targets: Table A-8's 15 classes from $0 up, without the Loss class
-  (the 2022 table did the same: 618,423 against 635,117 returns).
+  (the 2022 table did the same: 621,026 against 635,117 returns; the hand-typed
+  618,423 was wrong).
 * Tax targets: A-8 tax before credits, $M as printed.
+* **The $1M+ class is the exception: it is set from a multi-year window, not the
+  base edition.** Its tax swings too much for one year to anchor it: $413M, $415M,
+  $799M, $663M, $441M in TY2019-2023, with no trend (+0.2 points of share a year,
+  standard error 1.6) and no year-to-year persistence (lag-1 autocorrelation -0.07),
+  so the mean of more years is the better estimate of its expected level and one year
+  carries the whole series' spread (about $131M of the class's tax). ``TOP_CLASS_WINDOW``
+  (TY2019-2023) sets the class's returns and tax to the window's mean share of all
+  resident returns and of resident tax before credits, applied to the base edition's
+  printed totals: 1,633 returns and $562.3M for TY2023, against 1,704 and $441M as
+  printed. Shares, not dollar levels, because TY2019-20 were smaller-tax years and an
+  average of nominal levels understates TY2023's scale. The series is
+  ``data/calibration/dotax_a8_top_class.json`` (``scripts/parse_dotax_top_class.py``).
+  The class table, its total, the filer and status totals and the AGI split all follow.
+  Set ``DOTAX_TOP_CLASS_WINDOW=none`` for the edition as printed, or ``YYYY-YYYY`` for
+  another window; the environment is how the spawned scenario workers see it.
 * Filing status: Table 4's resident counts for single, joint, head of household
   and separate, scaled to the filer total with largest-remainder rounding.
   Qualifying widow(er)s (188) are left out of the scaling, as in 2022.
@@ -42,6 +58,7 @@ Derivations for 2023
 from __future__ import annotations
 
 import json
+import os
 from functools import cache
 from pathlib import Path
 
@@ -51,6 +68,23 @@ BASE_YEAR = 2023
 """Newest DOTAX edition on file; the default base year for forward targets."""
 
 _HAND_TYPED_YEAR = 2022   # the one vintage kept as literals; later years come from the JSON
+
+
+def _parse_window(text: str) -> tuple[int, int] | None:
+    """'2019-2023' -> (2019, 2023); 'none' or '' -> None (the edition as printed)."""
+    text = text.strip().lower()
+    if text in ("", "none"):
+        return None
+    start, _, end = text.partition("-")
+    window = (int(start), int(end or start))
+    if window[0] > window[1]:
+        raise ValueError(f"DOTAX_TOP_CLASS_WINDOW {text!r}: start after end")
+    return window
+
+
+TOP_CLASS_WINDOW: tuple[int, int] | None = _parse_window(
+    os.environ.get("DOTAX_TOP_CLASS_WINDOW", "2019-2023"))
+"""Years whose mean share sets the $1M+ class at ``BASE_YEAR`` (module doc); None is as printed."""
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "calibration"
 
@@ -109,10 +143,55 @@ def _key(row: dict) -> Bracket:
     return (int(row["agi_lo"]), hi)
 
 
+@cache
+def load_top_class_series() -> dict:
+    """The $1M+ class and all-resident totals from Table A-8, by edition
+    (``dotax_a8_top_class.json``, from ``scripts/parse_dotax_top_class.py``)."""
+    path = _DATA_DIR / "dotax_a8_top_class.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No {path.name}. Run scripts/parse_dotax_top_class.py on the editions "
+            f"(files.hawaii.gov/tax/stats/stats/indinc/archive/<year>indinc.pdf)."
+        )
+    return json.loads(path.read_text(encoding="utf-8"))["years"]
+
+
+def _printed_top(year: int) -> dict:
+    return next(r for r in load_indinc(year)["table_a8_resident_liability"]["classes"]
+                if r["agi_lo"] == 1_000_000)
+
+
+def top_class_anchor(year: int = BASE_YEAR) -> tuple[int, float] | None:
+    """The $1M+ class's ``(returns, tax before credits $M)`` from ``TOP_CLASS_WINDOW``.
+
+    The window's mean share of all resident returns and of resident tax before
+    credits, applied to the base edition's printed totals. None when the window is
+    off or ``year`` is not the base year (older editions are used as printed).
+    """
+    if TOP_CLASS_WINDOW is None or year != BASE_YEAR:
+        return None
+    series = load_top_class_series()
+    years = range(TOP_CLASS_WINDOW[0], TOP_CLASS_WINDOW[1] + 1)
+    missing = [y for y in years if str(y) not in series]
+    if missing:
+        raise ValueError(f"no $1M+ class series for TY{missing} in dotax_a8_top_class.json")
+    rows = [series[str(y)] for y in years]
+    total = load_indinc(year)["table_a8_resident_liability"]["total"]
+    returns_share = sum(r["returns"] / r["total_returns"] for r in rows) / len(rows)
+    tax_share = sum(r["tax_before_M"] / r["total_tax_before_M"] for r in rows) / len(rows)
+    return round(returns_share * total["returns"]), round(tax_share * total["tax_before_M"], 1)
+
+
 def _a8_rows(year: int) -> list[dict]:
-    """A-8 classes from $0 up (the Loss class has no lower bound)."""
-    return [r for r in load_indinc(year)["table_a8_resident_liability"]["classes"]
+    """A-8 classes from $0 up (the Loss class has no lower bound), with the $1M+ class
+    set from ``TOP_CLASS_WINDOW`` at the base year."""
+    rows = [r for r in load_indinc(year)["table_a8_resident_liability"]["classes"]
             if r["agi_lo"] is not None]
+    anchor = top_class_anchor(year)
+    if anchor is None:
+        return rows
+    return [dict(r, returns=anchor[0], tax_before_M=anchor[1]) if r["agi_lo"] == 1_000_000 else r
+            for r in rows]
 
 
 def filer_targets(year: int = BASE_YEAR) -> dict[Bracket, int]:
@@ -133,7 +212,9 @@ def total_returns(year: int = BASE_YEAR) -> int:
     """All resident returns, Loss class included (the cg_anchor rank base)."""
     if year == _HAND_TYPED_YEAR:
         return _TY2022_TOTAL_RETURNS
-    return int(load_indinc(year)["table_a8_resident_liability"]["total"]["returns"])
+    printed = int(load_indinc(year)["table_a8_resident_liability"]["total"]["returns"])
+    anchor = top_class_anchor(year)
+    return printed if anchor is None else printed + anchor[0] - _printed_top(year)["returns"]
 
 
 def _largest_remainder(shares: dict[str, float], total: int) -> dict[str, int]:

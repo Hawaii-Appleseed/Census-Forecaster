@@ -17,6 +17,15 @@
 
 ## DOTAX TY2023 base and the TY2024 EITC report — October 8, 2026 (supersedes the Act 24 tables below)
 
+> **Update, October 9, 2026:** the $1M+ class is now anchored on a TY2019–2023 window
+> (`dotax_base.TOP_CLASS_WINDOW`) instead of TY2023 alone: **1,633 returns and
+> $562.3M of tax before credits**, the window's mean share of resident returns and of
+> resident tax on TY2023's printed totals, against 1,704 and $441M as printed. The
+> class's tax has no trend and no year-to-year persistence across the five editions
+> ($413M, $415M, $799M, $663M, $441M), so the mean of more years is the better
+> estimate of its expected level (see *Sensitivity* below). The tables in this section
+> were run on the printed TY2023 anchor and are rerun on this one in the next commit.
+
 DOTAX published *Hawaiʻi Individual Income Tax Statistics, Tax Year 2023*
 (October 2026, `files.hawaii.gov/tax/stats/stats/indinc/2023indinc.pdf`) and its
 *Earned Income Tax Credit Report, Tax Year 2024* (December 2025,

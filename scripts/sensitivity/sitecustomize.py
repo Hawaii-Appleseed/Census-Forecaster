@@ -23,7 +23,11 @@ miss. ``DOTAX_SENS_TOP`` selects the $1M+ values:
             TY2022 1,824 / 663, TY2023 1,704 / 441 (each edition's own table;
             TY2019-2022 are at files.hawaii.gov/tax/stats/stats/indinc/archive/)
 
-Unset, it does nothing. ``DOTAX_SENS_MARK`` is a path prefix; each process that
+Unset, it does nothing. It also sets ``DOTAX_TOP_CLASS_WINDOW=none`` (unless already
+set), so the override acts on the edition as printed; ``dotax_base`` otherwise anchors
+the $1M+ class on a TY2019-2023 window itself (its module doc), and for share-
+normalized windows that environment variable alone is enough, with no override.
+``DOTAX_SENS_MARK`` is a path prefix; each process that
 applies the override writes ``<prefix>.<pid>``, so a run can confirm that its
 workers did: 7 files per variant across the three runs below (the enhanced run's
 parent and its 4 scenario workers, plus the frozen-baseline and pre-Act-46 runs).
@@ -58,6 +62,7 @@ import pathlib
 
 _MODE = os.environ.get("DOTAX_SENS_TOP")
 if _MODE:
+    os.environ.setdefault("DOTAX_TOP_CLASS_WINDOW", "none")
     _read_text = pathlib.Path.read_text
     _TY2022_RETURNS, _TY2022_TAX_M = 1_824, 663.0
 

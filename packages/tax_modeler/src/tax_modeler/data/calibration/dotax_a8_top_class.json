@@ -1,0 +1,70 @@
+{
+  "note": "Table A-8 as printed: the $1M+ class's returns and tax before credits ($M), and the all-resident totals (returns include the Loss class).",
+  "years": {
+    "2019": {
+      "returns": 1163,
+      "tax_before_M": 413.0,
+      "avg_tax_before": 355262.0,
+      "total_returns": 651977,
+      "total_tax_before_M": 2462.0,
+      "source": {
+        "file": "2019indinc.pdf",
+        "pages": 78,
+        "url": "https://files.hawaii.gov/tax/stats/stats/indinc/archive/2019indinc.pdf",
+        "sha256": "fff8682e8a7697d8d6ab1e0f27add67b8a98017dd3256b1d54afa4d28751ee28"
+      }
+    },
+    "2020": {
+      "returns": 1387,
+      "tax_before_M": 415.0,
+      "avg_tax_before": 299255.0,
+      "total_returns": 653515,
+      "total_tax_before_M": 2578.0,
+      "source": {
+        "file": "2020indinc.pdf",
+        "pages": 79,
+        "url": "https://files.hawaii.gov/tax/stats/stats/indinc/archive/2020indinc.pdf",
+        "sha256": "513dcb512a7765363e671209f5b280ca3adfc2edca69697611df007435b11940"
+      }
+    },
+    "2021": {
+      "returns": 2086,
+      "tax_before_M": 799.0,
+      "avg_tax_before": 382902.0,
+      "total_returns": 643653,
+      "total_tax_before_M": 3155.0,
+      "source": {
+        "file": "2021indinc.pdf",
+        "pages": 79,
+        "url": "https://files.hawaii.gov/tax/stats/stats/indinc/archive/2021indinc.pdf",
+        "sha256": "218ad139dc6935bc7a8b41f900500a32db2a00622bafd9e03f40a9c6cdf2eba9"
+      }
+    },
+    "2022": {
+      "returns": 1824,
+      "tax_before_M": 663.0,
+      "avg_tax_before": 363282.0,
+      "total_returns": 635117,
+      "total_tax_before_M": 3029.0,
+      "source": {
+        "file": "2022indinc.pdf",
+        "pages": 76,
+        "url": "https://files.hawaii.gov/tax/stats/stats/indinc/archive/2022indinc.pdf",
+        "sha256": "6c0bec6f719917adf4c10ba2a26499dc87caad87d102eea4026a8c59687228cf"
+      }
+    },
+    "2023": {
+      "returns": 1704,
+      "tax_before_M": 441.0,
+      "avg_tax_before": 258761.0,
+      "total_returns": 644631,
+      "total_tax_before_M": 2960.0,
+      "source": {
+        "file": "2023indinc.pdf",
+        "pages": 76,
+        "url": "https://files.hawaii.gov/tax/stats/stats/indinc/2023indinc.pdf",
+        "sha256": "d4e6b053cb4883f95d2eed49e7878aa89cd28c62c41f7d575304fc326808d8b4"
+      }
+    }
+  }
+}
