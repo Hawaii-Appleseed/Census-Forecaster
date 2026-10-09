@@ -215,10 +215,10 @@ carry the same anchor (`hi_eitc`, 2024: 78,399 claims, $76.981M).
 - The REEC/CGEC credit overlay and every table that reads *Tax Credits Claimed* are
   unchanged: this report holds no credit-type detail.
 - `deductions/parsers.py` still reads TY2022 raw CSVs (not present in this checkout).
-- **The manifests cite the commit these runs started from (`48761b8`), which does not
-  hold this code**, and the simulator's reads `48761b8-dirty`. Commit the code, then
-  rerun and import on that commit so the pages cite one that does (see
-  `tests/site/test_tax_simulator_version.py`).
+- **The runs were repeated on the commit that holds this code (`e043510`)**, so the
+  manifests, and the simulator's endnote, cite it. The rerun reproduced every table
+  byte for byte; only the commit stamps, timestamps and the simulator's
+  `model_version` (which hashes its provenance) changed.
 
 ---
 
