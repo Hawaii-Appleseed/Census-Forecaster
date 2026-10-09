@@ -36,14 +36,15 @@ $165.0M (−63%)**. The $1M+ class owed **$441M on 1,704 returns in TY2023
 against $662.6M on 1,824 in TY2022**, and the Act 24 bracket gain is the small
 net of a top-bracket gain and middle-bracket cuts, so a smaller top tail moves it
 a long way: the tail's scale factor k falls from 1.4210 to 1.0410 (MID), and the
-Act 46 baseline falls $159M in TY2027. This was **not isolated by ablation**: the
-$1M+ target is the dominant change, but the other classes' counts and tax, the
-filing-status targets and the later growth base year move too. Read the five-year
-figures as having roughly **$1.1M of gain per $1M of the $1M+ tax target** (the
-two-point slope, $254.8M over $222M; not a derivative). The model anchors on one
-year of a series that swings: TY2021's resident gains in the $400K+ class were
-$4.2B, TY2022's $2.2B and TY2023's $2.0B. A multi-year anchor or a sensitivity
-run is the open question; this section does not take it.
+Act 46 baseline falls $159M in TY2027. **The $1M+ class is almost all of it:** setting
+only that class back to its TY2022 values, with every other anchor on TY2023, gives
+MID **$795.0M**, so the class accounts for $239.4M of the $254.8M drop (94%) and all
+the other TY2023 anchors together for $15.4M (see *Sensitivity: the $1M+ anchor*
+below). The response is close to linear, **about $1.08M of five-year gain per $1M of
+the $1M+ tax target**. The model anchors that class on one year of a series that
+swings: TY2021's resident gains in the $400K+ class were $4.2B, TY2022's $2.2B and
+TY2023's $2.0B. The tables in this section keep the TY2023 anchor; the sensitivity
+shows what a TY2022/2023 average would give (MID **$675.0M**).
 
 **What changed in the code.** `calibration/dotax_base.py` is now the one home for
 the DOTAX anchors (it replaces five hand-typed copies and two older
@@ -140,7 +141,8 @@ figures in brackets):
 | **5-year** | **−2,931.6** | **−2,170.3** | **+164.9** | **−4,936.9** | **−2,005.3** |
 
 Was: A −$2,758.8M, B −$2,032.5M, C +$443.2M, total −$4,348.0M. Act 46's cost is
-$173M (A) and $138M (B) larger over five years on this base; not isolated.
+$173M (A) and $138M (B) larger over five years on this base, from the other anchors,
+not the $1M+ class (see *Sensitivity* below).
 
 **Act 24 against Act 46 frozen at TY2026 (the ITEP frame), CD2, $M**
 (`forecast_sb3125_vs_fy26base.py --cd 2`; this path replaces the Pareto tail with
@@ -158,7 +160,8 @@ forward targets, not the tail calibration):
 
 Was −$1,429.2M and a gap of +$774.8M (about 35% below ITEP; now about 31%). This
 frame moves the other way from the one above (more revenue foregone, −$98.2M over
-five years); not isolated. The statute-vs-COR wedge, a diagnostic, barely moves: 0.879 / 0.963 /
+five years), mostly the other anchors, not the $1M+ class (21% of it; see
+*Sensitivity* below). The statute-vs-COR wedge, a diagnostic, barely moves: 0.879 / 0.963 /
 0.985 / 1.019 / 1.062 (was 0.883 / 0.960 / 0.985 / 1.016 / 1.058).
 
 **Capital-gains page.** The base is DOTAX's TY2023 resident gains ($2,646M
@@ -219,6 +222,75 @@ carry the same anchor (`hi_eitc`, 2024: 78,399 claims, $76.981M).
   manifests, and the simulator's endnote, cite it. The rerun reproduced every table
   byte for byte; only the commit stamps, timestamps and the simulator's
   `model_version` (which hashes its provenance) changed.
+
+**Sensitivity: the $1M+ anchor (October 8, 2026).** The model anchors the $1M+ class
+(Table A-8's top row: returns and tax before credits) on one year, so this reruns
+Act 24 with only that row changed. Everything else stays on TY2023, including the gains
+base, the filing-status and filer targets and the class ranks. Two variants:
+
+| $1M+ class | Returns | Tax before credits |
+|---|---:|---:|
+| TY2023 (the tables above) | 1,704 | $441.0M |
+| **Average of TY2022 and TY2023** | **1,764** | **$552.0M** |
+| TY2022, the rest TY2023 | 1,824 | $663.0M |
+
+`scripts/sensitivity/sitecustomize.py` rewrites that row as `dotax_base` reads it, in
+every process including the scenario workers (7 per run confirmed); its docstring gives
+the commands, one scratch copy of the scripts per variant because they write fixed
+paths. In the TY2022 variant the tail's scale factors come out at 1.7743 / 1.4210 /
+1.2343, the values this document recorded on the TY2022 base; the average's are 1.5243 /
+1.2374 / 1.0750 / 1.2374 (LOW / MID / HIGH / RECESSION).
+
+**Act 24 vs Act 46, five-year total impact ($M):**
+
+| $1M+ anchor | LOW | **MID** | HIGH | RECESSION |
+|---|--:|--:|--:|--:|
+| TY2022 on every anchor (published September 30) | 687.6 | 810.4 | 1,036.9 | 815.3 |
+| TY2022 for the $1M+ class, rest TY2023 | 673.0 | 795.0 | 1,015.3 | 797.9 |
+| **Average of TY2022 and TY2023** | **554.9** | **675.0** | **877.1** | **677.6** |
+| TY2023 (the tables above) | 449.5 | 555.6 | 733.9 | 557.8 |
+
+Static bracket gain, five years: MID $443.2M published, $428.0M, **$296.1M**, $165.0M.
+MID by year (total / static bracket, $M):
+
+| Tax Year | TY2022 for $1M+ | **Average** | TY2023 |
+|---|---:|---:|---:|
+| 2027 | 108.7 / 72.5 | **86.7 / 48.6** | 62.6 / 22.7 |
+| 2028 | 136.2 / 76.4 | **113.7 / 51.9** | 90.8 / 26.9 |
+| 2029 | 155.8 / 85.5 | **132.2 / 59.5** | 108.1 / 33.1 |
+| 2030 | 192.2 / 92.9 | **167.8 / 65.9** | 142.9 / 38.3 |
+| 2031 | 202.1 / 100.7 | **174.6 / 70.2** | 151.1 / 43.9 |
+
+The average lands on the line between the two ends: interpolating at $552M gives
+$675.3M against the $675.0M run. The Act 46 baseline (MID, TY2027) is $2,645.2M /
+$2,510.0M / $2,363.7M across the three anchors, against $2,523.0M published.
+
+**The other two frames do not depend on the class the same way** (five years, $M):
+
+| | Published | TY2022 for $1M+ | **Average** | TY2023 |
+|---|--:|--:|--:|--:|
+| Act 24 vs Act 46 frozen at TY2026 (ITEP frame) | −1,429.2 | −1,506.6 | **−1,517.0** | −1,527.4 |
+| Gap to ITEP | +774.8 | +697.4 | **+687.0** | +676.6 |
+| Pre-Act-46 (2017) law: A + B, Act 46's cost | −4,791.3 | −5,112.4 | **−5,107.2** | −5,101.9 |
+| Pre-Act-46: C, Act 24 increment | +443.3 | +427.9 | **+296.1** | +164.9 |
+| Pre-Act-46: total | −4,348.0 | −4,684.4 | **−4,811.2** | −4,936.9 |
+
+In the frozen frame the class accounts for $20.8M of the $98.2M move from the
+published figure (21%) and the other anchors for $77.4M (79%). In Act 46's cost it
+barely matters (A + B: −$321.1M from the other anchors, +$10.5M from the class,
+−$310.6M in all). So the
+$1M+ anchor matters for the Act 24 increment, and the other TY2023 anchors, the
+class counts and tax below $1M, for how much Act 46 costs and for the ITEP-frame gap.
+The decomposition is one path (published → the rest at TY2022's class → the class);
+taken in the other order it would differ by the interaction, which was not measured.
+
+**What it does not cover.** The capital-gains page and the simulator were not rerun.
+The class's tax also shifts how Table A-1's $400K+ AGI is split among its four classes
+(a side effect; `year_recalibrator` rakes the $1M+ tiers, not the bracket-level AGI
+targets, by default), and the gains base stays on TY2023. The sensitivity varies one row; it does not
+say which year is right. An average treats TY2022 and TY2023 as equally typical, and
+TY2022's $1M+ tax of $663M, high against TY2023's $441M, is a single observation
+too. The tables above, the site and the PR keep the TY2023 anchor.
 
 ---
 
