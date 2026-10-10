@@ -120,7 +120,7 @@ class TestEndToEnd:
             populations=SYNTHETIC_POPULATIONS,
             n_threshold=10,  # lower for the small synthetic panel
         )
-        assert payload["schema_version"] in (3, 4)
+        assert payload["schema_version"] in (3, 4, 6)
         assert "strata_records" in payload
         # SE inflators must be in a sensible range — clamped, not blown up
         for d in payload["strata_records"]["se_inflator"]:
@@ -138,7 +138,7 @@ class TestEndToEnd:
         from census_forecaster.acs.anchors import load_calibration
         loaded = load_calibration(cal_path)
         assert loaded is not None
-        assert loaded["schema_version"] in (3, 4)
+        assert loaded["schema_version"] in (3, 4, 6)
 
         # Project against a real series with the loaded calibration
         honolulu_series = panel[("15003", "B19013_001E")]

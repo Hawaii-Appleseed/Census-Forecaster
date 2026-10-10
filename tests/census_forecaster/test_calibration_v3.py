@@ -290,15 +290,15 @@ class TestStratifiedCalibration:
             populations=simple_populations,
         )
         # Schema is v3 or v4 (v4 when phi calibration succeeds)
-        assert payload["schema_version"] in (3, 4)
+        assert payload["schema_version"] in (3, 4, 6)
         assert "strata_records" in payload
         assert "horizons" in payload
         # Has all core strata kinds
         for kind in ["rmse", "coverage_pre", "coverage_post", "se_inflator", "bias"]:
             assert kind in payload["strata_records"]
             assert isinstance(payload["strata_records"][kind], list)
-        # phi records present in v4
-        if payload["schema_version"] == 4:
+        # phi records present in v4+
+        if payload["schema_version"] >= 4:
             assert "phi" in payload["strata_records"]
         # Plus the v2 marginalised tables for back-compat
         assert "rmse_by_indicator_method" in payload
@@ -452,7 +452,7 @@ class TestWriteCalibrationDropsFolds:
         # But should still have the strata_records and v2 keys
         assert "strata_records" in on_disk
         assert "rmse_by_indicator_method" in on_disk
-        assert on_disk["schema_version"] in (3, 4)
+        assert on_disk["schema_version"] in (3, 4, 6)
 
 
 class TestPhiEnableGate:

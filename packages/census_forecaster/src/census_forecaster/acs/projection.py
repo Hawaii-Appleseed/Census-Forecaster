@@ -94,12 +94,85 @@ EMPIRICAL_SE_INFLATOR = 1.30
 # and looked up via ensemble.py's _lookup_phi.
 DEFAULT_PHI: float = 0.85
 
+# MOE-weighted fitting (October 2026, assessment item B3). When
+# `moe_weighted=True` the trend / AR(1) fits weight each observation by
+# its sampling precision 1/SE_log² relative to the series' median
+# precision, instead of treating a CV=0.02 print and a CV=0.35 print as
+# equally informative. The relative weight is clamped to
+# [MOE_WEIGHT_FLOOR, MOE_WEIGHT_CAP] so one unusually precise print
+# cannot dominate the fit (cap) and a noisy print is still heard (floor).
+# Off by default; the ensemble reads the calibration payload's
+# `moe_weighted` flag so folds and production fit the same model.
+MOE_WEIGHT_CAP: float = 4.0
+MOE_WEIGHT_FLOOR: float = 0.25
+
+
+def _log_se(obs: AcsObservation) -> float | None:
+    """Sampling SE of log(estimate) via the delta method, or None if unknown."""
+    se = moe_to_se(obs.moe)
+    if obs.estimate > 0 and math.isfinite(se) and se > 0:
+        return se / obs.estimate
+    return None
+
+
+def _relative_precision_weights(log_ses: Sequence[float | None]) -> list[float]:
+    """Per-observation weight = clamp(R̄ / R_t), R_t = SE_log², R̄ = median R.
+
+    Observations with unknown MOE get weight 1.0 (the median print).
+    With every MOE missing, or a single known MOE, every weight is 1.0
+    and the weighted fit reduces exactly to the unweighted one.
+    """
+    rs = [se * se for se in log_ses if se is not None]
+    if len(rs) < 2:
+        return [1.0 for _ in log_ses]
+    srt = sorted(rs)
+    mid = len(srt) // 2
+    r_bar = srt[mid] if len(srt) % 2 else 0.5 * (srt[mid - 1] + srt[mid])
+    if not (r_bar > 0):
+        return [1.0 for _ in log_ses]
+    out: list[float] = []
+    for se in log_ses:
+        if se is None or se <= 0:
+            out.append(1.0)
+        else:
+            out.append(_clamp(r_bar / (se * se), MOE_WEIGHT_FLOOR, MOE_WEIGHT_CAP))
+    return out
+
+
+def _gain(alpha: float, w: float) -> float:
+    """Smoothing gain at relative precision w.
+
+    Fixed-α exponential smoothing is a steady-state Kalman gain
+    α = P/(P + R̄) at the reference noise R̄; at observation noise
+    R_t = R̄/w the same P gives α_t = α·w / (α·w + 1 − α). w=1 → α.
+    """
+    return alpha * w / (alpha * w + (1.0 - alpha))
+
+
+def _weighted_std(residuals: Sequence[float], weights: Sequence[float]) -> float:
+    """Weighted sample SD with the (n−1)/n small-sample correction."""
+    n = len(residuals)
+    if n == 0:
+        return 0.0
+    if n == 1:
+        return abs(residuals[0])
+    sw = sum(weights)
+    if sw <= 0:
+        return 0.0
+    mean_r = sum(r * w for r, w in zip(residuals, weights)) / sw
+    var = sum(w * (r - mean_r) ** 2 for r, w in zip(residuals, weights)) / sw
+    var *= n / (n - 1)
+    return math.sqrt(var)
+
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
 
 
-def _recency_weighted_initial_trend(pts: list[tuple[float, float]]) -> float:
+def _recency_weighted_initial_trend(
+    pts: list[tuple[float, float]],
+    precision: "Sequence[float] | None" = None,
+) -> float:
     """Recency-weighted geometric mean of pairwise per-year log-difference rates.
 
     Mirrors the smoother used in `pipelines/grocery/src/price_adjuster.py
@@ -114,6 +187,13 @@ def _recency_weighted_initial_trend(pts: list[tuple[float, float]]) -> float:
     `pts` is the same list of (effective_year, log_estimate) tuples that
     `fit_damped_trend` builds, sorted ascending by year. Returns 0.0 if
     no usable pair exists (e.g. all timestamps tied).
+
+    `precision` (optional, same length as `pts`) are the per-observation
+    relative precision weights from `_relative_precision_weights`; a
+    pair's recency weight is multiplied by the harmonic-style precision
+    of its difference, 2/(1/w_prev + 1/w_curr), so the pair touching a
+    noisy print is down-weighted. With all-ones precision this is the
+    unweighted estimator.
     """
     pairs: list[tuple[float, float]] = []  # (per-year log rate, weight)
     for i in range(1, len(pts)):
@@ -124,6 +204,9 @@ def _recency_weighted_initial_trend(pts: list[tuple[float, float]]) -> float:
             continue
         per_year_rate = (curr_ly - prev_ly) / gap
         weight = 0.5 ** (len(pts) - 1 - i)
+        if precision is not None:
+            wp, wc = precision[i - 1], precision[i]
+            weight *= 2.0 / (1.0 / wp + 1.0 / wc)
         pairs.append((per_year_rate, weight))
     if not pairs:
         return 0.0
@@ -266,6 +349,7 @@ def fit_damped_trend(
     phi: float = DEFAULT_PHI,
     alpha: float = 0.6,
     beta: float = 0.2,
+    moe_weighted: bool = False,
 ) -> DampedTrendFit | None:
     """Fit a damped local linear trend in log space.
 
@@ -293,18 +377,32 @@ def fit_damped_trend(
     Wilson et al. (2021) explicitly recommend fixed smoothing constants
     for small-area work.
 
+    moe_weighted : when True, each observation's update gain is scaled
+            by its sampling precision relative to the series median
+            (`_relative_precision_weights`, clamped to
+            [MOE_WEIGHT_FLOOR, MOE_WEIGHT_CAP]): α_t = α·w/(α·w + 1−α),
+            the steady-state Kalman gain at observation noise R̄/w. The
+            initial trend and the residual SD use the same weights. A
+            series with no usable MOE reduces exactly to the unweighted
+            fit. Default False (assessment B3; see METHODOLOGY.md
+            §"MOE-weighted trend fits").
+
     Returns
     -------
     DampedTrendFit, or None if there are <2 valid points.
     """
-    pts = [
-        (effective_year(o), math.log(o.estimate))
-        for o in observations
+    kept = [
+        o for o in observations
         if o.estimate > 0 and math.isfinite(o.estimate)
     ]
-    if len(pts) < 2:
+    if len(kept) < 2:
         return None
-    pts.sort(key=lambda x: x[0])
+    kept.sort(key=lambda o: effective_year(o))
+    pts = [(effective_year(o), math.log(o.estimate)) for o in kept]
+    if moe_weighted:
+        weights = _relative_precision_weights([_log_se(o) for o in kept])
+    else:
+        weights = None
 
     # Initialise: level = first log value, trend = recency-weighted
     # geometric mean of pairwise log-difference rates. With n=2 this
@@ -313,14 +411,23 @@ def fit_damped_trend(
     # it set the entire initial slope. Same recency-weighting scheme as
     # `price_adjuster._smoothed_monthly_rate` (cherry-pick 0d7433f).
     level = pts[0][1]
-    trend = _recency_weighted_initial_trend(pts)
+    trend = _recency_weighted_initial_trend(pts, precision=weights)
 
     residuals: list[float] = []
+    residual_weights: list[float] = []
     last_year = pts[0][0]
-    for (yr, ly) in pts[1:]:
+    for idx, (yr, ly) in enumerate(pts[1:], start=1):
         gap = yr - last_year
         if gap <= 0:
             continue
+        if weights is not None:
+            w_t = weights[idx]
+            alpha_t = _gain(alpha, w_t)
+            beta_t = _gain(beta, w_t)
+        else:
+            w_t = 1.0
+            alpha_t = alpha
+            beta_t = beta
         # Multi-step propagation when there are gaps in the series (e.g.
         # the missing 2020 1-year ACS): apply damped trend across the gap
         # before the level update, otherwise a 2-year jump distorts the
@@ -332,15 +439,16 @@ def fit_damped_trend(
         forecast_log = level + trend * damp
         residual = ly - forecast_log
         residuals.append(residual)
+        residual_weights.append(w_t)
 
         # Standard Holt damped recursions (Hyndman §7.4) for arbitrary gap:
         # collapse the gap-step forecast into a one-step update.
-        new_level = forecast_log + alpha * residual
+        new_level = forecast_log + alpha_t * residual
         # Trend update uses observed slope over the gap.
         observed_slope = (ly - level) / gap
         # phi^gap damping of prior trend handles the multi-step gap correctly.
         damp_prior = phi ** gap
-        new_trend = beta * observed_slope + (1.0 - beta) * damp_prior * trend
+        new_trend = beta_t * observed_slope + (1.0 - beta_t) * damp_prior * trend
 
         level = new_level
         trend = new_trend
@@ -349,8 +457,10 @@ def fit_damped_trend(
     if not residuals:
         return None
 
-    # Population SD (n-1) of residuals; floor at 0 if n=2 (one residual).
-    if len(residuals) >= 2:
+    if weights is not None:
+        std = _weighted_std(residuals, residual_weights)
+    elif len(residuals) >= 2:
+        # Population SD (n-1) of residuals; floor at 0 if n=2 (one residual).
         mean_r = sum(residuals) / len(residuals)
         var = sum((r - mean_r) ** 2 for r in residuals) / (len(residuals) - 1)
         std = math.sqrt(var)
@@ -377,6 +487,7 @@ def project_damped_trend(
     series_observations: Sequence[AcsObservation],
     target_year: int,
     phi: float = DEFAULT_PHI,
+    moe_weighted: bool = False,
 ) -> ForecastPoint | None:
     """Project the series to `target_year` using the damped trend model.
 
@@ -388,7 +499,7 @@ def project_damped_trend(
     if not series_observations:
         return None
 
-    fit = fit_damped_trend(series_observations, phi=phi)
+    fit = fit_damped_trend(series_observations, phi=phi, moe_weighted=moe_weighted)
     if fit is None:
         return None
 
@@ -498,44 +609,72 @@ class AR1LogDiffFit:
     last_year: float
 
 
-def fit_ar1_log_diff(observations: Sequence[AcsObservation]) -> AR1LogDiffFit | None:
+def fit_ar1_log_diff(
+    observations: Sequence[AcsObservation],
+    moe_weighted: bool = False,
+) -> AR1LogDiffFit | None:
     """Fit AR(1) to YoY log differences via OLS.
 
     Needs at least 4 observations: 3 log-diffs to fit a slope+intercept
     plus 1 to compute a residual. Returns None below that.
+
+    `moe_weighted=True` fits by weighted least squares, each regression
+    row (r_{t-1} → r_t) weighted by the relative precision of the
+    dependent log-difference, 2/(1/w_t + 1/w_{t-1}) from the
+    per-observation weights of `_relative_precision_weights`. The
+    residual SD is weighted the same way. All-ones weights reproduce
+    the OLS fit exactly.
     """
-    pts = [
-        (effective_year(o), math.log(o.estimate))
-        for o in observations
+    kept = [
+        o for o in observations
         if o.estimate > 0 and math.isfinite(o.estimate)
     ]
-    if len(pts) < 4:
+    if len(kept) < 4:
         return None
-    pts.sort(key=lambda x: x[0])
+    kept.sort(key=lambda o: effective_year(o))
+    pts = [(effective_year(o), math.log(o.estimate)) for o in kept]
+    obs_w = (
+        _relative_precision_weights([_log_se(o) for o in kept])
+        if moe_weighted else None
+    )
 
     diffs: list[tuple[float, float]] = []  # (year, annualised log diff)
+    diff_w: list[float] = []
     for i in range(1, len(pts)):
         gap = pts[i][0] - pts[i - 1][0]
         if gap <= 0:
             continue
         diffs.append((pts[i][0], (pts[i][1] - pts[i - 1][1]) / gap))
+        if obs_w is not None:
+            diff_w.append(2.0 / (1.0 / obs_w[i - 1] + 1.0 / obs_w[i]))
     if len(diffs) < 3:
         return None
 
-    # OLS for r_t = c + ρ · r_{t-1}
+    # OLS (or WLS when moe_weighted) for r_t = c + ρ · r_{t-1}
     xs = [d[1] for d in diffs[:-1]]
     ys = [d[1] for d in diffs[1:]]
     n = len(xs)
-    mean_x = sum(xs) / n
-    mean_y = sum(ys) / n
-    num = sum((xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
-    den = sum((xs[i] - mean_x) ** 2 for i in range(n))
+    if obs_w is not None:
+        ws = diff_w[1:]  # weight of the dependent diff r_t
+        sw = sum(ws)
+        mean_x = sum(w * x for w, x in zip(ws, xs)) / sw
+        mean_y = sum(w * y for w, y in zip(ws, ys)) / sw
+        num = sum(ws[i] * (xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
+        den = sum(ws[i] * (xs[i] - mean_x) ** 2 for i in range(n))
+    else:
+        ws = None
+        mean_x = sum(xs) / n
+        mean_y = sum(ys) / n
+        num = sum((xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
+        den = sum((xs[i] - mean_x) ** 2 for i in range(n))
     rho = num / den if den > 1e-12 else 0.0
     # Constrain rho to a stationary range to keep multi-step forecasts sane.
     rho = _clamp(rho, -0.95, 0.95)
     intercept = mean_y - rho * mean_x
     residuals = [ys[i] - intercept - rho * xs[i] for i in range(n)]
-    if len(residuals) >= 2:
+    if ws is not None:
+        std = _weighted_std(residuals, ws)
+    elif len(residuals) >= 2:
         std = math.sqrt(sum((r - sum(residuals) / len(residuals)) ** 2 for r in residuals) / (len(residuals) - 1))
     else:
         std = abs(residuals[0])
@@ -553,13 +692,14 @@ def fit_ar1_log_diff(observations: Sequence[AcsObservation]) -> AR1LogDiffFit | 
 def project_ar1_log_diff(
     series_observations: Sequence[AcsObservation],
     target_year: int,
+    moe_weighted: bool = False,
 ) -> ForecastPoint | None:
     """Project via AR(1) on log diffs and assemble a ForecastPoint.
 
     Multi-step rollout: each step's expected log-diff is c + ρ·r_{t-1};
     we sum these across the horizon to project the level.
     """
-    fit = fit_ar1_log_diff(series_observations)
+    fit = fit_ar1_log_diff(series_observations, moe_weighted=moe_weighted)
     if fit is None:
         return None
     latest = series_observations[-1]

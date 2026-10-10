@@ -74,6 +74,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ),
     )
     parser.add_argument(
+        "--no-empirical-rho", dest="enable_empirical_rho",
+        action="store_false", default=True,
+        help=(
+            "Build the folds under the v1 literal member correlations instead "
+            "of the empirical ones estimated from the tuning folds (payload "
+            "rho_empirical_enabled: false). Empirical is the default since "
+            "2026-10-09 — see METHODOLOGY.md §'Empirical member correlations'; "
+            "records are emitted as diagnostics either way."
+        ),
+    )
+    parser.add_argument(
+        "--moe-weighted", action="store_true", default=False,
+        help=(
+            "Fit the damped-trend / AR(1) members with per-observation "
+            "sampling-precision weights and mark the payload moe_weighted "
+            "(schema 6). Off by default — see METHODOLOGY.md §'MOE-weighted "
+            "trend fits'."
+        ),
+    )
+    parser.add_argument(
         "--as-of-mode", choices=["instant", "publication"], default="instant",
         help=(
             "How to truncate training data per fold. "
@@ -131,6 +151,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         include_kalman=args.include_kalman,
         include_conformal=args.include_conformal,
         enable_phi=args.enable_phi,
+        enable_empirical_rho=args.enable_empirical_rho,
+        moe_weighted=args.moe_weighted,
     )
 
     sr = payload.get("strata_records", {})

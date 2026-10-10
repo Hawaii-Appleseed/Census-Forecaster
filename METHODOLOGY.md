@@ -617,10 +617,14 @@ matching the back-test discipline used elsewhere in this package.
 
 When `use_ml=True`, the combiner uses a two-stage Bates-Granger:
 
-1. **Inner (target-side)**: `trend_ensemble` + `ml_trend` at ρ=0.7 (both
-   consume the same series so high correlation is appropriate).
-2. **Outer (target vs macro)**: inner + `multi_anchor` at ρ=0.5,
+1. **Inner (target-side)**: `trend_ensemble` + `ml_trend` at ρ_inner
+   (both consume the same series so high correlation is appropriate).
+2. **Outer (target vs macro)**: inner + `multi_anchor` at ρ_anchor,
    blended at the calibrated `_calibrated_macro_weight` per indicator.
+
+ρ_inner / ρ_anchor were the literals 0.7 / 0.5 until October 2026; they
+are now read from the payload's empirical `member_correlations` (see
+§"Empirical member correlations"), with the literals as the floor.
 
 Each member is bias-corrected and SE-overridden via the v3 stratified
 κ table before combination — the same pre-blend correction order used
@@ -869,6 +873,176 @@ raw-as-validated to corrected-but-unvalidated — the same drift class as
 the v4 phi incident above. Near-miss candidates for future promotion
 (S1501_C02_015E −11.2%/96.3%, S1701 −11.7%/84.7%) each fail one gate by
 1–2 points; per-indicator process-noise (Q) tuning is the named lever.
+
+---
+
+## Empirical member correlations — PASS, shipped default-on (October 2026)
+
+Every variance formula in the ensemble combiner carries a correlation
+between the members it blends. Until this change all of them were
+literals assumed in v1 and never re-examined (assessment
+2026-08-21 §B7): ρ=0.7 between the damped-trend and AR(1) members
+inside `trend_ensemble` (`ensemble.combine_forecasts`), ρ_inner=0.7
+between `trend_ensemble` and `ml_trend`, ρ_anchor=0.5 between the
+target-side blend and `multi_anchor`, 0.6 across the per-source anchor
+rates (`anchors.combined_anchor_rate`), and 0.5 between the rate blend
+and the level anchor. The fold cache already held one residual per
+member per (geoid, anchor, horizon) fold, so the error correlations
+are a group-by away.
+
+**Mechanism** (`acs/correlations.py`). Log errors `log(point/actual)`
+are paired per fold and Pearson-correlated within (indicator,
+h_bucket), plus an h-marginalised record, on the *tuning* folds only
+(the evaluation anchor stays honest). Records live in the payload
+under `member_correlations` with the pair name in the `method` slot
+(`damped_log_trend|ar1_log_diff`, `trend_ensemble|ml_trend`,
+`target_ensemble|multi_anchor`, `rate_blend|level_anchor`,
+`anchor_sources`) and `pop_bucket="*"`; the two synthetic members
+(`target_ensemble`, `rate_blend`) are the inverse-variance blends of
+the cached member points, which is exact because ρ never enters the
+blend's point. The lookup chain is h_bucket (n ≥ 20) → h-marginalised
+(n ≥ 20) → the literal. Estimates are clamped to [0, 0.95] with the raw
+value in `extra["rho_raw"]`.
+
+**Fold/consumer discipline** — the same rule as `phi_enabled`. The
+damped↔AR(1) ρ sits inside the `trend_ensemble` SE and the cross-source
+ρ inside the `multi_anchor` SE, i.e. *upstream* of κ, bias and the
+conformal quantiles. The generator therefore caches the two classical
+members separately (they receive no κ/bias records of their own),
+estimates ρ from them, and combines the folds at that ρ before any
+calibration pass; the payload carries `rho_empirical_enabled: true`
+and **schema_version 6**, and `project_ensemble_multi` applies the
+records only under that flag. A v≤5 payload projects at the literals
+exactly as before.
+
+**What the folds say.** The literals were too low almost everywhere.
+Damped↔AR(1) runs 0.65–0.95 (h-marginalised; short-horizon cells are
+uniformly higher, 0.81–0.95, than long, 0.60–0.95), trend↔ML 0.75–0.95
+against the assumed 0.7, target↔anchor 0.76–0.90 against 0.5, and the
+CPI/PCE pair for B19013 is 0.91 against 0.6. The one literal that was
+about right is the level-fusion ρ for unemployment (0.49 vs 0.5); for
+poverty it is 0.85.
+
+**Ablation** (`compare_rho_ablation`,
+`backtests/results/rho_empirical_ablation_2026-10-09.md`; anchors
+2014–2022, h=1..5, ML on, ensemble synthesised from the bias+κ-corrected
+fold cache with level-anchor fusion). Arm A = literals, arm B =
+empirical ρ in folds and blend, arm C = arm-A folds blended at arm-B ρ
+(isolates the blend-level effect from κ re-calibration).
+
+| Indicator | RMSE A | RMSE B | Δ (rel) | Cov90 A | Cov90 B |
+|---|---:|---:|---:|---:|---:|
+| B01002_001E | 1.89% | 1.89% | −0.00% | 88.6% | 89.7% |
+| B19013_001E | 6.82% | 6.79% | −0.51% | 87.8% | 90.2% |
+| B20002_001E | 6.89% | 6.88% | −0.06% | 87.2% | 91.5% |
+| B25058_001E | 7.45% | 7.50% | +0.72% | 87.6% | 89.5% |
+| B25064_001E | 7.30% | 7.29% | −0.05% | 85.8% | 91.0% |
+| B25071_001E | 9.50% | 9.59% | +0.98% | 88.5% | 88.7% |
+| B25077_001E | 8.94% | 8.93% | −0.18% | 86.0% | 88.4% |
+| S1501_C02_014E | 1.92% | 1.94% | +1.03% | 90.5% | 89.9% |
+| S1501_C02_015E | 8.47% | 8.45% | −0.28% | 87.9% | 88.9% |
+| S1701_C03_001E | 17.71% | 17.55% | −0.93% | 82.7% | 88.5% |
+| S2301_C04_001E | 36.69% | 36.67% | −0.05% | 90.4% | 92.2% |
+| homeownership_rate | 4.32% | 4.31% | −0.13% | 87.8% | 89.1% |
+| in_migration_rate | 22.68% | 22.64% | −0.15% | 91.1% | 90.4% |
+| pct_professional | 7.42% | 7.54% | +1.57% | 88.7% | 87.4% |
+| pct_service_occupations | 13.53% | 13.51% | −0.14% | 89.7% | 91.3% |
+| vacancy_rate | 27.02% | 27.00% | −0.05% | 90.9% | 92.2% |
+
+Pooled ensemble RMSE 14.97% → 14.95% (−0.10%); by horizon bucket,
+coverage 88.1% → 90.6% (short) and 88.3% → 89.4% (long). Arm C shows
+the gain is almost entirely the blend-level correction (short 90.5%,
+long 90.0%) — the κ re-calibration under the new in-member ρ is nearly
+a no-op because κ was already absorbing the mis-stated member SE.
+
+**Verdict: PASS on all three gates** (pooled RMSE does not worsen;
+every indicator's CI90 in [85%, 95%] — including S1701 poverty, which
+the literal blend under-covered at 82.7%; no indicator regresses > 2%).
+This is an *interval* change, not a point change: the RMSE deltas are
+noise around zero in both directions because inverse-variance weights
+do not depend on ρ. Shipped default-on 2026-10-09:
+`run_stratified_calibration(enable_empirical_rho=True)` is the default,
+`run_acs_calibration --no-empirical-rho` restores the literals, and the
+bundled `calibration.json` was regenerated with the workflow flags
+(`--as-of-mode publication --include-ml --include-conformal`). The
+pre-existing explicit `correlation_rho_inner` / `correlation_rho_anchor`
+arguments of `project_ensemble_multi` now default to `None` (= resolve
+from the payload); a float still forces the value, which is how the ML
+ablation's ρ sweep keeps working.
+
+---
+
+## MOE-weighted trend fits — NULL, flag left behind (October 2026)
+
+Assessment item B3: `fit_damped_trend` and `fit_ar1_log_diff` weighted a
+CV=0.02 print and a CV=0.35 print identically although the per-print
+sampling variance is known (the Kalman member's `_obs_r` already uses
+it). Hypothesis: weighting the fits by 1/SE_log² helps most where the
+prints are noisiest — the `small` population bucket.
+
+**Mechanism** (`projection.py`, `moe_weighted=True`). Per-observation
+weight `w_t = clamp(R̄ / R_t, 0.25, 4)` with `R_t = (SE/estimate)²` and
+R̄ the series median, so the typical print keeps its nominal gain, a
+noisy print is heard less and one unusually precise print cannot
+dominate (the cap). Fixed-α smoothing is the steady-state Kalman gain
+at R̄, so the weighted update uses `α_t = α·w / (α·w + 1 − α)` (same
+for β); the recency-weighted initial trend and the residual SD carry
+the same weights; the AR(1) becomes weighted least squares with each
+diff row at `2/(1/w_t + 1/w_{t−1})`. Missing MOEs get `w=1`; a series
+with constant CV reproduces the unweighted fit to the bit. The flag is
+threaded `project_damped_trend` / `project_ar1_log_diff` →
+`project_ensemble_multi(moe_weighted=None)` → the payload's
+`moe_weighted` key (schema 6 when set), exactly as `phi_enabled` is, so
+production fits the model its κ/bias records were calibrated on.
+
+**Ablation** (`compare_moe_weighted_ablation`,
+`backtests/results/moe_weighted_ablation_2026-10-09.md`; same harness
+and panel as above, v1 literal ρ in both arms — the run predates the
+ρ flip; `--literal-rho` reproduces it).
+
+| Indicator | RMSE A | RMSE B | Δ (rel) | Cov90 A | Cov90 B |
+|---|---:|---:|---:|---:|---:|
+| B01002_001E | 1.89% | 1.88% | −0.12% | 88.6% | 88.2% |
+| B19013_001E | 6.82% | 6.83% | +0.09% | 87.8% | 87.7% |
+| B20002_001E | 6.89% | 6.86% | −0.39% | 87.2% | 89.6% |
+| B25058_001E | 7.45% | 7.44% | −0.04% | 87.6% | 87.5% |
+| B25064_001E | 7.30% | 7.28% | −0.30% | 85.8% | 85.6% |
+| B25071_001E | 9.50% | 9.47% | −0.31% | 88.5% | 89.0% |
+| B25077_001E | 8.94% | 8.93% | −0.11% | 86.0% | 85.7% |
+| S1501_C02_014E | 1.92% | 1.95% | +1.43% | 90.5% | 90.0% |
+| S1501_C02_015E | 8.47% | 8.53% | +0.66% | 87.9% | 88.4% |
+| S1701_C03_001E | 17.71% | 17.69% | −0.14% | 82.7% | 82.6% |
+| S2301_C04_001E | 36.69% | 36.46% | −0.63% | 90.4% | 90.7% |
+| homeownership_rate | 4.32% | 4.32% | +0.00% | 87.8% | 87.8% |
+| in_migration_rate | 22.68% | 22.68% | +0.00% | 91.1% | 91.1% |
+| pct_professional | 7.42% | 7.42% | +0.00% | 88.7% | 88.7% |
+| pct_service_occupations | 13.53% | 13.53% | +0.00% | 89.7% | 89.7% |
+| vacancy_rate | 27.02% | 27.02% | +0.00% | 90.9% | 90.9% |
+
+By population bucket (ensemble): medium 18.72% → 18.68%, large 13.22%
+→ 13.18%, xlarge 10.62% → 10.58% — a uniform −0.2…−0.3%, no
+concentration anywhere. The `trend_ensemble` member alone *regresses*
+in the medium bucket (+0.23%) and on the two education shares (+5.5%,
++5.9%) and B20002 (+3.6%): down-weighting the noisy prints of a short
+series removes signal faster than noise at n ≤ 15.
+
+**The hypothesis is untestable on this panel.** The calibration panel
+is built from 1-year ACS, which the Bureau publishes only for areas of
+≥ 65,000 people — so the `small` (< 50K) bucket has zero folds, and the
+`small`-bucket table in the report is empty by construction. The bucket
+where the weighting should matter is the one the panel cannot see;
+"medium" (50K–200K) is the closest proxy and shows nothing.
+
+**Verdict: HOLD (null).** Pooled RMSE −0.25% is inside fold noise, the
+coverage gate fails on S1701 (82.6% — inherited from the literal-ρ
+baseline, 82.7%, which the ρ change above fixes, not caused by the
+weighting), and the member-level regressions say the mechanism is not
+free. `moe_weighted` stays off by default; it ships as an opt-in flag
+(`run_acs_calibration --moe-weighted`, `project_ensemble_multi(
+moe_weighted=True)`) for re-evaluation if a 5-year-ACS panel ever gives
+the `small` bucket folds. Combined with the Kalman per-observation `R`
+(§"Kalman per-indicator promotion") that member remains the principled
+home for measurement-error weighting.
 
 ---
 

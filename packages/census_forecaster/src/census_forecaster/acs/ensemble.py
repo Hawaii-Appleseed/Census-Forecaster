@@ -191,6 +191,7 @@ def combine_forecasts(
     forecasts: Sequence[ForecastPoint],
     target_year: int,
     method_label: str = "ensemble",
+    rho: float = 0.7,
 ) -> ForecastPoint | None:
     """Inverse-variance combine a list of forecasts for the same target.
 
@@ -199,6 +200,12 @@ def combine_forecasts(
     The combined SE is computed from the weighted sum's variance, which
     *can* be smaller than any individual SE (that's the value of
     combining). The 90% CI is symmetric around the weighted point.
+
+    `rho` is the pairwise error correlation assumed between members in
+    the variance (default 0.7, the v1 literal — see the comment below).
+    `project_ensemble_multi` passes the empirical damped↔AR(1) value
+    from the calibration payload when `rho_empirical_enabled` is set
+    (`acs.correlations`).
     """
     forecasts = list(forecasts)
     if not forecasts:
@@ -225,7 +232,6 @@ def combine_forecasts(
     # to the weighted sum of component SEs and forfeits the diversity
     # benefit. Walk-forward calibration on the Hawaii panel confirmed
     # 0.7 brings ensemble CI90-coverage into the 88-92% band.
-    rho = 0.7
     n = len(forecasts)
     var = 0.0
     for i in range(n):
@@ -891,8 +897,8 @@ def project_ensemble_multi(
     target_year: int,
     end_year: int | None = None,
     calibration: dict | None = None,
-    correlation_rho_inner: float = 0.7,
-    correlation_rho_anchor: float = 0.5,
+    correlation_rho_inner: "float | None" = None,
+    correlation_rho_anchor: "float | None" = None,
     populations: dict[str, int] | None = None,
     use_ml: bool = True,
     ml_series_by_key: dict[tuple[str, str], Sequence[AcsObservation]] | None = None,
@@ -900,6 +906,7 @@ def project_ensemble_multi(
     ml_model_cache: dict | None = None,
     ml_panel=None,
     use_kalman: "bool | None" = None,
+    moe_weighted: "bool | None" = None,
 ) -> "ForecastPoint | None":
     """Multi-source anchor ensemble.
 
@@ -974,6 +981,20 @@ def project_ensemble_multi(
         Pre-built panel index (output of ``ml_features.build_panel_index``).
         Pass it explicitly when projecting many counties at the same
         cutoff to avoid rebuilding it for each forecast.
+    correlation_rho_inner, correlation_rho_anchor : float or None
+        Member error correlations for the trend↔ML inner blend and the
+        target↔macro-anchor blend. ``None`` (default) resolves them from
+        the calibration payload's ``member_correlations`` records when
+        it carries ``rho_empirical_enabled: true``, else the v1 literals
+        (0.7 / 0.5; `acs.correlations.LITERAL_RHO`). The damped↔AR(1),
+        cross-source and level-fusion correlations are resolved the same
+        way and are not exposed here. Passing a float forces it.
+    moe_weighted : bool or None, default None
+        Fit the damped-trend / AR(1) members with per-observation
+        sampling-precision weights (`projection.fit_damped_trend`).
+        ``None`` follows the calibration payload's ``moe_weighted`` flag
+        (so production fits the model its κ / bias records were
+        calibrated on); a bool forces it.
     use_kalman : bool or None, default None
         ``None`` (default): the Kalman state-space member replaces the
         Bates-Granger blend only for indicators in
@@ -993,6 +1014,11 @@ def project_ensemble_multi(
         ANCHOR_CALIBRATION_HORIZON,
     )
     from .strata import classify_horizon
+    from .correlations import (
+        rho_lookup_from_calibration,
+        PAIR_COMPONENTS, PAIR_TREND_ML, PAIR_TARGET_ANCHOR,
+        PAIR_RATE_LEVEL, PAIR_ANCHOR_SOURCES,
+    )
 
     if not series_observations:
         return None
@@ -1008,6 +1034,24 @@ def project_ensemble_multi(
     horizon_years = target_year - end_year
     h_bucket = classify_horizon(horizon_years) if horizon_years > 0 else None
     pop_bucket = _resolve_pop_bucket(geoid, populations)
+
+    # Member correlations and MOE weighting: both follow the calibration
+    # payload (like phi) so production projects the model the κ / bias /
+    # conformal records were fit on. Explicit arguments override.
+    _rho = rho_lookup_from_calibration(calibration)
+    rho_components = _rho(indicator, PAIR_COMPONENTS, h_bucket)
+    rho_inner = (
+        correlation_rho_inner if correlation_rho_inner is not None
+        else _rho(indicator, PAIR_TREND_ML, h_bucket)
+    )
+    rho_anchor = (
+        correlation_rho_anchor if correlation_rho_anchor is not None
+        else _rho(indicator, PAIR_TARGET_ANCHOR, h_bucket)
+    )
+    rho_sources = _rho(indicator, PAIR_ANCHOR_SOURCES, h_bucket)
+    rho_level = _rho(indicator, PAIR_RATE_LEVEL, h_bucket)
+    if moe_weighted is None:
+        moe_weighted = bool((calibration or {}).get("moe_weighted", False))
 
     # Kalman state-space path — replaces the Bates-Granger blend when
     # requested (True), never runs when False, and with the default None
@@ -1047,15 +1091,22 @@ def project_ensemble_multi(
     # Trend ensemble first.
     phi = _lookup_phi(calibration, indicator, "trend_ensemble", pop_bucket, h_bucket)
     components: list[ForecastPoint] = []
-    f_damped = project_damped_trend(series_observations, target_year, phi=phi)
+    f_damped = project_damped_trend(
+        series_observations, target_year, phi=phi, moe_weighted=moe_weighted,
+    )
     if f_damped is not None:
         components.append(f_damped)
-    f_ar1 = project_ar1_log_diff(series_observations, target_year)
+    f_ar1 = project_ar1_log_diff(
+        series_observations, target_year, moe_weighted=moe_weighted,
+    )
     if f_ar1 is not None:
         components.append(f_ar1)
 
     inner = (
-        combine_forecasts(components, target_year, method_label="trend_ensemble")
+        combine_forecasts(
+            components, target_year, method_label="trend_ensemble",
+            rho=rho_components,
+        )
         if components else None
     )
     if inner is not None:
@@ -1132,7 +1183,7 @@ def project_ensemble_multi(
         target_inner = _combine_two_with_rho(
             inner, ml_fp, target_year,
             method_label="target_ensemble",
-            rho=correlation_rho_inner,
+            rho=rho_inner,
         )
         if target_inner is not None:
             inner = target_inner
@@ -1153,6 +1204,7 @@ def project_ensemble_multi(
         indicator=indicator,
         end_year=end_year,
         calibration=per_source_calib,
+        correlation_rho=rho_sources,
         calibration_horizon=ANCHOR_CALIBRATION_HORIZON,
         geoid=geoid,
     )
@@ -1253,7 +1305,7 @@ def project_ensemble_multi(
         w = [1 - macro_weight, macro_weight]
         pieces = [inner, anchor_fp]
         point = sum(w[i] * pieces[i].point for i in range(2))
-        rho = correlation_rho_anchor
+        rho = rho_anchor
         var = 0.0
         for i in range(2):
             for j in range(2):
@@ -1283,8 +1335,9 @@ def project_ensemble_multi(
         )
 
     # If a level anchor is available, fuse it with the rate-blend result using
-    # inverse-variance combination at ρ=0.5 (lower correlation than within the
-    # classical trend ensemble since level and rate anchors use independent data).
+    # inverse-variance combination at ρ_level (literal 0.5 — lower correlation
+    # than within the classical trend ensemble since level and rate anchors
+    # use independent data; empirical when the payload enables it).
     if level_anchor_fp is None:
         return rate_blend
 
@@ -1293,6 +1346,6 @@ def project_ensemble_multi(
         rate_blend, level_anchor_fp,
         target_year=target_year,
         method_label="ensemble_multi_anchor",
-        rho=0.5,
+        rho=rho_level,
     )
     return final if final is not None else rate_blend

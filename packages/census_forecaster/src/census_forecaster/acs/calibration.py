@@ -109,9 +109,48 @@ def _truncate(
     return result
 
 
+def _project_trend_members(
+    train: Sequence[AcsObservation], target_year: int,
+    phi: Optional[float] = None,
+    moe_weighted: bool = False,
+) -> tuple[Optional[ForecastPoint], Optional[ForecastPoint]]:
+    """The two classical trend members (damped, AR(1)) for one fold.
+
+    Split out of `_project_trend_only` so the generator can cache the
+    member residuals (for the empirical damped↔AR(1) correlation) and
+    combine them afterwards at the ρ the consumer will use.
+    """
+    if phi is None:
+        f_damped = project_damped_trend(train, target_year, moe_weighted=moe_weighted)
+    else:
+        f_damped = project_damped_trend(
+            train, target_year, phi=phi, moe_weighted=moe_weighted,
+        )
+    f_ar1 = project_ar1_log_diff(train, target_year, moe_weighted=moe_weighted)
+    return f_damped, f_ar1
+
+
+def _combine_trend_members(
+    f_damped: Optional[ForecastPoint],
+    f_ar1: Optional[ForecastPoint],
+    target_year: int,
+    rho: Optional[float] = None,
+) -> Optional[ForecastPoint]:
+    components = [f for f in (f_damped, f_ar1) if f is not None]
+    if not components:
+        return None
+    if rho is None:
+        return combine_forecasts(components, target_year, method_label="trend_ensemble")
+    return combine_forecasts(
+        components, target_year, method_label="trend_ensemble", rho=rho,
+    )
+
+
 def _project_trend_only(
     train: Sequence[AcsObservation], target_year: int,
     phi: Optional[float] = None,
+    moe_weighted: bool = False,
+    rho: Optional[float] = None,
 ) -> Optional[ForecastPoint]:
     """Run the trend-only ensemble (damped + ar1, no anchor).
 
@@ -119,20 +158,14 @@ def _project_trend_only(
     calibration run has `enable_phi=True` — the folds must be built under
     the same phi the consumer will apply, or every kappa/bias record fit
     on them is calibrated for a different model than production runs.
+    The same rule governs `moe_weighted` (payload flag of the same name)
+    and `rho` (the damped↔AR(1) member correlation; None = the 0.7
+    literal, a per-cell value only when `enable_empirical_rho=True`).
     """
-    components: list[ForecastPoint] = []
-    if phi is None:
-        f_damped = project_damped_trend(train, target_year)
-    else:
-        f_damped = project_damped_trend(train, target_year, phi=phi)
-    if f_damped is not None:
-        components.append(f_damped)
-    f_ar1 = project_ar1_log_diff(train, target_year)
-    if f_ar1 is not None:
-        components.append(f_ar1)
-    if not components:
-        return None
-    return combine_forecasts(components, target_year, method_label="trend_ensemble")
+    f_damped, f_ar1 = _project_trend_members(
+        train, target_year, phi=phi, moe_weighted=moe_weighted,
+    )
+    return _combine_trend_members(f_damped, f_ar1, target_year, rho=rho)
 
 
 def _project_anchor_only(
@@ -141,6 +174,7 @@ def _project_anchor_only(
     anchor_year: int,
     indicator: str,
     per_source_rmse: Optional[dict[str, dict[str, float]]] = None,
+    correlation_rho: Optional[float] = None,
 ) -> Optional[ForecastPoint]:
     """Project from the latest training observation using only the multi-source anchor.
 
@@ -154,12 +188,14 @@ def _project_anchor_only(
     """
     if not train:
         return None
+    kwargs = {} if correlation_rho is None else {"correlation_rho": correlation_rho}
     rate = combined_anchor_rate(
         indicator=indicator,
         end_year=anchor_year,
         calibration=per_source_rmse,
         calibration_horizon=ANCHOR_CALIBRATION_HORIZON,
         geoid=train[-1].geoid,
+        **kwargs,
     )
     if rate is None:
         return None
@@ -1096,6 +1132,8 @@ def run_stratified_calibration(
     include_conformal: bool = False,
     enable_phi: bool = False,
     bias_half_life_years: "float | None" = None,
+    enable_empirical_rho: bool = True,
+    moe_weighted: bool = False,
 ) -> dict:
     """v3/v4 stratified hold-out calibration.
 
@@ -1146,13 +1184,39 @@ def run_stratified_calibration(
         consumer ignores the records — the configuration the v4 ablation
         validated (see METHODOLOGY.md §v4 phi calibration).
 
+    enable_empirical_rho : when True, the ensemble-member error
+        correlations are estimated from the tuning folds
+        (`acs.correlations`) and *applied* while building the folds —
+        the damped↔AR(1) ρ in the trend_ensemble SE and the cross-source
+        ρ in the multi_anchor SE — so κ / bias / conformal records are
+        fit under the ρ the consumer will use; the payload is marked
+        `rho_empirical_enabled: true`. Default True since 2026-10-09
+        (ablation passed all three gates, METHODOLOGY.md §"Empirical
+        member correlations"). With False the records are still emitted
+        (`member_correlations`) as diagnostics, folds use the v1
+        literals, and the consumer ignores the records.
+    moe_weighted : when True, the damped-trend / AR(1) members are fit
+        with per-observation sampling-precision weights
+        (`projection.fit_damped_trend(moe_weighted=True)`) and the
+        payload carries `moe_weighted: true` so the consumer fits the
+        same model. Default False.
+
     Returns
     -------
-    dict — schema_version=3 (or 4 when include_conformal) payload with
-    both strata records and marginalised v2-style tables for backwards
-    compatibility.
+    dict — schema_version=3 (or 4 when include_conformal, 6 when either
+    engine flag above is on) payload with both strata records and
+    marginalised v2-style tables for backwards compatibility.
     """
     from .strata import classify_pop, classify_horizon, WILDCARD, record_to_dict
+    from .correlations import (
+        estimate_member_correlations as _estimate_rho,
+        build_rho_lookup as _build_rho_lookup,
+        literal_rho_lookup as _literal_rho,
+        PAIR_COMPONENTS as _PAIR_COMPONENTS,
+        PAIR_ANCHOR_SOURCES as _PAIR_SOURCES,
+        PAYLOAD_KEY as _RHO_KEY,
+        PAYLOAD_FLAG as _RHO_FLAG,
+    )
     from common.publication import acs_1y_release_date as _acs_pub
 
     if as_of_mode not in ("instant", "publication"):
@@ -1362,10 +1426,25 @@ def run_stratified_calibration(
                 continue
             rmse_by_indicator_source[ind][src] = math.sqrt(sum(sq_errs) / len(sq_errs))
 
+    # ---- Pass 1b: cross-source anchor correlation (tuning anchors only) ----
+    # Estimated before Pass 2 so that, when enable_empirical_rho, the
+    # multi_anchor folds carry the SE the consumer will build. The
+    # tuning-anchor restriction keeps the evaluation anchor honest.
+    _tuning_for_rho = set(tuning_anchors)
+    _pass1_tuning = [f for f in folds_pass1 if f.anchor_year in _tuning_for_rho]
+    _rho_fn = _literal_rho
+    if enable_empirical_rho:
+        _rho_fn = _build_rho_lookup(_estimate_rho([], [], _pass1_tuning))
+
     # ---- Pass 2: produce FoldResidual cache for all methods ----
     # Collect residuals for every anchor year; split into tuning /
-    # calibration / evaluation after the loop.
+    # calibration / evaluation after the loop. The classical trend
+    # members are cached separately (`component_residuals`) so the
+    # damped↔AR(1) correlation can be estimated — they never receive
+    # κ / bias records of their own.
     all_fold_residuals: list[FoldResidual] = []
+    component_residuals: list[FoldResidual] = []
+    _pending_trend: list[tuple] = []  # (members, fold meta) to combine after ρ
     for (geoid, indicator), full in series_by_key.items():
         full_sorted = sorted(full, key=lambda o: (effective_year(o), o.vintage))
         pop_bucket = classify_pop(populations.get(geoid)) or WILDCARD
@@ -1384,26 +1463,38 @@ def run_stratified_calibration(
                     continue
                 h_bucket = classify_horizon(h) or WILDCARD
 
-                tr = _project_trend_only(
+                f_damped, f_ar1 = _project_trend_members(
                     train, target_year,
                     phi=(
                         _phi_for_cell(indicator, pop_bucket, h_bucket)
                         if _phi_for_cell is not None else None
                     ),
+                    moe_weighted=moe_weighted,
                 )
-                if tr is not None:
-                    all_fold_residuals.append(FoldResidual(
-                        indicator=indicator, method="trend_ensemble",
+                for fp in (f_damped, f_ar1):
+                    if fp is None:
+                        continue
+                    component_residuals.append(FoldResidual(
+                        indicator=indicator, method=fp.method,
                         geoid=geoid, anchor_year=anchor, horizon=h,
                         pop_bucket=pop_bucket, h_bucket=h_bucket,
                         actual=actual_obs.estimate,
-                        point=tr.point, se_total=tr.se_total,
-                        se_sample=tr.se_sample, se_forecast=tr.se_forecast,
-                        ci90_low=tr.ci90_low, ci90_high=tr.ci90_high,
+                        point=fp.point, se_total=fp.se_total,
+                        se_sample=fp.se_sample, se_forecast=fp.se_forecast,
+                        ci90_low=fp.ci90_low, ci90_high=fp.ci90_high,
+                    ))
+                if f_damped is not None or f_ar1 is not None:
+                    _pending_trend.append((
+                        f_damped, f_ar1, target_year, indicator, geoid, anchor, h,
+                        pop_bucket, h_bucket, actual_obs.estimate,
                     ))
                 an = _project_anchor_only(
                     train, target_year, anchor, indicator,
                     per_source_rmse=rmse_by_indicator_source,
+                    correlation_rho=(
+                        _rho_fn(indicator, _PAIR_SOURCES, h_bucket)
+                        if enable_empirical_rho else None
+                    ),
                 )
                 if an is not None:
                     all_fold_residuals.append(FoldResidual(
@@ -1415,6 +1506,36 @@ def run_stratified_calibration(
                         se_sample=an.se_sample, se_forecast=an.se_forecast,
                         ci90_low=an.ci90_low, ci90_high=an.ci90_high,
                     ))
+
+    # Combine the trend members into trend_ensemble. With
+    # enable_empirical_rho the damped↔AR(1) ρ comes from the tuning-fold
+    # component residuals just cached; otherwise the 0.7 literal.
+    if enable_empirical_rho:
+        _rho_fn = _build_rho_lookup(_estimate_rho(
+            [], [r for r in component_residuals if r.anchor_year in _tuning_for_rho],
+            _pass1_tuning,
+        ))
+    for (f_damped, f_ar1, target_year, indicator, geoid, anchor, h,
+         pop_bucket, h_bucket, actual) in _pending_trend:
+        tr = _combine_trend_members(
+            f_damped, f_ar1, target_year,
+            rho=(
+                _rho_fn(indicator, _PAIR_COMPONENTS, h_bucket)
+                if enable_empirical_rho else None
+            ),
+        )
+        if tr is None:
+            continue
+        all_fold_residuals.append(FoldResidual(
+            indicator=indicator, method="trend_ensemble",
+            geoid=geoid, anchor_year=anchor, horizon=h,
+            pop_bucket=pop_bucket, h_bucket=h_bucket,
+            actual=actual,
+            point=tr.point, se_total=tr.se_total,
+            se_sample=tr.se_sample, se_forecast=tr.se_forecast,
+            ci90_low=tr.ci90_low, ci90_high=tr.ci90_high,
+        ))
+    del _pending_trend
 
     # ---- Pass 2b (optional): ml_trend FoldResidual cache ----
     # Trains one HGB model per (indicator, cutoff=anchor) — ~16 indicators
@@ -1657,6 +1778,15 @@ def run_stratified_calibration(
             f"residuals at horizons {horizon_list}"
         )
 
+    # ---- Pass R: ensemble-member error correlations (tuning folds) ----
+    # Always emitted as diagnostics; applied by the consumer only when the
+    # payload says rho_empirical_enabled (set from enable_empirical_rho).
+    member_correlation_records = _estimate_rho(
+        fold_residuals,
+        [r for r in component_residuals if r.anchor_year in _tuning_for_rho],
+        _pass1_tuning,
+    )
+
     # ---- Pass A: bias estimation per cell (with marginalisation) ----
     bias_records = _estimate_bias_records(
         fold_residuals, n_threshold, bias_clamp_log,
@@ -1746,7 +1876,12 @@ def run_stratified_calibration(
     # v3 = no phi, no conformal
     # v4 = phi calibration only
     # v5 = phi + conformal
-    if include_conformal:
+    # v6 = engine flags the consumer must honour (rho_empirical_enabled /
+    #      moe_weighted) — folds were built under a different model than
+    #      the literals, so a v≤5 consumer must not read it as v5.
+    if enable_empirical_rho or moe_weighted:
+        schema_v = 6
+    elif include_conformal:
         schema_v = 5
     elif _phi_pass_run and phi_strata_records:
         schema_v = 4
@@ -1782,6 +1917,14 @@ def run_stratified_calibration(
         # ensemble apply it (ensemble._lookup_phi). Records are always
         # emitted below for diagnostics.
         "phi_enabled": bool(enable_phi and _phi_pass_run),
+        # Consumer gates for the October 2026 engine changes (same
+        # pattern as phi_enabled): the folds behind every κ / bias /
+        # conformal record were built under these settings.
+        _RHO_FLAG: bool(enable_empirical_rho),
+        "moe_weighted": bool(moe_weighted),
+        # Pass R: empirical member error correlations, one record per
+        # (indicator, pair, h_bucket | "*"); pop_bucket is always "*".
+        _RHO_KEY: [record_to_dict(r) for r in member_correlation_records],
         # Pass 1 (h-marginalised): per-source RMSE
         "rmse_by_indicator_source": rmse_by_indicator_source,
         # v3 strata records
