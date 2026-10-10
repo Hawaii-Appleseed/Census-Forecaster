@@ -196,7 +196,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--forecast", action="store_true",
         help="Add damped-drift 3/6/12-month forecasts with calibrated "
-             "90% bands.",
+             "90%% bands.",
     )
     parser.add_argument(
         "--screen-summary", action="store_true",
