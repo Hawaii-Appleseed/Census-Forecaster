@@ -2825,3 +2825,62 @@ records moved, and **every one of them is a `ml_trend` cell** — the
 sub-percent (max 0.022 in log space); the κ moves are single steps on the
 bisection grid (1.625 / 1.95 / 2.6 / 3.25), i.e. quantisation rather than
 drift.
+
+### Out-of-sample 2023-2024 check, October 2026
+
+The shipped ACS calibration was fit on anchors 2014-2022 while the bundled
+panel carries 1-year truth through 2024. `scripts/evaluate_oos.py` projects
+every (county, indicator) from anchors 2022 and 2023 through the production
+path (`project_ensemble_multi`, shipped defaults, publication as-of
+information set) and scores the **blended** forecast — something the
+generator's own `evaluation_coverage` never does, since it scores members
+individually. 4,260 folds; full tables in
+`backtests/results/acs_oos_2023_2024_2026-10-09.md`.
+
+| fold family | n | MAPE | RMSE (log) | CI90 cov | bias (log) |
+|---|---:|---:|---:|---:|---:|
+| 2022 → 2023 (h=1) | 1,418 | 6.8% | 0.111 | 86.5% | +0.009 |
+| 2022 → 2024 (h=2) | 1,421 | 7.7% | 0.128 | 88.9% | +0.003 |
+| 2023 → 2024 (h=1) | 1,421 | 6.6% | 0.111 | 88.5% | +0.005 |
+| **all** | **4,260** | **7.1%** | **0.117** | **87.9%** | **+0.005** |
+| Hawaii only | 190 | 7.0% | 0.098 | 82.1% | +0.001 |
+| truth-masked recalibration, all | 4,260 | 6.8% | — | 87.5% | -0.002 |
+
+Point accuracy matches or beats the best in-sample member for all 16
+indicators (largest excess B25071 +16% relative RMSE). Coverage is in band
+pooled and for 11/16 indicators; the misses are the three housing-price
+indicators (B25058 83.5%, B25064 80.5%, B25077 80.5% — an xlarge-bucket
+problem, 71-82%, medium counties are fine), pct_service_occupations
+84.5%, and S2301 over-covering at 99.2% as it already did in-sample. The
+"truth-masked" row regenerates the calibration with every post-2022
+observation removed (anchors 2014-2021) and rescores the same folds: the
+2023/2024 prints do serve as truth for the shipped payload's long-horizon
+tuning folds (anchor 2019 h=4/5 … anchor 2021 h=2/3), and the row shows
+that overlap buys essentially nothing.
+
+**Anchor-end moved to 2023.** On that evidence `run_acs_calibration
+--anchor-end` and the `refresh-data` workflow now default to 2023: tuning
+2014-2021, conformal anchor 2022 (h=1,2 truth only), evaluation anchor 2023
+(h=1 only). The generator tabulates truth per (anchor, h) in
+`calibration.json["fold_truth_availability"]`, refuses an anchor with no
+truth at any horizon, and raises when a conformal or evaluation anchor
+yields no folds, instead of letting those folds drop inside a per-pass
+`continue`. The cost is that the `long` horizon bucket now gets no
+conformal records (anchor 2022 has no h≥3 truth) and reverts to κ for
+h=3-5; under the old split it had one thin cell from anchor 2021 h=3.
+Watch `calibration_horizons` and `evaluation_coverage` on the next
+regeneration.
+
+**As-of mode and the ablation scripts.** The `compare_*_ablation.py`
+scripts call `run_stratified_calibration` with its default
+`as_of_mode="instant"`; only the workflow passes `publication`. On this
+panel that is a distinction without a difference: the panel holds 19,638
+1-year observations and zero 5-year observations, the ML panel index drops
+anything not `1y`, and for a 1-year print of year Y the publication-mode
+cutoff for anchor Y is exactly that print's own release date with an
+inclusive filter. Checked computationally across all 12,960 (series,
+anchor) pairs: the instant and publication training sets differ in 0 cases.
+No 5-year ACS window overlapping a target year could have been in any
+ablation's information set, because there are none in the panel. (The
+auxiliary ML channels are keyed by calendar year rather than release date
+in both modes; that is a separate, unsettled question.)
