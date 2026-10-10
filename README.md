@@ -147,6 +147,18 @@ Commit `site/` with the change. Pages are generated only from the committed
 `tests/site/` fails if the committed pages are stale. Adding an estimate means
 an `Estimate` entry and a page builder in `scripts/build_site.py`.
 
+### DOTAX scorecard
+
+When DOTAX publishes a new *Individual Income Tax Statistics* edition, score
+the model before rebasing on it: `scripts/parse_dotax_indinc.py` writes
+`dotax_indinc_<year>.json`, then `uv run python scripts/dotax_scorecard.py
+--base-edition-year <N>` projects the calibrated base raked to edition N
+(`data/artifacts/sb3125_calibrated_base.pkl`, from
+`forecast_sb3125_enhanced.py`) to tax year N+1 and tabulates returns, AGI and
+tax before credits by AGI class, filing status and the $1M+ class against the
+new edition, into `reports/dotax_scorecard/TY<N+1>/`. The first one, the
+TY2022-anchored model against TY2023, is `DOTAX_SCORECARD.md`.
+
 ## Design principles
 
 * **MOE-aware variance.** ACS publishes 90% margins of error; this package converts at the boundary (Z=1.645) and propagates correctly through the projection.
