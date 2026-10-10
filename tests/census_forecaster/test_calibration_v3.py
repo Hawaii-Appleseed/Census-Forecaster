@@ -496,3 +496,103 @@ class TestPhiEnableGate:
             common = set(a) & set(b)
             assert common
             assert any(abs(a[k] - b[k]) > 1e-9 for k in common)
+
+
+class TestPartialTruthAnchors:
+    """Anchors whose targets run past the panel's truth are handled
+    explicitly: partial horizons are tabulated in the payload, an anchor
+    with no truth at any horizon is refused, and the conformal split still
+    works when the evaluation anchor has h=1 truth only (the 2023-anchor
+    configuration: panel truth through 2024, anchors 2014-2023)."""
+
+    # Twelve counties in one population bucket: the split-conformal quantile
+    # needs ceil((n+1)*0.9) <= n, i.e. n >= 9 scores per exact cell, and
+    # the 2022 calibration anchor contributes h=1,2 per county.
+    GEOIDS = [f"15{n:03d}" for n in range(1, 25, 2)]
+    POPULATIONS = {g: 100_000 for g in GEOIDS}
+
+    def _panel_through(self, last_year: int):
+        return _make_panel(
+            indicators=["B19013_001E"],
+            geoids=self.GEOIDS,
+            years=range(2010, last_year + 1),
+            growth_rate=0.025,
+            noise_sd=0.04,
+            seed=7,
+        )
+
+    def test_2023_anchor_with_h1_truth_only(self):
+        panel = self._panel_through(2024)
+        payload = run_stratified_calibration(
+            series_by_key=panel,
+            anchor_years=list(range(2014, 2024)),
+            horizons=[1, 2, 3, 4, 5],
+            populations=self.POPULATIONS,
+            n_threshold=2,
+            include_conformal=True,
+            as_of_mode="publication",
+        )
+        fta = payload["fold_truth_availability"]
+        assert fta["evaluation_anchors"] == [2023]
+        assert fta["calibration_anchors"] == [2022]
+        # Evaluation anchor: only h=1 can be scored; calibration anchor: h=1,2.
+        assert fta["horizons_with_truth_by_anchor"]["2023"] == [1]
+        assert fta["horizons_with_truth_by_anchor"]["2022"] == [1, 2]
+        assert fta["evaluation_horizons"] == [1]
+        assert fta["calibration_horizons"] == [1, 2]
+        by_anchor = fta["by_anchor"]
+        assert by_anchor["2023"]["1"]["with_truth"] == 12
+        assert by_anchor["2023"]["1"]["no_truth"] == 0
+        assert by_anchor["2023"]["2"]["with_truth"] == 0
+        assert by_anchor["2023"]["2"]["no_truth"] == 12
+        # The residual cache carries no fold past the truth.
+        assert all(
+            r["anchor_year"] + r["horizon"] <= 2024
+            for r in payload["fold_residuals"]
+        )
+        # Conformal records and evaluation coverage still materialise.
+        assert payload["schema_version"] == 5
+        assert payload["conformal_quantile_by_stratum"]
+        assert payload["evaluation_coverage"]
+        # Only the short bucket can have conformal records from a 2022 anchor.
+        assert {r["h_bucket"] for r in payload["conformal_quantile_by_stratum"]} <= {"short", "*"}
+
+    def test_anchor_past_truth_is_refused(self, simple_populations):
+        panel = self._panel_through(2024)
+        with pytest.raises(ValueError, match="no 1-year truth at any horizon"):
+            run_stratified_calibration(
+                series_by_key=panel,
+                anchor_years=list(range(2014, 2025)),  # 2024 has no h>=1 truth
+                horizons=[1, 2, 3],
+                populations=simple_populations,
+            )
+
+    def test_full_truth_anchors_report_no_gaps(self, simple_populations):
+        panel = self._panel_through(2024)
+        payload = run_stratified_calibration(
+            series_by_key=panel,
+            anchor_years=[2018, 2019],
+            horizons=[1, 2, 3],
+            populations=simple_populations,
+        )
+        fta = payload["fold_truth_availability"]
+        for a in ("2018", "2019"):
+            assert fta["horizons_with_truth_by_anchor"][a] == [1, 2, 3]
+            for h in ("1", "2", "3"):
+                assert fta["by_anchor"][a][h]["no_truth"] == 0
+
+    def test_write_calibration_keeps_truth_availability(self, tmp_path, simple_populations):
+        panel = self._panel_through(2024)
+        payload = run_stratified_calibration(
+            series_by_key=panel,
+            anchor_years=[2020, 2021, 2022, 2023],
+            horizons=[1, 2],
+            populations=simple_populations,
+            n_threshold=2,
+            include_conformal=True,
+        )
+        out = tmp_path / "calibration.json"
+        write_calibration(payload, out)
+        import json
+        on_disk = json.loads(out.read_text())
+        assert on_disk["fold_truth_availability"]["evaluation_horizons"] == [1]

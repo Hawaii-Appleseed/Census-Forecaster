@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import math
 import statistics
+import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -1048,6 +1049,36 @@ def _marginalised_v2_se_overrides(
 # Public v3 calibration entry point
 # -----------------------------------------------------------------------------
 
+def _truth_availability(
+    series_by_key: dict[tuple[str, str], Sequence[AcsObservation]],
+    anchor_years: Sequence[int],
+    horizons: Sequence[int],
+) -> dict[int, dict[int, dict[str, int]]]:
+    """Count, per (anchor, h), how many series have a positive 1-year
+    print at anchor+h and how many do not.
+
+    This is the fold universe every pass of `run_stratified_calibration`
+    iterates; a fold is dropped exactly when its series lands in
+    `no_truth`. Tabulated up front so the generator can refuse an anchor
+    with no truth anywhere and report partial horizons explicitly rather
+    than let them vanish inside the per-pass `continue`.
+    """
+    out: dict[int, dict[int, dict[str, int]]] = {
+        a: {h: {"with_truth": 0, "no_truth": 0} for h in horizons}
+        for a in anchor_years
+    }
+    for full in series_by_key.values():
+        truth_years = {
+            int(round(effective_year(o)))
+            for o in full if o.vintage == "1y" and o.estimate > 0
+        }
+        for a in anchor_years:
+            for h in horizons:
+                key = "with_truth" if (a + h) in truth_years else "no_truth"
+                out[a][h][key] += 1
+    return out
+
+
 def run_stratified_calibration(
     series_by_key: dict[tuple[str, str], Sequence[AcsObservation]],
     anchor_years: Sequence[int],
@@ -1148,6 +1179,40 @@ def run_stratified_calibration(
         tuning_anchors = anchor_list
         calibration_anchors = []
         evaluation_anchors = []
+
+    # ---- Truth availability: which (anchor, h) folds can exist at all ----
+    # Every pass below skips a fold whose target year has no 1-year print.
+    # That is correct, but it must not be silent: with the panel's truth
+    # ending at year T, anchor T-1 has h=1 folds only and anchor T has
+    # none. Tabulate it once, refuse an anchor with no truth at any
+    # horizon, and ship the table in the payload so a consumer can see
+    # which horizon buckets the conformal / evaluation anchors actually
+    # covered.
+    truth_availability = _truth_availability(series_by_key, anchor_list, horizon_list)
+    horizons_with_truth = {
+        a: [h for h in horizon_list if truth_availability[a][h]["with_truth"] > 0]
+        for a in anchor_list
+    }
+    empty_anchors = [a for a in anchor_list if not horizons_with_truth[a]]
+    if empty_anchors:
+        raise ValueError(
+            f"anchor year(s) {empty_anchors} have no 1-year truth at any horizon "
+            f"in {horizon_list}; drop them from anchor_years (the panel's truth "
+            f"ends before anchor+min(h))."
+        )
+    for a in anchor_list:
+        missing = [h for h in horizon_list if h not in horizons_with_truth[a]]
+        if missing:
+            role = (
+                "evaluation" if a in evaluation_anchors
+                else "calibration" if a in calibration_anchors
+                else "tuning"
+            )
+            print(
+                f"[calibration] anchor {a} ({role}): no truth at h={missing}; "
+                f"folds exist only at h={horizons_with_truth[a]}",
+                file=sys.stderr,
+            )
 
     # ---- Pass 0: phi calibration from MOE-derived variance decomposition ----
     # Runs before the fold-residual cache so that, when enable_phi=True,
@@ -1575,6 +1640,22 @@ def run_stratified_calibration(
     # When conformal is off, tuning_anchors == anchor_list so fold_residuals == all.
     if not calibration_anchors:
         fold_residuals = all_fold_residuals
+    # The split is by anchor year, so a calibration or evaluation anchor
+    # whose targets lie past the panel's truth would yield an empty set
+    # and a payload with no conformal records (or no evaluation) while
+    # looking otherwise normal. The truth-availability gate above already
+    # refuses an anchor with no truth at any horizon; this is the
+    # belt-and-braces check on the residuals that actually materialised.
+    if calibration_anchors and not conformal_residuals:
+        raise ValueError(
+            f"conformal calibration anchor {calibration_anchors} produced no "
+            f"fold residuals at horizons {horizon_list}"
+        )
+    if evaluation_anchors and not evaluation_residuals:
+        raise ValueError(
+            f"evaluation anchor {evaluation_anchors} produced no fold "
+            f"residuals at horizons {horizon_list}"
+        )
 
     # ---- Pass A: bias estimation per cell (with marginalisation) ----
     bias_records = _estimate_bias_records(
@@ -1678,6 +1759,24 @@ def run_stratified_calibration(
         "anchor_years": anchor_list,
         "horizons": horizon_list,
         "as_of_mode": as_of_mode,
+        # Which (anchor, h) folds could exist given the panel's truth, and
+        # which horizons the conformal / evaluation anchors actually
+        # covered. Anchors past the panel's truth minus 1 have partial
+        # horizons; the generator reports rather than hides that.
+        "fold_truth_availability": {
+            "by_anchor": {
+                str(a): {str(h): dict(truth_availability[a][h]) for h in horizon_list}
+                for a in anchor_list
+            },
+            "horizons_with_truth_by_anchor": {
+                str(a): horizons_with_truth[a] for a in anchor_list
+            },
+            "tuning_anchors": list(tuning_anchors),
+            "calibration_anchors": list(calibration_anchors),
+            "evaluation_anchors": list(evaluation_anchors),
+            "calibration_horizons": sorted({r.horizon for r in conformal_residuals}),
+            "evaluation_horizons": sorted({r.horizon for r in evaluation_residuals}),
+        },
         # Consumer gate for the v4 per-cell phi records: only when True did
         # the Pass 2 folds project at per-cell phi, so only then may the
         # ensemble apply it (ensemble._lookup_phi). Records are always

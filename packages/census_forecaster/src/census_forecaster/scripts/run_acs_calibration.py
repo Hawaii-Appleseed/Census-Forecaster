@@ -35,9 +35,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="First anchor year for walk-forward folds (default 2014).",
     )
     parser.add_argument(
-        "--anchor-end", type=int, default=2022,
-        help="Last anchor year for walk-forward folds (default 2022). "
-             "Leave 2023+ as out-of-sample.",
+        "--anchor-end", type=int, default=2023,
+        help="Last anchor year for walk-forward folds (default 2023). "
+             "Anchors whose targets run past the panel's truth keep only the "
+             "horizons that have truth (reported in fold_truth_availability).",
     )
     parser.add_argument(
         "--horizons", type=str, default="1,2,3,4,5",
@@ -136,6 +137,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     n_kappa = len(sr.get("se_inflator", []))
     n_bias  = len(sr.get("bias", []))
     print(f"      {n_kappa} κ strata records, {n_bias} bias records", file=sys.stderr)
+
+    # Which horizons the split anchors actually had truth for. Anchors
+    # within max(h) of the panel's last truth year have partial horizons;
+    # the generator tabulates them rather than dropping folds silently.
+    fta = payload.get("fold_truth_availability", {})
+    if fta:
+        print(
+            f"      fold split: tuning {fta.get('tuning_anchors')}, "
+            f"calibration {fta.get('calibration_anchors')} "
+            f"(h with truth: {fta.get('calibration_horizons')}), "
+            f"evaluation {fta.get('evaluation_anchors')} "
+            f"(h with truth: {fta.get('evaluation_horizons')})",
+            file=sys.stderr,
+        )
 
     # Coverage summary (marginalised)
     for ind, methods in sorted(
