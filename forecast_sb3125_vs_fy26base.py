@@ -179,6 +179,7 @@ def main(cd: str) -> None:
     rows = []
     quintile_frames, bracket_frames = [], []
     wedge_by_year = {}
+    year_reports = {}
 
     for yr in TARGET_YEARS:
         print(f"  TY {yr}...", flush=True)
@@ -196,6 +197,8 @@ def main(cd: str) -> None:
             top_bracket_differential=0.025,
             method="ensemble",
         )
+        if fwd is not None:
+            year_reports[yr] = fwd.calibration_report
         if fwd is not None and fwd.statute_vs_cor_wedge is not None:
             wedge_by_year[yr] = fwd
             print(
@@ -249,9 +252,12 @@ def main(cd: str) -> None:
 
     # ---- Manifested run output (canonical; /tmp copies kept above) ---------
     from tax_modeler.runs import tidy_long, write_run_manifest
-    from _forecast_common import RUNS_DIR, cache_provenance
+    from _forecast_common import RUNS_DIR, assemble_calibration_report, cache_provenance
     run_dir = RUNS_DIR / f"sb3125_cd{cd}_fy26base"
     run_dir.mkdir(parents=True, exist_ok=True)
+    # Base rake (from the artifact) + each year's re-anchoring: printed, and
+    # written as calibration_report.json next to the manifest.
+    assemble_calibration_report(cal_meta, year_reports, run_dir=run_dir)
     all_quintiles.to_csv(run_dir / "quintile.csv", index=False)
     all_brackets.to_csv(run_dir / "bracket.csv", index=False)
     tidy_long(all_quintiles, ["tax_year", "quintile"]).to_csv(

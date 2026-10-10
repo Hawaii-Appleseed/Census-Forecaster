@@ -290,6 +290,15 @@ def phase1_reweight(
     if '_tier_idx' in result.columns:
         drop_cols.append('_tier_idx')
     result.drop(columns=drop_cols, inplace=True)
+    # Convergence record for the calibration report (year_recalibrator reads
+    # it); a non-converged rake used to be a log line only.
+    result.attrs["phase1_rake"] = {
+        "converged": bool(converged),
+        "iterations": int(iteration),
+        "max_iterations": int(max_iterations),
+        "tolerance": float(tolerance),
+        "final_max_dev": float(max_deviation),
+    }
     return result
 
 

@@ -24,6 +24,15 @@ from typing import Dict, Tuple, List, Optional
 from dataclasses import dataclass
 
 from tax_modeler.calibration import dotax_base
+from tax_modeler.calibration.report import (
+    CalibrationReport,
+    ClipEvent,
+    DroppedBin,
+    MarginResidual,
+    WeightDiagnostics,
+    bracket_label,
+    warn_once_on_year_mismatch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,12 +142,15 @@ class IPFCalibrationOrchestrator:
                                          agi_col: str = 'agi',
                                          tax_col: str = 'hi_state_tax',
                                          weight_col: str = 'weight',
-                                         max_adjustment: float = 1.5) -> pd.DataFrame:
+                                         max_adjustment: float = 1.5,
+                                         events: Optional[List[ClipEvent]] = None,
+                                         iteration: Optional[int] = None) -> pd.DataFrame:
         """IPF step: Adjust weights to match tax total targets by AGI bracket."""
         return self.ipf_adjust_weights_to_weighted_sum(
             df, targets, value_col=tax_col, agi_col=agi_col,
             weight_col=weight_col, max_adjustment=max_adjustment,
             scale=1_000_000.0,  # column is in dollars; targets are $M
+            events=events, stage="tax_total_step", iteration=iteration,
         )
 
     def ipf_adjust_weights_to_weighted_sum(
@@ -150,20 +162,34 @@ class IPFCalibrationOrchestrator:
         weight_col: str = 'weight',
         max_adjustment: float = 1.5,
         scale: float = 1_000_000.0,
+        events: Optional[List[ClipEvent]] = None,
+        stage: str = "weighted_sum_step",
+        iteration: Optional[int] = None,
     ) -> pd.DataFrame:
         """Generic IPF step: scale weights per AGI bracket so that
         ``Σ(weight × value_col) / scale`` matches the per-bracket target.
 
         Used by both the DOTAX tax-total step (value_col='hi_state_tax')
         and the SOI AGI-total step (value_col='agi').
+
+        When ``events`` is a list, every factor the cap binds on is appended
+        to it as a :class:`ClipEvent` (the factor the bin asked for and the
+        one applied) — the calibration report's record of damping.
         """
         result = df.copy()
         for (min_agi, max_agi), target in targets.items():
             mask = (result[agi_col] >= min_agi) & (result[agi_col] < max_agi)
             current = (result.loc[mask, value_col] * result.loc[mask, weight_col]).sum() / scale
             if current > 0 and abs(current - target) > 0.1:
-                factor = target / current
-                factor = np.clip(factor, 1 / max_adjustment, max_adjustment)
+                requested = target / current
+                factor = float(np.clip(requested, 1 / max_adjustment, max_adjustment))
+                if events is not None and factor != requested:
+                    events.append(ClipEvent(
+                        stage=stage, key=bracket_label(min_agi, max_agi),
+                        requested=float(requested), applied=factor,
+                        bounds=(1 / max_adjustment, max_adjustment),
+                        iteration=iteration,
+                    ))
                 result.loc[mask, weight_col] *= factor
         return result
     
@@ -316,7 +342,9 @@ class IPFCalibrationOrchestrator:
         soi_max_adjustment: float = 1.10,
         skip_synthesis_bin: bool = True,
         infeasibility_threshold: float = 0.25,
-    ) -> pd.DataFrame:
+        return_report: bool = False,
+        soi_source_year: Optional[int] = None,
+    ) -> pd.DataFrame | Tuple[pd.DataFrame, CalibrationReport]:
         """Joint multi-pass IPF calibration.
 
         Wraps three margins (filer counts by AGI bracket, filing-status
@@ -352,10 +380,12 @@ class IPFCalibrationOrchestrator:
             Joint convergence threshold (max relative deviation across all
             three margins). Default 1%.
         tax_total_max_adjustment:
-            Per-bin scaling cap for ONE tax-total step. Kept small (1.15x)
-            for damping: each outer iteration nudges weights only ~15%
-            toward the tax target so the count rake can keep up. Effective
-            amplification across N iterations is up to ``cap^N`` (1.15^30 ≈ 66x).
+            Per-bin scaling cap for ONE tax-total step (damping: each outer
+            iteration moves a bin at most this far toward its tax target so
+            the count rake can keep up). Effective amplification across N
+            iterations is up to ``cap^N``. The default is 5.0; the docstring
+            said 1.15 until October 2026 while the code said 5.0. Every
+            binding cap is a ``ClipEvent`` in the report.
         skip_synthesis_bin:
             When True, omits the $1M+ bin from tax-total raking. PUMS
             topcodes top incomes, so this bin is unreachable pre-synthesis;
@@ -386,13 +416,27 @@ class IPFCalibrationOrchestrator:
         soi_max_adjustment:
             Per-bin scaling cap for the SOI AGI step. SOI AGI is more
             achievable than DOTAX tax (PUMS records have AGI directly),
-            so a tighter cap is appropriate. Default 2.0x.
+            so a tighter cap is appropriate. Default 1.10x (the docstring
+            said 2.0 until October 2026 while the code said 1.10).
+        return_report:
+            When True, return ``(calibrated_df, CalibrationReport)``. The
+            report is also attached as ``calibrated_df.attrs["calibration_report"]``
+            (a dict) either way.
+        soi_source_year:
+            Tax year of the SOI AGI margin, recorded in the report next to
+            the DOTAX margins' ``dotax_base.BASE_YEAR``; a one-time warning
+            fires when they differ. Defaults to
+            ``irs_soi_state_targets.SOI_TAX_YEAR``.
         """
         from pums_estimator.estimation.rake import rake as _rake  # lazy cross-package import
 
         result = df.copy()
         margins: Dict[str, Dict[str, float]] = {}
         temp_cols: List[str] = []
+        clip_events: List[ClipEvent] = []
+        dropped: List[DroppedBin] = []
+        report_warnings: List[str] = []
+        weights_before = WeightDiagnostics.from_weights(df["weight"].to_numpy(dtype=float))
 
         # --- filer-count margin ------------------------------------------
         if calibrate_filer_counts:
@@ -460,9 +504,20 @@ class IPFCalibrationOrchestrator:
                 if feasible_tax_m <= 0:
                     # Negative-tax bins (EITC-driven); rake can't fix.
                     infeasible_bins.append((lo, hi))
+                    dropped.append(DroppedBin(
+                        stage="tax_total_margin", key=bracket_label(lo, hi),
+                        reason="non-positive tax at the count target (credits exceed tax)",
+                        target=float(tgt), feasible=float(feasible_tax_m),
+                    ))
                     continue
                 if tgt > feasible_tax_m * (1 + infeasibility_threshold):
                     infeasible_bins.append((lo, hi))
+                    dropped.append(DroppedBin(
+                        stage="tax_total_margin", key=bracket_label(lo, hi),
+                        reason=(f"target exceeds {1 + infeasibility_threshold:.2f}x the tax "
+                                "feasible at the count target"),
+                        target=float(tgt), feasible=float(feasible_tax_m),
+                    ))
             for k in infeasible_bins:
                 del tax_targets[k]
             if infeasible_bins:
@@ -567,6 +622,9 @@ class IPFCalibrationOrchestrator:
         initial_weight = float(df["weight"].sum())
         history: List[Tuple[int, float, float, float]] = []
         converged = False
+        convergence_mode = "max_iterations"
+        outer = -1
+        last_max_dev: Optional[float] = None
         STALE_LIMIT = 3  # iterations with no meaningful improvement → fixed point
         STALE_TOL = 1e-4
         stale_count = 0
@@ -582,6 +640,7 @@ class IPFCalibrationOrchestrator:
                 result = self.ipf_adjust_weights_to_tax_totals(
                     result, tax_targets,
                     max_adjustment=tax_total_max_adjustment,
+                    events=clip_events, iteration=outer + 1,
                 )
 
             # Step 3: SOI AGI-total scaling (SOI bins)
@@ -590,6 +649,7 @@ class IPFCalibrationOrchestrator:
                     result, soi_targets_scaled,
                     value_col="agi",
                     max_adjustment=soi_max_adjustment,
+                    events=clip_events, stage="soi_agi_step", iteration=outer + 1,
                 )
 
             # Step 4: convergence check
@@ -599,6 +659,7 @@ class IPFCalibrationOrchestrator:
             soi_d = _max_dev_soi_agi(result)
             history.append((outer + 1, fc_d, fs_d, tt_d))
             max_dev = max(fc_d, fs_d, tt_d, soi_d)
+            last_max_dev = max_dev
             logger.info(
                 "Joint IPF outer iter %d: max_dev=%.4f "
                 "(filer_count=%.4f, filing_status=%.4f, tax_total=%.4f, soi_agi=%.4f)",
@@ -606,6 +667,7 @@ class IPFCalibrationOrchestrator:
             )
             if max_dev < outer_tolerance:
                 converged = True
+                convergence_mode = "tolerance"
                 logger.info(
                     "Joint IPF converged in %d outer iterations (max_dev=%.4f)",
                     outer + 1, max_dev,
@@ -624,6 +686,7 @@ class IPFCalibrationOrchestrator:
                     stale_count = 0
                 if stale_count >= STALE_LIMIT:
                     converged = True
+                    convergence_mode = "fixed_point"
                     logger.info(
                         "Joint IPF reached compromise fixed-point in %d outer "
                         "iterations (max_dev=%.4f — constraints jointly "
@@ -646,6 +709,88 @@ class IPFCalibrationOrchestrator:
         )
 
         result.drop(columns=temp_cols, inplace=True, errors="ignore")
+
+        # --- calibration report ------------------------------------------
+        dotax_year = dotax_base.BASE_YEAR
+        if soi_source_year is None:
+            from tax_modeler.calibration.irs_soi_state_targets import SOI_TAX_YEAR
+            soi_source_year = SOI_TAX_YEAR
+        source_years: Dict[str, Optional[int]] = {}
+        residuals: List[MarginResidual] = []
+        if calibrate_filer_counts:
+            source_years["dotax_filer_count"] = dotax_year
+            for (lo, hi), tgt in self.DOTAX_FILER_TARGETS.items():
+                cur = float(result.loc[(result["agi"] >= lo) & (result["agi"] < hi), "weight"].sum())
+                residuals.append(MarginResidual(
+                    "dotax_filer_count", bracket_label(lo, hi), float(tgt), cur,
+                    source="DOTAX Table A-8 returns", source_year=dotax_year,
+                    counted=not (skip_synthesis_bin and lo >= 1_000_000) and tgt > 0,
+                ))
+        if calibrate_filing_status:
+            source_years["dotax_filing_status"] = dotax_year
+            for fs, tgt in self.DOTAX_FILING_STATUS_TARGETS.items():
+                cur = float(result.loc[result["filing_status"] == fs, "weight"].sum())
+                residuals.append(MarginResidual(
+                    "dotax_filing_status", fs, float(tgt), cur,
+                    source="DOTAX Table 4 filing status", source_year=dotax_year,
+                    counted=tgt > 0,
+                ))
+        if calibrate_tax_totals:
+            source_years["dotax_tax_M"] = dotax_year
+            for (lo, hi), tgt in self.DOTAX_TAX_TARGETS.items():
+                mask = (result["agi"] >= lo) & (result["agi"] < hi)
+                cur = float((result.loc[mask, "hi_state_tax"] * result.loc[mask, "weight"]).sum() / 1e6)
+                residuals.append(MarginResidual(
+                    "dotax_tax_M", bracket_label(lo, hi), float(tgt), cur,
+                    source="DOTAX Table A-8 tax before credits ($M)", source_year=dotax_year,
+                    counted=(lo, hi) in tax_targets and tgt > 0.5 and cur > 0,
+                ))
+        if calibrate_soi_agi and soi_agi_targets_M:
+            source_years["soi_agi_M"] = soi_source_year
+            for (lo, hi), tgt in soi_agi_targets_M.items():
+                mask = (result["agi"] >= lo) & (result["agi"] < hi)
+                cur = float((result.loc[mask, "agi"] * result.loc[mask, "weight"]).sum() / 1e6)
+                scaled = float(tgt * soi_universe_scale)
+                residuals.append(MarginResidual(
+                    "soi_agi_M", bracket_label(lo, hi), scaled, cur,
+                    source=f"IRS SOI Table 2 AGI ($M, x{soi_universe_scale:.4f} universe scale)",
+                    source_year=soi_source_year,
+                    counted=(lo, hi) in soi_targets_scaled and scaled > 0.5 and cur > 0,
+                ))
+        mismatch = warn_once_on_year_mismatch(source_years)
+        if mismatch:
+            report_warnings.append(mismatch)
+        if not converged:
+            report_warnings.append(
+                f"Joint IPF did not converge in {max_outer_iters} outer iterations"
+            )
+        elif convergence_mode == "fixed_point" and last_max_dev is not None \
+                and last_max_dev >= outer_tolerance:
+            report_warnings.append(
+                f"Joint IPF stopped at a compromise fixed point after {outer + 1} outer "
+                f"iterations: max relative deviation {last_max_dev:.4f} is above the "
+                f"{outer_tolerance:g} tolerance (margins are jointly inconsistent)"
+            )
+
+        report = CalibrationReport(
+            stage="base_ipf_rake",
+            converged=converged,
+            iterations=outer + 1,
+            max_iterations=max_outer_iters,
+            tolerance=outer_tolerance,
+            final_max_dev=float(last_max_dev) if last_max_dev is not None else None,
+            convergence_mode=convergence_mode,
+            margins=residuals,
+            clip_events=clip_events,
+            dropped_bins=dropped,
+            weights_before=weights_before,
+            weights_after=WeightDiagnostics.from_weights(result["weight"].to_numpy(dtype=float)),
+            source_years=source_years,
+            warnings=report_warnings,
+        )
+        result.attrs["calibration_report"] = report.to_dict()
+        if return_report:
+            return result, report
         return result
 
     def _validate_filer_counts(self, df: pd.DataFrame) -> Dict[str, float]:
@@ -822,7 +967,8 @@ def apply_ipf_calibration_via_rake(
     calibrate_tax_totals: bool = True,
     calibrate_filing_status: bool = True,
     calibrate_soi_agi: bool = True,
-) -> pd.DataFrame:
+    return_report: bool = False,
+) -> pd.DataFrame | Tuple[pd.DataFrame, CalibrationReport]:
     """
     IPF calibration using pums_estimator's canonical rake() engine.
 
@@ -838,9 +984,13 @@ def apply_ipf_calibration_via_rake(
         calibrate_filer_counts: Rake to DOTAX filer-count targets by AGI bracket.
         calibrate_tax_totals: Scale weights to DOTAX tax-total targets by AGI bracket.
         calibrate_filing_status: Rake to DOTAX filing-status distribution.
+        return_report: When True, return ``(df, CalibrationReport)`` — the
+            convergence, residual, clip-event and weight-dispersion record
+            of the rake (``calibration.report``). The report is attached to
+            ``df.attrs["calibration_report"]`` (as a dict) either way.
 
     Returns:
-        Calibrated DataFrame.
+        Calibrated DataFrame (and the report when ``return_report``).
     """
     orchestrator = IPFCalibrationOrchestrator(
         max_iterations=max_iterations,
@@ -884,4 +1034,5 @@ def apply_ipf_calibration_via_rake(
         calibrate_soi_agi=calibrate_soi_agi,
         soi_agi_targets_M=soi_agi_targets_M,
         soi_universe_scale=soi_universe_scale,
+        return_report=return_report,
     )

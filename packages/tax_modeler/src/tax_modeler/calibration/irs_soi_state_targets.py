@@ -15,6 +15,16 @@ adds complementary anchors that DOTAX doesn't publish:
 We use these as auxiliary IPF margins with a coarser bin layout
 (6 bins vs DOTAX's 15) and reconcile them by aggregating DOTAX targets
 to SOI bin boundaries when both are active in the rake.
+
+**Year mismatch (known, deliberate, not adjusted).** These margins are
+**TY2022** (``SOI_TAX_YEAR``), the newest state-level SOI on file, while the
+DOTAX count, filing-status and tax margins they are raked jointly with are
+**TY2023** (``dotax_base.BASE_YEAR``). The SOI AGI totals are used as
+published — no growth factor bridges the year — so the rake asks TY2023
+counts to carry TY2022 AGI. ``calibrate_via_rake`` records each margin's
+source year in its ``CalibrationReport`` and warns once per process when
+they differ. Replace ``hawaii_irs_soi_processed.csv`` with the TY2023 extract
+and bump ``SOI_TAX_YEAR`` to close the gap.
 """
 
 from __future__ import annotations
@@ -26,6 +36,10 @@ from typing import Dict, List, Tuple, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Tax year of the SOI extract on file (see the module docstring on the
+# mismatch with DOTAX's TY2023 margins).
+SOI_TAX_YEAR = 2022
 
 # IRS SOI Table 2 AGI bins (Hawaii, TY 2022)
 SOI_AGI_BINS: List[Tuple[float, float]] = [

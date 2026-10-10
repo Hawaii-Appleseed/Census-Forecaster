@@ -135,6 +135,11 @@ GRID = "#d4d4d4"
 # Population
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Calibration-report bookkeeping: the base artifact's embedded report and
+# each year's re-anchoring report (year_recalibrator), assembled at the end.
+CALIBRATION: dict = {"base_meta": None, "years": {}}
+
+
 def build_base() -> pd.DataFrame:
     """Calibrated base + $1M+ synthesis, identical to forecast_act24_vs_pre_act46.py."""
     from tax_modeler.artifacts import load_calibrated_base
@@ -152,6 +157,7 @@ def build_base() -> pd.DataFrame:
         print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd 2 first.")
         sys.exit(1)
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
+    CALIBRATION["base_meta"] = cal_meta
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
     units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
     units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
@@ -174,7 +180,7 @@ def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
     from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
     from tax_modeler.pipeline import compute_base_tax
 
-    projected, _ = project_and_recalibrate(
+    projected, fwd = project_and_recalibrate(
         units,
         target_year=yr,
         use_forward_targets=True,
@@ -187,6 +193,8 @@ def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
         top_bracket_differential=0.025,
         method="ensemble",
     )
+    if fwd is not None:
+        CALIBRATION["years"][yr] = fwd.calibration_report
     ded = scale_deduction_params_for_target_year(yr, geoid="15003")
     projected = compute_base_tax(projected.copy(), tax_year=yr, deduction_params=ded)
     return projected[projected["weight"] > 0.01].reset_index(drop=True)
@@ -403,7 +411,8 @@ def run() -> None:
 
     from tax_modeler.runs import write_run_manifest
 
-    from _forecast_common import cache_provenance
+    from _forecast_common import assemble_calibration_report, cache_provenance
+    assemble_calibration_report(CALIBRATION["base_meta"], CALIBRATION["years"], run_dir=OUT_DIR)
     write_run_manifest(
         OUT_DIR, script="forecast_cg_rate_options.py",
         params={"years": YEARS, "dist_years": DIST_YEARS, "beta": BETA,

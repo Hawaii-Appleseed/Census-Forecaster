@@ -282,6 +282,15 @@ def project_and_recalibrate(
         filer_targets=forward.filer_targets,
         status_targets=forward.status_targets,
     )
+    # Calibration-report bookkeeping: Phase 1's convergence record (attrs do
+    # not survive the re-scoring below, so copy it now) and the clamp events
+    # of the tier rake in 5c.
+    from tax_modeler.calibration.report import (
+        CalibrationReport, ClipEvent, MarginResidual, WeightDiagnostics, bracket_label,
+    )
+    phase1_info = dict(raked.attrs.get("phase1_rake", {}))
+    weights_before = WeightDiagnostics.from_weights(aliased["weight"].to_numpy(dtype=float))
+    tier_clip_events: list = []
     post_top = raked.loc[raked["agi"] >= top_premium_threshold, "weight"].sum()
     delta_pct = (post_top / pre_top - 1) * 100 if pre_top > 0 else 0.0
     logger.info(
@@ -403,9 +412,14 @@ def project_and_recalibrate(
                     continue
                 current_M = float((agi_arr[mask] * w_arr[mask]).sum() / 1e6)
                 if current_M > 0 and target_M > 0:
-                    factor = target_M / current_M
+                    requested = target_M / current_M
                     # Cap factor to avoid extreme weight changes
-                    factor = float(np.clip(factor, 0.5, 2.0))
+                    factor = float(np.clip(requested, 0.5, 2.0))
+                    if factor != requested:
+                        tier_clip_events.append(ClipEvent(
+                            stage="tier_rake", key=f"tier ${lo / 1e6:.1f}M+",
+                            requested=float(requested), applied=factor, bounds=(0.5, 2.0),
+                        ))
                     w_arr[mask] *= factor
                     logger.info(
                         f"  Tier ${lo/1e6:>4.1f}M+: ${current_M:>6.0f}M → "
@@ -453,4 +467,71 @@ def project_and_recalibrate(
 
     # ── 6. Mirror calibrated tax back to canonical column ───────────────────
     final = _propagate_tax_changes(calibrated)
+
+    # ── 7. Calibration report for this year ─────────────────────────────────
+    residuals = []
+    for (lo, hi), tgt in forward.filer_targets.items():
+        cur = float(final.loc[(final["agi"] >= lo) & (final["agi"] < hi), "weight"].sum())
+        residuals.append(MarginResidual(
+            "forward_filer_count", bracket_label(lo, hi), float(tgt), cur,
+            source="DOTAX-shaped forward count", source_year=target_year, counted=tgt > 0,
+        ))
+    for fs, tgt in forward.status_targets.items():
+        cur = float(final.loc[final["filing_status"] == fs, "weight"].sum())
+        residuals.append(MarginResidual(
+            "forward_filing_status", str(fs), float(tgt), cur,
+            source="DOTAX-shaped forward status", source_year=target_year, counted=tgt > 0,
+        ))
+    for (lo, hi), tgt in forward.tax_targets.items():
+        mask = (final["agi"] >= lo) & (final["agi"] < hi)
+        cur = float((final.loc[mask, "hi_state_tax"] * final.loc[mask, "weight"]).sum() / 1e6)
+        residuals.append(MarginResidual(
+            "forward_tax_M", bracket_label(lo, hi), float(tgt), cur,
+            source="COR-anchored forward tax ($M, post Phase 2)", source_year=target_year,
+            # Same rule as the base rake: credit-dominated (negative-tax)
+            # bottom bins are reported but not counted.
+            counted=tgt > 0.5 and cur > 0,
+        ))
+    if forward.tier_agi_targets and "synthetic_tier_lo" in final.columns:
+        tier_lo = final["synthetic_tier_lo"].fillna(-1).to_numpy(dtype=float)
+        for (lo, _hi), tgt in sorted(forward.tier_agi_targets.items()):
+            mask = tier_lo == lo
+            cur = float((final.loc[mask, "agi"] * final.loc[mask, "weight"]).sum() / 1e6)
+            residuals.append(MarginResidual(
+                "tier_agi_M", f"tier ${lo / 1e6:.1f}M+", float(tgt), cur,
+                source="SOI Table 1.4 tier AGI ($M)", source_year=target_year,
+                counted=bool(mask.any()) and tgt > 0,
+            ))
+    warnings_ = []
+    if phase1_info and not phase1_info.get("converged", True):
+        warnings_.append(
+            f"Phase 1 filer rake did not converge in {phase1_info.get('max_iterations')} "
+            f"iterations (max_dev={phase1_info.get('final_max_dev'):.4f})"
+        )
+    if abs(forward.statute_vs_cor_wedge - 1.0) > 0.02:
+        warnings_.append(
+            f"Statute-vs-COR wedge {forward.statute_vs_cor_wedge:.3f}: reported levels are "
+            "statutory, not COR-anchored"
+        )
+    report = CalibrationReport(
+        stage="year_recalibration",
+        converged=bool(phase1_info.get("converged", True)),
+        iterations=int(phase1_info.get("iterations", 0)),
+        max_iterations=int(phase1_info.get("max_iterations", 0)),
+        tolerance=float(phase1_info.get("tolerance", float("nan"))),
+        final_max_dev=phase1_info.get("final_max_dev"),
+        convergence_mode="tolerance" if phase1_info.get("converged", True) else "max_iterations",
+        target_year=target_year,
+        margins=residuals,
+        clip_events=tier_clip_events,
+        weights_before=weights_before,
+        weights_after=WeightDiagnostics.from_weights(final["weight"].to_numpy(dtype=float)),
+        source_years={"dotax_base": dotax_base.BASE_YEAR,
+                      "soi_tiers": soi_year if use_soi_anchor else None},
+        statutory_tax_M=float(pre_tax_M),
+        cor_tax_M=float(forward.aggregate_tax_M),
+        statute_vs_cor_wedge=float(forward.statute_vs_cor_wedge),
+        warnings=warnings_,
+    )
+    forward = dataclasses.replace(forward, calibration_report=report)
     return final, forward

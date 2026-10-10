@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -133,6 +133,11 @@ class ForwardTargets:
         Phase 2 multipliers absorb. Scenario scripts re-score statutorily and
         so report STATUTORY levels, not COR-anchored ones — this wedge is the
         gap between the two and should be reported alongside every level.
+    calibration_report:
+        Filled in by ``project_and_recalibrate``: a
+        ``calibration.report.CalibrationReport`` for this year's re-anchoring
+        (Phase 1 convergence, tier-rake clamp events, residuals against the
+        forward targets, weight dispersion, the wedge above).
     """
     year: int
     filer_targets: Dict[Tuple[float, float], int]
@@ -143,6 +148,7 @@ class ForwardTargets:
     tier_agi_targets: Optional[Dict[Tuple[float, float], float]] = None
     statutory_tax_M: Optional[float] = None
     statute_vs_cor_wedge: Optional[float] = None
+    calibration_report: Optional[Any] = None
 
 
 def _back_cast_cor(year: int, cor_projections_M: Dict[int, float]) -> float:

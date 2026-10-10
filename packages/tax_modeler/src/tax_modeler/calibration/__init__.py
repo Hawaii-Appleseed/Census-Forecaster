@@ -11,6 +11,13 @@ from .ipf_orchestrator import (
     apply_ipf_calibration,
     apply_ipf_calibration_via_rake,
 )
+from .report import (
+    CalibrationReport,
+    ClipEvent,
+    DroppedBin,
+    MarginResidual,
+    WeightDiagnostics,
+)
 from .dotax_soi_parser import DOTAXSOIParser
 from .ipf_calibration import IPFCalibrator, create_benchmarks_from_dotax, calibrate_pums_with_ipf
 from .irs_bracket_calibration import IRSBracketCalibrator, calibrate_with_irs_brackets
@@ -47,6 +54,11 @@ __all__ = [
     'IPFCalibrationOrchestrator',
     'apply_ipf_calibration',
     'apply_ipf_calibration_via_rake',
+    'CalibrationReport',
+    'ClipEvent',
+    'DroppedBin',
+    'MarginResidual',
+    'WeightDiagnostics',
     'DOTAXSOIParser',
     'IPFCalibrator',
     'create_benchmarks_from_dotax',

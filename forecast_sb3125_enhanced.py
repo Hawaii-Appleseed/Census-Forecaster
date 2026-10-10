@@ -16,7 +16,9 @@ Improvements over forecast_sb3125.py:
      actual rate change (not a hard-coded 11% → 13%). This correctly
      captures behavior for $350K–$1M MFJ filers (and equivalents) who
      also face rate increases under the bill, not just $1M+ filers.
-     Saez/Slemrod/Giertz range: ETI=0.15 (low) / 0.25 (mid) / 0.40 (high).
+     ETI = 0.15 (weak response; the HIGH-revenue scenario) / 0.40 (MID) /
+     0.60 (strong; the LOW-revenue scenario) — ``BehavioralParams`` in
+     scenarios/behavioral_response.py is the source of truth.
 
   2. **Migration response** — share of $1M+ filers who leave per pp of
      top-rate change (0.001 / 0.0025 / 0.01; US state-tax evidence, see
@@ -93,7 +95,9 @@ capture is 0 in all, Act 58):
     LOW       — eti=0.60, migration=0.01,   alpha=1.7, reec=obbba_severe
     MID       — eti=0.40, migration=0.0025, alpha=1.5, reec=obbba_mid  [no recession]
     HIGH      — eti=0.15, migration=0.001,  alpha=1.4, reec=pre_obbba
-    RECESSION — MID behavioral params + moderate recession macro shock
+    RECESSION — MID behavioral params + moderate recession macro shock,
+                except top_premium=0.013 (MID is 0.010; see the scenario
+                parameter audit of October 9, 2026 in SB3125_CD1_FORECAST.md)
                 (−2.0% all-filer income in 2027, −3.5% top-income, partial
                 rebound 2028, back to baseline 2029+)
 
@@ -180,9 +184,11 @@ SCENARIOS = [
         "label":  "RECESSION",
         "alpha":  1.5,                # same as MID
         "reec":   "obbba_mid",
-        "behav":  "mid",              # MID behavioral: ETI=0.40, migr=0.10, pte=0.70
+        "behav":  "mid",              # MID behavioral: ETI=0.40, migr=0.0025, pte=0
         "corp_agi_limit": False,
-        "top_premium":     0.013,
+        "top_premium":     0.013,     # +1.3%/yr — NOT MID's 0.010. Left at the pre-May-2026
+                                      # MID value when MID was lowered; undocumented, flagged
+                                      # in SB3125_CD1_FORECAST.md (audit, Oct 9, 2026). Unchanged.
         "reec_eff_share":  0.65,
         "cgec_growth":     0.015,     # same as MID
         "macro_shock":     "moderate",
@@ -447,7 +453,7 @@ if __name__ == "__main__":
         print("Importing modules...", flush=True)
         # The scenario workers import their own dependencies; the main process
         # only needs the one-time calibration setup (enrich, base tax, rake).
-        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, _calibrate
+        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, calibrate
         from tax_modeler.config.tax_system_config import TaxSystemRegistry
 
         get_scenario_system = (
@@ -472,7 +478,12 @@ if __name__ == "__main__":
         print(f"  Loaded itemized-deduction params for calibration", flush=True)
 
         units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        calibrated_base = _calibrate(units)
+        calibrated_base, CAL_REPORT = calibrate(units, return_report=True)
+        # What the rake did: convergence, residuals, clip events, weight
+        # dispersion. Cells go to calibration_report.json with the run.
+        print("\n" + CAL_REPORT.to_markdown(max_cells=0) + "\n", flush=True)
+        if not CAL_REPORT.converged:
+            print("!! Base IPF rake did not converge — see the report above.", flush=True)
         # Re-compute Hawaii tax post-calibration so hi_tax_liability reflects
         # final calibrated weights with itemized deductions on.
         calibrated_base = _compute_base_tax(
@@ -515,7 +526,10 @@ if __name__ == "__main__":
         save_calibrated_base(
             calibrated_base, calibrated_pkl,
             deduction_params=CAL_DED_PARAMS, tax_year=2023,
-            extra_meta={"built_by": "forecast_sb3125_enhanced.py", "cd": CD},
+            extra_meta={"built_by": "forecast_sb3125_enhanced.py", "cd": CD,
+                        # Consumers (fy26base, cg_rate_options) print and
+                        # persist it with their own per-year reports.
+                        "calibration_report": CAL_REPORT.to_dict()},
         )
 
         # Capital gains: DOTAX anchors MID; every scenario rescales its gains
@@ -558,9 +572,10 @@ if __name__ == "__main__":
 
         # ---- Manifested run output (canonical; /tmp copy kept above) --------
         from tax_modeler.runs import tidy_long, write_run_manifest
-        from _forecast_common import RUNS_DIR, cache_provenance
+        from _forecast_common import CALIBRATION_REPORT_NAME, RUNS_DIR, cache_provenance
         RUN_DIR = RUNS_DIR / f"sb3125_cd{CD}_enhanced"
         RUN_DIR.mkdir(parents=True, exist_ok=True)
+        CAL_REPORT.to_json(RUN_DIR / CALIBRATION_REPORT_NAME)  # listed in the manifest's outputs
         df.to_csv(RUN_DIR / "enhanced.csv", index=False)
         tidy_long(df, ["scenario", "tax_year"]).to_csv(
             RUN_DIR / "fiscal_tidy.csv", index=False,

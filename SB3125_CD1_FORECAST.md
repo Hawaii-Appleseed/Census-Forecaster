@@ -15,6 +15,85 @@
 
 ---
 
+## Calibration report and scenario parameter audit — October 9, 2026 (no result changes)
+
+**No number in this document changes.** This entry records hygiene from a forecast
+audit: the calibration now *reports* what it does, and four stale comments are
+corrected. Every target, cap, clamp, tolerance and scenario parameter is as it was.
+
+### What the calibration report exposes
+
+`tax_modeler.calibration.report.CalibrationReport` (new) is returned by
+`calibrate_via_rake` / `apply_ipf_calibration_via_rake(return_report=True)` and
+`pipeline.calibrate(return_report=True)`, attached to the calibrated frame's
+`attrs["calibration_report"]`, embedded in the calibrated-base artifact's metadata by
+`forecast_sb3125_enhanced.py`, and filled per projection year by
+`year_recalibrator.project_and_recalibrate` (`ForwardTargets.calibration_report`).
+The four headline scripts (`forecast_sb3125_enhanced.py`, `forecast_sb3125_vs_fy26base.py`,
+`forecast_cg_rate_options.py`, `forecast_working_family_credits.py`) print it and write
+`calibration_report.json` next to their `manifest.json`. It records:
+
+- **Convergence** — mode (`tolerance`, `fixed_point`, `max_iterations`), iterations, final
+  max relative deviation. Non-convergence is in the report (and its `warnings`), not only
+  in a log line.
+- **Per-margin residuals** — target vs achieved for every cell of every margin, with the
+  margin's **source year**, and whether the cell counts toward convergence.
+- **Clip/cap and drop events** — the damped tax-total step's per-bin cap (code default
+  5.0×; its docstring said 1.15× — corrected), the SOI AGI step's cap (code default 1.10×;
+  docstring said 2.0× — corrected), the $1M+ tier rake's [0.5, 2.0] clamp, and every bin
+  the 1.25× feasibility rule drops from the tax margin.
+- **Weight dispersion** before and after — Kish design effect, effective sample size,
+  max/mean and min/mean weight ratios, share of weight on the top 1% of units.
+- **Statute-vs-COR wedge** per projection year.
+
+**What it shows on the TY2023 base rake (HI 5-year 2020–24 cache, 39,996 units):**
+the joint IPF stops at a *compromise fixed point* after 9 of 30 outer iterations and
+is logged as converged, with a final max relative deviation of **0.188** against the 1%
+tolerance. Filer counts are within 1% in only 2 of 14 counted brackets — $150–200K is
++18.8%, $500–750K +15.9%, $100–150K +15.9%; MFJ is +10.2%. Tax totals hit the $200K–$1M
+bins exactly and sit at the +10% cap in $75K–$200K; three bins ($0–30K) are dropped
+as infeasible. The SOI AGI step clips 18 times (all $100–200K, asked ×1.115, applied
+×1.10). Weights: Kish deff 2.02 → 2.14, ESS 19,774 → 18,663, max/mean 18.3 → 19.7,
+top-1% share 6.8% → 7.3%. The report now says so where before only a log line did.
+
+**Per projection year (MID path, `project_and_recalibrate` with the SOI anchor and CBO
+aging):** Phase 1 converges in 3–4 of 100 iterations (max dev 0.002 vs 0.005); the tier
+rake's [0.5, 2.0] clamp never binds; the statute-vs-COR wedge is **0.871 in TY2027**
+(statutory $2,674M vs COR $3,071M) and **1.053 in TY2031** ($3,423M vs $3,252M); weight
+dispersion grows with the horizon (ESS 18,203 → 17,337 in TY2027, → 16,081 in TY2031;
+max/mean 43.8 → 46.1 → 67.5; the SOI-tier synthesis zeroes 101–188 units). Forward
+filer counts miss in the $500K–$1M brackets (TY2031: $500–750K −18.8%, $750K–$1M +32.2%),
+which the synthesis-then-no-rerake design leaves as is.
+
+### SOI/DOTAX year mismatch (made explicit; not changed)
+
+`calibration/irs_soi_state_targets.py` supplies **TY2022** AGI margins
+(`SOI_TAX_YEAR`), raked jointly with DOTAX **TY2023** counts, status and tax
+(`dotax_base.BASE_YEAR`). The targets are used as published, with no growth factor
+bridging the year. The report records each margin's source year and the orchestrator
+warns once per process when they differ. The module docstring says how to close the gap
+(TY2023 SOI extract + bump `SOI_TAX_YEAR`).
+
+### Scenario parameter audit — October 9, 2026
+
+`forecast_sb3125_enhanced.py` comments corrected to match code; values unchanged:
+
+- The header's ETI line said 0.15 / 0.25 / 0.40; `BehavioralParams` uses **0.15 (HIGH
+  scenario, weak response) / 0.40 (MID) / 0.60 (LOW, strong)**.
+- RECESSION's comment said `migr=0.10, pte=0.70`; MID behavioral is **migr=0.0025,
+  pte=0** (Act 58).
+- **RECESSION carries `top_premium=0.013` against MID's `0.010`** while being described
+  as "MID behavioral params". This is the pre-May-2026 MID value that was not lowered with
+  MID's (noted under §8b on September 29, 2026 as the reason RECESSION outgrows MID in
+  2030–31). It is undocumented as a deliberate choice. **Flagged, not changed:** the
+  comment now says so, and the RECESSION rows in the results tables carry it.
+- Not changed either: the §8a scenario table below lists top premium +1.3%/yr (MID),
+  REEC nonrefundable utilization 65/80/100% and CGEC growth 2/3/4%/yr, where the script
+  has 0.3/1.0/2.3%, 50/65/80% and 1/1.5/2.5%. The script is the source of truth; the
+  table is stale and should be reconciled in a results-bearing entry.
+
+---
+
 ## DOTAX TY2023 base and the TY2024 EITC report — October 8, 2026 (supersedes the Act 24 tables below)
 
 DOTAX published *Hawaiʻi Individual Income Tax Statistics, Tax Year 2023*

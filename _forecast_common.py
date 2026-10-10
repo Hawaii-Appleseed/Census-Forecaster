@@ -51,6 +51,50 @@ def cache_provenance() -> dict | None:
         return json.load(f)
 
 
+CALIBRATION_REPORT_NAME = "calibration_report.json"
+
+
+def assemble_calibration_report(
+    base_meta: dict | None,
+    year_reports: dict | None = None,
+    *,
+    run_dir: Path | None = None,
+    print_report: bool = True,
+):
+    """The run's calibration report: the base rake's (embedded in the
+    calibrated-base artifact by forecast_sb3125_enhanced.py) with each
+    projection year's re-anchoring report as a child.
+
+    Prints the markdown summary (cells go to the JSON, not the console) and,
+    when ``run_dir`` is given, writes ``calibration_report.json`` next to the
+    run's manifest. Returns the report.
+    """
+    from tax_modeler.calibration.report import CalibrationReport
+
+    embedded = (base_meta or {}).get("calibration_report")
+    if embedded:
+        report = CalibrationReport.from_dict(embedded)
+    else:
+        report = CalibrationReport(
+            stage="base_ipf_rake (not recorded)", converged=True, iterations=0,
+            max_iterations=0, tolerance=float("nan"),
+            warnings=["The calibrated-base artifact predates the calibration report; "
+                      "re-run forecast_sb3125_enhanced.py to embed it."],
+        )
+    for yr in sorted(year_reports or {}):
+        child = year_reports[yr]
+        if child is not None:
+            report.children.append(child)
+    if print_report:
+        print("\n" + report.to_markdown(max_cells=0), flush=True)
+        if report.any_nonconverged():
+            print("\n!! A calibration stage did not converge — see the report above.", flush=True)
+    if run_dir is not None:
+        path = report.to_json(Path(run_dir) / CALIBRATION_REPORT_NAME)
+        print(f"Saved calibration report: {path}", flush=True)
+    return report
+
+
 def silence_noise() -> None:
     """Suppress library warnings/log spam in analytical script output."""
     warnings.filterwarnings("ignore")

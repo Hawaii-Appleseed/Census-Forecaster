@@ -231,6 +231,42 @@ def run() -> None:
     by_family_type(u).to_csv(OUT_DIR / f"by_family_type_ty{POVERTY_YEAR}.csv", index=False)
     poverty(u, persons).to_csv(OUT_DIR / f"poverty_ty{POVERTY_YEAR}.csv", index=False)
 
+    # Calibration report. This script runs no IPF rake: its calibration is the
+    # two closed-form take-up factors above, fitted to one DOTAX year each.
+    # Record those as margins (with their source years), the EITC/food
+    # out-of-sample checks, and the weight dispersion of the population the
+    # factors are applied to (PUMS 1-year weights after the EITC reweight).
+    from tax_modeler.calibration.report import (
+        CalibrationReport, MarginResidual, WeightDiagnostics,
+    )
+    from _forecast_common import CALIBRATION_REPORT_NAME
+    cal_margins = []
+    for _, row in cal.iterrows():
+        if row["dotax"] is None or pd.isna(row["dotax"]):
+            continue
+        name = str(row["check"])
+        src_year = int(name[2:6]) if name.startswith("TY") else None
+        cal_margins.append(MarginResidual(
+            "eitc" if "EITC" in name else "food_excise", name,
+            float(row["dotax"]), float(row["model"]),
+            source="DOTAX Credits Claimed / EITC report", source_year=src_year,
+            counted="(fit)" in name,
+        ))
+    cal_report = CalibrationReport(
+        stage="credit_takeup_calibration",
+        converged=True, iterations=1, max_iterations=1, tolerance=0.0,
+        convergence_mode="closed_form",
+        margins=cal_margins,
+        weights_before=WeightDiagnostics.from_weights(base["weight"].to_numpy(dtype=float)),
+        weights_after=WeightDiagnostics.from_weights(wE),
+        source_years={"eitc_takeup": EITC_CAL_YEAR, "food_excise_takeup": CAL_YEAR},
+        warnings=[f"take-up factors: EITC {p_eitc:.3f} (TY{EITC_CAL_YEAR}), "
+                  f"food/excise {p_food:.3f} (TY{CAL_YEAR}); above 1 a factor scales "
+                  "dollars, not claims"],
+    )
+    print("\n" + cal_report.to_markdown(), flush=True)
+    cal_report.to_json(OUT_DIR / CALIBRATION_REPORT_NAME)
+
     from tax_modeler.runs import write_run_manifest
     write_run_manifest(
         OUT_DIR, script="forecast_working_family_credits.py",

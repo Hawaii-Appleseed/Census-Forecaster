@@ -482,16 +482,28 @@ def apply_credit_takeup(
     )
 
 
-def calibrate(df: pd.DataFrame) -> pd.DataFrame:
-    """Stage 5: IPF rake calibration against DOTAX aggregate benchmarks."""
+def calibrate(df: pd.DataFrame, *, return_report: bool = False):
+    """Stage 5: IPF rake calibration against DOTAX aggregate benchmarks.
+
+    With ``return_report=True`` returns ``(calibrated, CalibrationReport)``;
+    the report (convergence, per-margin residuals, clip events, weight
+    dispersion — ``tax_modeler.calibration.report``) is attached to
+    ``calibrated.attrs["calibration_report"]`` as a dict either way. A rake
+    that did not converge is recorded there, not only in the log.
+    """
     from tax_modeler.calibration import apply_ipf_calibration_via_rake
 
-    calibrated = apply_ipf_calibration_via_rake(df)
+    calibrated, report = apply_ipf_calibration_via_rake(df, return_report=True)
     logger.info(
-        "IPF calibration complete: weight sum %.0f → %.0f",
+        "IPF calibration complete: weight sum %.0f → %.0f (%s, %d iterations, ESS %.0f)",
         df["weight"].sum(),
         calibrated["weight"].sum(),
+        "converged" if report.converged else "NOT converged",
+        report.iterations,
+        report.weights_after.effective_n if report.weights_after else float("nan"),
     )
+    if return_report:
+        return calibrated, report
     return calibrated
 
 
