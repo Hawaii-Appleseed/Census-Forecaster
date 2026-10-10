@@ -549,6 +549,16 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
                    help="(Default OFF.) Rake unit weights so per-HD totals "
                         "match IRS SOI ZIP filer counts, holding PUMA "
                         "marginals fixed. Tightens district-level uncertainty.")
+    p.add_argument("--carry-calibration-ratio", action=argparse.BooleanOptionalAction,
+                   default=False,
+                   help="(Default OFF.) Weight each SPM unit by WGTP times the mean "
+                        "calibration ratio of its tax units (calibrated weight / "
+                        "PUMS weight: the filing-status factors and the EITC "
+                        "by-children reweight), and scale the replicate weights "
+                        "by the same ratio, so poverty runs on the revenue path's "
+                        "weight basis instead of raw WGTP. Opt-in: it moves the "
+                        "TY2024 baseline SPM rate by more than 0.5pp (see "
+                        "SB3125_CD1_FORECAST.md, October 9, 2026).")
     p.add_argument("--replicate-se", action="store_true", default=False,
                    help="(Default OFF.) Compute ACS successive-difference-"
                         "replication (SDR) sampling standard errors + 90%% "
@@ -1079,12 +1089,28 @@ def main(argv: Optional[list] = None) -> int:
             [c for c in _replicate_weight_cols() if c in persons.columns]
             if args.replicate_se else None
         )
+        ratio_col = None
+        if args.carry_calibration_ratio:
+            from tax_modeler.poverty.weight_basis import (
+                CALIBRATION_RATIO_COL, attach_calibration_ratio,
+            )
+            units = attach_calibration_ratio(units)
+            ratio_col = CALIBRATION_RATIO_COL
+            LOG.info(
+                "Carrying the tax-unit calibration ratio into the SPM weights "
+                "(mean %.4f, weighted by tax-unit weight %.4f)",
+                float(units[ratio_col].mean()),
+                float((units[ratio_col] * units["weight"]).sum() / units["weight"].sum()),
+            )
         poverty_frame = aggregate_to_spm_units(
-            units, persons, replicate_weight_cols=rep_cols
+            units, persons, replicate_weight_cols=rep_cols,
+            calibration_ratio_col=ratio_col,
         )
         LOG.info(
-            "Aggregated %d tax units -> %d SPM units (P60-280 RELSHIPP rules).",
+            "Aggregated %d tax units -> %d SPM units (P60-280 RELSHIPP rules); "
+            "weight basis: %s.",
             len(units), len(poverty_frame),
+            "WGTP x tax-unit calibration ratio" if ratio_col else "raw WGTP",
         )
 
     # 6e. District raking to IRS SOI ZIP filer/AGI totals. Holds per-PUMA sum(weight)

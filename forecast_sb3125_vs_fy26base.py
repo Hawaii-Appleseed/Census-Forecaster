@@ -66,7 +66,7 @@ from tax_modeler.liability.hawaii import NO_ITEMIZING
 
 MID_ALPHA       = 1.5
 MID_TOP_PREMIUM = 0.010
-from _forecast_common import CALIBRATED_PKL, TARGET_YEARS  # noqa: E402
+from _forecast_common import CALIBRATED_PKL, TARGET_YEARS, add_replicate_se_arg  # noqa: E402
 
 INCOME_BINS = {
     "below_50K":   (0,          50_000),
@@ -85,6 +85,7 @@ def _parse_args():
         "--cd", choices=["1", "2"], default="1",
         help="Conference draft to model: 1=CD1 (default), 2=CD2",
     )
+    add_replicate_se_arg(p)
     return p.parse_args()
 
 
@@ -135,7 +136,7 @@ def _bin_delta(inc, w, diffs):
     return result
 
 
-def main(cd: str) -> None:
+def main(cd: str, replicate_se: bool = True) -> None:
     if not CALIBRATED_PKL.exists():
         print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd {cd} first.")
         sys.exit(1)
@@ -180,6 +181,14 @@ def main(cd: str) -> None:
     quintile_frames, bracket_frames = [], []
     wedge_by_year = {}
     year_reports = {}
+    if replicate_se:
+        from tax_modeler.uncertainty.replicates import (
+            replicate_columns, replicate_weight_matrix, sdr_columns, sdr_totals,
+        )
+        if not replicate_columns(units) or "weight_uncal" not in units.columns:
+            print("  NOTE: the calibrated base carries no replicate weights / weight_uncal; "
+                  "no sampling band this run.", flush=True)
+            replicate_se = False
 
     for yr in TARGET_YEARS:
         print(f"  TY {yr}...", flush=True)
@@ -223,9 +232,22 @@ def main(cd: str) -> None:
         sd = _bin_delta(inc, w, sd_effect)
         tt = _bin_delta(inc, w, total_effect)
 
-        rows.append({"tax_year": yr, "component": "bracket_delta_$M", **br})
-        rows.append({"tax_year": yr, "component": "sd_expansion_delta_$M", **sd})
-        rows.append({"tax_year": yr, "component": "total_delta_$M", **tt})
+        # SDR sampling band on the statewide totals (80 PUMS replicate
+        # weights, calibration ratio per replicate: the re-rake and the SOI
+        # anchor act on ``weight`` and so on each replicate). The SOI tiers
+        # project_and_recalibrate adds are not sampled and carry their weight.
+        bands = {"bracket_delta_$M": {}, "sd_expansion_delta_$M": {}, "total_delta_$M": {}}
+        if replicate_se:
+            W = replicate_weight_matrix(proj_target)
+            ests = sdr_totals({"bracket_delta_$M": tax_c - tax_b,
+                               "sd_expansion_delta_$M": tax_b - tax_a,
+                               "total_delta_$M": tax_c - tax_a}, W, scale=1e-6)
+            for k, est in ests.items():
+                bands[k] = {"total_se": round(est.se, 3), "total_ci90_low": round(est.ci_low, 3),
+                            "total_ci90_high": round(est.ci_high, 3)}
+        rows.append({"tax_year": yr, "component": "bracket_delta_$M", **br, **bands["bracket_delta_$M"]})
+        rows.append({"tax_year": yr, "component": "sd_expansion_delta_$M", **sd, **bands["sd_expansion_delta_$M"]})
+        rows.append({"tax_year": yr, "component": "total_delta_$M", **tt, **bands["total_delta_$M"]})
 
         empty_overlay = {}
         q_df, b_df, _ = generate_quintile_report(
@@ -310,6 +332,15 @@ def main(cd: str) -> None:
         "total_delta_$M",
         f"TOTAL: CD{cd} full vs TY2026-frozen (= ITEP's headline number, our microsim)",
     )
+    if replicate_se:
+        print("\n--- SDR sampling 90% half-widths on the annual totals (±1.645 SE, $M; "
+              "sampling variance only) ---", flush=True)
+        print(f"{'Year':<6} {'Bracket':>10} {'SD exp.':>10} {'Total':>10}", flush=True)
+        for yr in TARGET_YEARS:
+            d = df_summary[df_summary["tax_year"] == yr].set_index("component")
+            print(f"{yr:<6} {1.645*d.loc['bracket_delta_$M', 'total_se']:>+9.1f}M "
+                  f"{1.645*d.loc['sd_expansion_delta_$M', 'total_se']:>+9.1f}M "
+                  f"{1.645*d.loc['total_delta_$M', 'total_se']:>+9.1f}M", flush=True)
 
     print("\n--- Quintile distribution (total delta, TY 2027) ---", flush=True)
     q27 = all_quintiles[all_quintiles["tax_year"] == 2027]
@@ -388,7 +419,7 @@ def main(cd: str) -> None:
 if __name__ == "__main__":
     args = _parse_args()
     try:
-        main(cd=args.cd)
+        main(cd=args.cd, replicate_se=bool(args.replicate_se))
     except Exception as e:
         print(f"\nERROR: {e}", flush=True)
         traceback.print_exc()

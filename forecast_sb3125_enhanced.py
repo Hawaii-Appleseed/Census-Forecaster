@@ -207,27 +207,41 @@ CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors
                       "scenario), statutory alternative tax (HRS §235-51(f))")
 
 
-def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None):
+def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None,
+                     replicate_se=False):
     """Top-level worker (must be picklable) for ProcessPoolExecutor.
 
     Each worker is a fresh Python process — package imports rely on
     ``tax_modeler`` being installed in the spawned interpreter (it is
     when launched under ``uv run`` or after ``uv pip install -e``).
+    Returns ``(rows, class_rows)``: the per-year rows and, with
+    ``replicate_se``, the per-year-and-AGI-class SDR rows.
     """
     from tax_modeler.artifacts import load_calibrated_base
     base, ded_params, meta = load_calibrated_base(calibrated_path)
-    return run_one_scenario(
+    class_rows = []
+    rows = run_one_scenario(
         base, scenario=scenario_dict, target_years=target_years, cd=cd,
         ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
-        gains_factors=gains_factors,
+        gains_factors=gains_factors, replicate_se=replicate_se, class_rows=class_rows,
     )
+    return rows, class_rows
 
 
 def run_one_scenario(
     base_calibrated, *, scenario, target_years, cd="1",
     ded_params=None, cal_tax_year=2023, gains_factors=None,
+    replicate_se=False, class_rows=None,
 ):
     """Run a single scenario across all target years and return per-year rows.
+
+    ``replicate_se`` adds SDR sampling SE and 90% CI columns (``*_se_$M``,
+    ``*_ci90_low_$M``, ``*_ci90_high_$M``) for the Act 46 baseline, the
+    static and post-response bracket deltas, the ETI response and the total
+    impact (the credit overlay held fixed) from the 80 PUMS replicate weights
+    with the calibration ratio applied to each (rake once, score replicates;
+    ``tax_modeler.uncertainty.revenue``). ``class_rows``, a list, collects
+    the same for each AGI class. Sampling variance only, labelled as such.
 
     Imports its dependencies internally so this function is self-contained
     and trivially executable in a worker process (ProcessPoolExecutor).
@@ -267,6 +281,8 @@ def run_one_scenario(
         top_rate_path,
     )
     from tax_modeler.scenarios.quintile_analysis import cor_scale_factor_for_year
+    if replicate_se:
+        from tax_modeler.uncertainty.revenue import act24_delta_sdr, sdr_row_columns
 
     get_scenario_system = (
         TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
@@ -346,11 +362,31 @@ def run_one_scenario(
         if gains_factors is not None:     # the statutory alternative tax
             baseline_cfg = statute(TaxSystemRegistry.get_act46_system)(year)
             scenario_cfg = statute(get_scenario_system)(year)
-        revenue, _, behav_diag = score_with_response(
+        revenue, responded, behav_diag = score_with_response(
             projected, behav_params, target_year=year,
             baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calc,
             top_rate_path=path,
         )
+        sdr_cols, sdr_seconds = {}, 0.0
+        if replicate_se:
+            t_sdr = time.perf_counter()
+            totals, classes = act24_delta_sdr(
+                projected, responded, baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg,
+                calculator=calc, pte_loss_m=behav_diag["pte_revenue_loss_$M"],
+            )
+            sdr_seconds = time.perf_counter() - t_sdr
+            # The replicate point (column 0) must be the script's own figure.
+            for key, own in (("act46_baseline_$M", revenue["baseline_$M"]),
+                             ("bracket_delta_static_$M", revenue["static_$M"]),
+                             ("bracket_delta_post_$M", revenue["behavioral_$M"])):
+                if abs(totals[key].point - own) > 0.01:
+                    raise RuntimeError(
+                        f"replicate point for {key} ({totals[key].point:.3f}) differs from "
+                        f"the scored figure ({own:.3f}) in TY {year}")
+            sdr_cols = sdr_row_columns(totals)
+            if class_rows is not None and classes is not None:
+                for r in classes.to_dict("records"):
+                    class_rows.append({"scenario": label, "tax_year": year, **r})
         baseline_static = revenue["baseline_$M"]
         diff_static = revenue["static_$M"]
         # SB 3125 revenue lost to the response (ETI and migration), against static
@@ -410,6 +446,18 @@ def run_one_scenario(
             "total_impact_$M":                round(total, 2),
             "filers_1m_post_response":        round(behav_diag["filers_1m_post_response"], 0),
         }
+        if replicate_se:
+            # The credit overlay is an aggregate model (no microdata), so the
+            # total's band is the post-response bracket delta's, shifted.
+            post = totals["bracket_delta_post_$M"]
+            row.update(sdr_cols)
+            row.update({
+                "total_impact_se_$M":        round(post.se, 3),
+                "total_impact_ci90_low_$M":  round(post.ci_low + credit_total, 3),
+                "total_impact_ci90_high_$M": round(post.ci_high + credit_total, 3),
+                "sdr_n_replicates":          80,
+                "sdr_seconds":               round(sdr_seconds, 2),
+            })
         if cd == "2":
             row.update({
                 # Vintage-simulation diagnostics: pre-2027 carryforward dynamics
@@ -434,14 +482,20 @@ def run_one_scenario(
               f"-> bracket={bracket_delta_after_response:+.1f}M  "
               f"credit={credit_total:+.1f}M  "
               f"TOTAL={total:+.1f}M  ({time.perf_counter()-t0:.1f}s)", flush=True)
+        if replicate_se:
+            print(f"           SDR (sampling only): static ±{1.645*totals['bracket_delta_static_$M'].se:.1f}M  "
+                  f"post ±{1.645*totals['bracket_delta_post_$M'].se:.1f}M  "
+                  f"baseline ±{1.645*totals['act46_baseline_$M'].se:.1f}M  (90% CI, {sdr_seconds:.1f}s)",
+                  flush=True)
     return rows
 
 
 if __name__ == "__main__":
     silence_noise()
 
-    args = parse_cd_args(__doc__)
+    args = parse_cd_args(__doc__, replicate_se=True)
     CD = args.cd
+    REPLICATE_SE = bool(args.replicate_se)
     OUT_CSV = Path(f"/tmp/sb3125_cd{CD}_enhanced_2027_2031.csv")
     cd_label = f"CD{CD}"
 
@@ -465,6 +519,18 @@ if __name__ == "__main__":
 
         from tax_modeler.artifacts import load_canonical_deduction_params
         units = load_cached_units(CD)
+        if REPLICATE_SE:
+            # The basis of the calibration ratio each replicate weight is
+            # scaled by: the weight as cached, before the rake.
+            from tax_modeler.uncertainty.replicates import (
+                replicate_columns, snapshot_uncalibrated_weight,
+            )
+            if not replicate_columns(units):
+                print("ERROR: the tax-unit cache carries no weight_r01..weight_r80 columns; "
+                      "delete it and rerun forecast_sb3125.py to rebuild with replicate "
+                      "weights, or pass --no-replicate-se.", flush=True)
+                sys.exit(1)
+            units = snapshot_uncalibrated_weight(units)
 
         print("Enriching + base tax + calibrating (one-time)...", flush=True)
         units = _enrich_for_credits(units)
@@ -549,18 +615,20 @@ if __name__ == "__main__":
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
         all_rows = []
+        all_class_rows = []
         n_workers = min(len(SCENARIOS), 4)
         print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = {
                 pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                            GAINS_FACTORS): sc["label"]
+                            GAINS_FACTORS, REPLICATE_SE): sc["label"]
                 for sc in SCENARIOS
             }
             for fut in as_completed(futures):
                 label = futures[fut]
-                rows = fut.result()
+                rows, class_rows = fut.result()
                 all_rows.extend(rows)
+                all_class_rows.extend(class_rows)
                 print(f"  ✓ {label} complete ({len(rows)} rows)", flush=True)
 
         # Sort rows so the CSV stays in scenario × year order
@@ -569,6 +637,11 @@ if __name__ == "__main__":
 
         df = pd.DataFrame(all_rows)
         df.to_csv(OUT_CSV, index=False)
+        SDR_NOTE = ("SDR sampling SE / 90% CI from the 80 PUMS replicate weights, calibration "
+                    "ratio applied per replicate (rake once, score replicates). ACS sampling "
+                    "variance only: not the DOTAX anchors, the aging, the behavioral "
+                    "parameters (the LOW/MID/HIGH scenarios) or the credit overlay, which is "
+                    "held fixed in the total's band.")
 
         # ---- Manifested run output (canonical; /tmp copy kept above) --------
         from tax_modeler.runs import tidy_long, write_run_manifest
@@ -580,12 +653,18 @@ if __name__ == "__main__":
         tidy_long(df, ["scenario", "tax_year"]).to_csv(
             RUN_DIR / "fiscal_tidy.csv", index=False,
         )
+        if REPLICATE_SE:
+            class_df = pd.DataFrame(all_class_rows)
+            class_df.to_csv(RUN_DIR / "replicate_ci_by_class.csv", index=False)
+        MANIFEST_PARAMS = {"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                           "capital_gains": CAPITAL_GAINS_NOTE,
+                           "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()},
+                           "replicate_se": REPLICATE_SE,
+                           "replicate_se_note": SDR_NOTE if REPLICATE_SE else None}
         write_run_manifest(
             RUN_DIR,
             script=f"forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
-                    "capital_gains": CAPITAL_GAINS_NOTE,
-                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
+            params=MANIFEST_PARAMS,
             inputs={"tax_units_cache": cache_provenance()},
         )
         print(f"Saved run: {RUN_DIR}", flush=True)
@@ -696,9 +775,7 @@ if __name__ == "__main__":
         write_run_manifest(
             RUN_DIR,
             script=f"forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
-                    "capital_gains": CAPITAL_GAINS_NOTE,
-                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
+            params=MANIFEST_PARAMS,
             inputs={"tax_units_cache": cache_provenance()},
         )
 
@@ -765,6 +842,27 @@ if __name__ == "__main__":
                     if mid27['bracket_delta_post_$M'] else 1.0)
         print(f"  COR-scaled (×{cor_diag:.3f}):                "
               f"${mid27['bracket_delta_cor_scaled_$M']:>+8.2f}M", flush=True)
+
+        if REPLICATE_SE:
+            print("\n" + "=" * 100, flush=True)
+            print("SAMPLING CONFIDENCE INTERVALS (SDR, 80 PUMS replicate weights) — MID scenario, $M",
+                  flush=True)
+            print("=" * 100, flush=True)
+            print(SDR_NOTE, flush=True)
+            mid = df[df["scenario"] == "MID"].sort_values("tax_year")
+            print(f"\n{'TY':<6}{'Act46 base':>12}{'±90%':>8}  {'Static':>9}{'±90%':>8}  "
+                  f"{'Post-resp.':>11}{'±90%':>8}  {'Total':>9}{'CI90 low':>10}{'CI90 high':>10}",
+                  flush=True)
+            for _, r in mid.iterrows():
+                print(f"{int(r['tax_year']):<6}{r['act46_baseline_$M']:>12,.1f}"
+                      f"{1.645*r['act46_baseline_se_$M']:>8,.1f}  "
+                      f"{r['bracket_delta_static_$M']:>+9.1f}{1.645*r['bracket_delta_static_se_$M']:>8,.1f}  "
+                      f"{r['bracket_delta_post_$M']:>+11.1f}{1.645*r['bracket_delta_post_se_$M']:>8,.1f}  "
+                      f"{r['total_impact_$M']:>+9.1f}{r['total_impact_ci90_low_$M']:>+10.1f}"
+                      f"{r['total_impact_ci90_high_$M']:>+10.1f}", flush=True)
+            print(f"SDR time: {df['sdr_seconds'].sum():.1f}s over {len(df)} scenario-years "
+                  f"(all scenarios), {mid['sdr_seconds'].sum():.1f}s for MID.", flush=True)
+            print(f"By AGI class: {RUN_DIR / 'replicate_ci_by_class.csv'}", flush=True)
 
         print(f"\nSaved: {OUT_CSV}", flush=True)
         print(f"Total elapsed: {time.perf_counter() - wall_start:.1f}s", flush=True)

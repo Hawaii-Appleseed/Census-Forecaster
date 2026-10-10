@@ -59,6 +59,14 @@ and the capital-gains page.
 Requires data/artifacts/sb3125_calibrated_base.pkl (run
 forecast_sb3125_enhanced.py --cd 2 first).
 
+Sampling band
+-------------
+With ``--replicate-se`` (default ON) every column also gets ``_se`` /
+``_ci90_low`` / ``_ci90_high`` siblings: SDR sampling SE and 90% CI from
+the 80 PUMS replicate weights, the calibration ratio applied per replicate
+(``tax_modeler.uncertainty.replicates``). ACS sampling variance only — not
+the anchors, the aging or the law itself.
+
 Outputs:
   runs/act24_vs_pre_act46/decomposition.csv
 """
@@ -84,7 +92,7 @@ from tax_modeler.scenarios.act24_population import build_units, project_units, s
 MID_ALPHA       = 1.5
 MID_TOP_PREMIUM = 0.010
 
-from _forecast_common import CALIBRATED_PKL, RUNS_DIR, TARGET_YEARS  # noqa: E402
+from _forecast_common import CALIBRATED_PKL, RUNS_DIR, TARGET_YEARS, add_replicate_se_arg  # noqa: E402
 
 # The Act 24 run's static bracket change (MID), which column C must equal:
 # same population, same gains base, same statute, same two systems.
@@ -104,7 +112,15 @@ def _cfg_2017(yr: int) -> TaxSystemConfig:
     )
 
 
-def main() -> None:
+def _parse_args():
+    import argparse
+
+    p = argparse.ArgumentParser(description=__doc__)
+    add_replicate_se_arg(p)
+    return p.parse_args()
+
+
+def main(replicate_se: bool = True) -> None:
     if not CALIBRATED_PKL.exists():
         print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd 2 first.")
         sys.exit(1)
@@ -125,6 +141,15 @@ def main() -> None:
 
     calc = TaxCalculator()
     rows = []
+    if replicate_se:
+        from tax_modeler.uncertainty.replicates import (
+            replicate_columns, replicate_weight_matrix, sdr_columns, sdr_totals,
+        )
+        if not replicate_columns(units) or "weight_uncal" not in units.columns:
+            print("  NOTE: the calibrated base carries no replicate weights / weight_uncal; "
+                  "rerun forecast_sb3125_enhanced.py --cd 2 on a cache built with them. "
+                  "No sampling band this run.", flush=True)
+            replicate_se = False
 
     for yr in TARGET_YEARS:
         print(f"  TY {yr}...", flush=True)
@@ -143,16 +168,20 @@ def main() -> None:
 
         M = lambda a: float((a * w).sum() / 1e6)  # noqa: E731
 
-        rows.append({
-            "tax_year": yr,
-            "A_act46_banked_by_2026": M(tax_frozen - tax_2017),
-            "B_act46_remaining_phaseins": M(tax_act46 - tax_frozen),
-            "C_act24_increment": M(tax_act24 - tax_act46),
-            "total_vs_pre_act46": M(tax_act24 - tax_2017),
-            "memo_vs_frozen_2026": M(tax_act24 - tax_frozen),
-            "tieout_act24_page": (None if page is None else float(
-                page[(page.scenario == "MID") & (page.tax_year == yr)].iloc[0]["bracket_delta_static_$M"])),
-        })
+        diffs = {
+            "A_act46_banked_by_2026": tax_frozen - tax_2017,
+            "B_act46_remaining_phaseins": tax_act46 - tax_frozen,
+            "C_act24_increment": tax_act24 - tax_act46,
+            "total_vs_pre_act46": tax_act24 - tax_2017,
+            "memo_vs_frozen_2026": tax_act24 - tax_frozen,
+        }
+        row = {"tax_year": yr, **{k: M(v) for k, v in diffs.items()},
+               "tieout_act24_page": (None if page is None else float(
+                   page[(page.scenario == "MID") & (page.tax_year == yr)].iloc[0]["bracket_delta_static_$M"]))}
+        if replicate_se:
+            W = replicate_weight_matrix(proj_target)
+            row.update(sdr_columns(sdr_totals(diffs, W, scale=1e-6)))
+        rows.append(row)
 
     df = pd.DataFrame(rows)
 
@@ -186,6 +215,16 @@ def main() -> None:
           f"{df['C_act24_increment'].sum():>+11.1f}M "
           f"{df['total_vs_pre_act46'].sum():>+12.1f}M "
           f"{df['memo_vs_frozen_2026'].sum():>+11.1f}M", flush=True)
+    if replicate_se:
+        print("\n--- SDR sampling 90% half-widths (±1.645 SE, $M; 80 PUMS replicate weights, "
+              "calibration ratio per replicate; sampling variance only) ---", flush=True)
+        print(f"{'Year':<6} {'A':>12} {'B':>12} {'C':>12} {'TOTAL':>13} {'memo':>12}", flush=True)
+        for r in rows:
+            print(f"{r['tax_year']:<6} {1.645*r['A_act46_banked_by_2026_se']:>+11.1f}M "
+                  f"{1.645*r['B_act46_remaining_phaseins_se']:>+11.1f}M "
+                  f"{1.645*r['C_act24_increment_se']:>+11.1f}M "
+                  f"{1.645*r['total_vs_pre_act46_se']:>+12.1f}M "
+                  f"{1.645*r['memo_vs_frozen_2026_se']:>+11.1f}M", flush=True)
 
     if page is not None:
         print("\n--- TIE-OUT: column C is the Act 24 page's static bracket change ---", flush=True)
@@ -206,4 +245,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(replicate_se=bool(_parse_args().replicate_se))

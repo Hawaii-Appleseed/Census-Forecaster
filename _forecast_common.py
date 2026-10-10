@@ -101,8 +101,26 @@ def silence_noise() -> None:
     logging.disable(logging.WARNING)
 
 
-def parse_cd_args(description: str | None = None):
-    """Standard ``--cd {1,2}`` CLI shared by the SB 3125 scripts."""
+def add_replicate_se_arg(p) -> None:
+    """``--replicate-se`` / ``--no-replicate-se`` (default ON): SDR sampling SE
+    and 90% CI on the revenue aggregates from the 80 PUMS replicate weights
+    (rake once, score replicates; ``tax_modeler.uncertainty.replicates``)."""
+    import argparse
+
+    p.add_argument(
+        "--replicate-se", action=argparse.BooleanOptionalAction, default=True,
+        help="(Default ON.) Emit SDR sampling standard errors and 90%% CIs on the "
+             "revenue aggregates from the 80 PUMS replicate weights, with the "
+             "calibration ratio applied to each replicate (rake once, score "
+             "replicates). Sampling variance only: not the anchors, aging, "
+             "behavioral parameters or the credit overlay. Needs a tax-unit "
+             "cache built with replicate weights (forecast_sb3125.py).",
+    )
+
+
+def parse_cd_args(description: str | None = None, *, replicate_se: bool = False):
+    """Standard ``--cd {1,2}`` CLI shared by the SB 3125 scripts; with
+    ``replicate_se`` the ``--replicate-se`` flag (``add_replicate_se_arg``)."""
     import argparse
 
     p = argparse.ArgumentParser(description=description)
@@ -110,6 +128,8 @@ def parse_cd_args(description: str | None = None):
         "--cd", choices=["1", "2"], default="1",
         help="Conference draft to model: 1=CD1 (default), 2=CD2",
     )
+    if replicate_se:
+        add_replicate_se_arg(p)
     return p.parse_args()
 
 

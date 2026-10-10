@@ -63,7 +63,9 @@ if __name__ == "__main__":
         else:
             t0 = time.perf_counter()
             print("Loading PUMS...", flush=True)
-            loader = PUMSDataLoader(data_dir=DATA_DIR)
+            # The 80 PUMS replicate weights ride into the cache as
+            # weight_r01..weight_r80 (SDR sampling CIs on the Act 24 deltas).
+            loader = PUMSDataLoader(data_dir=DATA_DIR, load_replicate_weights=True)
             person_df, hh_df = loader.load_data(state="15", pums_type="5yr")
             print(f"  {len(person_df):,} persons, {len(hh_df):,} households in {time.perf_counter()-t0:.1f}s", flush=True)
 

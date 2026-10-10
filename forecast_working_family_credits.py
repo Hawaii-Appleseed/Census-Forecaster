@@ -101,6 +101,9 @@ DOTAX = {
     2023: {"eitc_$M": 77.054, "eitc_claims": 84_470, "food_$M": 63.957, "food_claims": 249_806},
 }
 EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
+# SPM weight basis: raw WGTP (False, as scripts/poverty_impact_report.py's
+# default) or WGTP x the tax-unit calibration ratio (poverty.weight_basis).
+CARRY_CALIBRATION_RATIO = False
 
 
 def load_population():
@@ -422,7 +425,12 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     u = compute_school_lunch_for_units(u, tax_year=benefit_year)
     u = compute_childcare_expense_for_units(u)
     u = compute_work_expense_for_units(u)
-    frame = aggregate_to_spm_units(u, persons)
+    ratio_col = None
+    if CARRY_CALIBRATION_RATIO:
+        from tax_modeler.poverty.weight_basis import CALIBRATION_RATIO_COL, attach_calibration_ratio
+        u = attach_calibration_ratio(u)
+        ratio_col = CALIBRATION_RATIO_COL
+    frame = aggregate_to_spm_units(u, persons, calibration_ratio_col=ratio_col)
     res = compute_poverty_impact(frame, tax_year=yr, scenarios=("act163_sunset",),
                                  extrapolate_thresholds=True)
     s = res.by_state.iloc[0]

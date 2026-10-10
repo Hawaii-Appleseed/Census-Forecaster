@@ -1256,6 +1256,56 @@ residual calibration variance by roughly an order of magnitude on
 state-level poverty counts. This is the standard post-calibration
 approximation used by ACS estimation guides.
 
+*Weight basis option (October 2026).* `aggregate_to_spm_units(
+calibration_ratio_col=...)` carries the calibrated tax-unit basis
+instead: the SPM-unit weight becomes `WGTP × mean(weight /
+weight_pums)` over the unit's tax units, with `weight_pums` the hybrid
+rule's PWGTP (one-person unit) or WGTP before any factor
+(`tax_modeler.poverty.weight_basis`), and every replicate weight is
+scaled by the same ratio. `scripts/poverty_impact_report.py
+--carry-calibration-ratio` turns it on. It is **opt-in**: on TY2024 it
+moves the baseline rate 9.70% → 9.88% (+0.18pp), the person
+denominator −2.1% away from the ACS count, and the credit lifts
++18–22% (the filing-status factors and the EITC reweight target DOTAX
+filer counts, and fall on exactly the units the lifts count). See
+SB3125_CD1_FORECAST.md, October 9, 2026.
+
+### Source 1b — SDR on the Act 24 revenue deltas (October 2026)
+
+The same 80 replicate weights give sampling intervals on the revenue
+path (`forecast_sb3125_enhanced.py --replicate-se`, default ON;
+`forecast_act24_vs_pre_act46.py`; `forecast_sb3125_vs_fy26base.py`).
+The tax-unit cache carries them as `weight_r01..weight_r80`
+(`forecast_sb3125.py` loads them; the constructor applies the hybrid
+rule and filing-status factors to each). The revenue path then only
+ever rescales `weight` per unit — the IPF rake, the zeroing of $1M+
+survey records at synthesis, the migration response — so instead of
+raking 80 times the **calibration ratio** `weight / weight_uncal`
+(`weight_uncal` = the weight as cached,
+`uncertainty.replicates.snapshot_uncalibrated_weight`) is applied to
+each replicate ("rake once, score replicates"):
+
+    w_r = weight_r × weight / weight_uncal
+
+Scoring is per unit, so each aggregate under replicate *r* is a
+weighted sum of the headline's own per-unit tax vectors
+(`uncertainty.revenue.act24_delta_sdr`, on
+`TaxCalculator.unit_liabilities`): Act 46 on the pre-response frame,
+the scenario on the same frame (static) and on the responded frame
+(post-response, with the migration-scaled weights). The point column
+must reproduce the script's figures to $0.01M (asserted). Synthetic
+$1M+ rows (DOTAX-anchored, not sampled) and rows without a basis carry
+their `weight` in every replicate. Cost: 2–3 s per scenario-year.
+
+**Scope.** ACS sampling variance only, on the rake-once shortcut
+(the rake's own sampling variability is not in it). Not covered: the
+DOTAX anchors, the aging and the top-income premium, the behavioral
+parameters (the LOW/MID/HIGH scenarios), the capital-gains anchoring,
+the credit overlay (held fixed in the total's band). On MID the
+bracket delta's 90% half-width is $1.2–3.0M a year against a
+$572–891M five-year scenario range: the band is reported beside the
+scenarios, never in their place.
+
 **CLI:** pass `--replicate-weights` (and optionally `--n-replicates N`)
 to `scripts/poverty_impact_report.py`. The flag is OFF by default
 because the supporting columns (`WGTP1`..`WGTP80`) are not present in

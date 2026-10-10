@@ -164,6 +164,7 @@ def aggregate_to_spm_units(
     representative_cols: Iterable[str] | None = None,
     include_replicate_weights: bool = True,
     replicate_weight_cols: Iterable[str] | None = None,
+    calibration_ratio_col: str | None = None,
 ) -> pd.DataFrame:
     """Roll tax units up to SPM units.
 
@@ -179,6 +180,13 @@ def aggregate_to_spm_units(
     full-sample ``weight`` so the result can be SDR-variance'd for ACS
     sampling uncertainty. They must already be present on ``persons``
     (broadcast from the household frame).
+
+    ``calibration_ratio_col`` names a per-tax-unit column (see
+    :func:`tax_modeler.poverty.weight_basis.attach_calibration_ratio`)
+    whose mean over the SPM unit's tax units scales the SPM-unit ``weight``
+    and every replicate weight carried, so the poverty accounting runs on
+    the calibrated tax-unit basis instead of raw WGTP. The mean is written
+    back as ``calibration_ratio``. ``None`` (the default) keeps raw WGTP.
     """
     if spm_unit_id_col not in tax_units.columns:
         raise DataValidationError(
@@ -332,6 +340,26 @@ def aggregate_to_spm_units(
         out = out.join(rep_df, how="left")
     if rep_weights is not None:
         out = out.join(rep_weights, how="left")
+
+    # ---- 6b. Calibrated basis (optional): WGTP x the mean calibration ratio
+    # of the SPM unit's tax units, on the main weight and every replicate.
+    if calibration_ratio_col is not None:
+        if calibration_ratio_col not in tu.columns:
+            raise DataValidationError(
+                f"aggregate_to_spm_units: calibration_ratio_col {calibration_ratio_col!r} "
+                "not on tax_units; attach it with "
+                "tax_modeler.poverty.weight_basis.attach_calibration_ratio first."
+            )
+        ratio = (
+            tu.groupby(spm_unit_id_col, dropna=False, sort=False)[calibration_ratio_col]
+            .mean()
+            .rename("calibration_ratio")
+        )
+        out = out.join(ratio, how="left")
+        out["calibration_ratio"] = out["calibration_ratio"].fillna(1.0)
+        scaled = ["weight", *replicate_per_spm.keys(), *(rep_wt_set if rep_weights is not None else [])]
+        for c in scaled:
+            out[c] = out[c] * out["calibration_ratio"]
     out = out.join(n_tax_units, how="left").reset_index()
 
     # ---- 7. Derive spm-unit filing status proxy (for by_household_type)

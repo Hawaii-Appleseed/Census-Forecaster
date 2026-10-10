@@ -685,8 +685,11 @@ def compute_poverty_impact(
 # IPF in tax_modeler.calibration.*, but the SPM aggregator picks up raw
 # household-grain WGTP per SERIALNO — the calibrated tax-unit weight is
 # discarded at SPM rollup. Replicate weights ride the same raw-WGTP path,
-# so no per-replicate IPF re-run is needed and no calibration ratio is
-# applied. Document this in METHODOLOGY.md alongside the SDR formula.
+# so no per-replicate IPF re-run is needed and, by default, no calibration
+# ratio is applied. aggregate_to_spm_units(calibration_ratio_col=...) carries
+# the tax-unit calibration ratio onto WGTP and every replicate instead
+# (poverty.weight_basis; opt-in). Documented in METHODOLOGY.md with the SDR
+# formula.
 
 _REPLICATE_PATTERN = "weight_r{r:02d}"
 _N_REPLICATES_DEFAULT = 80

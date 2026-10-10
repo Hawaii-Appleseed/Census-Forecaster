@@ -15,6 +15,121 @@
 
 ---
 
+## Sampling confidence intervals on the Act 24 deltas — October 9, 2026
+
+The Act 24 tables have carried parameter scenarios (LOW/MID/HIGH/RECESSION)
+and no statistical interval. The 80 PUMS replicate weights now give one:
+`forecast_sb3125_enhanced.py` (flag `--replicate-se`, default ON; also
+`forecast_act24_vs_pre_act46.py` and `forecast_sb3125_vs_fy26base.py`) emits an
+SDR standard error and a 90% confidence interval beside every revenue
+aggregate, by year and by AGI class (`runs/sb3125_cd2_enhanced/enhanced.csv`,
+`replicate_ci_by_class.csv`). FORECAST_ASSESSMENT_2026-06-11.md §9 scoped it.
+
+**How.** The tax-unit cache is built with the replicate weights
+(`forecast_sb3125.py` now loads `WGTP1..80` / `PWGTP1..80`; the constructor
+carries them as `weight_r01..weight_r80` under the same hybrid rule and
+filing-status factors as `weight`). Everything the revenue path then does to
+`weight` — the IPF rake, zeroing the $1M+ survey records at synthesis, the
+migration response — is multiplicative per unit and is **not re-run per
+replicate**; the calibration ratio `weight / weight_uncal` (the weight as
+cached) is applied to each replicate instead ("rake once, score replicates";
+`tax_modeler.uncertainty.replicates`). Scoring is per unit, so each aggregate
+under replicate *r* is one weighted sum of the same per-unit tax vectors the
+headline uses (`tax_modeler.uncertainty.revenue.act24_delta_sdr`, on
+`TaxCalculator.unit_liabilities`); the point column reproduces the script's own
+figures to $0.01M, which the script asserts. V(θ) = (4/80) Σ (θ_r − θ_0)², CI90
+= θ ± 1.645 SE. The synthetic $1M+ tail is a Pareto draw anchored on DOTAX's
+administrative counts, not a sample, so it gets no replicate variation.
+
+**MID, CD2, vs Act 46, $M** (this is a full rerun on a cache rebuilt with the
+replicate weights; the October 8 figures in brackets differ by at most $0.6M a
+year, $2.0M over five, well inside the band):
+
+| TY | Act 46 baseline (±90%) | Static bracket (±90%) | Post-response bracket (±90%) | Total impact | Total CI90 |
+|---|---:|---:|---:|---:|---:|
+| 2027 | 2,545.5 (±34.2) | +51.1 (±1.4) | +39.9 (±1.2) | **+88.9** [88.7] | [+87.7, +90.2] |
+| 2028 | 2,693.6 (±35.1) | +56.3 (±1.5) | +43.5 (±1.3) | **+118.0** [117.8] | [+116.7, +119.3] |
+| 2029 | 2,540.7 (±34.0) | +61.9 (±2.6) | +45.8 (±2.3) | **+134.3** [133.7] | [+132.0, +136.6] |
+| 2030 | 2,640.4 (±35.4) | +68.0 (±2.8) | +49.8 (±2.3) | **+169.6** [169.3] | [+167.3, +171.9] |
+| 2031 | 2,729.4 (±37.0) | +75.1 (±3.0) | +54.8 (±2.5) | **+179.0** [178.4] | [+176.5, +181.5] |
+| **5-yr** | | **+312.4** | **+233.8** | **+689.8** [687.8] | |
+
+The band on the total is the post-response bracket band shifted by the credit
+overlay, which is an aggregate model with no microdata behind it. The ETI
+response's own SE is $0.15–0.34M a year. By AGI class (MID, TY2027, ±90%): the
+$1M+ class's static gain is +$75.2M ±0.9 and its post-response gain +$66.3M
+±0.8; the $500K–$1M class +$7.0M ±0.8; the middle-bracket cuts −$10.4M ±0.3
+($100K–$175K), −$10.1M ±0.3 ($60K–$100K), −$6.8M ±0.2 ($30K–$60K). TY2031: $1M+
++$102.9M ±2.4 static, +$87.8M ±2.0 post. The other scenarios' bands are the
+same size (LOW static ±$1.3M, HIGH ±$1.5M in TY2027). Against pre-Act-46 law
+(`forecast_act24_vs_pre_act46.py`), the five-year total of −$4,819.4M carries
+±$6.5–8.6M a year; column C ties out to the page to $0.005M. Against Act 46
+frozen at TY2026 (`forecast_sb3125_vs_fy26base.py --cd 2`, whose population is
+re-raked and SOI-anchored each year, the ratio carrying both), the annual
+totals carry ±$1.9–4.1M.
+
+**Why it is narrow.** The Act 24 bracket change is concentrated in about 1,600
+$1M+ returns whose count and tax are *anchored* to DOTAX, not sampled: the
+replicate weights move the survey records, and the anchor and the Pareto tail
+do not move with them. The baseline's ±$34M (1.3%) is the ACS sampling
+variance of Hawaiʻi's income distribution; the delta's ±$1.2–3.0M is what is
+left of it after the anchor. The band says the *survey* is not the problem.
+
+**What the band does and does not cover.** It is ACS sampling variance only,
+on the rake-once shortcut (the rake's own sampling variability, "rake per
+replicate", is not in it). It does not cover: the DOTAX anchors (the $1M+
+class's anchor year alone moves MID's five-year total by about ±$63M on the
+TY2019–2023 window, ±$141M on a single edition — October 8 section, *Sensitivity*);
+the income aging and the top-income premium; the behavioral parameters, which
+the LOW/MID/HIGH scenarios span ($572–891M over five years); the capital-gains
+anchoring; or the credit overlay. Quote it as "±$1–3M sampling" beside the
+scenario range, never in its place.
+
+**Runtime.** 2.2–2.6 s per scenario-year on top of the 60–85 s the scoring
+takes: 11.1 s for MID, 43.9 s for all four scenarios (so all four run it). The
+whole CD2 run took 1,358 s with the four scenario workers in parallel.
+
+**Weight basis for poverty (item 2).** The SPM aggregator weights each SPM unit
+by raw household WGTP and discards the calibrated tax-unit weight (the
+constructor's filing-status factors — single 0.82, HoH 1.30, MFS 1.35 — and
+the EITC by-children reweight), so the poverty and revenue paths weighted the
+same unit differently. `aggregate_to_spm_units(calibration_ratio_col=...)` can
+now carry the mean calibration ratio of the SPM unit's tax units onto WGTP and
+onto each replicate weight (`tax_modeler.poverty.weight_basis`;
+`scripts/poverty_impact_report.py --carry-calibration-ratio`;
+`forecast_working_family_credits.CARRY_CALIBRATION_RATIO`). TY2024, with SNAP
+and the full benefit stack, SDR bands in brackets:
+
+| TY2024 | Raw WGTP (default) | WGTP × calibration ratio |
+|---|---:|---:|
+| Weighted persons | 1,363,371 | 1,334,604 (−2.1%) |
+| Baseline SPM poverty rate | 9.70% [9.33, 10.08] | 9.88% [9.47, 10.30] |
+| Persons in poverty | 132,314 (±5,179) | 131,920 (±5,574) |
+| Lifted by EITC | 16,565 (±3,059) | 20,247 (±3,483) |
+| Lifted by CTC | 4,559 (±1,440) | 5,380 (±1,627) |
+| Lifted by HI EITC | 6,265 (±1,656) | 7,642 (±1,991) |
+| Lifted by all three | 32,736 (±4,417) | 39,665 (±5,201) |
+
+The rate moves +0.18pp, under the 0.5pp threshold, but the basis is **left
+opt-in**: the mean ratio is 0.94 (0.97 weighted), so the person denominator
+drops 29,000 below the ACS count the SPM rate is meant to match, and the
+credit lifts move +18–22% — the factors and the EITC reweight up-weight
+exactly the HoH, with-children, EITC-eligible units the lifts count, by
+amounts set to match DOTAX *filer* counts, not persons. Carrying them into a
+person count is a different population claim than the one the aggregator makes.
+The option exists so the two paths can be put on one basis deliberately; the
+published poverty tables stay on raw WGTP. The Act 24 working-family poverty
+table (September 30 section) was not rerun; its switch is the module flag.
+
+**Code.** `tax_modeler/uncertainty/replicates.py` (calibrated replicate
+matrix), `tax_modeler/uncertainty/revenue.py` (the Act 24 bands),
+`tax_modeler/poverty/weight_basis.py`, `poverty/spm_aggregation.py`
+(`calibration_ratio_col`), `_forecast_common.add_replicate_se_arg`, the three
+scripts, `forecast_sb3125.py` (replicate weights into the cache: delete
+`data/artifacts/tax_units_cache.parquet` to rebuild). Tests:
+`tests/tax_modeler/scenarios/test_replicate_ci.py` (the Fay formula by hand,
+the ratio on each replicate, points tie to `score_with_response`, zero
+variation ⇒ zero SE) and `tests/tax_modeler/poverty/test_weight_basis.py`.
 ## Calibration report and scenario parameter audit — October 9, 2026 (no result changes)
 
 **No number in this document changes.** This entry records hygiene from a forecast
