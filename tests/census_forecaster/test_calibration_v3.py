@@ -551,7 +551,7 @@ class TestPartialTruthAnchors:
             for r in payload["fold_residuals"]
         )
         # Conformal records and evaluation coverage still materialise.
-        assert payload["schema_version"] == 5
+        assert payload["schema_version"] == 6
         assert payload["conformal_quantile_by_stratum"]
         assert payload["evaluation_coverage"]
         # Only the short bucket can have conformal records from a 2022 anchor.
