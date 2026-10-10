@@ -3450,6 +3450,12 @@ columns.
 |--------|---------|--------|
 | `forecast_act24_vs_pre_act46.py` | Act 24 vs **pre-Act-46 (2017) law** — the frame comparable to ITEP's ~$1.4B/yr Act 46 figure. Decomposes into Act 46 banked ≤2026 / Act 46 remaining / Act 24 increment, and carries a tie-out column (`tieout_act24_page`) checking that column C equals the Act 24 page's static bracket change. | `runs/act24_vs_pre_act46/decomposition.csv` |
 
+#### DOTAX scorecard
+
+| Script | Purpose | Output |
+|--------|---------|--------|
+| `scripts/dotax_scorecard.py --base-edition-year N` | Scores the calibrated base raked to DOTAX edition N (`scripts/build_calibrated_base.py`, or the artifact `forecast_sb3125_enhanced.py` writes) against edition N+1: returns, AGI and tax before credits by AGI class, filing status, the $1M+ class with its count / per-filer split, and the growth the dials implied. The TY2022-anchored model (`48761b8`) against TY2023 is `DOTAX_SCORECARD.md`: $1M+ tax +73% (MID), everything below $1M −3.5%. | `reports/dotax_scorecard/TY<N+1>/` |
+
 ### Key Package Files
 
 | File | Purpose |
