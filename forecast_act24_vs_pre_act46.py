@@ -34,8 +34,8 @@ the measured cost grows so steeply across the window.
 Population and deduction basis
 ------------------------------
 The four regimes are scored on the Act 24 page's own population and
-projection (``scenarios.act24_population``, MID: Pareto alpha 1.5, top-income
-premium 1.0%/yr), so the only thing differing between them is statute
+projection (``scenarios.act24_population``, MID: Pareto alpha 1.5, CBO
+component aging, top-share drift 0), so the only thing differing between them is statute
 (brackets / SD / personal exemption), and column C is exactly the page's
 static bracket change — the ``tieout_act24_page`` column checks that every
 year. Until September 28, 2026 this script built its own population
@@ -89,8 +89,10 @@ from tax_modeler.scenarios.quintile_analysis import per_unit_tax
 from tax_modeler.calibration.cg_anchor import anchor_factors, apply_anchor_factors
 from tax_modeler.scenarios.act24_population import build_units, project_units, statute
 
-MID_ALPHA       = 1.5
-MID_TOP_PREMIUM = 0.010
+from tax_modeler.projection.engine import AgingSpec  # noqa: E402
+
+MID_ALPHA = 1.5
+MID_SPEC = AgingSpec.for_scenario("MID")   # the Act 24 page's MID aging (CBO components, drift 0)
 
 from _forecast_common import CALIBRATED_PKL, RUNS_DIR, TARGET_YEARS, add_replicate_se_arg  # noqa: E402
 
@@ -130,7 +132,7 @@ def main(replicate_se: bool = True) -> None:
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
 
-    units, tail_k = build_units(base, alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM,
+    units, tail_k = build_units(base, alpha=MID_ALPHA, spec=MID_SPEC,
                                 ded_params=cal_ded_params, cal_tax_year=cal_tax_year)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
@@ -156,7 +158,7 @@ def main(replicate_se: bool = True) -> None:
 
         # The Act 24 page's own population and projection (MID), then its
         # gains base: column C is then the page's static bracket change.
-        projected = project_units(units, year=yr, top_premium=MID_TOP_PREMIUM)
+        projected = project_units(units, year=yr, spec=MID_SPEC)
         w = projected["weight"].to_numpy(dtype=float)
         proj_target = apply_anchor_factors(projected, anchor_factors(projected, yr))
 

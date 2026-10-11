@@ -128,7 +128,7 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
     scen = {}
     for k, s in SCENARIOS.items():
         p = s.behavioral_params
-        scen[k] = {"label": s.label, "alpha": s.alpha, "top_premium": s.top_premium,
+        scen[k] = {"label": s.label, "alpha": s.alpha, "top_share_drift": s.top_share_drift,
                    "eti": p.eti, "migration_elast": p.migration_elast,
                    "migration_phase_in_years": p.migration_phase_in_years,
                    "pte_capture": p.pte_capture, "cg_beta": p.cg_beta}

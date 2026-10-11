@@ -31,9 +31,11 @@ gain (less loss)", which includes short-term gains (already taxed at ordinary
 rates) and, above $1M, national tier shares. Against DOTAX that puts ~30% too
 much at the top and too little in the $200K-$400K range on this script's
 population ($400K+, TY2026; anchor_check.csv). So the base is
-re-anchored to DOTAX Table 21 (TY2023): resident net long-term capital gains
-eligible for the alternative rate, by Hawaii AGI class, grown to the tax year
-with the Hawaii-adjusted CBO capital-gains factor the projection itself uses.
+re-anchored to DOTAX Table 21: resident net long-term capital gains eligible
+for the alternative rate, by Hawaii AGI class, each class's TY2019-2023 mean
+share of resident tax before credits on the TY2023 total (as the $1M+ class
+is anchored), grown to the tax year with the income base (the realization
+fit in calibration.cg_realization could not beat this null).
 Classes map onto the projected population by weighted income rank (DOTAX Table
 A-8 return counts), so income growth does not push gains across fixed nominal
 class lines. The model's CG shares set the distribution within each class,
@@ -110,8 +112,10 @@ from tax_modeler.calibration.cg_anchor import (
 REPO = Path(__file__).parent
 OUT_DIR = REPO / "runs" / "cg_rate_options"
 
+from tax_modeler.projection.engine import AgingSpec  # noqa: E402
+
 MID_ALPHA = 1.5
-MID_TOP_PREMIUM = 0.010
+MID_SPEC = AgingSpec.for_scenario("MID")   # CBO component aging, top_share_drift 0
 
 YEARS = [2026, 2027, 2028, 2029, 2030, 2031]
 DIST_YEAR = 2027          # the charted year: a 2027 bill's first tax year
@@ -183,15 +187,11 @@ def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
     projected, fwd = project_and_recalibrate(
         units,
         target_year=yr,
+        spec=MID_SPEC,                 # the shared engine; drift carries into the forward counts
         use_forward_targets=True,
         use_soi_anchor=True,
         soi_year=2022,
         hawaii_capgain_adjustment=0.95,
-        use_cbo_aging=True,
-        cbo_vintage="2025-01",
-        top_premium_pct=MID_TOP_PREMIUM,
-        top_bracket_differential=0.025,
-        method="ensemble",
     )
     if fwd is not None:
         CALIBRATION["years"][yr] = fwd.calibration_report
@@ -418,7 +418,9 @@ def run() -> None:
         params={"years": YEARS, "dist_years": DIST_YEARS, "beta": BETA,
                 "top_share_variants": TOP_SHARE_VARIANTS, "cap_current": CAP_CURRENT,
                 "options": dict(OPTIONS), "alpha": MID_ALPHA,
-                "top_premium": MID_TOP_PREMIUM, "cbo_vintage": "2025-01"},
+                "aging_spec": MID_SPEC.describe(), "cbo_vintage": MID_SPEC.cbo_vintage,
+                "gains_anchor": "Table 21 on the TY2019-2023 window (share of resident tax "
+                                "before credits), grown with the income base (cg_anchor.cg_growth)"},
         inputs={"tax_unit_cache": cache_provenance(),
                 "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-8"},
     )

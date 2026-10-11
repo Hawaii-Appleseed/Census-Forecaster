@@ -30,6 +30,8 @@ Outputs keep the per-bill /tmp filenames of the replaced scripts.
 """
 from __future__ import annotations
 
+from tax_modeler.projection.engine import AgingSpec  # noqa: E402
+
 import argparse
 import logging
 import sys
@@ -62,7 +64,7 @@ from _forecast_common import CALIBRATED_PKL, TARGET_YEARS
 
 # MID scenario parameters (matches forecast_sb3125_enhanced.py MID).
 MID_ALPHA           = 1.5
-MID_TOP_PREMIUM     = 0.010
+MID_SPEC            = AgingSpec.for_scenario("MID")   # projection.engine: CBO aging, drift 0
 MID_REEC            = "obbba_mid"
 MID_REEC_EFF_SHARE  = 0.65
 MID_CGEC_GROWTH     = 0.015
@@ -196,7 +198,7 @@ def main(bill: str = "sb3125_cd1") -> None:
         "reec":           MID_REEC,
         "behav":          "mid",
         "corp_agi_limit": MID_CORP_AGI_LIMIT,
-        "top_premium":    MID_TOP_PREMIUM,
+        "top_share_drift": MID_SPEC.top_share_drift,
         "reec_eff_share": MID_REEC_EFF_SHARE,
         "cgec_growth":    MID_CGEC_GROWTH,
         "reec_cf_m":      MID_REEC_CF_M,
@@ -227,11 +229,7 @@ def main(bill: str = "sb3125_cd1") -> None:
             use_soi_anchor=True,
             soi_year=2022,
             hawaii_capgain_adjustment=0.95,
-            use_cbo_aging=True,
-            cbo_vintage="2025-01",
-            top_premium_pct=MID_TOP_PREMIUM,
-            top_bracket_differential=0.025,
-            method="ensemble",
+            spec=MID_SPEC,
         )
 
         baseline_cfg = baseline.system_for(yr)

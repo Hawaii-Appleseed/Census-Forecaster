@@ -484,7 +484,7 @@ def test_scenarios_match_the_act24_run():
     by_label = {s["label"]: s for s in mod.SCENARIOS}
     for key, sc in SCENARIOS.items():
         e = by_label[sc.label]
-        assert (sc.alpha, sc.top_premium, sc.behavior) == (e["alpha"], e["top_premium"], e["behav"]), key
+        assert (sc.alpha, sc.top_share_drift, sc.behavior) == (e["alpha"], e["top_share_drift"], e["behav"]), key
         assert e["macro_shock"] is None
 
 

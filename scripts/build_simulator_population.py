@@ -128,7 +128,7 @@ def check_gains_anchor(pop) -> list[str]:
     (tax_modeler.simulator.gains). For every year:
 
     * MID: each DOTAX class's gains (income x anchored share, weighted) equal
-      DOTAX's TY2023 resident gains grown by cg_growth, with TOP_SHARE_1M of
+      DOTAX's windowed resident gains (anchored_nltcg_M) grown by cg_growth, with TOP_SHARE_1M of
       the $400K+ class at $1M+; the total equals the capital-gains page's
       published nltcg_M and the class targets its anchor_check.csv. Its
       factor k is 0 below $100K and positive in every other class (a class
@@ -146,21 +146,27 @@ def check_gains_anchor(pop) -> list[str]:
     import numpy as np
     import pandas as pd
 
-    from tax_modeler.calibration.cg_anchor import BASE_YEAR, _CLASSES, DOTAX_NLTCG_RES, cg_growth, rank_classes
+    from tax_modeler.calibration.cg_anchor import (
+        _CLASSES,
+        anchored_nltcg_M,
+        anticipatory_realization_factor,
+        cg_growth,
+        rank_classes,
+    )
     from tax_modeler.simulator.gains import CLASSES, ensure_gains_anchor, gains_classes
     from tax_modeler.simulator.population import frame_for, unit_arrays
     from tax_modeler.simulator.scenarios import SCENARIOS
 
     anchor = ensure_gains_anchor(pop)
     top = anchor["top_share"]
-    dotax = dict(zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True))
+    dotax = dict(zip(_CLASSES, anchored_nltcg_M(), strict=True))  # the windowed anchor
     rev = pd.read_csv(CG_PAGE / "revenue_by_year.csv")
     rev = rev[(rev.law == "act24") & (rev.top_share == "central")]
     anchor_ref = pd.read_csv(CG_PAGE / "anchor_check.csv")
     code = {c: i for i, c in enumerate(CLASSES)}
     problems = []
     for y in pop.years:
-        g = cg_growth(y)
+        g = cg_growth(y) * anticipatory_realization_factor(y)
         target = {"lt100": 0.0, **{c: dotax[c] * g for c in CLASSES[1:5]},
                   "400_1m": dotax["400p"] * g * (1 - top), "1mp": dotax["400p"] * g * top}
         k_mid = anchor["k"]["mid"][str(y)]

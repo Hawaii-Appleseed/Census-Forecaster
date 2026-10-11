@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tax_modeler.projection.engine import TOP_SHARE_DRIFT, AgingSpec
 from tax_modeler.scenarios.behavioral_response import BehavioralParams
 
 YEARS = (2027, 2028, 2029, 2030, 2031)
@@ -22,16 +23,20 @@ class SimScenario:
     key: str             # "low" / "mid" / "high"
     label: str           # enhanced SCENARIOS label
     alpha: float         # Pareto index of the synthetic $1M+ tail
-    top_premium: float   # top-income growth premium, per year from 2024
+    top_share_drift: float   # per year above $500K from 2024 (engine.TOP_SHARE_DRIFT)
     behavior: str        # BehavioralParams.named(...)
 
     @property
     def behavioral_params(self) -> BehavioralParams:
         return BehavioralParams.named(self.behavior)
 
+    @property
+    def aging_spec(self) -> AgingSpec:
+        return AgingSpec(top_share_drift=self.top_share_drift)
+
 
 SCENARIOS = {
-    "low": SimScenario("low", "LOW", alpha=1.7, top_premium=0.003, behavior="high"),
-    "mid": SimScenario("mid", "MID", alpha=1.5, top_premium=0.010, behavior="mid"),
-    "high": SimScenario("high", "HIGH", alpha=1.4, top_premium=0.023, behavior="low"),
+    "low": SimScenario("low", "LOW", alpha=1.7, top_share_drift=TOP_SHARE_DRIFT["LOW"], behavior="high"),
+    "mid": SimScenario("mid", "MID", alpha=1.5, top_share_drift=TOP_SHARE_DRIFT["MID"], behavior="mid"),
+    "high": SimScenario("high", "HIGH", alpha=1.4, top_share_drift=TOP_SHARE_DRIFT["HIGH"], behavior="low"),
 }

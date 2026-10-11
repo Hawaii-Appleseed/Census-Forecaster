@@ -118,9 +118,22 @@ def add_replicate_se_arg(p) -> None:
     )
 
 
-def parse_cd_args(description: str | None = None, *, replicate_se: bool = False):
+def add_aging_arg(p) -> None:
+    """``--aging {cbo,scalar}`` (default cbo): the income-aging engine
+    (``tax_modeler.projection.engine``); ``scalar`` reproduces the county
+    B19013 path the headline used until October 2026, for comparison."""
+    from tax_modeler.projection.engine import AGING_ENGINES
+
+    p.add_argument("--aging", choices=list(AGING_ENGINES), default="cbo",
+                   help="Income-aging engine: cbo (per-source CBO component aging, default) "
+                        "or scalar (the old county-median path, for comparison).")
+
+
+def parse_cd_args(description: str | None = None, *, replicate_se: bool = False,
+                  aging: bool = False):
     """Standard ``--cd {1,2}`` CLI shared by the SB 3125 scripts; with
-    ``replicate_se`` the ``--replicate-se`` flag (``add_replicate_se_arg``)."""
+    ``replicate_se`` the ``--replicate-se`` flag (``add_replicate_se_arg``),
+    with ``aging`` the ``--aging`` flag (``add_aging_arg``)."""
     import argparse
 
     p = argparse.ArgumentParser(description=description)
@@ -130,6 +143,8 @@ def parse_cd_args(description: str | None = None, *, replicate_se: bool = False)
     )
     if replicate_se:
         add_replicate_se_arg(p)
+    if aging:
+        add_aging_arg(p)
     return p.parse_args()
 
 

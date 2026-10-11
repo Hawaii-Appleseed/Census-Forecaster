@@ -296,9 +296,18 @@ def _component_amounts_for_filer(
     use_synth_b = (biz_pums == 0) & (_col("synthetic_business_share") > 0)
     business = np.where(use_synth_b, biz_synth, biz_pums)
 
-    # Investment income components (PUMS-actual)
+    # Investment income components (PUMS-actual). The synthetic $1M+ rows
+    # (``top_income_synthesis.synthesize_top_filers``) write their gains into
+    # ``primary_intp`` / ``investment_income`` *and* ``synthetic_cg_share``, so
+    # on those rows the interest column is the gains again: net it out, or the
+    # decomposition sums to (1 + cg share) x income and CBO aging grows the
+    # tail by the share at zero growth (found when the headline path moved to
+    # component aging, October 2026).
     interest = _col("primary_intp") + _col("secondary_intp")
     dividends = _col("primary_div") + _col("secondary_div")
+    if "is_synthetic_ultra_high" in df.columns:
+        synth = df["is_synthetic_ultra_high"].fillna(False).to_numpy(dtype=bool)
+        interest = np.where(synth, np.maximum(interest - cg, 0.0), interest)
 
     # Retirement (PUMS-actual), as ``income`` counts it: RETP plus the taxable
     # 85% of Social Security. Full Social Security, SSI and public assistance
@@ -307,6 +316,25 @@ def _component_amounts_for_filer(
     # ``other`` floor below hid it) and raised income even at zero growth.
     ssp_in_income, _ = _social_security(df)
     retirement = _col("primary_retp") + _col("secondary_retp") + ssp_in_income
+
+    # The imputed gains share on PUMS rows (``cg_imputation.impute_capital_gains_from_soi``,
+    # $100K-$1M) names gains that are already inside the PUMS components:
+    # PUMS has no gains variable, so a filer's realized gains sit in INTP /
+    # OIP / whatever the respondent reported, and the sum of the PUMS columns
+    # is ``income`` with the gains in it. Adding ``income x share`` on top made
+    # those rows decompose to (1 + share) x income, and under CBO aging a
+    # $900K filer with a 0.2 share crossed $1M while every factor was below 1
+    # (found on the TY2022 -> TY2023 scorecard, October 2026). Carve the gains
+    # out: scale the non-gains components down by as much of the excess over
+    # ``income`` as the gains explain (no more, so a row whose PUMS columns
+    # genuinely exceed its income is still flagged below). Synthetic rows are
+    # already consistent (above), so the scale is 1 there.
+    non_gains = wages + business + interest + dividends + retirement
+    excess = np.maximum(non_gains + cg - inc, 0.0)
+    carve = np.minimum(excess, cg)
+    scale = np.where(non_gains > 0, (non_gains - carve) / np.where(non_gains > 0, non_gains, 1.0), 1.0)
+    wages, business, interest, dividends, retirement = (
+        wages * scale, business * scale, interest * scale, dividends * scale, retirement * scale)
 
     # Other = residual to make components sum to income
     accounted = wages + business + cg + interest + dividends + retirement

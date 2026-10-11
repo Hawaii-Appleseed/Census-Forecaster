@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 from tax_modeler.liability.federal import add_federal_income_columns
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+from tax_modeler.projection.engine import AgingSpec
 from tax_modeler.scenarios import top_income_synthesis as tis
 from tax_modeler.scenarios.top_income_synthesis import (
     DOTAX_1M_PLUS_TARGET_TAX_YEAR,
@@ -111,7 +112,7 @@ class TestAgeToPumsDollarYear:
             proj = project_revenue_per_filer(target_year=2027, geoid="15003", anchor_year=year)
             assert proj.anchor_income == tis._observed_honolulu_b19013(year)
 
-    def test_factor_is_observed_b19013_growth_times_the_premium(self):
+    def test_scalar_factor_is_observed_b19013_growth_times_the_drift(self):
         from census_forecaster.acs.projection import effective_year
         from tax_modeler.projection.income_forecast import _load_b19013_series
         level = {int(effective_year(o)): o.estimate
@@ -119,19 +120,38 @@ class TestAgeToPumsDollarYear:
         years = PUMS_INCOME_DOLLAR_YEAR - DOTAX_1M_PLUS_TARGET_TAX_YEAR
         b19013 = level[PUMS_INCOME_DOLLAR_YEAR] / level[DOTAX_1M_PLUS_TARGET_TAX_YEAR]
         assert b19013 > 1
-        assert synthetic_tail_aging_factor(0.0) == pytest.approx(b19013, rel=1e-12)
-        for p in (0.003, 0.010, 0.023):
-            assert synthetic_tail_aging_factor(p) == pytest.approx(b19013 * (1 + p) ** years,
-                                                                   rel=1e-12)
+        assert synthetic_tail_aging_factor(AgingSpec(engine="scalar")) == pytest.approx(b19013, rel=1e-12)
+        for p in (-0.01, 0.01, 0.023):
+            got = synthetic_tail_aging_factor(AgingSpec(engine="scalar", top_share_drift=p))
+            assert got == pytest.approx(b19013 * (1 + p) ** years, rel=1e-12)
+
+    def test_cbo_factor_is_the_components_growth_at_the_units_gains_share(self):
+        from tax_modeler.projection.engine import component_growth
+        spec = AgingSpec()
+        g = component_growth(spec, DOTAX_1M_PLUS_TARGET_TAX_YEAR, PUMS_INCOME_DOLLAR_YEAR)
+        assert synthetic_tail_aging_factor(spec, cg_share=0.0) == pytest.approx(g["wages"])
+        assert synthetic_tail_aging_factor(spec, cg_share=1.0) == pytest.approx(g["capital_gains"])
+        mixed = synthetic_tail_aging_factor(spec, cg_share=0.4)
+        assert mixed == pytest.approx(0.6 * g["wages"] + 0.4 * g["capital_gains"])
+        # CBO grows gains faster than wages, so a gains-heavy unit ages faster;
+        # the drift multiplies on top.
+        assert synthetic_tail_aging_factor(spec, cg_share=1.0) > synthetic_tail_aging_factor(spec)
+        years = PUMS_INCOME_DOLLAR_YEAR - DOTAX_1M_PLUS_TARGET_TAX_YEAR
+        assert synthetic_tail_aging_factor(spec.with_drift(0.02), cg_share=0.4) == pytest.approx(
+            mixed * 1.02 ** years)
 
     def test_no_growth_from_the_targets_own_year(self):
-        assert synthetic_tail_aging_factor(0.01, year=DOTAX_1M_PLUS_TARGET_TAX_YEAR) == 1.0
+        for spec in (AgingSpec(top_share_drift=0.01), AgingSpec(engine="scalar", top_share_drift=0.01)):
+            assert synthetic_tail_aging_factor(spec, year=DOTAX_1M_PLUS_TARGET_TAX_YEAR) == 1.0
 
-    def test_scales_only_the_tail_and_clears_its_tax(self, tail_units, score):
+    @pytest.mark.parametrize("spec", [AgingSpec(top_share_drift=0.01), AgingSpec(engine="scalar")],
+                             ids=["cbo", "scalar"])
+    def test_scales_only_the_tail_and_clears_its_tax(self, tail_units, score, spec):
         scored = score(tail_units)
-        aged = age_synthetic_tail(scored, top_premium=0.01)
-        g = synthetic_tail_aging_factor(0.01)
+        aged = age_synthetic_tail(scored, spec=spec)
         m = _tail(aged)
+        g = np.array([synthetic_tail_aging_factor(spec, cg_share=s)
+                      for s in scored.loc[m, "synthetic_cg_share"]])
         for col in INCOME_COLS:
             np.testing.assert_allclose(aged.loc[m, col], scored.loc[m, col] * g, rtol=1e-12)
             np.testing.assert_array_equal(aged.loc[~m, col], scored.loc[~m, col])
@@ -140,4 +160,4 @@ class TestAgeToPumsDollarYear:
                                       scored.loc[~m, "hi_tax_liability"])
         rebuilt = add_federal_income_columns(aged)
         np.testing.assert_allclose(aged["federal_agi"], rebuilt["federal_agi"])
-        assert _tail_tax_m(score(aged)) > g * 0.99 * _tail_tax_m(scored)
+        assert _tail_tax_m(score(aged)) > g.min() * 0.99 * _tail_tax_m(scored)

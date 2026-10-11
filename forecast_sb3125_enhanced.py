@@ -35,14 +35,15 @@ Improvements over forecast_sb3125.py:
      income to elect PTE (9%) vs face individual 13%. Reported as a
      deduction from gross bracket revenue.
 
-  4. **Top-income growth premium** — Top earners (>$500K) get an additional
-     premium above the median-anchored projection. Anchored to PUMS 2024
-     base year (5-year vintage panel inflation-adjusted to 2024 dollars).
-     The synthetic $1M+ tail is calibrated to DOTAX's TY2023 $1M+ tax, so
-     it is first aged 2023 -> 2024 (Honolulu's observed B19013 growth and
-     one year of the scenario's premium; ``age_synthetic_tail``). Until
-     September 29, 2026 it entered the projection at its base-year level, and
-     its single-step rescale overshot the tax target by ~3.6% (MID).
+  4. **One aging engine, one top-share drift** — Every unit is aged by
+     CBO component (``projection.engine``, ``--aging cbo``, the default;
+     ``--aging scalar`` reproduces the county-median path used until
+     October 2026), and the scenario's ``top_share_drift`` (-1.0 / 0 / +1.0
+     %/yr above $500K from 2024; ``engine.TOP_SHARE_DRIFT`` documents the
+     source) replaces the +0.3/1.0/2.3%/yr premium and the forward-count
+     differential. The synthetic $1M+ tail is calibrated to DOTAX's $1M+ tax
+     (the TY2019-2023 window) and aged 2023 -> 2024 by the same engine
+     (``age_synthetic_tail``).
 
   5. **Effective deductions plumbed through** — The bracket comparison
      uses each filer's projection-time effective deduction (greater of
@@ -95,9 +96,7 @@ capture is 0 in all, Act 58):
     LOW       — eti=0.60, migration=0.01,   alpha=1.7, reec=obbba_severe
     MID       — eti=0.40, migration=0.0025, alpha=1.5, reec=obbba_mid  [no recession]
     HIGH      — eti=0.15, migration=0.001,  alpha=1.4, reec=pre_obbba
-    RECESSION — MID behavioral params + moderate recession macro shock,
-                except top_premium=0.013 (MID is 0.010; see the scenario
-                parameter audit of October 9, 2026 in SB3125_CD1_FORECAST.md)
+    RECESSION — MID behavioral params + moderate recession macro shock
                 (−2.0% all-filer income in 2027, −3.5% top-income, partial
                 rebound 2028, back to baseline 2029+)
 
@@ -119,6 +118,7 @@ from pathlib import Path
 from _forecast_common import (
     ARTIFACT_DIR, TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
+from tax_modeler.projection.engine import AGING_ENGINES, TOP_SHARE_DRIFT, AgingSpec
 
 # Three calibrated scenarios. Calibration is anchored to (a) the official
 # 5yr fiscal-impact estimate of ~$680M, (b) state-level ETI literature
@@ -137,7 +137,7 @@ SCENARIOS = [
         "reec":   "obbba_severe",
         "behav":  "high",             # strong behavioral response (low revenue gain)
         "corp_agi_limit": True,
-        "top_premium":     0.003,     # +0.3%/yr: MID – 1.0pp (strong outmigration)
+        "top_share_drift": TOP_SHARE_DRIFT["LOW"],    # -1.0%/yr (projection.engine.TOP_SHARE_DRIFT)
         "reec_eff_share":  0.50,      # IRS §25D 25th-pct in-year offset for HI nonref
         "cgec_growth":     0.010,     # 1%/yr: pre-COVID long-run floor
         "macro_shock":     None,
@@ -153,7 +153,7 @@ SCENARIOS = [
         "reec":   "obbba_mid",
         "behav":  "mid",              # ETI=0.40, migr=0.0025, pte=0
         "corp_agi_limit": False,
-        "top_premium":     0.010,     # +1.0%/yr: IRS SOI 1.8pp – 0.8pp Hawaii haircut
+        "top_share_drift": TOP_SHARE_DRIFT["MID"],    # 0: the DOTAX A-8 series supports none
         "reec_eff_share":  0.65,      # IRS §25D median full-year offset
         "cgec_growth":     0.015,     # 1.5%/yr: pre-COVID average
         "macro_shock":     None,
@@ -169,7 +169,7 @@ SCENARIOS = [
         "reec":   "pre_obbba",
         "behav":  "low",              # weak behavioral (high revenue gain)
         "corp_agi_limit": False,
-        "top_premium":     0.023,     # +2.3%/yr: MID + 1.0pp (national-rate convergence)
+        "top_share_drift": TOP_SHARE_DRIFT["HIGH"],   # +1.0%/yr: national SOI residual after composition
         "reec_eff_share":  0.80,      # IRS §25D 75th-pct full-use share
         "cgec_growth":     0.025,     # 2.5%/yr: moderate growth assumption
         "macro_shock":     None,
@@ -186,9 +186,8 @@ SCENARIOS = [
         "reec":   "obbba_mid",
         "behav":  "mid",              # MID behavioral: ETI=0.40, migr=0.0025, pte=0
         "corp_agi_limit": False,
-        "top_premium":     0.013,     # +1.3%/yr — NOT MID's 0.010. Left at the pre-May-2026
-                                      # MID value when MID was lowered; undocumented, flagged
-                                      # in SB3125_CD1_FORECAST.md (audit, Oct 9, 2026). Unchanged.
+        "top_share_drift": TOP_SHARE_DRIFT["MID"],    # MID's (it carried an undocumented 1.3%/yr
+                                      # premium until the drift collapse of October 2026)
         "reec_eff_share":  0.65,
         "cgec_growth":     0.015,     # same as MID
         "macro_shock":     "moderate",
@@ -203,12 +202,13 @@ SCENARIOS = [
 # Requires the workspace to be installed: `uv sync --all-packages`.
 REPO = Path(__file__).parent
 
-CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors in every "
-                      "scenario), statutory alternative tax (HRS §235-51(f))")
+CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor: Table 21 on the TY2019-2023 "
+                      "window, grown with the income base; MID's factors in every scenario), "
+                      "statutory alternative tax (HRS §235-51(f))")
 
 
 def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None,
-                     replicate_se=False):
+                     replicate_se=False, aging="cbo"):
     """Top-level worker (must be picklable) for ProcessPoolExecutor.
 
     Each worker is a fresh Python process — package imports rely on
@@ -224,6 +224,7 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains
         base, scenario=scenario_dict, target_years=target_years, cd=cd,
         ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
         gains_factors=gains_factors, replicate_se=replicate_se, class_rows=class_rows,
+        aging=aging,
     )
     return rows, class_rows
 
@@ -231,7 +232,7 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains
 def run_one_scenario(
     base_calibrated, *, scenario, target_years, cd="1",
     ded_params=None, cal_tax_year=2023, gains_factors=None,
-    replicate_se=False, class_rows=None,
+    replicate_se=False, class_rows=None, aging="cbo",
 ):
     """Run a single scenario across all target years and return per-year rows.
 
@@ -294,14 +295,14 @@ def run_one_scenario(
     reec   = scenario["reec"]
     behav  = scenario["behav"]
     corp_agi = scenario["corp_agi_limit"]
-    top_premium = scenario["top_premium"]
+    spec = AgingSpec(engine=aging, top_share_drift=scenario["top_share_drift"])
     reec_eff = scenario["reec_eff_share"]
     cgec_g   = scenario["cgec_growth"]
     macro_shock = scenario.get("macro_shock")   # None = baseline macro; "moderate" = recession
     reec_cf_m = scenario.get("reec_cf_m", 0.0)          # TY2031 carryforward utilization
 
     print(f"\n{'='*78}\nSCENARIO {label}: alpha={alpha} reec={reec} behav={behav} "
-          f"corp_agi={corp_agi} top_premium={top_premium:+.3f}\n"
+          f"corp_agi={corp_agi} {spec.describe()}\n"
           f"  reec_eff_share={reec_eff} cgec_growth={cgec_g:.3f} "
           f"reec_cf_m={reec_cf_m:.1f}M "
           f"macro_shock={macro_shock or 'none'}", end="", flush=True)
@@ -318,12 +319,13 @@ def run_one_scenario(
     # calibrated to DOTAX's TY2023 $1M+ tax and aged to the PUMS dollar year
     # with this scenario's premium. Shared with the tax simulator's population
     # (tax_modeler.scenarios.act24_population).
-    units, tail_k = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
+    units, tail_k = build_units(base_calibrated, alpha=alpha, spec=spec,
                                 ded_params=ded_params, cal_tax_year=cal_tax_year)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
-          f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2023 tax, "
-          f"aged x{synthetic_tail_aging_factor(top_premium):.4f} to "
+          f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the DOTAX tax, "
+          f"aged x{synthetic_tail_aging_factor(spec, cg_share=0.0):.4f} (wages) / "
+          f"x{synthetic_tail_aging_factor(spec, cg_share=1.0):.4f} (gains) to "
           f"{PUMS_INCOME_DOLLAR_YEAR}: ${v['tax_1m_plus_$M']:,.1f}M tax", flush=True)
 
     behav_params = BehavioralParams.named(behav)
@@ -343,12 +345,11 @@ def run_one_scenario(
     rows = []
     for year in target_years:
         t0 = time.perf_counter()
-        # 1-2) County B19013 projection with per-filer effective deductions,
-        #      the top-income growth premium, the recession shock (RECESSION
+        # 1-2) The aging engine (CBO components) with per-filer effective
+        #      deductions, the top-share drift, the recession shock (RECESSION
         #      only), then re-scoring every unit whose income those changed
         #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes").
-        projected = project_units(units, year=year, top_premium=top_premium,
-                                  macro_shock=macro_shock)
+        projected = project_units(units, year=year, spec=spec, macro_shock=macro_shock)
         # 2b) Capital gains on the DOTAX-anchored base (MID's factors).
         if gains_factors is not None:
             projected = apply_anchor_factors(projected, gains_factors[year])
@@ -493,9 +494,11 @@ def run_one_scenario(
 if __name__ == "__main__":
     silence_noise()
 
-    args = parse_cd_args(__doc__, replicate_se=True)
+    args = parse_cd_args(__doc__, replicate_se=True, aging=True)
     CD = args.cd
     REPLICATE_SE = bool(args.replicate_se)
+    AGING = args.aging
+    MID_SPEC = AgingSpec.for_scenario("MID", engine=AGING)
     OUT_CSV = Path(f"/tmp/sb3125_cd{CD}_enhanced_2027_2031.csv")
     cd_label = f"CD{CD}"
 
@@ -605,7 +608,7 @@ if __name__ == "__main__":
         _mid = next(s for s in SCENARIOS if s["label"] == "MID")
         print("Anchoring capital gains to DOTAX on the MID population...", flush=True)
         GAINS_FACTORS = mid_gains_factors(
-            calibrated_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
+            calibrated_base, alpha=_mid["alpha"], spec=MID_SPEC,
             ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS)
 
         # Parallel: run all four scenarios concurrently. Each worker imports
@@ -621,7 +624,7 @@ if __name__ == "__main__":
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = {
                 pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                            GAINS_FACTORS, REPLICATE_SE): sc["label"]
+                            GAINS_FACTORS, REPLICATE_SE, AGING): sc["label"]
                 for sc in SCENARIOS
             }
             for fut in as_completed(futures):
@@ -657,6 +660,7 @@ if __name__ == "__main__":
             class_df = pd.DataFrame(all_class_rows)
             class_df.to_csv(RUN_DIR / "replicate_ci_by_class.csv", index=False)
         MANIFEST_PARAMS = {"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                           "aging": AGING, "aging_spec_mid": MID_SPEC.describe(),
                            "capital_gains": CAPITAL_GAINS_NOTE,
                            "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()},
                            "replicate_se": REPLICATE_SE,
@@ -691,8 +695,7 @@ if __name__ == "__main__":
         # enrich=True adds total_cash_income for TCI quintile binning.
         from tax_modeler.calibration.cg_anchor import apply_anchor_factors
         from tax_modeler.scenarios.act24_population import build_units, project_units, statute
-        q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"],
-                                 top_premium=mid_sc["top_premium"],
+        q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"], spec=MID_SPEC,
                                  ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True)
 
         # Anchor quintile boundaries to the 2026 base-year income distribution
@@ -707,8 +710,7 @@ if __name__ == "__main__":
 
         for yr in TARGET_YEARS:
             projected_q = apply_anchor_factors(
-                project_units(q_units, year=yr, top_premium=mid_sc["top_premium"]),
-                GAINS_FACTORS[yr])
+                project_units(q_units, year=yr, spec=MID_SPEC), GAINS_FACTORS[yr])
 
             base_cfg = statute(TaxSystemRegistry.get_act46_system)(yr)
             scen_cfg = statute(get_scenario_system)(yr)

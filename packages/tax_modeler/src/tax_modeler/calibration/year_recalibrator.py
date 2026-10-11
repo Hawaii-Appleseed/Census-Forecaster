@@ -1,7 +1,8 @@
 """ITEP-style year-by-year IRS target matching for projected tax units.
 
-Wraps the existing projection pipeline (county B19013 growth + top-income
-premium) with optional year-forward re-anchoring to Hawaii Council on Revenues
+Wraps the shared projection engine (``projection.engine``: CBO component
+aging or the county B19013 scalar, plus the top-share drift) with optional
+year-forward re-anchoring to Hawaii Council on Revenues
 aggregate revenue and DOTAX-shaped bracket distribution. Closes the
 methodology gap with ITEP, which re-anchors each projected year to IRS/CBO
 income totals rather than relying on a single growth rate.
@@ -21,12 +22,12 @@ apply_top_income_growth_premium(...)``, preserving backward compatibility.
 
 Order of operations (when re-anchoring is enabled)
 -------------------------------------------------
-1. ``project_tax_units_forward`` — county B19013 growth (unchanged).
+1. ``projection.engine.age_incomes`` — the aging engine (CBO components by default).
 2. ``forward_targets.build_targets`` — construct year-Y bracket targets.
 3. ``phase1_reweight`` — re-rake weights to forward filer-count targets, so
    the top-bracket *population* matches IRS empirical patterns BEFORE the
    premium scales the AGI of those filers.
-4. ``apply_top_income_growth_premium`` — existing premium (unchanged).
+4. ``projection.engine.apply_top_share_drift`` — the scenario's top-share drift.
 5. Tax recompute — caller is responsible for re-running ``_compute_base_tax``
    *if* they need fresh ``hi_tax_liability`` after the premium. The current
    premium implementation does not auto-recompute tax.
@@ -37,7 +38,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import pandas as pd
 
@@ -47,6 +48,9 @@ from tax_modeler.calibration.forward_targets import (
     build_targets,
     summarize as _summarize_targets,
 )
+
+if TYPE_CHECKING:
+    from tax_modeler.projection.engine import AgingSpec
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +96,7 @@ def project_and_recalibrate(
     units: pd.DataFrame,
     target_year: int,
     *,
+    spec: Optional["AgingSpec"] = None,
     use_forward_targets: bool = False,
     use_agi_reweighting: bool = True,
     resynthesize_top: bool = False,
@@ -116,6 +121,15 @@ def project_and_recalibrate(
     use_age_margins: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[ForwardTargets]]:
     """Project ``units`` to ``target_year`` with optional ITEP-style re-anchoring.
+
+    The aging step is the shared engine (``projection.engine.age_incomes``) and
+    the top-income step its drift (``apply_top_share_drift``), so this path
+    cannot age differently from ``act24_population.project_units``. Pass
+    ``spec`` (an ``AgingSpec``); the legacy keywords (``use_cbo_aging``,
+    ``top_premium_pct``, ``top_premium_base_year``, ``top_premium_threshold``,
+    ``cbo_vintage``, ``cbo_hawaii_factors``, ``method``) build one when it is
+    None. ``top_bracket_differential`` defaults to the spec's drift (one
+    parameter, not two) and ``rate_drift`` to 0 (October 2026; it was 0.5%/yr).
 
     Parameters
     ----------
@@ -185,8 +199,7 @@ def project_and_recalibrate(
         or ``None`` when ``use_forward_targets=False``.
     """
     # Local imports to avoid circular import via the calibration module
-    from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
-    from tax_modeler.scenarios.behavioral_response import apply_top_income_growth_premium
+    from tax_modeler.projection.engine import AgingSpec, age_incomes, apply_top_share_drift
     from tax_modeler.calibration.simultaneous_calibrator import (
         phase1_reweight, phase2_tax_calibrate,
     )
@@ -209,43 +222,33 @@ def project_and_recalibrate(
         target_year, state_config=HAWAII
     )
 
-    # ── 1. Income aging — uniform county growth OR CBO component aging ───────
-    if use_cbo_aging:
-        # Per-component CBO aging replaces the uniform B19013 income growth.
-        # Geographic aging (county B19013) is dropped; the SOI-anchored
-        # synthesis at Step 5b doesn't need geographic resolution since $1M+
-        # filers all get assigned to Honolulu PUMA anyway, and PUMS
-        # below-$200K filers get income growth from CBO components rather
-        # than county medians.
-        from tax_modeler.calibration.cbo_aging import (
-            age_filers_with_components, load_cbo_rates,
+    if spec is None:
+        spec = AgingSpec(
+            engine="cbo" if use_cbo_aging else "scalar",
+            top_share_drift=top_premium_pct if apply_top_premium else 0.0,
+            drift_threshold=top_premium_threshold, drift_base_year=top_premium_base_year,
+            cbo_vintage=cbo_vintage, hawaii_factors=cbo_hawaii_factors, method=method,
         )
-        from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
-        cbo_rates = load_cbo_rates(vintage=cbo_vintage)
-        projected = age_filers_with_components(
-            units,
-            target_year=target_year,
-            # Input incomes are in PUMS dollar-year dollars (2024), not 2022;
-            # age_filers re-bases the cumulative CBO factors to this year.
-            base_year=PUMS_INCOME_DOLLAR_YEAR,
-            cbo_rates=cbo_rates,
-            hawaii_factors=cbo_hawaii_factors,
-        )
-    else:
-        projected = project_tax_units_forward(
-            units, target_year=target_year, base_year=base_year, method=method
-        )
+    use_cbo_aging = spec.engine == "cbo"
+    cbo_vintage, cbo_hawaii_factors = spec.cbo_vintage, (
+        dict(spec.hawaii_factors) if spec.hawaii_factors is not None else None)
+    apply_top_premium = apply_top_premium and spec.top_share_drift != 0.0
+    top_premium_threshold = spec.drift_threshold
+    if top_bracket_differential is None:
+        top_bracket_differential = spec.top_share_drift
+    if rate_drift is None:
+        rate_drift = 0.0   # October 2026: the 0.5%/yr drift is retired with the drift unification
+
+    # ── 1. Income aging — the shared engine (CBO components or county scalar) ─
+    # Under the CBO engine county growth is dropped: the SOI-anchored synthesis
+    # at step 5b needs no geography ($1M+ filers sit in the Honolulu PUMA) and
+    # every other unit grows by its own sources.
+    projected = age_incomes(units, target_year, spec, base_year=base_year)
 
     if not use_forward_targets:
-        # Legacy path: just apply the premium and return.
+        # Legacy path: just apply the drift and return.
         if apply_top_premium:
-            projected = apply_top_income_growth_premium(
-                projected,
-                target_year=target_year,
-                base_year=top_premium_base_year,
-                annual_premium=top_premium_pct,
-                threshold=top_premium_threshold,
-            )
+            projected = apply_top_share_drift(projected, target_year, spec)
         return projected, None
 
     # ── 2. Build forward targets for this year ───────────────────────────────
@@ -319,15 +322,9 @@ def project_and_recalibrate(
         f"{pre_top:,.0f} → {post_top:,.0f} ({delta_pct:+.1f}%)"
     )
 
-    # ── 4. Top-income premium (existing function, unchanged) ────────────────
+    # ── 4. Top-share drift (the engine's; one parameter with the targets') ──
     if apply_top_premium:
-        raked = apply_top_income_growth_premium(
-            raked,
-            target_year=target_year,
-            base_year=top_premium_base_year,
-            annual_premium=top_premium_pct,
-            threshold=top_premium_threshold,
-        )
+        raked = apply_top_share_drift(raked, target_year, spec)
         # Premium scales income and clears the top-row tax columns; mirror to
         # the alias so Phase 2 sees consistent values.
         if "income" in raked.columns:

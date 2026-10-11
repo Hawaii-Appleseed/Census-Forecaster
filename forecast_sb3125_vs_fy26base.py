@@ -64,9 +64,11 @@ from tax_modeler.scenarios.quintile_analysis import (
 from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
 from tax_modeler.liability.hawaii import NO_ITEMIZING
 
-MID_ALPHA       = 1.5
-MID_TOP_PREMIUM = 0.010
-from _forecast_common import CALIBRATED_PKL, TARGET_YEARS, add_replicate_se_arg  # noqa: E402
+from tax_modeler.projection.engine import AgingSpec  # noqa: E402
+
+MID_ALPHA = 1.5
+MID_SPEC = AgingSpec.for_scenario("MID")   # CBO component aging, top_share_drift 0
+from _forecast_common import CALIBRATED_PKL, TARGET_YEARS, add_aging_arg, add_replicate_se_arg  # noqa: E402
 
 INCOME_BINS = {
     "below_50K":   (0,          50_000),
@@ -92,6 +94,7 @@ def _parse_args():
              "(project_and_recalibrate(use_age_margins=False)); the default rakes "
              "the filer age mix to the bundled population-by-age projection.",
     )
+    add_aging_arg(p)
     return p.parse_args()
 
 
@@ -142,7 +145,7 @@ def _bin_delta(inc, w, diffs):
     return result
 
 
-def main(cd: str, replicate_se: bool = True, age_margins: bool = True) -> None:
+def main(cd: str, replicate_se: bool = True, aging: str = "cbo", age_margins: bool = True) -> None:
     if not CALIBRATED_PKL.exists():
         print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd {cd} first.")
         sys.exit(1)
@@ -199,17 +202,17 @@ def main(cd: str, replicate_se: bool = True, age_margins: bool = True) -> None:
     for yr in TARGET_YEARS:
         print(f"  TY {yr}...", flush=True)
 
+        # The shared engine (projection.engine) ages, then the forward
+        # re-anchoring: the top-bracket count differential is the spec's
+        # drift and rate_drift is 0 (one top-share parameter, October 2026).
         projected, fwd = project_and_recalibrate(
             units,
             target_year=yr,
+            spec=MID_SPEC if aging == "cbo" else AgingSpec.for_scenario("MID", engine=aging),
             use_forward_targets=True,
             use_soi_anchor=True,
             soi_year=2022,
             hawaii_capgain_adjustment=0.95,
-            use_cbo_aging=True,
-            cbo_vintage="2025-01",
-            top_premium_pct=MID_TOP_PREMIUM,
-            top_bracket_differential=0.025,
             method="ensemble",
             use_age_margins=age_margins,
         )
@@ -295,7 +298,8 @@ def main(cd: str, replicate_se: bool = True, age_margins: bool = True) -> None:
     write_run_manifest(
         run_dir,
         script=f"forecast_sb3125_vs_fy26base.py --cd {cd}",
-        params={"cd": cd, "target_years": TARGET_YEARS},
+        params={"cd": cd, "target_years": TARGET_YEARS, "aging": aging,
+                "aging_spec_mid": MID_SPEC.describe()},
         inputs={
             "calibrated_base": str(CALIBRATED_PKL),
             "tax_units_cache": cache_provenance(),
@@ -426,7 +430,8 @@ def main(cd: str, replicate_se: bool = True, age_margins: bool = True) -> None:
 if __name__ == "__main__":
     args = _parse_args()
     try:
-        main(cd=args.cd, replicate_se=bool(args.replicate_se), age_margins=bool(args.age_margins))
+        main(cd=args.cd, replicate_se=bool(args.replicate_se), aging=args.aging,
+             age_margins=bool(args.age_margins))
     except Exception as e:
         print(f"\nERROR: {e}", flush=True)
         traceback.print_exc()

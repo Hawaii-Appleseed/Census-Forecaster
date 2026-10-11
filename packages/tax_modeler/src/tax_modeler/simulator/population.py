@@ -9,7 +9,7 @@ policy is done here, once; scoring a spec is then pure tax arithmetic.
 Arrays are aligned to one record order (the MID units' ``filer_id`` order).
 Per year, the MID scenario carries every unit's AGI, itemized deduction and
 total cash income, and the LOW/HIGH scenarios carry only the units that
-differ from MID (the top-income premium rows, and the 24 synthetic $1M+ units,
+differ from MID (the top-share drift rows, and the 24 synthetic $1M+ units,
 whose weight and capital-gains share also depend on the tail's Pareto index).
 
 The distributional tables rank households on their summed total cash income
@@ -42,6 +42,7 @@ FILING_STATUSES = ("single", "married_filing_jointly", "head_of_household",
 QUINTILE_LABELS = ("Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)")
 NO_QUINTILE = 255   # households whose units all weigh <= 0.01, which the tables drop
 FORMAT_VERSION = 1
+SHARE_DRIFT_TOL = 0.05   # max per-unit gains-share drift under CBO aging
 
 
 @dataclass
@@ -90,13 +91,13 @@ def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...]) -> 
 
     sc = SCENARIOS[key]
     base, ded_params, meta = load_calibrated_base(calibrated_path)
-    units, tail_k = build_units(base, alpha=sc.alpha, top_premium=sc.top_premium,
+    units, tail_k = build_units(base, alpha=sc.alpha, spec=sc.aging_spec,
                                 ded_params=ded_params,
                                 cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True)
     out = {"units": units, "tail_k": tail_k, "years": {},
            "calibrated_meta": {k: v for k, v in meta.items() if k != "deduction_params"}}
     for y in years:
-        out["years"][y] = project_units(units, year=y, top_premium=sc.top_premium)
+        out["years"][y] = project_units(units, year=y, spec=sc.aging_spec)
     return out
 
 
@@ -170,7 +171,15 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         for col, ref in (("weight", arrays["weight"]), ("synthetic_cg_share", arrays["cg"]),
                          ("num_dependents", arrays["deps"].astype(float))):
             got = np.empty(len(canon_ids)); got[pos] = proj[col].fillna(0.0).to_numpy(np.float64)
-            if not np.array_equal(got, ref):
+            if col == "synthetic_cg_share":
+                # CBO component aging refreshes the share to the aged composition
+                # (the scalar engine left it fixed). The population keeps the
+                # unit-level share; the drift is bounded, not zero (MID TY2031:
+                # max 2.4pp, weighted mean 0.07pp), and the simulator re-anchors
+                # gains by class anyway (gains.py).
+                if np.abs(got - ref).max() > SHARE_DRIFT_TOL:
+                    raise RuntimeError(f"TY{y}: projection moved {col} by more than {SHARE_DRIFT_TOL}")
+            elif not np.array_equal(got, ref):
                 raise RuntimeError(f"TY{y}: projection changed {col}")
         if np.isnan(item).any():
             raise RuntimeError(f"TY{y}: NaN itemized deduction survived the refresh")
@@ -214,7 +223,8 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         "filing_statuses": list(FILING_STATUSES),
         "quintile_labels": list(QUINTILE_LABELS),
         "quintile_breaks": [float(b) for b in breaks],
-        "scenarios": {k: {"label": s.label, "alpha": s.alpha, "top_premium": s.top_premium,
+        "scenarios": {k: {"label": s.label, "alpha": s.alpha, "top_share_drift": s.top_share_drift,
+                          "aging": s.aging_spec.engine,
                           "behavior": s.behavior, "tail_k": float(built[k]["tail_k"])}
                       for k, s in SCENARIOS.items()},
         "n_units": int(len(canon_ids)),

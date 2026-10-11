@@ -33,6 +33,8 @@ Output (--cd 2):
 """
 from __future__ import annotations
 
+from tax_modeler.projection.engine import AgingSpec  # noqa: E402
+
 import sys
 import traceback
 from pathlib import Path
@@ -544,7 +546,7 @@ if __name__ == "__main__":
         v = validate_top_synthesis(units)
         # The tail is at DOTAX's TY2023 level; the projection below grows
         # every unit from the PUMS dollar year (2024), so age it there first.
-        units = score(age_synthetic_tail(units, top_premium=TOP_PREMIUM))
+        units = score(age_synthetic_tail(units, spec=AgingSpec(top_share_drift=TOP_PREMIUM)))
         print(f"  {v['filers_1m_plus']:,.0f} filers @ $1M+ "
               f"({100*v['filer_target_ratio']:.1f}%), "
               f"${v['tax_1m_plus_$M']:,.1f}M tax "

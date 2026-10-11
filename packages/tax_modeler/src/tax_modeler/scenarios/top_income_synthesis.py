@@ -38,13 +38,16 @@ $1M AGI owing $441M before credits; TY2022 was 1,824 and $662.6M).
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict
+from typing import TYPE_CHECKING, Callable, Dict
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.calibration import dotax_base
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+
+if TYPE_CHECKING:
+    from tax_modeler.projection.engine import AgingSpec
 
 logger = logging.getLogger(__name__)
 
@@ -257,16 +260,17 @@ def _synthetic_tail_tax_m(df: pd.DataFrame) -> float:
     return float((df.loc[mask, tax_col] * df.loc[mask, "weight"]).sum() / 1e6)
 
 
-def _scale_synthetic_incomes(df: pd.DataFrame, factor: float) -> pd.DataFrame:
-    """``df`` with the synthetic rows' income columns multiplied by ``factor``,
-    their federal income columns rebuilt from them (as
-    :func:`synthesize_top_filers` builds them) and their tax columns cleared:
-    re-score afterwards."""
+def _scale_synthetic_incomes(df: pd.DataFrame, factor) -> pd.DataFrame:
+    """``df`` with the synthetic rows' income columns multiplied by ``factor``
+    (a scalar, or one value per synthetic row in frame order), their federal
+    income columns rebuilt from them (as :func:`synthesize_top_filers` builds
+    them) and their tax columns cleared: re-score afterwards."""
     mask = _synthetic_mask(df)
     out = df.copy()
+    f = factor if np.isscalar(factor) else np.asarray(factor, dtype=float)
     for col in _TAIL_INCOME_COLUMNS:
         if col in out.columns:
-            out.loc[mask, col] = out.loc[mask, col] * factor
+            out.loc[mask, col] = out.loc[mask, col].to_numpy(dtype=float) * f
     if mask.any() and "federal_agi" in out.columns:
         from tax_modeler.liability.federal import add_federal_income_columns
 
@@ -424,49 +428,52 @@ def _observed_honolulu_b19013(year: int) -> float:
 
 
 def synthetic_tail_aging_factor(
-    top_premium: float,
+    spec: "AgingSpec",
     *,
     year: int = PUMS_INCOME_DOLLAR_YEAR,
+    cg_share: float = 0.0,
 ) -> float:
-    """Growth of the synthetic $1M+ tail from the DOTAX targets' tax year
-    (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``) to ``year``:
-
-        B19013_Honolulu(year) / B19013_Honolulu(base) × (1 + top_premium) ** (year − base)
-
-    The two growth steps the projection gives a Honolulu filer above $500K,
-    over the years before its own base year: the county's median-income
-    growth (observed here, where the projector forecasts it) and the
-    scenario's top-income premium (``apply_top_income_growth_premium``).
+    """Growth of a synthetic $1M+ unit from the DOTAX targets' tax year
+    (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``) to ``year`` under ``spec``
+    (``projection.engine.tail_growth_factor``): the same engine the projection
+    then grows every unit with. CBO engine: wages ``1 - cg_share`` and gains
+    ``cg_share`` at their component rates; scalar engine: Honolulu's observed
+    B19013 growth. Times the top-share drift over the same years.
     """
-    base = DOTAX_1M_PLUS_TARGET_TAX_YEAR
-    return (_observed_honolulu_b19013(year) / _observed_honolulu_b19013(base)
-            * (1.0 + top_premium) ** (year - base))
+    from tax_modeler.projection.engine import tail_growth_factor
+
+    return tail_growth_factor(spec, DOTAX_1M_PLUS_TARGET_TAX_YEAR, year, cg_share)
 
 
 def age_synthetic_tail(
     df: pd.DataFrame,
     *,
-    top_premium: float,
+    spec: "AgingSpec",
     year: int = PUMS_INCOME_DOLLAR_YEAR,
 ) -> pd.DataFrame:
-    """Move the tax-calibrated synthetic $1M+ tail from TY2023 dollars to
-    ``year`` (the PUMS income dollar year); re-score afterwards.
+    """Move the tax-calibrated synthetic $1M+ tail from the DOTAX target year's
+    dollars to ``year`` (the PUMS income dollar year); re-score afterwards.
 
     Why: :func:`calibrate_synthetic_tail_to_tax_target` puts the tail at the
-    DOTAX TY2023 $1M+ tax (``DOTAX_1M_PLUS_TARGET_TAX_YEAR``), but every PUMS
-    unit is in ``PUMS_INCOME_DOLLAR_YEAR`` (2024) dollars and the projection
-    grows every unit from there: the county B19013 factor from the
-    projector's 2024 anchor, the top-income premium from
-    ``TOP_INCOME_PREMIUM_BASE_YEAR`` (2024). Left at the TY2022 level the tail
-    never receives 2023-2024 growth, while the same pipeline ages DOTAX's
-    TY2023 capital gains from 2023 (``cg_anchor.cg_growth``). The tail is
-    Honolulu's, so it grows by :func:`synthetic_tail_aging_factor`: Honolulu's
-    observed B19013 growth times the scenario's premium.
+    DOTAX $1M+ tax of ``DOTAX_1M_PLUS_TARGET_TAX_YEAR``, but every PUMS unit is
+    in ``PUMS_INCOME_DOLLAR_YEAR`` dollars and the projection grows every unit
+    from there (the engine from the PUMS dollar year, the drift from
+    ``spec.drift_base_year``). Left at the target year's level the tail never
+    receives that growth. Each synthetic row grows by
+    :func:`synthetic_tail_aging_factor` at its own gains share, so under the
+    CBO engine a gains-heavy unit ages faster than a wage-heavy one, as it
+    will in the projection.
 
     Scales the income columns the tax rescale scales, rebuilds the federal
     income columns and clears the tax columns, on the synthetic rows only.
     """
-    return _scale_synthetic_incomes(df, synthetic_tail_aging_factor(top_premium, year=year))
+    mask = _synthetic_mask(df)
+    shares = (df.loc[mask, "synthetic_cg_share"].fillna(0.0).to_numpy(dtype=float)
+              if "synthetic_cg_share" in df.columns else np.zeros(int(mask.sum())))
+    factors = np.array([synthetic_tail_aging_factor(spec, year=year, cg_share=float(s))
+                        for s in np.unique(shares)])
+    per_row = factors[np.searchsorted(np.unique(shares), shares)]
+    return _scale_synthetic_incomes(df, per_row)
 
 
 # ---------------------------------------------------------------------------
