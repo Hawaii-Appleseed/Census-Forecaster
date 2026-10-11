@@ -1237,6 +1237,116 @@ caveats apply:
 
 ---
 
+## One aging engine, one top-share drift, a windowed gains anchor (October 2026)
+
+Scoped by `DOTAX_SCORECARD.md` (the TY2022-anchored model against TY2023:
+$1M+ tax +73%, 90% of it per-filer) and `FORECAST_ASSESSMENT_2026-06-11.md`
+§5 (three stacked top-growth dials, never jointly backtested). Results and the
+scorecard before/after per change are in `SB3125_CD1_FORECAST.md`
+("One aging engine, one top-share drift, a windowed gains anchor — October 10,
+2026"). This section is the mechanics.
+
+### The engine (`tax_modeler.projection.engine`)
+
+Every Act 24 path projects through `engine.project_units(units, year,
+AgingSpec)`: `forecast_sb3125_enhanced.py` and the simulator population
+through `scenarios.act24_population.project_units`, `forecast_act24_vs_pre_act46.py`
+the same, `forecast_sb3125_vs_fy26base.py` / `forecast_cg_rate_options.py` /
+`forecast_bill_quintile.py` through `year_recalibrator.project_and_recalibrate`,
+whose aging step is `engine.age_incomes` and whose top-income step is
+`engine.apply_top_share_drift`, and `forecast_working_family_credits.py` /
+`scripts/poverty_impact_report.py` through `engine.age_incomes`. Two engines:
+
+* `cbo` (default): per-source aging, `cbo_aging.age_filers_with_components`
+  from the PUMS income dollar year, each of wages / business / capital gains /
+  dividends / interest / retirement / other at its CBO Outlook rate times the
+  Hawaiʻi factor (`DEFAULT_HAWAII_FACTORS`; the increment, not the level). The
+  top grows faster than the median because it holds more gains and dividends,
+  not because of a premium.
+* `scalar`: the county B19013 median path the headline used until October
+  2026, kept for comparison (`--aging scalar` on the scripts and the scorecard;
+  `AgingSpec(engine="scalar")`).
+
+The synthetic $1M+ tail is calibrated to the DOTAX $1M+ tax of the base
+edition's year and carried to the PUMS dollar year by the *same* engine
+(`top_income_synthesis.age_synthetic_tail`, per row at its own gains share:
+`engine.tail_growth_factor`), where it used to get Honolulu's observed B19013
+growth whatever the engine. One decomposition bug surfaced on the way:
+`synthesize_top_filers` writes a synthetic unit's gains into `primary_intp`
+*and* `synthetic_cg_share`, so `_component_amounts_for_filer` summed to
+(1 + share) × income on those rows and CBO aging would have grown the tail by
+its gains share at zero growth; the interest column is now netted of the gains
+on synthetic rows (`tests/tax_modeler/test_projection_engine.py`).
+
+### The drift (`engine.TOP_SHARE_DRIFT`)
+
+`AgingSpec.top_share_drift`, per year above $500K from the PUMS dollar year,
+is the only top-share parameter. It replaces: the +0.3 / 1.0 / 2.3%/yr
+premium (`apply_top_income_growth_premium` remains the mechanics; its MID
+carried an 0.8pp "outmigration haircut" on top of the explicit migration
+elasticity — a double count, removed), the +2.5%/yr top-bracket differential
+the fy26base and capital-gains scripts passed to `forward_targets.build_targets`
+(now the spec's drift, default 0), the 0.5%/yr `rate_drift` on forward
+effective rates (now 0), and the CBO × 0.85 growth of the gains anchor (below).
+Values: LOW −1.0, MID 0, HIGH +1.0 %/yr. Source: the DOTAX A-8 TY2019–2023
+series (the scorecard prints it) has the $1M+ class at 16.8 / 16.1 / 25.3 /
+21.9 / 14.9% of resident tax before credits — a fitted log trend of +0.7%/yr
+with an 11%/yr standard error, and +11%/yr ± 14 on the returns share; five
+points support no drift of either sign. The national IRS SOI 2012–2019
+differential (~1.8pp/yr for $500K+ against the median) is mostly composition
+under component aging (a 40%-gains tail already outgrows a wage earner by
+~0.9pp/yr), leaving ~1pp as the upper band. Out-migration enters only through
+the behavioral response.
+
+### The gains anchor (`calibration.cg_anchor`, `dotax_base.nltcg_anchor_M`)
+
+Table 21 resident NLTCG by class is anchored the way the $1M+ class is: each
+class's mean share of resident tax before credits over `DOTAX_GAINS_WINDOW`
+(TY2019–2023; `none` for the edition as printed) applied to the base edition's
+printed total — $3,826M against $2,646M printed for TY2023, because TY2023 was
+a low-gains year (resident NLTCG was 1.52, 1.32, 1.74, 0.99 and 0.89 times the
+year's resident tax before credits over the window). Anchoring the class's tax
+on its window mean but its gains on one edition had put a normal-year tail on
+a low-gains year. The windows end at `dotax_base.BASE_YEAR`, which
+`DOTAX_BASE_YEAR=2022` moves back so the scorecard never sees the edition it is
+scored against.
+
+Growth from the base edition: `cg_anchor.cg_growth(model="window")` holds the
+window share of the income base (CBO wages × the Hawaiʻi wage factor), the
+null that the realization fit could not beat. `calibration.cg_realization`
+fits log(resident NLTCG) on the S&P 500 total return (SPY, Dec/Dec, bundled
+in `markets/prices_panel.json`) and the FHFA Hawaiʻi HPI change
+(`anchors/fred_hi_hpi.json`), each in the year and lagged, one and two
+regressors, on the six Table 21 editions on file (TY2018–2023; the DOTAX
+archive rate-limited the fetch of earlier editions when this was written) and
+scores each by leave-one-out RMSE in logs against predicting a year by the mean
+of the others:
+
+| Specification | R² | LOO RMSE | Window mean | Gain |
+|---|---:|---:|---:|---:|
+| window mean | — | 0.289 | 0.289 | 0 |
+| S&P (t) | 0.24 | 0.295 | 0.289 | −2% |
+| S&P (t−1) | 0.04 | 0.352 | 0.289 | −22% |
+| HPI (t) | 0.02 | 0.608 | 0.289 | −111% |
+| HPI (t−1) | 0.41 | 0.298 | 0.289 | −3% |
+| S&P (t−1) + HPI (t−1) | 0.47 | 0.284 | 0.289 | +2% |
+| S&P (t) + S&P (t−1) | 0.60 | 0.323 | 0.289 | −12% |
+| other two-regressor fits | 0.04–0.62 | 0.368–0.940 | 0.289 | worse |
+
+In-sample R² up to 0.6 and a leave-one-out that is worse than the mean in
+nine of ten specifications: the fits are fitting six points. The one that
+edges the mean does so by 2%, which one edition would undo, under the 10%
+`MIN_RELATIVE_GAIN` the module requires. `python -m
+tax_modeler.calibration.cg_realization` reprints the table; rerun it when
+`parse_dotax_indinc.py` adds an edition. `CG_GROWTH_MODEL=cbo` restores the
+old growth for comparison.
+
+Anticipatory realization: `cg_anchor.anticipatory_realization_factor(year,
+cap_rates)` multiplies a year's anchor by exp(β × next year's rise in the
+§235-51(f) rate), β = 2 as the capital-gains page's realization response. Act
+24 did not touch the rate (`act24_cap_rate_path` is 7.25% throughout), so the
+hook is 1.0 in every year; a test holds it there and checks a hypothetical rise.
+
 ## SPM unit of analysis (Tier 4, May 2026)
 
 The poverty pipeline reports the Supplemental Poverty Measure at the

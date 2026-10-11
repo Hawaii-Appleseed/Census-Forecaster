@@ -15,6 +15,194 @@
 
 ---
 
+## One aging engine, one top-share drift, a windowed gains anchor — October 10, 2026 (supersedes the Act 24 tables below)
+
+`DOTAX_SCORECARD.md` scored the TY2022-anchored model against TY2023: the $1M+
+class's tax +73% ($763M against $441M), 90% of it per filer, with every
+top-growth dial pointing the wrong way in a year the top fell. This entry makes
+the three changes that scorecard and `FORECAST_ASSESSMENT_2026-06-11.md` §5
+asked for, scores each on the same TY2022 base against TY2023 before it goes
+in, and reruns the headline scripts. Mechanics are in `METHODOLOGY.md` ("One
+aging engine, one top-share drift, a windowed gains anchor").
+
+### What changed
+
+1. **One aging engine** (`tax_modeler.projection.engine`). The headline path
+   aged every income source by the county B19013 median; the fy26base, capital
+   gains and working-family scripts aged by CBO component. All four (and the
+   simulator population, the pre-Act-46 reconciliation, the poverty pipeline)
+   now project through `engine.project_units(units, year, AgingSpec)`, CBO
+   component aging by default (`--aging scalar` reproduces the old path). The
+   synthetic $1M+ tail is carried from the DOTAX target year to the PUMS dollar
+   year by the same engine, each unit at its own gains share. Two decomposition
+   defects surfaced on the way and are fixed: synthetic rows wrote their gains
+   into both `primary_intp` and `synthetic_cg_share` (the tail decomposed to
+   (1 + share) × income), and the imputed gains share on $100K–$1M PUMS rows was
+   added on top of PUMS components that already sum to income — under CBO aging
+   a $900K filer with a 0.2 share crossed $1M while every factor was below 1
+   (the fy26base and capital-gains pages had been aging through this).
+2. **One top-share drift** (`engine.TOP_SHARE_DRIFT`: LOW −1.0, MID 0, HIGH
+   +1.0 %/yr above $500K from 2024). It replaces the +0.3/1.0/2.3%/yr premium
+   (whose MID carried a 0.8pp "outmigration haircut" on top of the explicit
+   migration elasticity — a double count), the +2.5%/yr top-bracket count
+   differential in the forward targets, the 0.5%/yr `rate_drift`, and the
+   CBO × 0.85 growth of the gains anchor. Source: the DOTAX A-8 TY2019–2023
+   series puts the $1M+ class at 16.8 / 16.1 / 25.3 / 21.9 / 14.9% of resident
+   tax before credits, a fitted log trend of +0.7%/yr with an 11%/yr standard
+   error (returns share +11%/yr ± 14): five points support no drift of either
+   sign, so MID is 0. The national IRS SOI differential (~1.8pp/yr) is mostly
+   composition under component aging (CBO grows gains 5.5%/yr and dividends
+   4.5% against wages 4.4% × 0.85; a 40%-gains tail already outgrows a wage
+   earner by ~0.9pp/yr), leaving ~1pp as the HIGH band; LOW is symmetric and
+   the sign of TY2021–2023. The Pareto α stays (1.7 / 1.5 / 1.4): the scorecard
+   showed the miss is not in the tail's shape. RECESSION, which carried an
+   undocumented 1.3%/yr premium, now carries MID's drift.
+3. **Gains base: window and realization.** (a) Table 21 resident NLTCG by
+   class is anchored like the $1M+ class: each class's mean share of resident
+   tax before credits over TY2019–2023 (`DOTAX_GAINS_WINDOW`), on the TY2023
+   total — $3,826M against $2,646M printed, since TY2023 was a low-gains year
+   (resident NLTCG was 1.52, 1.32, 1.74, 0.99, 0.89 × the year's resident tax
+   before credits). A normal-year $1M+ tax anchor on a low-year gains anchor had
+   put too much of the class's income at ordinary rates. (b) Growth: a Hawaiʻi
+   realization model was fitted — log(resident NLTCG) on the S&P 500 total
+   return and the FHFA Hawaiʻi HPI change, each in the year and lagged, on the
+   six Table 21 editions bundled (TY2018–2023; the DOTAX archive rate-limited
+   the fetch of earlier ones). Leave-one-out, nothing beats predicting a year
+   by the mean of the others: the best pair (lagged S&P + lagged HPI, R² 0.47)
+   is 2% better, nine of ten specifications are worse, the single regressors
+   all worse. **The null ships**: the window share holds through the forecast
+   (gains grow with the income base, CBO wages × 0.85), `cg_growth(model="cbo")`
+   kept for comparison, the fit reproducible with `python -m
+   tax_modeler.calibration.cg_realization`. (c) Anticipatory realization is a
+   hook (`cg_anchor.anticipatory_realization_factor`): Act 24 leaves §235-51(f)
+   at 7.25%, so it is 1.0 in every year, held there by a test.
+
+### The gate: the TY2022-anchored base scored against TY2023, per change
+
+`scripts/dotax_scorecard.py --base-edition-year 2022` on the base built at
+`48761b8`, with `DOTAX_BASE_YEAR=2022` so the current code anchors on the
+TY2022 constants (the $1M+ tail at $663M, the gains window TY2019–2022), scored
+against the TY2023 edition. Step 0 reproduces `DOTAX_SCORECARD.md` to the
+dollar ($763.18M). MID unless stated; the full tables are in
+`reports/dotax_scorecard/ladder/`.
+
+| Step | Engine / drift / gains | $1M+ returns (1,704) | $1M+ tax (441.0) | Error | Count part | Per-filer part | Below $1M tax error (2,519) | Total tax error (2,960) |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 0 — as published | scalar / +1.0% / CBO×0.85, TY2022 as printed | 1,824 | 763.2 | +73.1% | +31.1 | +291.1 | −89.1 (−3.5%) | +233.1 (+7.9%) |
+| 1 — one engine | cbo / +1.0% / CBO×0.85, as printed | 1,824 | 738.5 | +67.5% | +31.1 | +266.4 | -200.2 (-7.9%) | +97.2 (+3.3%) |
+| 2 — one drift | cbo / 0 / CBO×0.85, as printed | 1,824 | 721.3 | +63.6% | +31.1 | +249.3 | -200.2 (-7.9%) | +80.1 (+2.7%) |
+| 3 — gains window + null growth | cbo / 0 / window share, TY2019–2022 | 1,824 | 688.7 | +56.2% | +31.1 | +216.7 | -207.9 (-8.3%) | +39.8 (+1.3%) |
+
+Reading the ladder: each change moves the $1M+ tax toward the TY2023 actual and
+none closes it. The engine takes $24.7M (the CBO components grow the tail more
+slowly than the county median did), the zero drift $17.2M, the windowed gains
+anchor $32.6M; together $74.5M of the $322.2M miss, leaving +56.2% on the class.
+The count part (+31.1) does not move (the TY2022 anchor is 1,824 returns against
+1,704 actual); the per-filer part is the whole movement. The below-$1M error
+widens from −3.5% to −8.3% as the class's income is taken out of the top, and the
+total-tax error falls from +7.9% to +1.3%: the aggregate is now close, the split
+between the $1M+ class and the rest is not. TY2023 is one year, a low-gains and
+falling-top year; it is a gate on direction, not a calibration target.
+The ladder's forecast-year check (`runs/top_tail_ladder/ladder.csv`, MID, five-year
+total vs Act 46) runs 689.8 -> 759.0 -> 703.7 -> 637.9 across the same steps.
+
+### Results (CD2, vs Act 46, $M; CBO engine, drift −1/0/+1, windowed gains)
+
+MID five-year total **$637.3M** (published $687.8M, -$50.5M, -7.3%); 90% CI on
+the MID total [$628.5M, $646.1M] (sum of the annual replicate-weight bounds;
+`runs/sb3125_cd2_enhanced/enhanced.csv`). Brackets are the previous section's
+figures.
+
+| Tax Year | LOW | **MID** | HIGH | RECESSION | MID CI90 |
+|---|--:|--:|--:|--:|---|
+| 2027 | $71.9M | **$79.4M** [$88.7M] | $105.7M | $75.8M | [78.3, 80.5] |
+| 2028 | $87.6M | **$108.1M** [$117.8M] | $140.1M | $105.9M | [106.9, 109.3] |
+| 2029 | $97.7M | **$123.2M** [$133.7M] | $161.2M | $121.6M | [121.1, 125.2] |
+| 2030 | $124.8M | **$158.6M** [$169.3M] | $198.9M | $158.0M | [156.4, 160.8] |
+| 2031 | $136.0M | **$168.0M** [$178.4M] | $214.5M | $168.0M | [165.7, 170.4] |
+| **5-year total** | **$518.0M** [$572.1M] | **$637.3M** [$687.8M] | **$820.5M** [$890.6M] | **$629.2M** [$690.4M] | [628.5, 646.1] |
+
+MID by component ($M):
+
+| Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
+|---|--:|--:|--:|--:|--:|--:|
+| 2027 | 2,581.6 | 41.5 | -11.0 | 30.5 | 48.9 | **79.4** |
+| 2028 | 2,748.5 | 46.4 | -12.6 | 33.8 | 74.3 | **108.1** |
+| 2029 | 2,615.4 | 50.7 | -15.8 | 34.8 | 88.3 | **123.2** |
+| 2030 | 2,740.0 | 56.9 | -17.9 | 39.0 | 119.6 | **158.6** |
+| 2031 | 2,857.9 | 64.2 | -20.2 | 44.0 | 124.0 | **168.0** |
+| **5-year** | | **259.7** | **-77.6** | **182.1** | **455.2** | **637.3** |
+
+Was: static $309.6M, behavioral -$77.8M, bracket $231.8M, credits $456.0M, total
+$687.8M. The spread across scenarios is now the drift band (-1/0/+1 %/yr) plus the
+credit and behavioral dials, not a tail premium.
+
+### Decomposition of the move, MID five-year total
+
+MID five-year total vs Act 46, $M (`runs/top_tail_ladder/ladder.csv`; each step adds one
+change to the previous):
+
+| Step | Static | Post-response | Credits | **Total** | Step change |
+|---|--:|--:|--:|--:|--:|
+| 0 - as published (scalar, +1.0%, CBO x 0.85) | 312.2 | 233.8 | 456.0 | **689.8** | |
+| 1 - one engine | 390.5 | 303.1 | 456.0 | **759.0** | +69.2 |
+| 2 - drift 0 | 327.8 | 247.7 | 456.0 | **703.7** | -55.3 |
+| 3 - gains window, null growth | 259.5 | 181.9 | 456.0 | **637.9** | -65.8 |
+| Final run (`sb3125_cd2_enhanced`) | 259.7 | 182.1 | 455.2 | **637.3** | -0.6 |
+
+Step 0 is $689.8M here against the $687.8M published; the origin of that $2.0M
+was not investigated (the October 9 section shows the same gap). The $0.6M between
+step 3 and the final run is $0.8M lower credits and +$0.2M bracket; not separately
+attributed. The engine alone raises the five-year total by $69M on the forecast
+years (the opposite sign of its effect in the TY2023 gate); the drift and the gains
+window then take back $121M.
+
+### Other frames
+
+Five years, $M, MID, CD2 (`runs/sb3125_cd2_fy26base`, `runs/act24_vs_pre_act46`;
+the previous section's figures in brackets):
+
+| Frame | Act 24 effect | Previous |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +637.3 | +687.8 |
+| vs Act 46 frozen at TY2026 (ITEP frame), bracket total | -1,668.0 | -1,539.8 |
+| ITEP five-year figure / gap | -2,204.0 / +536.0 | -2,204.0 / +664.2 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -5,219.4 | -5,097.2 (published -4,791.3) |
+| vs pre-Act-46 law: C, Act 24 increment | +259.7 | +309.6 |
+| vs pre-Act-46 law: total | -4,959.7 | -4,787.6 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,973.3 | -1,858.7 |
+
+Frozen frame by year: -179.3, -190.0, -417.6, -429.0, -452.1. The split of that
+frame into bracket and SD-expansion (earlier -1,413.1 / -126.7) is not in the
+`runs/` outputs (`bracket.csv` carries a single total column), so the split
+is not rerun here. The frozen and pre-Act-46 frames move the opposite way from the vs-Act-46 frame
+(more revenue foregone); the cause was not decomposed. The ITEP gap narrows to about 24% below ITEP (from about 30%).
+Act 46's own cost (A + B) is the pre-Act-46 frame's comparable to ITEP's ~$1.4B/yr
+and is about -$1,044M/yr over five years on this base.
+
+### Code
+
+`tax_modeler/projection/engine.py` (new: `AgingSpec`, `TOP_SHARE_DRIFT`,
+`project_units`, `age_incomes`, `apply_top_share_drift`, `tail_growth_factor`),
+`calibration/cg_realization.py` (new: the fit and its null),
+`calibration/cg_anchor.py` (`anchored_nltcg_M`, `cg_growth(model)`,
+`anticipatory_realization_factor`, `act24_cap_rate_path`),
+`calibration/dotax_base.py` (`DOTAX_BASE_YEAR`, `GAINS_WINDOW`,
+`nltcg_anchor_M`; the windows end at the base year), `calibration/cbo_aging.py`
+(the two decomposition fixes), `calibration/year_recalibrator.py` (ages
+through the engine; `top_bracket_differential` defaults to the drift,
+`rate_drift` to 0), `calibration/forward_targets.py` (defaults 0),
+`scenarios/act24_population.py` and `scenarios/top_income_synthesis.py`
+(`spec` replaces `top_premium`), `simulator/scenarios.py` (`top_share_drift`),
+the four headline scripts, `forecast_bill_quintile.py`,
+`forecast_sb3125_static_quintile.py`, `scripts/poverty_impact_report.py`,
+`scripts/dotax_scorecard.py` (`--aging`, `--drift`, the A-8 series table),
+`scripts/build_calibrated_base.py` (replicate weights). Tests:
+`tests/tax_modeler/test_projection_engine.py` (new) and the updated tail,
+anchor and simulator tests.
+
+---
+
 ## Sampling confidence intervals on the Act 24 deltas — October 9, 2026
 
 The Act 24 tables have carried parameter scenarios (LOW/MID/HIGH/RECESSION)

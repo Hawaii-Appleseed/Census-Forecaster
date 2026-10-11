@@ -115,12 +115,16 @@ def test_render_mentions_every_table(scored):
                       "a1": dotax_scorecard.a1_table(scored, EDITION),
                       "status": dotax_scorecard.status_table(scored, EDITION),
                       "top": dotax_scorecard.top_class_table(scored, EDITION)}}
-    diags = {"MID": {"alpha": 1.5, "top_premium": 0.01, "tail_k": 1.0, "law": "Act 46"}}
+    diags = {"MID": {"alpha": 1.5, "top_premium": 0.0, "aging": "cbo", "tail_k": 1.0, "law": "Act 46"}}
     dials = {"MID": {"honolulu_b19013_growth": 1.03, "premium_growth": 1.01,
-                     "tail_aging_to_pums_year": 1.05, "cg_growth": 1.02}}
+                     "tail_aging_to_pums_year": 1.05, "cg_growth": 1.02, "cg_growth_model": "window",
+                     "engine_growth_wages": 1.04, "engine_growth_gains": 1.06, "pums_dollar_year": 2024,
+                     "engine_step_wages": 0.97, "scalar_step_b19013": 0.98,
+                     "realized_step_qcew_pay": 0.95, "realized_step_bea_pcpi": 0.94}}
     md = dotax_scorecard.render(tables, diags, dials, base_year=2098, year=2099,
                                 base_path=Path("base.pkl"), actuals_path=Path("a.json"), meta={})
-    for needle in ("Table A-8", "Table A-1", "Table 4", "$1M+ class", "| $1M+ |", "Dials, TY2098 -> TY2099"):
+    for needle in ("Table A-8", "Table A-1", "Table 4", "$1M+ class", "| $1M+ |", "Dials, TY2098 -> TY2099",
+                   "DOTAX A-8 series", "Fitted trend"):
         assert needle in md
 
 

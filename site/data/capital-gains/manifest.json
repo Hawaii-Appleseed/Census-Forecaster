@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-09T09:45:45+00:00",
-  "git_sha": "493ef76",
+  "created_at": "2026-10-11T06:04:08+00:00",
+  "git_sha": "ff9a83e",
   "script": "forecast_cg_rate_options.py",
   "params": {
     "years": [
@@ -27,22 +27,24 @@
       "ordinary": null
     },
     "alpha": 1.5,
-    "top_premium": 0.01,
-    "cbo_vintage": "2025-01"
+    "aging_spec": "cbo aging, top_share_drift=+0.0%/yr above $500,000 from 2024",
+    "cbo_vintage": "2025-01",
+    "gains_anchor": "Table 21 on the TY2019-2023 window (share of resident tax before credits), grown with the income base (cg_anchor.cg_growth)"
   },
-  "params_fingerprint": "8b703e251af20868",
+  "params_fingerprint": "8d30a59a663e812e",
   "inputs": {
     "tax_unit_cache": {
-      "created_at": "2026-08-03T19:43:48+00:00",
-      "git_sha": "42b44f5",
+      "created_at": "2026-10-11T05:40:19+00:00",
+      "git_sha": "ff9a83e",
       "built_by": "forecast_sb3125.py",
       "pums": "HI 5yr 2020-24",
-      "n_units": 39990
+      "n_units": 39996
     },
     "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-8"
   },
   "outputs": [
     "anchor_check.csv",
+    "calibration_report.json",
     "distribution_ty2026_act46.csv",
     "distribution_ty2027_act24.csv",
     "fig1_revenue_ty2027.png",
@@ -52,5 +54,5 @@
     "nonresident_addon.csv",
     "revenue_by_year.csv"
   ],
-  "published_at": "2026-10-09T09:46:04+00:00"
+  "published_at": "2026-10-11T23:17:27+00:00"
 }

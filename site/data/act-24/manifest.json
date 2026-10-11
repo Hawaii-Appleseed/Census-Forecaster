@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-09T09:45:37+00:00",
-  "git_sha": "493ef76",
+  "created_at": "2026-10-11T06:04:38+00:00",
+  "git_sha": "ff9a83e",
   "script": "forecast_sb3125_enhanced.py --cd 2",
   "params": {
     "cd": "2",
@@ -18,7 +18,7 @@
         "reec": "obbba_severe",
         "behav": "high",
         "corp_agi_limit": true,
-        "top_premium": 0.003,
+        "top_share_drift": -0.01,
         "reec_eff_share": 0.5,
         "cgec_growth": 0.01,
         "macro_shock": null,
@@ -33,7 +33,7 @@
         "reec": "obbba_mid",
         "behav": "mid",
         "corp_agi_limit": false,
-        "top_premium": 0.01,
+        "top_share_drift": 0.0,
         "reec_eff_share": 0.65,
         "cgec_growth": 0.015,
         "macro_shock": null,
@@ -48,7 +48,7 @@
         "reec": "pre_obbba",
         "behav": "low",
         "corp_agi_limit": false,
-        "top_premium": 0.023,
+        "top_share_drift": 0.01,
         "reec_eff_share": 0.8,
         "cgec_growth": 0.025,
         "macro_shock": null,
@@ -63,7 +63,7 @@
         "reec": "obbba_mid",
         "behav": "mid",
         "corp_agi_limit": false,
-        "top_premium": 0.013,
+        "top_share_drift": 0.0,
         "reec_eff_share": 0.65,
         "cgec_growth": 0.015,
         "macro_shock": "moderate",
@@ -73,65 +73,71 @@
         "dynamic_refundable_share": true
       }
     ],
-    "capital_gains": "DOTAX-anchored base (calibration.cg_anchor; MID's factors in every scenario), statutory alternative tax (HRS \u00a7235-51(f))",
+    "aging": "cbo",
+    "aging_spec_mid": "cbo aging, top_share_drift=+0.0%/yr above $500,000 from 2024",
+    "capital_gains": "DOTAX-anchored base (calibration.cg_anchor: Table 21 on the TY2019-2023 window, grown with the income base; MID's factors in every scenario), statutory alternative tax (HRS \u00a7235-51(f))",
     "gains_factors": {
       "2027": {
-        "100_150": 0.6867782539096325,
-        "150_200": 0.9736872276400691,
-        "200_300": 0.788952888844024,
-        "300_400": 1.6324013912654822,
-        "1mp": 0.8605963794096539,
-        "400_1m": 1.465154589779828
+        "100_150": 0.7943713076018722,
+        "150_200": 1.117008983771867,
+        "200_300": 0.9261682704396883,
+        "300_400": 1.7314789376033553,
+        "1mp": 1.0346654715614547,
+        "400_1m": 1.769553552975178
       },
       "2028": {
-        "100_150": 0.6946495786661161,
-        "150_200": 0.984441822240978,
-        "200_300": 0.7985165520400835,
-        "300_400": 1.6476948987755677,
-        "1mp": 0.860759927320177,
-        "400_1m": 1.5327990419617268
+        "100_150": 0.7866778330846654,
+        "150_200": 1.1067756191738272,
+        "200_300": 0.9169955137756901,
+        "300_400": 1.717437073178356,
+        "1mp": 1.0188660960799811,
+        "400_1m": 1.8262337651563245
       },
       "2029": {
-        "100_150": 0.7103058327383026,
-        "150_200": 1.0057518961123724,
-        "200_300": 0.8162772322315106,
-        "300_400": 1.683682697460176,
-        "1mp": 0.8634945027433844,
-        "400_1m": 1.5990484877209103
+        "100_150": 0.7796135806016583,
+        "150_200": 1.0978582549275167,
+        "200_300": 0.9079215001629604,
+        "300_400": 1.7037905321241444,
+        "1mp": 1.0036926003186344,
+        "400_1m": 1.8926193789244938
       },
       "2030": {
-        "100_150": 0.7196630085215083,
-        "150_200": 1.0200225967978478,
-        "200_300": 0.8276014046900264,
-        "300_400": 1.7032709597640099,
-        "1mp": 0.8637991301883142,
-        "400_1m": 1.686796131787704
+        "100_150": 0.77270832981021,
+        "150_200": 1.088146894119561,
+        "200_300": 0.8998233073984508,
+        "300_400": 1.6858733426567782,
+        "1mp": 0.9894202437290002,
+        "400_1m": 1.954440256540413
       },
       "2031": {
-        "100_150": 0.7357918903504788,
-        "150_200": 1.0425023730982625,
-        "200_300": 0.8457618073625632,
-        "300_400": 1.7444913523888728,
-        "1mp": 0.865439907534158,
-        "400_1m": 1.802221167800001
+        "100_150": 0.7649638352027539,
+        "150_200": 1.0764078167158624,
+        "200_300": 0.891444650742784,
+        "300_400": 1.66862802336398,
+        "1mp": 0.9746655166402863,
+        "400_1m": 2.0141255610187794
       }
-    }
+    },
+    "replicate_se": true,
+    "replicate_se_note": "SDR sampling SE / 90% CI from the 80 PUMS replicate weights, calibration ratio applied per replicate (rake once, score replicates). ACS sampling variance only: not the DOTAX anchors, the aging, the behavioral parameters (the LOW/MID/HIGH scenarios) or the credit overlay, which is held fixed in the total's band."
   },
-  "params_fingerprint": "593ee4d3103b25c4",
+  "params_fingerprint": "ed44ad15a3997c29",
   "inputs": {
     "tax_units_cache": {
-      "created_at": "2026-08-03T19:43:48+00:00",
-      "git_sha": "42b44f5",
+      "created_at": "2026-10-11T05:40:19+00:00",
+      "git_sha": "ff9a83e",
       "built_by": "forecast_sb3125.py",
       "pums": "HI 5yr 2020-24",
-      "n_units": 39990
+      "n_units": 39996
     }
   },
   "outputs": [
     "bracket.csv",
+    "calibration_report.json",
     "enhanced.csv",
     "fiscal_tidy.csv",
-    "quintile.csv"
+    "quintile.csv",
+    "replicate_ci_by_class.csv"
   ],
-  "published_at": "2026-10-09T09:46:04+00:00"
+  "published_at": "2026-10-11T23:17:27+00:00"
 }

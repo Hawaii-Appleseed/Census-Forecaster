@@ -157,7 +157,12 @@ the model before rebasing on it: `scripts/parse_dotax_indinc.py` writes
 `forecast_sb3125_enhanced.py`) to tax year N+1 and tabulates returns, AGI and
 tax before credits by AGI class, filing status and the $1M+ class against the
 new edition, into `reports/dotax_scorecard/TY<N+1>/`. The first one, the
-TY2022-anchored model against TY2023, is `DOTAX_SCORECARD.md`.
+TY2022-anchored model against TY2023, is `DOTAX_SCORECARD.md`. `--aging
+{cbo,scalar}` picks the income-aging engine and `--drift` overrides the
+scenarios' top-share drift (`tax_modeler.projection.engine`); `DOTAX_BASE_YEAR=2022`
+in the environment anchors the current code on the TY2022 constants, which is
+how a base built at an older commit is scored with today's model (the
+before/after ladder in `SB3125_CD1_FORECAST.md`, October 10, 2026).
 
 ## Design principles
 

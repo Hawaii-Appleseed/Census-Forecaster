@@ -65,8 +65,8 @@ CALIBRATION_DIR = REPO / "packages" / "tax_modeler" / "src" / "tax_modeler" / "d
 DEFAULT_BASE = REPO / "data" / "artifacts" / "sb3125_calibrated_base.pkl"
 DEFAULT_OUT = REPO / "reports" / "dotax_scorecard"
 
-# (Pareto alpha, top-income premium) per scenario: forecast_sb3125_enhanced.SCENARIOS.
-_FALLBACK_SCENARIOS = {"LOW": (1.7, 0.003), "MID": (1.5, 0.010), "HIGH": (1.4, 0.023)}
+# (Pareto alpha, top-share drift) per scenario: forecast_sb3125_enhanced.SCENARIOS.
+_FALLBACK_SCENARIOS = {"LOW": (1.7, -0.010), "MID": (1.5, 0.0), "HIGH": (1.4, 0.010)}
 
 STATUS_LABEL = {
     "single": "Single", "married_filing_jointly": "Married Filing Jointly",
@@ -216,7 +216,7 @@ def top_class_table(scored: pd.DataFrame, edition: dict) -> pd.DataFrame:
 def scenario_params() -> dict[str, tuple[float, float]]:
     try:
         from forecast_sb3125_enhanced import SCENARIOS
-        return {s["label"]: (s["alpha"], s["top_premium"]) for s in SCENARIOS
+        return {s["label"]: (s["alpha"], s["top_share_drift"]) for s in SCENARIOS
                 if s["label"] in _FALLBACK_SCENARIOS}
     except Exception:  # noqa: BLE001 — scripts dir may be run standalone
         return dict(_FALLBACK_SCENARIOS)
@@ -240,21 +240,22 @@ def law_for(year: int):
 
 
 def score_population(base, ded_params, cal_tax_year: int, *, label: str, alpha: float,
-                     top_premium: float, year: int, gains_factors: dict | None):
+                     spec, year: int, gains_factors: dict | None):
     """The scenario's projected population for ``year`` with ``tax_before`` under
     current law (:func:`law_for`).
 
     Returns (scored frame, diagnostics). Mirrors ``forecast_sb3125_enhanced.run_one_scenario``
-    up to the baseline score: build_units, project_units, MID's gains anchor
-    factors, the statutory alternative tax.
+    up to the baseline score: build_units, project_units (``spec``: the aging
+    engine and top-share drift), MID's gains anchor factors, the statutory
+    alternative tax.
     """
     from tax_modeler.calibration.cg_anchor import apply_anchor_factors
     from tax_modeler.config.tax_system_config import TaxCalculator
     from tax_modeler.scenarios.act24_population import build_units, project_units, statute
 
-    units, tail_k = build_units(base, alpha=alpha, top_premium=top_premium,
+    units, tail_k = build_units(base, alpha=alpha, spec=spec,
                                 ded_params=ded_params, cal_tax_year=cal_tax_year)
-    projected = project_units(units, year=year, top_premium=top_premium)
+    projected = project_units(units, year=year, spec=spec)
     if gains_factors is not None:
         projected = apply_anchor_factors(projected, gains_factors)
     cfg = statute(law_for)(year)
@@ -262,31 +263,90 @@ def score_population(base, ded_params, cal_tax_year: int, *, label: str, alpha: 
     scored = projected.copy()
     scored["tax_before"] = liab["before_credits"]
     scored["tax_net"] = liab["net"]
-    diag = {"scenario": label, "alpha": alpha, "top_premium": top_premium, "tail_k": tail_k,
-            "law": cfg.name, "target_year": year}
+    diag = {"scenario": label, "alpha": alpha, "top_premium": spec.top_share_drift,
+            "aging": spec.engine, "tail_k": tail_k, "law": cfg.name, "target_year": year}
     return scored, diag
 
 
-def dial_diagnostics(top_premium: float, base_year: int, year: int) -> dict[str, float]:
+def top_class_series_table() -> pd.DataFrame:
+    """The $1M+ class's share of resident returns and tax by edition
+    (``dotax_a8_top_class.json``), the log change per year, and the fitted
+    trend with its standard error: what the DOTAX series says about a
+    top-share drift."""
+    from tax_modeler.calibration import dotax_base
+    s = dotax_base.load_top_class_series()
+    rows = []
+    for y in sorted(s, key=int):
+        r = s[y]
+        rows.append({"tax_year": int(y), "returns": r["returns"], "tax_before_M": r["tax_before_M"],
+                     "returns_share_pct": 100 * r["returns"] / r["total_returns"],
+                     "tax_share_pct": 100 * r["tax_before_M"] / r["total_tax_before_M"]})
+    df = pd.DataFrame(rows)
+    for c in ("returns_share_pct", "tax_share_pct"):
+        df[f"dlog_{c[:-4]}"] = np.log(df[c]).diff()
+    return df
+
+
+def trend_with_se(df: pd.DataFrame, col: str) -> tuple[float, float]:
+    """OLS slope of log(col) on year and its standard error (per year)."""
+    x = df["tax_year"].to_numpy(float)
+    y = np.log(df[col].to_numpy(float))
+    x0 = x - x.mean()
+    b = (x0 * (y - y.mean())).sum() / (x0 ** 2).sum()
+    resid = y - y.mean() - b * x0
+    se = np.sqrt(resid.var(ddof=2) / (x0 ** 2).sum()) if len(x) > 2 else np.nan
+    return float(b), float(se)
+
+
+def dial_diagnostics(spec, base_year: int, year: int) -> dict[str, float]:
     """What the growth dials imply for the $1M+ class from ``base_year`` to ``year``."""
-    from tax_modeler.calibration.cg_anchor import cg_growth
+    from tax_modeler.calibration.cg_anchor import GAINS_GROWTH_MODEL, cg_growth
+    from tax_modeler.projection.engine import tail_growth_factor
     from tax_modeler.scenarios.top_income_synthesis import (
         _observed_honolulu_b19013,
         synthetic_tail_aging_factor,
     )
     out = {}
     try:
-        b = _observed_honolulu_b19013(year) / _observed_honolulu_b19013(base_year)
-        out["honolulu_b19013_growth"] = b
+        out["honolulu_b19013_growth"] = _observed_honolulu_b19013(year) / _observed_honolulu_b19013(base_year)
     except ValueError:
         out["honolulu_b19013_growth"] = np.nan
-    out["premium_growth"] = (1 + top_premium) ** (year - base_year)
-    out["tail_aging_to_pums_year"] = synthetic_tail_aging_factor(top_premium)
+    out["premium_growth"] = (1 + spec.top_share_drift) ** (year - base_year)
+    out["tail_aging_to_pums_year"] = synthetic_tail_aging_factor(spec, cg_share=0.4)
+    out["engine_growth_wages"] = tail_growth_factor(spec.with_drift(0.0), base_year, year, 0.0)
+    out["engine_growth_gains"] = tail_growth_factor(spec.with_drift(0.0), base_year, year, 1.0)
+    out["cg_growth"] = cg_growth(year, base_year)
+    out["cg_growth_model"] = GAINS_GROWTH_MODEL
+    # The step the projection takes between the PUMS dollar year and the
+    # target year, against Hawaiʻi's realized growth over the same years
+    # (QCEW statewide average pay, BEA per-capita personal income; bundled
+    # anchors). The base's tax totals are the base edition's, pinned on
+    # PUMS-dollar-year incomes, so below $1M the scorecard rewards the engine
+    # whose step is smallest, not the one nearest these.
+    from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+    out["pums_dollar_year"] = PUMS_INCOME_DOLLAR_YEAR
+    out["engine_step_wages"] = tail_growth_factor(spec.with_drift(0.0), PUMS_INCOME_DOLLAR_YEAR, year, 0.0)
     try:
-        out["cg_growth"] = cg_growth(year, base_year)
-    except TypeError:        # pre-rebase signature: from TY2022 only
-        out["cg_growth"] = cg_growth(year)
+        out["scalar_step_b19013"] = (_observed_honolulu_b19013(year)
+                                     / _observed_honolulu_b19013(PUMS_INCOME_DOLLAR_YEAR))
+    except ValueError:
+        out["scalar_step_b19013"] = np.nan
+    for key, name in (("qcew_hawaii_wages", "realized_step_qcew_pay"),
+                      ("bea_hi_percapita_income", "realized_step_bea_pcpi")):
+        out[name] = _anchor_ratio(key, PUMS_INCOME_DOLLAR_YEAR, year)
     return out
+
+
+def _anchor_ratio(name: str, from_year: int, to_year: int) -> float:
+    """``value[to_year] / value[from_year]`` of a bundled census_forecaster anchor."""
+    try:
+        import census_forecaster
+        path = Path(census_forecaster.__file__).resolve().parent / "data" / "anchors" / f"{name}.json"
+        d = json.loads(path.read_text(encoding="utf-8"))
+        v = {int(k): float(x) for k, x in (d.get("values_by_year") or d.get("values")).items()}
+        return v[to_year] / v[from_year]
+    except Exception:  # noqa: BLE001 — a missing anchor is a blank cell, not a failed scorecard
+        return np.nan
 
 
 # ── Output ───────────────────────────────────────────────────────────────────
@@ -313,7 +373,8 @@ def render(tables: dict[str, dict[str, pd.DataFrame]], diags: dict[str, dict], d
            f"{next(iter(diags.values()))['law']} with the statutory §235-51(f) alternative tax.\n"]
     for label, t in tables.items():
         d = diags[label]
-        out.append(f"## {label} (alpha={d['alpha']}, premium={d['top_premium']:+.1%}/yr, tail_k={d['tail_k']:.4f})\n")
+        out.append(f"## {label} (alpha={d['alpha']}, aging={d['aging']}, top_share_drift={d['top_premium']:+.1%}/yr, "
+                   f"tail_k={d['tail_k']:.4f})\n")
         out.append("### Table A-8: returns and tax before credits by AGI class\n")
         out.append(_md(t["a8"], {"class": "s", "returns_model": ",.0f", "returns_actual": ",.0f",
                                  "returns_err_pct": "+.1f", "tax_model_M": ",.1f", "tax_actual_M": ",.1f",
@@ -339,8 +400,27 @@ def render(tables: dict[str, dict[str, pd.DataFrame]], diags: dict[str, dict], d
                    f"{top['log_count']:+.3f} (count) + {top['log_per_filer']:+.3f} (per filer).")
         dl = dials[label]
         out.append(f"\nDials, TY{base_year} -> TY{year}: Honolulu B19013 x{dl['honolulu_b19013_growth']:.4f}, "
-                   f"premium x{dl['premium_growth']:.4f}, tail aging to the PUMS dollar year "
-                   f"x{dl['tail_aging_to_pums_year']:.4f}, capital-gains anchor growth x{dl['cg_growth']:.4f}.\n")
+                   f"engine wages x{dl['engine_growth_wages']:.4f} / gains x{dl['engine_growth_gains']:.4f}, "
+                   f"drift x{dl['premium_growth']:.4f}, tail aging to the PUMS dollar year (40% gains) "
+                   f"x{dl['tail_aging_to_pums_year']:.4f}, capital-gains anchor growth x{dl['cg_growth']:.4f} "
+                   f"({dl['cg_growth_model']}).")
+        out.append(f"The step from the PUMS dollar year ({dl['pums_dollar_year']}) to TY{year}: this engine's "
+                   f"wages x{dl['engine_step_wages']:.4f}, the county-median scalar x{dl['scalar_step_b19013']:.4f}; "
+                   f"Hawaiʻi realized over the same years: QCEW average pay x{dl['realized_step_qcew_pay']:.4f}, "
+                   f"BEA per-capita income x{dl['realized_step_bea_pcpi']:.4f}. The base's tax totals are the "
+                   f"base edition's on PUMS-dollar-year incomes, so below $1M a smaller step scores better "
+                   f"whatever the realized growth.\n")
+    series = top_class_series_table()
+    out.append("## The $1M+ class in the DOTAX A-8 series: what drift does it support?\n")
+    out.append(_md(series, {"tax_year": ".0f", "returns": ",.0f", "tax_before_M": ",.1f",
+                            "returns_share_pct": ".3f", "tax_share_pct": ".1f",
+                            "dlog_returns_share": "+.3f", "dlog_tax_share": "+.3f"}))
+    bt, st = trend_with_se(series, "tax_share_pct")
+    br, sr = trend_with_se(series, "returns_share_pct")
+    out.append(f"\nFitted trend in log share, per year: tax share {bt:+.1%} (SE {st:.1%}), "
+               f"returns share {br:+.1%} (SE {sr:.1%}); {len(series)} editions. Neither is "
+               f"distinguishable from zero, so the supported top-share drift is 0 with a band "
+               f"of roughly ±1 SE; the scenarios carry -1/0/+1 %/yr (projection.engine.TOP_SHARE_DRIFT).\n")
     return "\n".join(out)
 
 
@@ -354,6 +434,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="dotax_indinc_<target>.json; default the bundled one")
     p.add_argument("--scenarios", default="MID", help="comma list of MID,LOW,HIGH")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    p.add_argument("--aging", choices=["cbo", "scalar"], default="cbo",
+                   help="income-aging engine (projection.engine); scalar is the pre-October-2026 path")
+    p.add_argument("--drift", type=float, default=None,
+                   help="override every scenario's top_share_drift (per year above $500K)")
     a = p.parse_args(argv)
 
     import logging
@@ -362,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.disable(logging.WARNING)
 
     from tax_modeler.artifacts import load_calibrated_base
+    from tax_modeler.projection.engine import AgingSpec
     from tax_modeler.scenarios.act24_population import mid_gains_factors
 
     year = a.target_year or a.base_edition_year + 1
@@ -375,7 +460,9 @@ def main(argv: list[str] | None = None) -> int:
     params = scenario_params()
     labels = [s.strip().upper() for s in a.scenarios.split(",") if s.strip()]
     mid_alpha, mid_prem = params["MID"]
-    gains = mid_gains_factors(base, alpha=mid_alpha, top_premium=mid_prem, ded_params=ded_params,
+    def spec_for(drift):
+        return AgingSpec(engine=a.aging, top_share_drift=drift if a.drift is None else a.drift)
+    gains = mid_gains_factors(base, alpha=mid_alpha, spec=spec_for(mid_prem), ded_params=ded_params,
                               cal_tax_year=cal_year, years=[year])[year]
 
     out_dir = a.out / f"TY{year}"
@@ -384,13 +471,13 @@ def main(argv: list[str] | None = None) -> int:
     for label in labels:
         alpha, prem = params[label]
         scored, diag = score_population(base, ded_params, cal_year, label=label, alpha=alpha,
-                                        top_premium=prem, year=year, gains_factors=gains)
+                                        spec=spec_for(prem), year=year, gains_factors=gains)
         t = {"a8": a8_table(scored, edition), "a1": a1_table(scored, edition),
              "status": status_table(scored, edition), "top": top_class_table(scored, edition)}
         for name, df in t.items():
             df.to_csv(out_dir / f"{name}_{label}.csv", index=False)
         tables[label], diags[label] = t, diag
-        dials[label] = dial_diagnostics(prem, a.base_edition_year, year)
+        dials[label] = dial_diagnostics(spec_for(prem), a.base_edition_year, year)
     md = render(tables, diags, dials, base_year=a.base_edition_year, year=year,
                 base_path=a.base, actuals_path=Path(actuals), meta=meta)
     (out_dir / "scorecard.md").write_text(md, encoding="utf-8")
