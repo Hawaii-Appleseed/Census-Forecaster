@@ -37,9 +37,11 @@ For target year Y:
 """
 from __future__ import annotations
 
+import json
 import logging
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -95,6 +97,66 @@ def _load_cor_projections() -> Dict[int, float]:
 
 DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = _load_cor_projections()
 
+# Growth constants, from the bundled data file with vintage metadata
+# (``data/calibration/forward_growth_assumptions.json``). They were literals in
+# ``build_targets`` and ``_back_cast_cor`` until October 2026 (2.5%/yr low-bracket
+# growth, 1.0%/yr top differential, 0.5%/yr rate drift, 0.5%/yr population,
+# 2.5%/yr COR extrapolation) with no record of where they came from. The
+# literals below are the last-resort fallback for an installation whose data
+# file is missing; ``tests/tax_modeler/calibration/test_forward_growth_assumptions.py``
+# pins them to the file.
+_GROWTH_FALLBACK: Dict[str, float] = {
+    "low_growth": 0.025,
+    "top_differential": 0.010,
+    "rate_drift": 0.005,
+    "population_growth_rate": 0.005,
+    "cor_extrapolation_growth": 0.025,
+}
+_GROWTH_FILE = Path(__file__).resolve().parents[1] / "data" / "calibration" / "forward_growth_assumptions.json"
+
+
+def load_growth_assumptions(path: Optional[Path] = None) -> Dict[str, Any]:
+    """The growth-assumption file as a dict: ``{"vintage", "description",
+    "assumptions": {name: {"value", "unit", "applies_to", "source",
+    "sensitivity": {"low", "high"}}}}``. Falls back to ``_GROWTH_FALLBACK``
+    (with ``vintage="fallback"``) when the file is missing or unreadable."""
+    p = Path(path) if path is not None else _GROWTH_FILE
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+        missing = set(_GROWTH_FALLBACK) - set(d.get("assumptions", {}))
+        if missing:
+            raise KeyError(f"growth assumptions file lacks {sorted(missing)}")
+        return d
+    except (OSError, ValueError, KeyError) as exc:  # noqa: BLE001
+        warnings.warn(
+            f"forward growth assumptions unavailable ({exc}); using the hardcoded "
+            "fallback values", RuntimeWarning, stacklevel=2,
+        )
+        return {
+            "vintage": "fallback",
+            "description": "hardcoded fallback",
+            "assumptions": {k: {"value": v, "sensitivity": {"low": v, "high": v}}
+                            for k, v in _GROWTH_FALLBACK.items()},
+        }
+
+
+GROWTH_ASSUMPTIONS: Dict[str, Any] = load_growth_assumptions()
+GROWTH_VINTAGE: str = str(GROWTH_ASSUMPTIONS.get("vintage", "fallback"))
+
+
+def growth_value(name: str) -> float:
+    """Central value of one growth assumption (``low_growth``, ``top_differential``,
+    ``rate_drift``, ``population_growth_rate``, ``cor_extrapolation_growth``)."""
+    return float(GROWTH_ASSUMPTIONS["assumptions"][name]["value"])
+
+
+def growth_sensitivity(name: str) -> Tuple[float, float]:
+    """``(low, high)`` sweep values of one growth assumption from the file."""
+    s = GROWTH_ASSUMPTIONS["assumptions"][name].get("sensitivity", {})
+    v = growth_value(name)
+    return float(s.get("low", v)), float(s.get("high", v))
+
 # The DOTAX baseline (Table A-8 filer counts and tax, Table 4 filing status) comes
 # from ``dotax_base``, which holds one copy for every module that anchors on it.
 # ``build_targets(base_year=...)`` picks the edition.
@@ -138,6 +200,13 @@ class ForwardTargets:
         ``calibration.report.CalibrationReport`` for this year's re-anchoring
         (Phase 1 convergence, tier-rake clamp events, residuals against the
         forward targets, weight dispersion, the wedge above).
+    age_targets:
+        ``{age_band: filer_count}`` for the Phase 1 rake's age margin
+        (``calibration.age_targets``): the base-year PUMS filer age mix
+        moved with the population-by-age projection, summing to the filer
+        total. ``None`` when not requested or no base shares were given.
+    age_source:
+        Provenance string of the population projection behind ``age_targets``.
     """
     year: int
     filer_targets: Dict[Tuple[float, float], int]
@@ -149,25 +218,33 @@ class ForwardTargets:
     statutory_tax_M: Optional[float] = None
     statute_vs_cor_wedge: Optional[float] = None
     calibration_report: Optional[Any] = None
+    age_targets: Optional[Dict[str, int]] = None
+    age_source: Optional[str] = None
 
 
-def _back_cast_cor(year: int, cor_projections_M: Dict[int, float]) -> float:
+def _back_cast_cor(
+    year: int,
+    cor_projections_M: Dict[int, float],
+    growth: Optional[float] = None,
+) -> float:
     """Return the COR aggregate tax target for *year*.
 
     For years already in the table, return the value directly. For years
-    before the earliest entry, back-cast at 2.5% nominal annual growth from
-    the earliest anchor. For years beyond the table, forward-extrapolate at 2.5%.
+    before the earliest entry, back-cast at ``growth`` nominal annual growth
+    from the earliest anchor; for years beyond the table, forward-extrapolate
+    at the same rate. ``growth`` defaults to the file's
+    ``cor_extrapolation_growth`` (2.5%/yr in the 2026-10-10 vintage).
     """
+    g = growth_value("cor_extrapolation_growth") if growth is None else growth
     if year in cor_projections_M:
         return cor_projections_M[year]
     earliest = min(cor_projections_M)
     if year > max(cor_projections_M):
-        # Forward extrapolation also at 2.5% (rare; COR usually publishes 5+ yrs)
+        # Forward extrapolation (rare; COR usually publishes 5+ yrs)
         anchor = cor_projections_M[max(cor_projections_M)]
-        return anchor * (1.025 ** (year - max(cor_projections_M)))
-    # Back-cast: anchor / 1.025^(anchor_year - year)
+        return anchor * ((1 + g) ** (year - max(cor_projections_M)))
     anchor = cor_projections_M[earliest]
-    return anchor / (1.025 ** (earliest - year))
+    return anchor / ((1 + g) ** (earliest - year))
 
 
 def _migrate_filer_counts(
@@ -296,10 +373,11 @@ def build_targets(
     year: int,
     *,
     cor_projections_M: Optional[Dict[int, float]] = None,
-    low_growth: float = 0.025,
-    top_differential: float = 0.010,
-    rate_drift: float = 0.005,
-    population_growth_rate: float = 0.005,
+    low_growth: Optional[float] = None,
+    top_differential: Optional[float] = None,
+    rate_drift: Optional[float] = None,
+    population_growth_rate: Optional[float] = None,
+    cor_extrapolation_growth: Optional[float] = None,
     base_counts: Optional[Dict[Tuple[float, float], int]] = None,
     base_tax: Optional[Dict[Tuple[float, float], float]] = None,
     base_status: Optional[Dict[str, int]] = None,
@@ -308,8 +386,14 @@ def build_targets(
     cbo_vintage: str = "2025-01",
     hawaii_factors: Optional[Dict[str, float]] = None,
     empirical_density: Optional[Dict[Tuple[float, float], "np.ndarray"]] = None,
+    base_age_shares: Optional[Dict[str, float]] = None,
+    include_age_targets: bool = True,
 ) -> ForwardTargets:
     """Construct ``ForwardTargets`` for the given year.
+
+    The growth parameters default (``None``) to the bundled
+    ``forward_growth_assumptions.json`` (``GROWTH_VINTAGE``); pass a value to
+    override one, as the sensitivity sweep does.
 
     Parameters
     ----------
@@ -328,17 +412,29 @@ def build_targets(
         marginal rates as nominal incomes rise.
     population_growth_rate:
         Annual filer-count growth rate, applied uniformly across brackets
-        AFTER bracket migration. Default 0.005 (0.5%/yr) is between DBEDT's
-        ~0.34%/yr total population projection and ~0.6%/yr civilian labor
-        force projection (DBEDT 2050 series, Apr 2024). Tax filers correlate
-        most closely with the labor force. Set to 0.0 to hold filer count
-        constant (legacy behavior).
+        AFTER bracket migration. The file value 0.005 (0.5%/yr) is between
+        DBEDT's ~0.34%/yr total population projection and ~0.6%/yr civilian
+        labor force projection (DBEDT 2050 series, Apr 2024). Tax filers
+        correlate most closely with the labor force. Set to 0.0 to hold
+        filer count constant (legacy behavior).
+    cor_extrapolation_growth:
+        Nominal growth for COR years outside the published table.
+    base_age_shares:
+        Base-year filer shares by age band (``age_targets.base_age_shares``);
+        with ``include_age_targets`` this sets ``age_targets`` from the
+        bundled population-by-age projection so the Phase 1 rake moves the
+        filer age mix with the population's.
     base_counts, base_tax, base_status:
         Override the DOTAX baseline (mainly for testing the round-trip).
     base_year:
         DOTAX edition the baseline comes from (``dotax_base``); default the
         newest on file, TY2023. ``2022`` reproduces the earlier base.
     """
+    low_growth = growth_value("low_growth") if low_growth is None else low_growth
+    top_differential = growth_value("top_differential") if top_differential is None else top_differential
+    rate_drift = growth_value("rate_drift") if rate_drift is None else rate_drift
+    population_growth_rate = (growth_value("population_growth_rate")
+                              if population_growth_rate is None else population_growth_rate)
     cor = dict(cor_projections_M or DEFAULT_COR_IIT_PROJECTIONS_M)
     bc = dict(base_counts or dotax_base.filer_targets(base_year))
     bt = dict(base_tax    or dotax_base.tax_targets_M(base_year))
@@ -371,7 +467,7 @@ def build_targets(
         raw_tax[bracket] = eff_rate * new_n * drift
 
     # Scale uniformly so sum matches COR aggregate
-    aggregate = _back_cast_cor(year, cor)
+    aggregate = _back_cast_cor(year, cor, cor_extrapolation_growth)
     raw_sum = sum(raw_tax.values())
     if raw_sum > 0:
         scale = aggregate / raw_sum
@@ -405,6 +501,15 @@ def build_targets(
         except Exception as exc:
             logger.warning("Forward AGI targets unavailable — proceeding without: %s", exc)
 
+    # ── 5. Filer counts by age band (demographic aging of the weights) ────────
+    age_targets: Optional[Dict[str, int]] = None
+    age_source: Optional[str] = None
+    if include_age_targets and base_age_shares:
+        from tax_modeler.calibration.age_targets import build_age_targets
+        age_targets, age_source = build_age_targets(
+            year, base_age_shares, new_total, base_year=base_year,
+        )
+
     return ForwardTargets(
         year=year,
         filer_targets=forward_counts,
@@ -413,6 +518,8 @@ def build_targets(
         aggregate_tax_M=aggregate,
         agi_mass_targets=agi_mass_targets,
         tier_agi_targets=tier_agi_targets,
+        age_targets=age_targets,
+        age_source=age_source,
     )
 
 

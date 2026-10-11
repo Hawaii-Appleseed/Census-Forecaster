@@ -1,0 +1,50 @@
+{
+  "vintage": "DBEDT 2050 Series (April 2024), Hawaii State Data Book 2023 Table 1.24",
+  "source": "DBEDT resident population projections by age",
+  "url": "https://files.hawaii.gov/dbedt/economic/databook/2023-individual/01/012423.xls",
+  "retrieved": "2026-10-10",
+  "notes": [
+    "State resident population as of July 1, including military personnel stationed in Hawaii.",
+    "2020 total is the Census Bureau Vintage 2022 estimate; age groups are DBEDT estimates.",
+    "Band 16-24 uses the 15-19 and 20-24 groups (15-year-olds included); only the band's growth rate enters the filer age margin.",
+    "Years between the published points are interpolated linearly by calibration.age_targets.population_by_band."
+  ],
+  "bands": [
+    "16-24",
+    "25-44",
+    "45-64",
+    "65+"
+  ],
+  "total_population": {
+    "2020": 1451043,
+    "2030": 1501151,
+    "2040": 1542570,
+    "2050": 1560886
+  },
+  "series": {
+    "2020": {
+      "16-24": 174536,
+      "25-44": 373765,
+      "45-64": 371413,
+      "65+": 284092
+    },
+    "2030": {
+      "16-24": 186657,
+      "25-44": 376830,
+      "45-64": 349347,
+      "65+": 367001
+    },
+    "2040": {
+      "16-24": 164281,
+      "25-44": 396682,
+      "45-64": 355817,
+      "65+": 399999
+    },
+    "2050": {
+      "16-24": 166267,
+      "25-44": 391907,
+      "45-64": 366644,
+      "65+": 409224
+    }
+  }
+}

@@ -106,12 +106,14 @@ def project_and_recalibrate(
     top_premium_base_year: int = 2024,
     top_premium_threshold: float = 500_000.0,
     cor_projections_M: Optional[Dict[int, float]] = None,
-    top_bracket_differential: float = 0.010,
-    low_growth: float = 0.025,
-    rate_drift: float = 0.005,
-    population_growth_rate: float = 0.005,
+    top_bracket_differential: Optional[float] = None,
+    low_growth: Optional[float] = None,
+    rate_drift: Optional[float] = None,
+    population_growth_rate: Optional[float] = None,
+    cor_extrapolation_growth: Optional[float] = None,
     method: str = "ensemble",
     base_year: Optional[int] = None,
+    use_age_margins: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[ForwardTargets]]:
     """Project ``units`` to ``target_year`` with optional ITEP-style re-anchoring.
 
@@ -158,9 +160,17 @@ def project_and_recalibrate(
         Per-component Hawaii calibration multipliers on CBO national
         rates. None → use ``cbo_aging.DEFAULT_HAWAII_FACTORS`` (HI wage
         growth ~0.85 of national, CG parity).
-    cor_projections_M, top_bracket_differential, low_growth, rate_drift:
+    cor_projections_M, top_bracket_differential, low_growth, rate_drift,
+    population_growth_rate, cor_extrapolation_growth:
         Forwarded to ``forward_targets.build_targets`` when
-        ``use_forward_targets`` is True.
+        ``use_forward_targets`` is True; ``None`` takes the bundled
+        ``forward_growth_assumptions.json`` value.
+    use_age_margins:
+        Add filer counts by age band (16–24 / 25–44 / 45–64 / 65+) to the
+        Phase 1 rake: the base-year PUMS filer age mix (``primary_agep``,
+        weighted) moved with the bundled population-by-age projection
+        (``calibration.age_targets``). Default True; the report carries a
+        ``forward_filer_age`` margin.
     method:
         Projection method passed to ``project_tax_units_forward``
         (``"ensemble"`` by default).
@@ -251,6 +261,13 @@ def project_and_recalibrate(
     empirical_density = empirical_density_from_pums(
         pre_aging, dotax_base.filer_targets(),
     )
+    age_shares = None
+    if use_age_margins:
+        from tax_modeler.calibration.age_targets import AGE_COL, base_age_shares
+        if AGE_COL in pre_aging.columns:
+            age_shares = base_age_shares(pre_aging)
+        else:
+            logger.warning("use_age_margins: no %r column on the units; age margin skipped", AGE_COL)
     forward = build_targets(
         target_year,
         cor_projections_M=cor_projections_M,
@@ -258,10 +275,13 @@ def project_and_recalibrate(
         top_differential=top_bracket_differential,
         rate_drift=rate_drift,
         population_growth_rate=population_growth_rate,
+        cor_extrapolation_growth=cor_extrapolation_growth,
         include_agi_targets=use_agi_reweighting,
         cbo_vintage=cbo_vintage,
         hawaii_factors=cbo_hawaii_factors,
         empirical_density=empirical_density,
+        base_age_shares=age_shares,
+        include_age_targets=use_age_margins,
     )
     logger.info("Year recalibrator: %s", _summarize_targets(forward))
 
@@ -281,6 +301,7 @@ def project_and_recalibrate(
         aliased,
         filer_targets=forward.filer_targets,
         status_targets=forward.status_targets,
+        age_targets=forward.age_targets,
     )
     # Calibration-report bookkeeping: Phase 1's convergence record (attrs do
     # not survive the re-scoring below, so copy it now) and the clamp events
@@ -482,6 +503,17 @@ def project_and_recalibrate(
             "forward_filing_status", str(fs), float(tgt), cur,
             source="DOTAX-shaped forward status", source_year=target_year, counted=tgt > 0,
         ))
+    if forward.age_targets:
+        from tax_modeler.calibration.age_targets import AGE_COL, age_band
+        if AGE_COL in final.columns:
+            bands = age_band(final[AGE_COL].to_numpy(dtype=float))
+            for b, tgt in forward.age_targets.items():
+                cur = float(final.loc[bands == b, "weight"].sum())
+                residuals.append(MarginResidual(
+                    "forward_filer_age", b, float(tgt), cur,
+                    source=f"base-year PUMS filer age mix x {forward.age_source}",
+                    source_year=target_year, counted=tgt > 0,
+                ))
     for (lo, hi), tgt in forward.tax_targets.items():
         mask = (final["agi"] >= lo) & (final["agi"] < hi)
         cur = float((final.loc[mask, "hi_state_tax"] * final.loc[mask, "weight"]).sum() / 1e6)
