@@ -5,7 +5,7 @@ from three inputs:
     1. DOTAX baseline (filer counts, tax, filing status): the TY2023 edition,
        ``dotax_base.BASE_YEAR``
     2. Hawaii Council on Revenues IIT projection (FY27 anchor + back-cast)
-    3. Top-bracket differential growth assumption (1pp/yr above general)
+    3. The scenario's top-share drift above general growth (0 at MID)
 
 Used by ``year_recalibrator.project_and_recalibrate`` to layer ITEP-style
 year-by-year IRS target matching on top of the existing B19013 + top-income
@@ -23,7 +23,7 @@ For target year Y:
 
 * **Filer migration**: apply piecewise growth ``g_b(Y)`` per bracket:
     - Below $200K: ``g_low = 1.025^(Y-base)``
-    - At/above $200K: ``g_high = g_low * 1.010^(Y-base)``  (top differential)
+    - At/above $200K: ``g_high = g_low * (1 + drift)^(Y-base)``  (top-share drift)
   Build a CDF over the baseline brackets, scale cut-points by ``g_b``, then
   re-bucket onto the fixed 15-bracket nominal schema. Total filer count is
   grown at ``population_growth_rate`` (631,125 in the TY2023 baseline).
@@ -107,8 +107,8 @@ DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = _load_cor_projections()
 # pins them to the file.
 _GROWTH_FALLBACK: Dict[str, float] = {
     "low_growth": 0.025,
-    "top_differential": 0.010,
-    "rate_drift": 0.005,
+    "top_differential": 0.0,
+    "rate_drift": 0.0,
     "population_growth_rate": 0.005,
     "cor_extrapolation_growth": 0.025,
 }
@@ -406,10 +406,14 @@ def build_targets(
         Annual income growth factor applied to brackets below $200K.
     top_differential:
         Extra annual growth for brackets at/above $200K (compounded with
-        ``low_growth``). Captures top-1% empirical premium.
+        ``low_growth``). This is the scenario's top-share drift
+        (``projection.engine.AgingSpec.top_share_drift``; ``project_and_recalibrate``
+        passes it), not a second parameter: default 0 (MID). It was 1%/yr here
+        and 2.5%/yr in the scripts until October 2026.
     rate_drift:
-        Per-year effective-rate uplift reflecting bracket-creep into higher
-        marginal rates as nominal incomes rise.
+        Per-year effective-rate uplift for bracket creep. Default 0 since
+        October 2026 (was 0.5%/yr): creep is mechanical in the microsim once
+        nominal incomes grow, and the forward tax is rescaled to COR anyway.
     population_growth_rate:
         Annual filer-count growth rate, applied uniformly across brackets
         AFTER bracket migration. The file value 0.005 (0.5%/yr) is between

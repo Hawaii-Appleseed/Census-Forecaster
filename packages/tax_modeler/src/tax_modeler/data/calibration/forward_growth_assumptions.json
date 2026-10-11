@@ -7,35 +7,50 @@
       "unit": "per year, nominal",
       "applies_to": "AGI-bracket cut-point migration below $200K",
       "source": "CBO, The Budget and Economic Outlook: 2025 to 2035 (January 2025), Table 2-1: nominal wages and salaries +4.0%/yr 2025-2029 national; scaled by the Hawaii wage factor 0.85 used in cbo_aging.DEFAULT_HAWAII_FACTORS and net of ~1pp of filer turnover; held at the 2.5% the model has used since the TY2022 base.",
-      "sensitivity": {"low": 0.015, "high": 0.035}
+      "sensitivity": {
+        "low": 0.015,
+        "high": 0.035
+      }
     },
     "top_differential": {
-      "value": 0.010,
+      "value": 0.0,
       "unit": "per year, nominal, added to low_growth",
       "applies_to": "AGI-bracket cut-point migration at/above $200K",
-      "source": "IRS SOI Table 1.4 top-1% AGI share, TY2012-2022: +1.8pp/yr relative growth, less the 0.8pp migration haircut (SB3125_CD1_FORECAST.md, top-income premium). forecast_sb3125_vs_fy26base.py overrides this to 0.025 for the MID path.",
-      "sensitivity": {"low": 0.000, "high": 0.025}
+      "source": "October 2026: central value 0 — superseded by engine.TOP_SHARE_DRIFT (SB3125_CD1_FORECAST.md, 'One aging engine'); 1.0 is the HIGH-band sweep. Previous source: IRS SOI Table 1.4 top-1% AGI share, TY2012-2022: +1.8pp/yr relative growth, less the 0.8pp migration haircut (SB3125_CD1_FORECAST.md, top-income premium). forecast_sb3125_vs_fy26base.py overrides this to 0.025 for the MID path.",
+      "sensitivity": {
+        "low": 0.0,
+        "high": 0.01
+      }
     },
     "rate_drift": {
-      "value": 0.005,
+      "value": 0.0,
       "unit": "per year, multiplicative on the per-filer effective rate",
       "applies_to": "bracket creep into higher marginal rates within a nominal AGI class",
-      "source": "DOTAX Table A-8 effective rate on AGI by class, TY2019-2023 editions: within-class effective rates rose 0.3-0.7%/yr relative in the $50K-$200K classes as nominal incomes moved up inside fixed class bounds. Act 46 indexes the standard deduction from TY2024, which lowers the drift; 0.5% is kept as the pre-Act-46 estimate.",
-      "sensitivity": {"low": 0.000, "high": 0.010}
+      "source": "October 2026: central value 0 (retired; the DOTAX effective-rate trend is within noise at five editions). Previous source: DOTAX Table A-8 effective rate on AGI by class, TY2019-2023 editions: within-class effective rates rose 0.3-0.7%/yr relative in the $50K-$200K classes as nominal incomes moved up inside fixed class bounds. Act 46 indexes the standard deduction from TY2024, which lowers the drift; 0.5% is kept as the pre-Act-46 estimate.",
+      "sensitivity": {
+        "low": 0.0,
+        "high": 0.01
+      }
     },
     "population_growth_rate": {
       "value": 0.005,
       "unit": "per year",
       "applies_to": "total filer count, applied uniformly across brackets after migration",
       "source": "DBEDT, Population and Economic Projections for the State of Hawaii to 2050 (DBEDT 2050 Series, April 2024): resident population +0.34%/yr, civilian labor force +0.6%/yr 2025-2035; filers track the labor force. With age-band margins on (calibration/age_targets.py) the total still grows at this rate and the age mix moves with the population projection.",
-      "sensitivity": {"low": 0.0, "high": 0.010}
+      "sensitivity": {
+        "low": 0.0,
+        "high": 0.01
+      }
     },
     "cor_extrapolation_growth": {
       "value": 0.025,
       "unit": "per year, nominal",
       "applies_to": "COR individual income tax aggregate for years outside the published table (back-cast before the first year, extrapolation after the last)",
       "source": "Council on Revenues General Fund forecast, long-run IIT growth after the Act 46 phase-in (FY2030-FY2032 in the March 2026 vintage: +3.7%/yr and +3.3%/yr); 2.5% is the conservative long-run nominal rate the model has carried. Years inside the published table never use it.",
-      "sensitivity": {"low": 0.015, "high": 0.035}
+      "sensitivity": {
+        "low": 0.015,
+        "high": 0.035
+      }
     }
   }
 }
