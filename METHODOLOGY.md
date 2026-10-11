@@ -1652,6 +1652,114 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
 
 ---
 
+## Tax-unit weight calibration — joint generalized raking (October 2026)
+
+The Act 24 microsimulation (`packages/tax_modeler`) anchors the PUMS tax-unit
+weights on DOTAX's resident-return tables before anything is projected. This
+section records the calibration estimator, what the sequential scheme it
+replaced could not do, and the two forward margins added with it. Results are
+in `SB3125_CD1_FORECAST.md` ("Joint rake and demographic aging — October 10,
+2026").
+
+**Results, October 10, 2026.** Base-rake residuals, the age-margin on/off
+comparison (default ON) and the growth-constant sweep are in
+`SB3125_CD1_FORECAST.md`, "Joint rake and demographic aging — October 10, 2026".
+
+### Estimator
+
+`calibration.generalized_raking.calmar` is Deville–Särndal calibration
+(Deville & Särndal 1992; Deville, Särndal & Sautory 1993): find weights
+$w_i = d_i\,F(x_i'\lambda)$ closest to the design weights $d_i$ such that
+$\sum_i w_i x_i = T$ for every calibration variable at once. $x_i$ holds
+cell indicators for count margins and *value × indicator* for weighted-sum
+margins, so filer counts by AGI class, filing status, and tax by class are
+one linear system. The distance is the **logit** one, which confines the
+weight ratio $g_i = w_i/d_i$ to $(L, U)$ by construction — no post-hoc
+clipping, and the number of units at a bound is in the report. $\lambda$ is
+found by damped Newton on the calibration equations with a least-squares
+step, so redundant margins (count classes and status cells both sum to the
+filer total) do not break it. Bounds are $[0.2, 5]$; at the base rake 39 of
+39,996 units sit at the lower bound and none at the upper.
+
+`ipf_orchestrator.calibrate_via_rake(method="joint")` is the default;
+`method="sequential"` keeps the old scheme for comparison.
+
+### Why the sequential scheme could not converge
+
+The old loop cycled (a) a Deming–Stephan rake on counts × status, (b) one
+scale factor per AGI class to hit its tax total (cap 5×), (c) one scale
+factor per SOI class to hit its AGI total (cap 1.10×). Steps (b) and (c)
+multiply every weight in a class by the same factor, which moves the class's
+count and its tax total by the same proportion and leaves its weighted *mean*
+tax per filer unchanged. But a count target $N_b$ and a tax target $T_b$ on
+the same class fix that mean at $T_b/N_b$. The scheme had no lever for the one
+quantity the pair of margins pins down, so it oscillated to a compromise
+fixed point: counts +12–19% above target in six classes while tax sat at the
++10% cap in $75–200K (SB3125_CD1_FORECAST.md, October 9 entry). The joint
+estimator moves weight *within* a class toward higher- or lower-tax units
+and satisfies both.
+
+Two things made the margins look infeasible when they were not:
+
+1. **Wrong tax column.** The tax margin was fitted on `hi_state_tax`
+   (= `hi_tax_liability`, after the refundable low-income credits) against
+   A-8's *tax before credits*. At $0–10K the model's after-credit tax is
+   −$32M against a +$3M target, so the feasibility rule dropped $0–30K. On
+   `hi_tax_before_credits` every class's target lies inside the range its
+   units can reach (`feasible_interval`, a fractional-knapsack bound under
+   the weight-ratio bounds). The joint rake fits the before-credit column.
+2. **The TY2022 SOI federal-AGI margin.** It was raked with TY2023 DOTAX
+   margins with no year bridge and on a different AGI definition (federal
+   vs Hawaiʻi AGI). It is now a check, not a margin.
+
+What *is* jointly infeasible is adding an AGI-by-class margin to counts and
+tax: with DOTAX Table A-1 (TY2023, Hawaiʻi AGI, same classes) as a fourth
+margin the LP feasibility test fails under any usable bound, and the closest
+fit costs Kish deff 2.3 → 3.8 for a margin the weights already satisfy to
+within 1.7–7.2% per class. A-1 is reported as a check (`counted=False`).
+
+### Convergence and dispersion
+
+Convergence is the max relative residual over fitted cells below 0.1%
+(the old criterion was 1%, by weight change). Weight dispersion is reported
+before and after as Kish deff, effective sample size, max/mean and min/mean
+ratios and top-1% share. Hitting the count margins at all costs dispersion:
+counts + status alone give deff 2.21 from 2.02; adding tax gives 2.34. The
+old scheme's 2.14 was the design effect of *not* reaching its targets.
+
+### Forward margins: filer age bands
+
+Phase 1 of `year_recalibrator.project_and_recalibrate` rakes the projected
+frame to DOTAX-shaped forward counts, status and (new) **filer counts by age
+band** 16–24 / 25–44 / 45–64 / 65+ (`calibration.age_targets`). The base-year
+PUMS filer age mix (weighted `primary_agep`) is moved band by band with the
+DBEDT 2050 Series resident population projection (Data Book 2023 Table
+1.24, bundled under `data/external/`) and normalized to the forward filer
+total, so only the mix changes:
+
+$$N_b(Y) = N(Y)\,\frac{s_b\,P_b(Y)/P_b(2023)}{\sum_{b'} s_{b'}\,P_{b'}(Y)/P_{b'}(2023)}.$$
+
+Units without an age (synthetic top filers) are outside every age cell and
+untouched by the margin. Population growth of the *total* still comes from
+`population_growth_rate`. Pension income is exempt from Hawaiʻi tax (HRS
+§235-7(a)), so the age mix moves the taxable share of income, which a
+scalar on the total could not. `use_age_margins=True` is the default.
+
+### Growth constants
+
+`forward_targets.build_targets` reads its growth constants from
+`data/calibration/forward_growth_assumptions.json` (vintage, source and
+low/high sweep value per constant); the literals in the module are a
+pinned fallback. `forecast_sb3125_sensitivity.py --growth-sweep` runs each
+constant at its low and high value through `project_and_recalibrate`.
+
+### References
+
+- Deville, J.-C., & Särndal, C.-E. (1992). Calibration estimators in survey sampling. *JASA* 87(418), 376–382.
+- Deville, J.-C., Särndal, C.-E., & Sautory, O. (1993). Generalized raking procedures in survey sampling. *JASA* 88(423), 1013–1020.
+- Kish, L. (1965). *Survey Sampling*. Wiley. (Design effect of unequal weights.)
+- DBEDT (2024). *Population and Economic Projections for the State of Hawaii to 2050* (DBEDT 2050 Series).
+
 ## Market signals (July 2026)
 
 The `census_forecaster.markets` subpackage tracks a pre-registered

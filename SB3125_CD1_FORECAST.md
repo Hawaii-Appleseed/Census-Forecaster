@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** October 9, 2026
+**Last updated:** October 10, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -130,6 +130,199 @@ scripts, `forecast_sb3125.py` (replicate weights into the cache: delete
 `tests/tax_modeler/scenarios/test_replicate_ci.py` (the Fay formula by hand,
 the ratio on each replicate, points tie to `score_with_response`, zero
 variation ⇒ zero SE) and `tests/tax_modeler/poverty/test_weight_basis.py`.
+## Joint rake and demographic aging — October 10, 2026 (supersedes the base-rake numbers below)
+
+The October 9 entry reported that the base rake stops at a compromise fixed
+point with filer counts +12–19% over target in six classes. This entry finds
+why, replaces the rake, adds filer-age margins to the forward rake, moves the
+forward growth constants into a sourced data file, and reruns
+`forecast_sb3125_vs_fy26base.py --cd 2` with and without the age margins. The
+cache was rebuilt at `3660c1a` with the 80 replicate weights
+(`scripts/build_calibrated_base.py` now snapshots `weight_uncal` before the rake,
+as `forecast_sb3125_enhanced.py` does); the rake changes `weight` only.
+
+### Root cause: the sequential scheme had no lever for the within-class mean
+
+The old `calibrate_via_rake` cycled a count×status rake, then one scale factor
+per AGI class for its tax total (cap 5×), then one per SOI class for its AGI
+total (cap 1.10×). A per-class scalar moves every weight in the class by the
+same factor, so it moves the class's count and its tax by the same proportion
+and leaves the weighted mean tax per filer where it was. A count target and a
+tax target on the same class fix that mean at tax ÷ count — the one quantity the
+scheme could not move. It oscillated: the count rake put $150–200K at 30,326,
+the tax step scaled the class up to reach $319M, the next count rake scaled it
+back. The fixed point it logged as "converged" had counts +18.8% there and tax
+at the cap. **The margins were not jointly infeasible; the estimator was.**
+
+Two things made them *look* infeasible:
+
+1. **The tax margin was fitted on the wrong column.** `hi_state_tax` is
+   `hi_tax_liability`, after the refundable low-income credits; A-8's column is
+   tax *before* credits. At $0–10K the model's after-credit tax is −$32M against
+   a +$3M target, which is why the feasibility rule dropped $0–30K. On
+   `hi_tax_before_credits` every class's target is inside the range its units
+   can reach at the count target with weight ratios in [0.2, 5]
+   (`generalized_raking.feasible_interval`): $10–20K target $21.0M, reachable
+   [8.5, 35.0]; $20–30K $50.0M, [34.8, 68.6]; $150–200K $319M, [257, 347];
+   $500–750K $157M, [117, 160]. The low-income credits are $78M statewide, so
+   this also put ~3% too much tax into the margin below $50K.
+2. **The TY2022 SOI federal-AGI margin.** Raked with TY2023 DOTAX margins, on
+   federal rather than Hawaiʻi AGI, with no year bridge; its 1.10× cap bound
+   18 times. It is now a check, not a margin.
+
+What is jointly infeasible is an **AGI-by-class margin on top of counts and
+tax**. With DOTAX Table A-1 AGI (TY2023, Hawaiʻi AGI, the same classes, so
+the year and definition mismatches are gone) as a fourth margin, the LP
+feasibility test fails under bounds [0.2, 5], [0.1, 8] and [0.05, 10], and the
+closest fit costs Kish deff 2.34 → 3.76 for a margin the weights already
+satisfy to +1.7–7.2% per class. So A-1 AGI is a check (`counted=False` in the
+report). Treating tax by class as a check instead was not needed: with the
+right column it is feasible.
+
+### The fix: one generalized-raking system
+
+`calibration/generalized_raking.py` (new) is Deville–Särndal calibration with
+the logit distance (Deville, Särndal & Sautory 1993): every fitted cell is one
+linear constraint, solved jointly by damped Newton with least-squares steps
+(the count classes and the status cells both sum to the filer total, so the
+system is rank-deficient by one), with the weight ratio confined to [0.2, 5]
+by construction. `calibrate_via_rake(method="joint")` is the default;
+`method="sequential"` is kept. Fitted: 15 count cells (the $1M+ class to its
+1,633 anchor, so the filer total holds; synthesis replaces its units later),
+4 status cells, 13 tax-before-credits cells ($10K–$1M; $0–10K is $3M and is
+reported but not fitted — fitting it moves weight onto that class's few
+taxpaying units for 0.1% of the aggregate at a cost of 0.10 in deff).
+Convergence is the max relative residual over fitted cells below 0.1%
+(METHODOLOGY.md, "Tax-unit weight calibration").
+
+### Before / after (TY2023 base rake, HI 5-year 2020–24 cache, 39,996 units)
+
+| | Sequential (old) | Joint (new) |
+|:---|:---|:---|
+| Convergence | compromise fixed point, 9/30, max rel. dev **0.188** vs 1% | **tolerance**, 10/100 Newton steps, max rel. dev **0.0002** vs 0.1% |
+| Filer counts within tolerance | 2 / 14 | **15 / 15** |
+| Filing status within tolerance | 0 / 4 (MFJ +10.2%) | **4 / 4** (max +0.02%) |
+| Tax by class within tolerance | 5 / 11 ($75–200K at the +10% cap) | **13 / 13** (on tax before credits) |
+| Dropped tax cells | $0–10K, $10–20K, $20–30K (feasibility rule, after-credit column) | $0–10K (materiality floor) |
+| Clip/cap events | 18 (SOI step, [0.909, 1.10]) | none |
+| Kish deff (before 2.023) | 2.143 | 2.342 |
+| ESS (before 19,774) | 18,663 | 17,077 |
+| max/mean (before 18.3) | 19.7 | 22.5 |
+| top-1% weight share (before 6.8%) | 7.3% | 8.0% |
+| Units at a bound | — | 39 at 0.2×, 0 at 5× |
+| Weight sum | 663,963 | 631,160 (= DOTAX, 631,054 + the $1M+ window) |
+| Weighted `hi_tax_liability`, pre-synthesis | $2,623M | $2,575M |
+
+Per-class count residuals (old → new): $30–40K +11.8% → −0.004%; $75–100K
++15.2% → −0.004%; $100–150K +15.9% → −0.004%; $150–200K +18.8% → −0.002%;
+$300–400K +14.3% → 0.000%; $500–750K +15.9% → 0.000%. Tax by class: $75–100K,
+$100–150K, $150–200K +10.0% (cap) → 0.000%.
+
+**On the deff target (≤ 2.2).** Not met, and it should not be: counts and
+status alone, with no tax margin at all, give deff 2.21 from 2.02 — hitting
+the DOTAX counts costs 0.19 and the tax margin 0.13 more. The old scheme's
+2.14 was the design effect of *not* reaching its targets (counts 12–19% off).
+The report shows 2.34 / ESS 17,077, max/mean 22.5. Tighter bounds do not
+help: at [0.3, 5] the $500–750K cell misses by 1.3%, at [0.2, 4] by 8.9%,
+because the $500K+ classes need 2.6× on 634 → 1,633 units at $1M+ and ~1.3× at
+$500–750K, and the bounds then bind.
+
+**Checks (not fitted).** DOTAX A-1 AGI by class, TY2023: $30–40K +2.8%,
+$40–50K +1.7%, $50–75K +2.1%, $75–100K +2.8%, $100–150K +4.3%, $150–200K +4.8%,
+$200–300K +7.2%, $300–400K +5.1% (the model's per-filer Hawaiʻi AGI runs
+2–7% above DOTAX's at the printed count). IRS SOI Table 2 federal AGI,
+TY2022, ×0.9354: −5 to −12% in $25–200K, +17% at $0–25K, −21% at $200K+
+(pre-synthesis).
+
+### Demographic aging: filer counts by age band in the forward rake
+
+Population entered the forward targets as a 0.5%/yr scalar on the filer
+total. `calibration/age_targets.py` (new) adds **filer counts by age band**
+(16–24 / 25–44 / 45–64 / 65+) to Phase 1 of `project_and_recalibrate`: the
+base-year PUMS filer age mix (weighted `primary_agep` on the calibrated base;
+TY2023: 16–24 7.2%, 25–44 34.3%, 45–64 30.0%, 65+ 28.4% of filers; pension
+income is 25.7% of the 65+ band's income and 0.1–5.1% of the others', 9.4%
+overall) moved band by band with the
+**DBEDT 2050 Series** resident population projection (Data Book 2023 Table
+1.24, bundled as `data/external/dbedt_databook_2023_table_1_24.xls` →
+`hi_population_by_age.json`, `scripts/parse_dbedt_age_projection.py`;
+README_DATA_SOURCES.md) and normalized to the forward filer total, so only
+the mix moves. DBEDT has the 65+ share of residents at 23.6% in 2020, 28.7%
+in 2030 and 30.4% in 2040 (the series includes military); the band ratios
+2023 → 2031 are 16–24 ×1.035, 25–44 ×1.011, 45–64 ×0.959, 65+ ×1.199, so the
+65+ share of filers moves from 28.4% to 30.7% in TY2027 and 32.4% in TY2031
+(45–64 from 30.0% to 27.4%). Synthetic top
+filers carry no age and are outside every age cell. Pension income is exempt
+from Hawaiʻi tax (HRS §235-7(a)), so the age mix changes the taxable share of
+income. `use_age_margins=True` is the default; the fy26base script takes
+`--no-age-margins`.
+
+**Effect of the age margins** (`forecast_sb3125_vs_fy26base.py --cd 2`, MID; "OFF" is
+`--no-age-margins`; statutory re-score of the re-raked population, $M):
+
+| | TY2027 ON | TY2027 OFF | TY2031 ON | TY2031 OFF |
+|---|---:|---:|---:|---:|
+| Baseline tax (Act 46 frozen at TY2026) | 2,957.2 | 2,952.2 (−5.0) | 4,100.3 | 4,094.6 (−5.7) |
+| CD2 (Act 24) delta vs baseline | −166.2 | −165.9 (+0.3) | −410.6 | −409.7 (+0.9) |
+| Phase 1 convergence | tolerance, 3 it., max dev 0.0034 | tolerance, 3 it., 0.0021 | tolerance, 3 it., 0.0041 | tolerance, 4 it., 0.0013 |
+| Kish deff / ESS (after) | 2.430 / 16,476 | 2.436 / 16,435 | 2.600 / 15,397 | 2.606 / 15,366 |
+| Age cells within 0.5% (all within 1%) | 4 / 4 (max 0.25%) | n/a | 2 / 4 (max 0.63%) | n/a |
+
+The effect is small: the age mix lowers baseline tax by about $5M (0.2% / 0.1%)
+and moves the Act 24 delta by $0.3–0.9M, inside the ±$2.6–5M SDR band. That
+is the expected size: the 65+ share moves 2.3–4.0 points over the window and the
+pension exemption removes the taxed income of the shifted weight, but the
+class counts, tax and SOI tier margins still bind the totals. **Default ON**:
+the per-year report stays converged by tolerance (0.5%) in both TY2027 and
+TY2031 and in every other year, the age cells are met to 0.25% (TY2027) and 0.63% (TY2031: two of four cells
+sit between 0.5% and 1%, and one in TY2030, so the per-cell `within_tol`
+count is stricter than the loop's convergence test), and deff is 0.006 lower
+than OFF, not higher. The residuals that remain in both arms
+are the existing forward-count (13/15 cells within 1%, max 8–9%) and
+forward-tax (TY2031 max 67%) misses at the $500K–$1M brackets, and the TY2031
+status cell (2.4%); the age margin neither causes nor fixes them.
+
+
+### Growth constants from a sourced file; sensitivity sweep
+
+`forward_targets.build_targets` and `_back_cast_cor` read their constants
+from `data/calibration/forward_growth_assumptions.json` (vintage 2026-10-10):
+low-bracket growth 2.5%/yr, top differential 1.0%/yr, rate drift 0.5%/yr,
+population 0.5%/yr, COR extrapolation 2.5%/yr, each with its source and
+low/high sweep value. The literals in the module are a fallback pinned to the
+file by `tests/tax_modeler/calibration/test_forward_growth_assumptions.py`.
+`year_recalibrator.project_and_recalibrate` defaults to the file too.
+`forecast_sb3125_sensitivity.py --growth-sweep` runs each constant at its
+low and high value through `project_and_recalibrate` on the MID path (SOI
+anchor, CBO aging, age margins; `top_bracket_differential=0.025` as in the
+fy26base script except when that dial is the one swept).
+
+**Result** (MID, CD2, bill vs Act 46 frozen at TY2026, statutory re-score; $M; all
+cases converge in Phase 1 in every year; `/tmp/sb3125_cd2_growth_sweep_2027_2031.csv`):
+
+| Case | TY2027 baseline | TY2031 baseline | TY2027 delta | TY2031 delta | 5-yr delta |
+|---|---:|---:|---:|---:|---:|
+| central | 2,956 | 4,098 | −166.2 | −410.4 | −1,537.8 |
+| low_growth 1.5% | 2,790 | 3,635 | −163.2 | −403.3 | −1,502.7 |
+| low_growth 3.5% | 3,136 | 4,509 | −167.9 | −411.5 | −1,555.2 |
+| top_differential 0 | 2,762 | 3,443 | −178.0 | −452.9 | −1,663.9 |
+| population 0%/yr | 2,897 | 3,938 | −162.9 | −394.3 | −1,489.0 |
+| population 1%/yr | 3,015 | 4,264 | −169.5 | −427.0 | −1,587.9 |
+| rate_drift 0 / 1% | 2,956 | 4,098 | −166.2 | −410.4 | −1,537.8 |
+| cor_extrapolation 1.5% / 3.5% | 2,956 | 4,098 | −166.2 | −410.4 | −1,537.8 |
+
+The five-year delta moves −$1,489M to −$1,664M across the dials; the top
+differential and the low-bracket growth set the baseline level, population the
+filer count. `rate_drift` and `cor_extrapolation_growth` move nothing in
+TY2027–2031: the drift multiplies targets that Phase 2 then rescales to the COR
+aggregate, and the COR vintage covers the whole window so the extrapolation is
+never read. They are kept in the file because the window can change. The sweep
+file was produced on the pre-squash tree; its central row ties to the age-ON
+run above to $0.7M over five years.
+
+
+---
+
 ## Calibration report and scenario parameter audit — October 9, 2026 (no result changes)
 
 **No number in this document changes.** This entry records hygiene from a forecast

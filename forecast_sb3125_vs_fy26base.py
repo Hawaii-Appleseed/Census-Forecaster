@@ -86,6 +86,12 @@ def _parse_args():
         help="Conference draft to model: 1=CD1 (default), 2=CD2",
     )
     add_replicate_se_arg(p)
+    p.add_argument(
+        "--no-age-margins", dest="age_margins", action="store_false", default=True,
+        help="Drop the filer-age-band margin from the Phase 1 forward rake "
+             "(project_and_recalibrate(use_age_margins=False)); the default rakes "
+             "the filer age mix to the bundled population-by-age projection.",
+    )
     return p.parse_args()
 
 
@@ -136,7 +142,7 @@ def _bin_delta(inc, w, diffs):
     return result
 
 
-def main(cd: str, replicate_se: bool = True) -> None:
+def main(cd: str, replicate_se: bool = True, age_margins: bool = True) -> None:
     if not CALIBRATED_PKL.exists():
         print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd {cd} first.")
         sys.exit(1)
@@ -205,6 +211,7 @@ def main(cd: str, replicate_se: bool = True) -> None:
             top_premium_pct=MID_TOP_PREMIUM,
             top_bracket_differential=0.025,
             method="ensemble",
+            use_age_margins=age_margins,
         )
         if fwd is not None:
             year_reports[yr] = fwd.calibration_report
@@ -419,7 +426,7 @@ def main(cd: str, replicate_se: bool = True) -> None:
 if __name__ == "__main__":
     args = _parse_args()
     try:
-        main(cd=args.cd, replicate_se=bool(args.replicate_se))
+        main(cd=args.cd, replicate_se=bool(args.replicate_se), age_margins=bool(args.age_margins))
     except Exception as e:
         print(f"\nERROR: {e}", flush=True)
         traceback.print_exc()

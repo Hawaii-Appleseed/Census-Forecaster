@@ -20,6 +20,17 @@ Requires tax-unit cache at data/artifacts/tax_units_cache.parquet (run forecast_
 
 Output:
   /tmp/sb3125_cd{N}_sensitivity_2027_2031.csv
+
+Growth-assumption sweep (``--growth-sweep``):
+  One run per forward-target growth dial at its low and high sweep value
+  from ``data/calibration/forward_growth_assumptions.json`` (2.5%/yr
+  low-bracket growth, 1.0%/yr top differential, 0.5%/yr rate drift, 0.5%/yr
+  population, 2.5%/yr COR extrapolation), plus the central case, through
+  ``project_and_recalibrate`` on the MID path of
+  ``forecast_sb3125_vs_fy26base.py`` (SOI anchor, CBO aging, age margins).
+  Requires the calibrated base pickle (``forecast_sb3125_enhanced.py`` or
+  ``scripts/build_calibrated_base.py``). Output:
+  /tmp/sb3125_cd{N}_growth_sweep_2027_2031.csv
 """
 from __future__ import annotations
 
@@ -28,7 +39,7 @@ import traceback
 from pathlib import Path
 
 from _forecast_common import (
-    TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
+    TARGET_YEARS, load_cached_units, silence_noise,
 )
 
 SCENARIOS = [
@@ -97,12 +108,115 @@ def run_one_scenario(
     return rows
 
 
+def run_growth_sweep(cd: str):
+    """Bracket delta (bill vs Act 46 frozen at TY2026, statutory re-score)
+    per TY under each growth dial's low / central / high value."""
+    import time
+    import pandas as pd
+    from _forecast_common import CALIBRATED_PKL
+    from tax_modeler.artifacts import load_calibrated_base
+    from tax_modeler.calibration.forward_targets import (
+        GROWTH_ASSUMPTIONS, GROWTH_VINTAGE, growth_sensitivity, growth_value,
+    )
+    from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
+    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
+    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+    from tax_modeler.scenarios.quintile_analysis import per_unit_tax
+    from tax_modeler.scenarios.top_income_synthesis import (
+        calibrate_synthetic_tail_to_tax_target, redistribute_mid_high_incomes,
+        synthesize_top_filers,
+    )
+    from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
+
+    if not CALIBRATED_PKL.exists():
+        print(f"ERROR: {CALIBRATED_PKL} not found; run scripts/build_calibrated_base.py first.", flush=True)
+        sys.exit(1)
+    base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
+    cal_tax_year = int(cal_meta.get("tax_year", 2023))
+    # The MID population exactly as forecast_sb3125_vs_fy26base.py builds it.
+    units = redistribute_mid_high_incomes(base, pareto_alpha=1.5)
+    units = synthesize_top_filers(units, pareto_alpha=1.5)
+    units = enrich_for_credits(units)
+    units = impute_capital_gains_from_soi(units)
+
+    def score(u):
+        return compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
+
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    print(f"  tail_k={tail_k:.4f}; growth assumptions vintage {GROWTH_VINTAGE}", flush=True)
+    get_scenario_system = (
+        TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
+        else TaxSystemRegistry.get_sb3125_cd2_system
+    )
+    calc = TaxCalculator()
+    dials = list(GROWTH_ASSUMPTIONS["assumptions"])
+    cases = [("central", None, growth_value)] + [
+        (f"{d}={v:g}", d, v) for d in dials for v in growth_sensitivity(d)
+        if v != growth_value(d)
+    ]
+    rows = []
+    for label, dial, value in cases:
+        t0 = time.perf_counter()
+        kw = {}
+        if dial is not None:
+            kw = {{"low_growth": "low_growth", "top_differential": "top_bracket_differential",
+                   "rate_drift": "rate_drift", "population_growth_rate": "population_growth_rate",
+                   "cor_extrapolation_growth": "cor_extrapolation_growth"}[dial]: value}
+        for yr in TARGET_YEARS:
+            projected, fwd = project_and_recalibrate(
+                units, target_year=yr, use_forward_targets=True, use_soi_anchor=True,
+                soi_year=2022, hawaii_capgain_adjustment=0.95, use_cbo_aging=True,
+                cbo_vintage="2025-01", top_premium_pct=0.010, method="ensemble",
+                **({"top_bracket_differential": 0.025} if dial != "top_differential" else {}),
+                **kw,
+            )
+            ded = scale_deduction_params_for_target_year(yr, geoid="15003")
+            scored = compute_base_tax(projected.copy(), tax_year=yr, deduction_params=ded)
+            w = scored["weight"].to_numpy(dtype=float)
+            tax_a = per_unit_tax(scored, TaxSystemRegistry.get_hb2306_orig_system(yr), calc)
+            tax_c = per_unit_tax(scored, get_scenario_system(yr), calc)
+            rows.append({
+                "case": label, "dial": dial or "", "value": value if dial else "",
+                "tax_year": yr,
+                "baseline_tax_$M": round(float((tax_a * w).sum() / 1e6), 2),
+                "bill_delta_$M": round(float(((tax_c - tax_a) * w).sum() / 1e6), 2),
+                "filers": round(float(w.sum())),
+                "phase1_converged": bool(fwd.calibration_report.converged) if fwd else None,
+                "wedge": round(float(fwd.statute_vs_cor_wedge), 4) if fwd else None,
+            })
+        print(f"  {label}: done ({time.perf_counter()-t0:.0f}s)", flush=True)
+    df = pd.DataFrame(rows)
+    out = Path(f"/tmp/sb3125_cd{cd}_growth_sweep_2027_2031.csv")
+    df.to_csv(out, index=False)
+    pv = df.pivot(index="case", columns="tax_year", values="bill_delta_$M")
+    pv["5yr"] = pv.sum(axis=1)
+    print("\nBill delta vs Act 46 frozen at TY2026 ($M, statutory re-score) by growth dial:")
+    print(pv.to_string(float_format=lambda x: f"{x:>9,.1f}"), flush=True)
+    print(f"\nSaved: {out}", flush=True)
+    return df
+
+
 if __name__ == "__main__":
     silence_noise()
 
-    args = parse_cd_args(__doc__)
+    import argparse
+    _p = argparse.ArgumentParser(description=__doc__)
+    _p.add_argument("--cd", choices=["1", "2"], default="1")
+    _p.add_argument("--growth-sweep", action="store_true",
+                    help="sweep the forward-target growth dials instead of alpha/REEC")
+    args = _p.parse_args()
     CD = args.cd
     OUT_CSV = Path(f"/tmp/sb3125_cd{CD}_sensitivity_2027_2031.csv")
+
+    if args.growth_sweep:
+        try:
+            run_growth_sweep(CD)
+        except Exception as e:
+            print(f"\nERROR: {e}", flush=True)
+            traceback.print_exc()
+            sys.exit(1)
+        sys.exit(0)
 
     try:
         import time
