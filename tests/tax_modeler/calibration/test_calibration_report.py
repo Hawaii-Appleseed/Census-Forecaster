@@ -180,11 +180,11 @@ def test_weighted_sum_step_records_clip_events_only_when_the_cap_binds():
     assert out.loc[1, "weight"] == pytest.approx(1.05)
 
 
-def test_nonconvergence_is_in_the_report_not_only_the_log():
+def test_sequential_nonconvergence_is_in_the_report_not_only_the_log():
     df = _units()
     out, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
         df, calibrate_soi_agi=False, max_outer_iters=1, outer_tolerance=1e-9,
-        return_report=True,
+        return_report=True, method="sequential",
     )
     assert rep.converged is False
     assert rep.convergence_mode == "max_iterations"
@@ -197,9 +197,10 @@ def test_nonconvergence_is_in_the_report_not_only_the_log():
     assert len(out) == len(df)
 
 
-def test_report_records_margins_dropped_bins_and_source_years():
+def test_sequential_report_records_margins_dropped_bins_and_source_years():
     _, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
         _units(), calibrate_soi_agi=False, max_outer_iters=3, return_report=True,
+        method="sequential",
     )
     names = rep.margin_names
     assert names == ["dotax_filer_count", "dotax_filing_status", "dotax_tax_M"]
@@ -220,11 +221,11 @@ def test_report_records_margins_dropped_bins_and_source_years():
     assert rep.weights_after.effective_n <= rep.weights_after.n
 
 
-def test_soi_margin_carries_its_own_year_and_the_mismatch_warning():
+def test_sequential_soi_margin_carries_its_own_year_and_the_mismatch_warning():
     pytest.importorskip("pums_estimator")
     try:
         _, rep = apply_ipf_calibration_via_rake(
-            _units(), calibrate_soi_agi=True, return_report=True,
+            _units(), calibrate_soi_agi=True, return_report=True, method="sequential",
         )
     except FileNotFoundError:
         pytest.skip("SOI extract not on disk")
@@ -245,3 +246,122 @@ def test_pipeline_calibrate_returns_report_and_attaches_it():
     assert isinstance(rep, CalibrationReport)
     assert rep.stage == "base_ipf_rake"
     assert out.attrs["calibration_report"]["iterations"] == rep.iterations
+
+
+# ---------------------------------------------------------------------------
+# Joint generalized raking (the default since October 2026)
+# ---------------------------------------------------------------------------
+
+def _units_before_credits(n: int = 6000, seed: int = 1) -> pd.DataFrame:
+    """Units whose per-bracket tax-before-credits spans DOTAX's per-filer
+    tax, so the joint system is feasible; with a low-income credit column
+    that makes the after-credit tax negative at the bottom."""
+    from tax_modeler.calibration import dotax_base
+    rng = np.random.default_rng(seed)
+    rows = []
+    for (lo, hi), n_b in dotax_base.filer_targets().items():
+        k = max(40, int(n * n_b / 631_054))
+        hi_eff = min(hi, 3_000_000.0)
+        agi = rng.uniform(lo, hi_eff, k)
+        per_filer = dotax_base.tax_targets_M()[(lo, hi)] * 1e6 / n_b
+        tax = per_filer * rng.lognormal(0.0, 0.6, k)
+        rows.append(pd.DataFrame({
+            "agi": agi, "hi_tax_before_credits": tax,
+            "hi_low_income_credit": np.where(agi < 30_000, 3_000.0, 0.0),
+            "filing_status": rng.choice(
+                ["single", "married_filing_jointly", "head_of_household",
+                 "married_filing_separately"], k, p=[0.53, 0.34, 0.1, 0.03]),
+        }))
+    df = pd.concat(rows, ignore_index=True)
+    df["hi_state_tax"] = df["hi_tax_before_credits"] - df["hi_low_income_credit"]
+    df["weight"] = rng.uniform(60, 180, len(df))
+    df["weight_uncal"] = df["weight"].to_numpy()
+    df["weight_r01"] = df["weight"] * rng.uniform(0.8, 1.2, len(df))
+    return df
+
+
+def test_joint_rake_converges_by_tolerance_on_all_count_and_status_cells():
+    df = _units_before_credits()
+    out, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
+        df, calibrate_soi_agi=False, return_report=True,
+    )
+    assert rep.converged and rep.convergence_mode == "tolerance"
+    assert rep.final_max_dev < rep.tolerance <= 1e-3
+    summ = rep.margin_summary()
+    assert summ["dotax_filer_count"]["within_tolerance"] == summ["dotax_filer_count"]["counted"] == 15
+    assert summ["dotax_filing_status"]["within_tolerance"] == 4
+    assert summ["dotax_tax_M"]["within_tolerance"] == summ["dotax_tax_M"]["counted"]
+    assert not rep.clip_events
+    assert any("generalized raking" in n for n in rep.notes)
+    assert "Note:" in rep.to_markdown()
+    assert rep.iterations < rep.max_iterations
+
+
+def test_joint_rake_fits_tax_before_credits_and_keeps_the_top_bin_out():
+    df = _units_before_credits()
+    _, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
+        df, calibrate_soi_agi=False, return_report=True,
+    )
+    tax_cells = [m for m in rep.margins if m.margin == "dotax_tax_M"]
+    assert all("hi_tax_before_credits" in m.source for m in tax_cells)
+    top = next(m for m in tax_cells if m.key == "$1000k+")
+    assert top.counted is False
+    small = next(m for m in tax_cells if m.key == "$0k-$10k")
+    assert small.counted is False  # below the materiality floor
+    assert any(b.key == "$0k-$10k" and "materiality" in b.reason for b in rep.dropped_bins)
+
+
+def test_joint_rake_leaves_weight_uncal_and_replicates_untouched():
+    df = _units_before_credits()
+    out = IPFCalibrationOrchestrator().calibrate_via_rake(df, calibrate_soi_agi=False)
+    np.testing.assert_array_equal(out["weight_uncal"], df["weight_uncal"])
+    np.testing.assert_array_equal(out["weight_r01"], df["weight_r01"])
+    assert not np.allclose(out["weight"], df["weight"])
+    assert list(out.columns) == list(df.columns)
+
+
+def test_joint_rake_falls_back_to_hi_state_tax_and_drops_unreachable_bins():
+    df = _units_before_credits().drop(columns=["hi_tax_before_credits"])
+    _, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
+        df, calibrate_soi_agi=False, return_report=True,
+    )
+    assert any("hi_state_tax" in n for n in rep.notes)
+    # The after-credit column is negative at $10-20K: outside the reachable range.
+    dropped = {b.key for b in rep.dropped_bins if b.stage == "tax_total_margin"}
+    assert "$10k-$20k" in dropped
+    assert all(not m.counted for m in rep.margins
+               if m.margin == "dotax_tax_M" and m.key in dropped)
+
+
+def test_joint_rake_reports_the_agi_checks_without_fitting_them():
+    df = _units_before_credits()
+    _, rep = IPFCalibrationOrchestrator().calibrate_via_rake(
+        df, calibrate_soi_agi=True,
+        soi_agi_targets_M={(0.0, 25_000.0): 1_900.0, (200_000.0, float("inf")): 17_000.0},
+        soi_universe_scale=0.93, soi_source_year=2022,
+        agi_check_targets_M={(30_000.0, 40_000.0): 2_004.0}, agi_check_year=2023,
+        return_report=True,
+    )
+    assert rep.source_years["soi_agi_M_check"] == 2022
+    assert rep.source_years["dotax_agi_M_check"] == 2023
+    checks = [m for m in rep.margins if m.margin.endswith("_check")]
+    assert checks and all(m.counted is False for m in checks)
+    # Checks do not trigger the fitted-margin year-mismatch warning.
+    assert not any("different tax years" in w for w in rep.warnings)
+    assert rep.converged
+
+
+def test_joint_rake_nonconvergence_is_reported():
+    df = _units_before_credits()
+    orch = IPFCalibrationOrchestrator()
+    tight = {k: v for k, v in orch.DOTAX_FILER_TARGETS.items()}
+    _, rep = orch.calibrate_joint(df, bounds=(0.9, 1.1), return_report=True)
+    assert not rep.converged and rep.convergence_mode == "max_iterations"
+    assert any("jointly infeasible" in w for w in rep.warnings)
+    assert "DID NOT CONVERGE" in rep.to_markdown()
+    assert tight  # the targets themselves are unchanged by the attempt
+
+
+def test_unknown_method_is_rejected():
+    with pytest.raises(ValueError):
+        IPFCalibrationOrchestrator().calibrate_via_rake(_units(), method="nope")

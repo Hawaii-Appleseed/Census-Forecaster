@@ -43,7 +43,7 @@ def main() -> int:
         from tax_modeler.loaders.pums_loader import PUMSDataLoader
         from tax_modeler.units.constructor import TaxUnitConstructor
         print(f"Loading PUMS from {DATA_DIR}", flush=True)
-        loader = PUMSDataLoader(data_dir=DATA_DIR)
+        loader = PUMSDataLoader(data_dir=DATA_DIR, load_replicate_weights=True)
         person_df, hh_df = loader.load_data(state="15", pums_type="5yr")
         print(f"  {len(person_df):,} persons, {len(hh_df):,} hh ({time.perf_counter()-t0:.0f}s)", flush=True)
         constructor = TaxUnitConstructor(person_df, hh_df, use_soi_calibration=False, progress_bar=False)
@@ -59,6 +59,10 @@ def main() -> int:
                                                "pums": "HI 5yr 2020-24", "n_units": int(len(safe))})
         units = pd.read_parquet(CACHE_FILE)
 
+    # The basis of the replicate-weight calibration ratio: the weight as
+    # cached, before the rake (same as forecast_sb3125_enhanced.py).
+    from tax_modeler.uncertainty.replicates import snapshot_uncalibrated_weight
+    units = snapshot_uncalibrated_weight(units)
     cal = load_canonical_deduction_params()
     units = enrich_for_credits(units)
     units = compute_base_tax(units, deduction_params=cal, tax_year=2023)

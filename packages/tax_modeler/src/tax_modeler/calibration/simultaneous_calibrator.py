@@ -76,6 +76,8 @@ def phase1_reweight(
     status_targets: Optional[Dict[str, int]] = None,
     agi_mass_targets: Optional[Dict[Tuple[float, float], float]] = None,
     tier_agi_targets: Optional[Dict[Tuple[float, float], float]] = None,
+    age_targets: Optional[Dict[str, int]] = None,
+    age_col: str = "primary_agep",
 ) -> pd.DataFrame:
     """
     Adjust weights to simultaneously match DOTAX-style filer-count targets
@@ -87,6 +89,10 @@ def phase1_reweight(
         C) AGI-bracket aggregate AGI mass ($M) — when ``agi_mass_targets`` given
         D) SOI tier aggregate AGI mass ($M) — when ``tier_agi_targets`` given;
            applies WITHIN $1M+ filers, identified by ``synthetic_tier_lo`` column
+        E) Filer counts by age band — when ``age_targets`` given
+           (``calibration.age_targets``; units without a usable ``age_col``
+           value, e.g. synthetic top filers, are outside every age cell and
+           untouched by this margin)
 
     Uses iterative raking (multiplicative IPF). With AGI-mass margins active,
     this implements the CBO/TPC-standard "stage-2 reweighting to forward
@@ -158,6 +164,20 @@ def phase1_reweight(
             tier_idx[tier_lo_array == lo] = i
         result['_tier_idx'] = tier_idx
 
+    # Pre-compute age-band index for the age margin
+    age_keys: list = []
+    if age_targets:
+        from tax_modeler.calibration.age_targets import age_band
+        if age_col not in result.columns:
+            logger.warning("Age margin requested but %r is not a column; skipped", age_col)
+        else:
+            age_keys = [b for b in age_targets if age_targets[b] > 0]
+            bands = age_band(result[age_col].to_numpy(dtype=float))
+            age_idx = np.full(len(result), -1, dtype=int)
+            for i, b in enumerate(age_keys):
+                age_idx[bands == b] = i
+            result['_age_idx'] = age_idx
+
     converged = False
     for iteration in range(1, max_iterations + 1):
         max_deviation = 0.0
@@ -214,6 +234,22 @@ def phase1_reweight(
                 target_M = tier_agi_targets[(lo, hi)]
                 if current_M > 0 and target_M > 0:
                     factor = target_M / current_M
+                    weights[mask] *= factor
+                    max_deviation = max(max_deviation, abs(factor - 1.0))
+            result['weight'] = weights
+
+        # --- Margin E: filer counts by age band ---
+        if age_keys:
+            weights = np.array(result['weight'].to_numpy(dtype=float), copy=True)
+            age_arr = result['_age_idx'].to_numpy()
+            for a_idx, b in enumerate(age_keys):
+                mask = age_arr == a_idx
+                if not mask.any():
+                    continue
+                current = float(weights[mask].sum())
+                target = age_targets[b]
+                if current > 0 and target > 0:
+                    factor = target / current
                     weights[mask] *= factor
                     max_deviation = max(max_deviation, abs(factor - 1.0))
             result['weight'] = weights
@@ -286,9 +322,21 @@ def phase1_reweight(
             label = _bracket_label(lo, hi)
             logger.info(f"    {label:<18s}  ${actual:>10,.0f}M vs ${target:>10,.0f}M  ({pct:>+5.1f}%)")
 
+    if age_keys:
+        logger.info("\n  Phase 1 — Filer count match by age band:")
+        weights = result['weight'].to_numpy(dtype=float)
+        age_arr = result['_age_idx'].to_numpy()
+        for a_idx, b in enumerate(age_keys):
+            actual = float(weights[age_arr == a_idx].sum())
+            target = age_targets[b]
+            pct = (actual / target - 1) * 100 if target > 0 else 0
+            logger.info(f"    {b:<18s}  {actual:>10,.0f} vs {target:>10,d}  ({pct:>+5.1f}%)")
+
     drop_cols = ['_bracket_idx', '_status_idx']
     if '_tier_idx' in result.columns:
         drop_cols.append('_tier_idx')
+    if '_age_idx' in result.columns:
+        drop_cols.append('_age_idx')
     result.drop(columns=drop_cols, inplace=True)
     # Convergence record for the calibration report (year_recalibrator reads
     # it); a non-converged rake used to be a log line only.

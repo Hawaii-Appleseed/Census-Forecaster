@@ -178,6 +178,7 @@ class CalibrationReport:
     cor_tax_M: Optional[float] = None
     statute_vs_cor_wedge: Optional[float] = None
     warnings: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)       # informational (method, bounds, units at bounds)
     children: List["CalibrationReport"] = field(default_factory=list)
 
     # -- derived -----------------------------------------------------------
@@ -295,6 +296,8 @@ class CalibrationReport:
 
         for w in self.warnings:
             lines.append(f"- **Warning:** {w}")
+        for n_ in self.notes:
+            lines.append(f"- **Note:** {n_}")
 
         summ = self.margin_summary()
         if summ:

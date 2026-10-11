@@ -344,8 +344,21 @@ class IPFCalibrationOrchestrator:
         infeasibility_threshold: float = 0.25,
         return_report: bool = False,
         soi_source_year: Optional[int] = None,
+        method: str = "joint",
+        bounds: Tuple[float, float] = (0.2, 5.0),
+        tax_value_col: Optional[str] = None,
+        joint_tolerance: float = 1e-3,
+        agi_check_targets_M: Optional[Dict[Tuple[float, float], float]] = None,
+        agi_check_source: str = "DOTAX Table A-1 AGI ($M)",
+        agi_check_year: Optional[int] = None,
     ) -> pd.DataFrame | Tuple[pd.DataFrame, CalibrationReport]:
         """Joint multi-pass IPF calibration.
+
+        ``method="joint"`` (default since October 2026) solves every margin in
+        one generalized-raking system (:meth:`calibrate_joint`); the
+        parameters below the ``soi_source_year`` line belong to it. The
+        legacy damped sequential scheme is ``method="sequential"`` and is
+        documented in the rest of this docstring.
 
         Wraps three margins (filer counts by AGI bracket, filing-status
         distribution, tax totals by AGI bracket) in an outer iteration loop
@@ -428,6 +441,26 @@ class IPFCalibrationOrchestrator:
             fires when they differ. Defaults to
             ``irs_soi_state_targets.SOI_TAX_YEAR``.
         """
+        if method == "joint":
+            return self.calibrate_joint(
+                df,
+                calibrate_filer_counts=calibrate_filer_counts,
+                calibrate_tax_totals=calibrate_tax_totals,
+                calibrate_filing_status=calibrate_filing_status,
+                skip_synthesis_bin=skip_synthesis_bin,
+                bounds=bounds,
+                tax_value_col=tax_value_col,
+                tolerance=joint_tolerance,
+                soi_agi_targets_M=soi_agi_targets_M if calibrate_soi_agi else None,
+                soi_universe_scale=soi_universe_scale,
+                soi_source_year=soi_source_year,
+                agi_check_targets_M=agi_check_targets_M,
+                agi_check_source=agi_check_source,
+                agi_check_year=agi_check_year,
+                return_report=return_report,
+            )
+        if method != "sequential":
+            raise ValueError(f"method must be 'joint' or 'sequential', got {method!r}")
         from pums_estimator.estimation.rake import rake as _rake  # lazy cross-package import
 
         result = df.copy()
@@ -793,6 +826,273 @@ class IPFCalibrationOrchestrator:
             return result, report
         return result
 
+    # ------------------------------------------------------------------
+    # Joint generalized raking (October 2026)
+    # ------------------------------------------------------------------
+
+    TAX_VALUE_COL_PREFERRED = "hi_tax_before_credits"
+
+    def calibrate_joint(
+        self,
+        df: pd.DataFrame,
+        *,
+        calibrate_filer_counts: bool = True,
+        calibrate_tax_totals: bool = True,
+        calibrate_filing_status: bool = True,
+        skip_synthesis_bin: bool = True,
+        bounds: Tuple[float, float] = (0.2, 5.0),
+        tax_value_col: Optional[str] = None,
+        tolerance: float = 1e-3,
+        max_iter: int = 100,
+        min_tax_target_M: float = 10.0,
+        soi_agi_targets_M: Optional[Dict[Tuple[float, float], float]] = None,
+        soi_universe_scale: float = 1.0,
+        soi_source_year: Optional[int] = None,
+        agi_check_targets_M: Optional[Dict[Tuple[float, float], float]] = None,
+        agi_check_source: str = "DOTAX Table A-1 AGI ($M)",
+        agi_check_year: Optional[int] = None,
+        return_report: bool = False,
+    ) -> pd.DataFrame | Tuple[pd.DataFrame, CalibrationReport]:
+        """One generalized-raking system for every fitted margin.
+
+        Fitted margins (one linear constraint per cell, solved together by
+        :func:`calibration.generalized_raking.calmar` with logit-bounded
+        weight ratios ``w / d`` in ``bounds``):
+
+        * filer counts by AGI bracket (DOTAX Table A-8, all 15 classes —
+          the $1M+ class is raked to its anchor so the filer total holds;
+          synthesis later replaces its units);
+        * filing status (DOTAX Table 4);
+        * **tax before credits** by bracket (A-8), on ``tax_value_col`` —
+          ``hi_tax_before_credits`` when the frame has it, else
+          ``hi_state_tax``. The legacy scheme fitted ``hi_state_tax``
+          (= ``hi_tax_liability``, after the refundable low-income credit)
+          to A-8's *before*-credit column, which is why its $0–30K bins
+          were "infeasible": at $0–10K the model's after-credit tax is
+          −$32M against a +$3M target. On the before-credit column every
+          bin's target lies inside the range the bracket's units can reach.
+          A bin whose target is outside that range (:func:`feasible_interval`)
+          is dropped and reported, as is a bin below ``min_tax_target_M``
+          (the $0–10K class, $3M); the $1M+ bin is skipped as before.
+
+        Check-only margins (reported with ``counted=False``, never fitted):
+
+        * ``agi_check_targets_M`` — DOTAX Table A-1 AGI by class (TY2023,
+          Hawaiʻi AGI on the same brackets). Fitting it is jointly
+          infeasible with the count and tax margins under any usable
+          bound (the LP test fails) and costs Kish deff 2.3 → 3.8 for a
+          margin the weights already satisfy to within 0.3–1.6% per
+          class; so it is a check.
+        * ``soi_agi_targets_M`` — the IRS SOI Table 2 federal-AGI margin
+          (TY2022) the legacy scheme fitted with a 1.10× cap. Reported for
+          continuity; not fitted (year and AGI-definition mismatch with the
+          DOTAX margins).
+
+        Convergence is ``max_j |achieved_j − target_j| / |target_j| < tolerance``
+        over the fitted cells (default 0.1%, ten times tighter than the
+        legacy 1%), reported as ``convergence_mode="tolerance"``; otherwise
+        ``"max_iterations"`` with the residuals in the report.
+        """
+        from tax_modeler.calibration.generalized_raking import calmar, feasible_interval
+
+        result = df.copy()
+        clip_events: List[ClipEvent] = []
+        dropped: List[DroppedBin] = []
+        report_warnings: List[str] = []
+        notes: List[str] = []
+        d = result["weight"].to_numpy(dtype=float)
+        weights_before = WeightDiagnostics.from_weights(d)
+        agi = result["agi"].to_numpy(dtype=float)
+        fs = result["filing_status"].to_numpy()
+
+        if tax_value_col is None:
+            tax_value_col = (self.TAX_VALUE_COL_PREFERRED
+                             if self.TAX_VALUE_COL_PREFERRED in result.columns
+                             else "hi_state_tax")
+        tax = (result[tax_value_col].to_numpy(dtype=float)
+               if calibrate_tax_totals else None)
+        if calibrate_tax_totals and tax_value_col != self.TAX_VALUE_COL_PREFERRED:
+            notes.append(
+                f"tax margin fitted on '{tax_value_col}' (no "
+                f"'{self.TAX_VALUE_COL_PREFERRED}' column): DOTAX A-8 tax is before credits"
+            )
+
+        def _bmask(lo: float, hi: float) -> np.ndarray:
+            return (agi >= lo) & (agi < hi)
+
+        cols: List[np.ndarray] = []
+        totals: List[float] = []
+        cells: List[Tuple[str, str, float, float]] = []   # (margin, key, lo, hi)
+
+        if calibrate_filer_counts:
+            for (lo, hi), tgt in self.DOTAX_FILER_TARGETS.items():
+                m = _bmask(lo, hi)
+                if tgt <= 0 or not m.any():
+                    if tgt > 0:
+                        dropped.append(DroppedBin("filer_count_margin", bracket_label(lo, hi),
+                                                  "no units in the bracket", float(tgt), 0.0))
+                    continue
+                cols.append(m.astype(float)); totals.append(float(tgt))
+                cells.append(("dotax_filer_count", bracket_label(lo, hi), lo, hi))
+        if calibrate_filing_status:
+            for status, tgt in self.DOTAX_FILING_STATUS_TARGETS.items():
+                m = fs == status
+                if tgt <= 0 or not m.any():
+                    continue
+                cols.append(m.astype(float)); totals.append(float(tgt))
+                cells.append(("dotax_filing_status", status, float("nan"), float("nan")))
+        tax_fitted: Dict[Tuple[float, float], float] = {}
+        if calibrate_tax_totals:
+            for (lo, hi), tgt in self.DOTAX_TAX_TARGETS.items():
+                if skip_synthesis_bin and lo >= 1_000_000:
+                    continue
+                m = _bmask(lo, hi)
+                ftgt = self.DOTAX_FILER_TARGETS.get((lo, hi), 0)
+                if tgt <= 0 or ftgt <= 0 or not m.any():
+                    continue
+                if tgt < min_tax_target_M:
+                    # $0-$10K: $3M of tax on 110K returns. Fitting a cell
+                    # this small moves weight onto the bracket's few
+                    # taxpaying units for 0.1% of the aggregate (Kish deff
+                    # +0.10). Reported, not fitted.
+                    dropped.append(DroppedBin(
+                        "tax_total_margin", bracket_label(lo, hi),
+                        f"target below the {min_tax_target_M:g} $M materiality floor",
+                        float(tgt), None,
+                    ))
+                    continue
+                lo_f, hi_f = feasible_interval(tax[m] / 1e6, d[m], float(ftgt), bounds)
+                if not (lo_f <= tgt <= hi_f):
+                    dropped.append(DroppedBin(
+                        "tax_total_margin", bracket_label(lo, hi),
+                        (f"target outside the range [{lo_f:,.1f}, {hi_f:,.1f}] $M reachable at the "
+                         f"count target with weight ratios in [{bounds[0]:g}, {bounds[1]:g}]"),
+                        float(tgt), float(hi_f if tgt > hi_f else lo_f),
+                    ))
+                    continue
+                cols.append(m * tax / 1e6); totals.append(float(tgt))
+                cells.append(("dotax_tax_M", bracket_label(lo, hi), lo, hi))
+                tax_fitted[(lo, hi)] = float(tgt)
+
+        converged = False
+        iterations = 0
+        max_rel: Optional[float] = None
+        if cols:
+            X = np.column_stack(cols)
+            T = np.asarray(totals, dtype=float)
+            res = calmar(X, d, T, method="logit", bounds=bounds, tol=1e-6, max_iter=max_iter)
+            w = res.weights
+            rel = np.abs(res.residuals) / np.where(np.abs(T) > 0, np.abs(T), 1.0)
+            max_rel = float(rel.max())
+            converged = max_rel < tolerance
+            iterations = int(res.iterations)
+            notes.append(
+                f"generalized raking (logit distance, weight-ratio bounds "
+                f"[{bounds[0]:g}, {bounds[1]:g}]), {len(T)} fitted cells, Newton tol 1e-6; "
+                f"units at lower bound: {res.n_at_lower:,}, at upper bound: {res.n_at_upper:,}; "
+                f"weight ratio range [{res.g.min():.3f}, {res.g.max():.3f}]"
+            )
+            result["weight"] = w
+            logger.info(
+                "Joint rake: %d cells, %d Newton iterations, max rel. residual %.2e (%s)",
+                len(T), iterations, max_rel, "converged" if converged else "NOT converged",
+            )
+        else:
+            converged = True
+            max_rel = 0.0
+
+        # --- report -------------------------------------------------------
+        dotax_year = dotax_base.BASE_YEAR
+        wf = result["weight"].to_numpy(dtype=float)
+        residuals: List[MarginResidual] = []
+        source_years: Dict[str, Optional[int]] = {}
+        if calibrate_filer_counts:
+            source_years["dotax_filer_count"] = dotax_year
+            for (lo, hi), tgt in self.DOTAX_FILER_TARGETS.items():
+                cur = float(wf[_bmask(lo, hi)].sum())
+                residuals.append(MarginResidual(
+                    "dotax_filer_count", bracket_label(lo, hi), float(tgt), cur,
+                    source="DOTAX Table A-8 returns", source_year=dotax_year,
+                    counted=any(c[0] == "dotax_filer_count" and c[1] == bracket_label(lo, hi)
+                                for c in cells),
+                ))
+        if calibrate_filing_status:
+            source_years["dotax_filing_status"] = dotax_year
+            for status, tgt in self.DOTAX_FILING_STATUS_TARGETS.items():
+                cur = float(wf[fs == status].sum())
+                residuals.append(MarginResidual(
+                    "dotax_filing_status", status, float(tgt), cur,
+                    source="DOTAX Table 4 filing status", source_year=dotax_year,
+                    counted=tgt > 0,
+                ))
+        if calibrate_tax_totals:
+            source_years["dotax_tax_M"] = dotax_year
+            for (lo, hi), tgt in self.DOTAX_TAX_TARGETS.items():
+                m = _bmask(lo, hi)
+                cur = float((tax[m] * wf[m]).sum() / 1e6)
+                residuals.append(MarginResidual(
+                    "dotax_tax_M", bracket_label(lo, hi), float(tgt), cur,
+                    source=f"DOTAX Table A-8 tax before credits ($M, on {tax_value_col})",
+                    source_year=dotax_year, counted=(lo, hi) in tax_fitted,
+                ))
+        if agi_check_targets_M:
+            year = agi_check_year if agi_check_year is not None else dotax_year
+            source_years["dotax_agi_M_check"] = year
+            for (lo, hi), tgt in agi_check_targets_M.items():
+                m = _bmask(lo, hi)
+                cur = float((agi[m] * wf[m]).sum() / 1e6)
+                residuals.append(MarginResidual(
+                    "dotax_agi_M_check", bracket_label(lo, hi), float(tgt), cur,
+                    source=agi_check_source + " — check, not fitted", source_year=year,
+                    counted=False,
+                ))
+        if soi_agi_targets_M:
+            if soi_source_year is None:
+                from tax_modeler.calibration.irs_soi_state_targets import SOI_TAX_YEAR
+                soi_source_year = SOI_TAX_YEAR
+            source_years["soi_agi_M_check"] = soi_source_year
+            for (lo, hi), tgt in soi_agi_targets_M.items():
+                m = _bmask(lo, hi)
+                cur = float((agi[m] * wf[m]).sum() / 1e6)
+                residuals.append(MarginResidual(
+                    "soi_agi_M_check", bracket_label(lo, hi), float(tgt * soi_universe_scale), cur,
+                    source=(f"IRS SOI Table 2 federal AGI ($M, x{soi_universe_scale:.4f} universe "
+                            "scale) — check, not fitted"),
+                    source_year=soi_source_year, counted=False,
+                ))
+        fitted_years = {k: y for k, y in source_years.items() if not k.endswith("_check")}
+        mismatch = warn_once_on_year_mismatch(fitted_years)
+        if mismatch:
+            report_warnings.append(mismatch)
+        if not converged:
+            report_warnings.append(
+                f"Joint rake did not reach the {tolerance:g} relative tolerance in {iterations} "
+                f"Newton iterations (max relative residual {max_rel:.4g}); the fitted margins are "
+                f"jointly infeasible within weight-ratio bounds [{bounds[0]:g}, {bounds[1]:g}]"
+            )
+
+        report = CalibrationReport(
+            stage="base_ipf_rake",
+            converged=converged,
+            iterations=iterations,
+            max_iterations=max_iter,
+            tolerance=tolerance,
+            final_max_dev=max_rel,
+            convergence_mode="tolerance" if converged else "max_iterations",
+            margins=residuals,
+            clip_events=clip_events,
+            dropped_bins=dropped,
+            weights_before=weights_before,
+            weights_after=WeightDiagnostics.from_weights(wf),
+            source_years=source_years,
+            warnings=report_warnings,
+            notes=notes,
+        )
+        result.attrs["calibration_report"] = report.to_dict()
+        if return_report:
+            return result, report
+        return result
+
     def _validate_filer_counts(self, df: pd.DataFrame) -> Dict[str, float]:
         """Validate filer counts and return deviation metrics."""
         current_counts = {}
@@ -968,9 +1268,17 @@ def apply_ipf_calibration_via_rake(
     calibrate_filing_status: bool = True,
     calibrate_soi_agi: bool = True,
     return_report: bool = False,
+    method: str = "joint",
 ) -> pd.DataFrame | Tuple[pd.DataFrame, CalibrationReport]:
     """
     IPF calibration using pums_estimator's canonical rake() engine.
+
+    ``method="joint"`` (default): one generalized-raking system for the
+    DOTAX count, status and tax-before-credits margins, with DOTAX A-1 AGI
+    (TY2023) and the SOI AGI (TY2022) reported as checks
+    (:meth:`IPFCalibrationOrchestrator.calibrate_joint`).
+    ``method="sequential"``: the legacy damped multi-pass scheme, which
+    fitted the SOI AGI margin with a 1.10x cap.
 
     Delegates filer-count and filing-status margins to
     ``pums_estimator.estimation.rake.rake()``, then applies the tax-total
@@ -1026,6 +1334,27 @@ def apply_ipf_calibration_via_rake(
             logger.warning("SOI calibration disabled (data unavailable): %s", e)
             calibrate_soi_agi = False
 
+    agi_check: Optional[Dict[Tuple[float, float], float]] = None
+    if method == "joint":
+        # DOTAX Table A-1 AGI by class, Hawaii AGI, TY2023 — the printed
+        # classes below $400K only (above, dotax_base derives the split and
+        # its $400K-$1M classes imply mean AGI below the class floor); and
+        # only where taxable returns are >=97% of all returns, since A-1
+        # covers taxable returns and A-8 all returns.
+        try:
+            a1 = dotax_base.load_indinc(dotax_base.BASE_YEAR)["table_a1_resident_taxable"]["taxable_classes"]
+            taxable = {(float(r["agi_lo"]), float(r["agi_hi"])): int(r["returns"])
+                       for r in a1 if r.get("agi_lo") is not None and r.get("agi_hi") is not None}
+            filers = {(float(lo), float(hi)): n for (lo, hi), n in orchestrator.DOTAX_FILER_TARGETS.items()}
+            agi_all = {(float(lo), float(hi)): v for (lo, hi), v in dotax_base.agi_targets_M().items()}
+            agi_check = {
+                b: agi_all[b] for b in agi_all
+                if b in taxable and b[0] < 400_000 and filers.get(b, 0) > 0
+                and taxable[b] / filers[b] >= 0.97
+            }
+        except (FileNotFoundError, KeyError, ValueError) as e:  # pragma: no cover - data on disk
+            logger.warning("DOTAX A-1 AGI check unavailable: %s", e)
+
     return orchestrator.calibrate_via_rake(
         df,
         calibrate_filer_counts=calibrate_filer_counts,
@@ -1035,4 +1364,7 @@ def apply_ipf_calibration_via_rake(
         soi_agi_targets_M=soi_agi_targets_M,
         soi_universe_scale=soi_universe_scale,
         return_report=return_report,
+        method=method,
+        agi_check_targets_M=agi_check,
+        agi_check_year=dotax_base.BASE_YEAR,
     )
