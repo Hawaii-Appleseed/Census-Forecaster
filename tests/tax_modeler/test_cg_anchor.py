@@ -1,6 +1,7 @@
 """The DOTAX-anchored capital-gains base (``tax_modeler.calibration.cg_anchor``),
 shared by the capital-gains page and the tax simulator.
 """
+
 from __future__ import annotations
 
 import ast
@@ -29,6 +30,12 @@ MOVED = {"BASE_YEAR", "_CLASSES", "_TOP_SHARE_NOTE", "DOTAX_NLTCG_NONRES", "DOTA
          "anchor_nltcg", "cg_growth", "rank_classes"}
 
 
+def test_anchor_is_the_window_not_the_printed_edition():
+    from tax_modeler.calibration import dotax_base
+    assert dotax_base.GAINS_WINDOW == (2019, BASE_YEAR)
+    assert sum(cg_anchor.anchored_nltcg_M()) > sum(DOTAX_NLTCG_RES[BASE_YEAR])
+
+
 def _frame(n=20_000, seed=0):
     rng = np.random.default_rng(seed)
     income = rng.lognormal(11.0, 0.8, n)
@@ -41,8 +48,10 @@ def _frame(n=20_000, seed=0):
 
 
 def _targets(yr, top_share):
-    g = cg_growth(yr)
-    t = {c: v * g for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True)}
+    # the anchor is the windowed series on the base edition (dotax_base.nltcg_anchor_M),
+    # grown with the income base; Act 24 leaves the anticipation hook at 1.0
+    g = cg_growth(yr) * cg_anchor.anticipatory_realization_factor(yr)
+    t = {c: v * g for c, v in zip(_CLASSES, cg_anchor.anchored_nltcg_M(), strict=True)}
     return {**{c: t[c] for c in _CLASSES[1:5]},
             "1mp": t["400p"] * top_share, "400_1m": t["400p"] * (1 - top_share)}
 

@@ -3,10 +3,13 @@
 The model's own gains shares come from IRS SOI "net capital gain (less
 loss)", which includes short-term gains (already taxed at ordinary rates)
 and, above $1M, national tier shares. :func:`anchor_nltcg` rescales them so
-each DOTAX Hawaiʻi AGI class holds DOTAX's TY2023 resident net long-term
-capital gain eligible for the HRS §235-51(f) alternative tax, grown to the
-tax year with the Hawaiʻi-adjusted CBO capital-gains factor
-(:func:`cg_growth`). Classes map onto a projected population by weighted
+each DOTAX Hawaiʻi AGI class holds DOTAX's resident net long-term capital
+gain eligible for the HRS §235-51(f) alternative tax — the TY2019-2023 window
+mean of the class's share of resident tax before credits on the base edition's
+total (``dotax_base.nltcg_anchor_M``; :func:`anchored_nltcg_M`), as the $1M+
+class is anchored — grown to the tax year with the income base
+(:func:`cg_growth`, ``GAINS_GROWTH_MODEL``), times the anticipatory
+realization hook, which the Act 24 rate path leaves at 1.0. Classes map onto a projected population by weighted
 income rank (:func:`rank_classes`), so income growth does not push gains
 across fixed nominal class lines. Gains below the $100K class are left
 unallocated (rates there are under 7.25%).
@@ -16,6 +19,8 @@ which imports these names back, so the page and the tax simulator
 (``tax_modeler.simulator.gains``) anchor with one implementation.
 """
 from __future__ import annotations
+
+import os
 
 import numpy as np
 import pandas as pd
@@ -70,20 +75,71 @@ DOTAX_RETURNS = dotax_base.cg_class_returns(BASE_YEAR)
 DOTAX_TOTAL_RETURNS = dotax_base.total_returns(BASE_YEAR)
 
 
-def cg_growth(yr: int, from_year: int = BASE_YEAR) -> float:
-    """``from_year`` -> *yr* capital-gains growth: CBO Jan 2025 x the Hawaii CAGR ratio.
+GAINS_GROWTH_MODELS = ("window", "cbo")
+GAINS_GROWTH_MODEL = os.environ.get("CG_GROWTH_MODEL", "window")
+"""How the gains anchor is carried from the base edition to a tax year
+(``CG_GROWTH_MODEL`` in the environment overrides, for the scorecard's ablations).
 
-    ``from_year`` is the DOTAX edition the gains come from (default the base,
-    TY2023); the CBO table is relative to 2022, so it is a ratio of two years.
+``"window"`` (default): the anchor is the window mean of each class's share of
+resident tax before credits (``dotax_base.nltcg_anchor_M``), and it holds that
+share of the income base: it grows at CBO wages x the Hawaiʻi wage factor, the
+base's dominant source. This is the null the realization fit could not beat
+(``calibration.cg_realization``: six Table 21 points, leave-one-out).
+``"cbo"``: the pre-October-2026 rule, CBO national realizations x the 0.85
+Hawaiʻi gains factor on the base edition as printed; kept for comparison.
+"""
+
+
+def cg_growth(yr: int, from_year: int = BASE_YEAR, model: str = GAINS_GROWTH_MODEL) -> float:
+    """``from_year`` -> *yr* growth of the gains anchor (``GAINS_GROWTH_MODEL``).
+
+    ``from_year`` is the DOTAX edition the gains come from (default the base);
+    the CBO table is relative to 2022, so each is a ratio of two years.
     """
     from tax_modeler.calibration.cbo_aging import (
         DEFAULT_HAWAII_FACTORS,
         load_cbo_rates,
         net_growth_factor,
     )
+    if model not in GAINS_GROWTH_MODELS:
+        raise ValueError(f"model must be one of {GAINS_GROWTH_MODELS}, not {model!r}")
     rates = load_cbo_rates("2025-01")
-    return net_growth_factor(rates.growth("capital_gains", yr, from_year),
-                             DEFAULT_HAWAII_FACTORS["capital_gains"])
+    comp = "capital_gains" if model == "cbo" else "wages"
+    return net_growth_factor(rates.growth(comp, yr, from_year), DEFAULT_HAWAII_FACTORS[comp])
+
+
+def anchored_nltcg_M(year: int = BASE_YEAR) -> list[float]:
+    """Resident Table 21 gains by anchor class at ``year``, $M: the window mean
+    (``dotax_base.GAINS_WINDOW``) on the base edition, else as printed."""
+    return dotax_base.nltcg_anchor_M(year, DOTAX_NLTCG_RES)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Anticipatory realization: a hook that Act 24 leaves a no-op
+# ─────────────────────────────────────────────────────────────────────────────
+
+CAP_RATE_CURRENT = 0.0725          # HRS §235-51(f), unchanged by Act 24
+ANTICIPATION_BETA = 2.0            # realizations pulled forward per unit of next year's rate rise
+
+
+def act24_cap_rate_path(years=range(2026, 2032)) -> dict[int, float]:
+    """The alternative-tax rate on net long-term gains by tax year under Act 24:
+    7.25% throughout (Act 24 changed the brackets, not §235-51(f))."""
+    return {int(y): CAP_RATE_CURRENT for y in years}
+
+
+def anticipatory_realization_factor(year: int, cap_rates: dict[int, float] | None = None,
+                                    beta: float = ANTICIPATION_BETA) -> float:
+    """Multiplier on ``year``'s gains anchor when the gains rate rises the year
+    after: filers realize ahead of the increase, ``exp(beta x (rate_{y+1} - rate_y))``
+    for a rise, 1.0 otherwise (no pull-back is modeled for a cut, and the year
+    of the rise itself is the capital-gains page's realization response).
+    With the Act 24 path (``act24_cap_rate_path``) every factor is 1.0."""
+    path = act24_cap_rate_path() if cap_rates is None else cap_rates
+    now, nxt = path.get(year), path.get(year + 1)
+    if now is None or nxt is None or nxt <= now:
+        return 1.0
+    return float(np.exp(beta * (nxt - now)))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -125,8 +181,8 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
     w = df["weight"].to_numpy(float)
     model_cg = inc * df["synthetic_cg_share"].fillna(0.0).to_numpy(float)
     labels = rank_classes(df)
-    g = cg_growth(yr)
-    target = {c: v * g * 1e6 for c, v in zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True)}
+    g = cg_growth(yr) * anticipatory_realization_factor(yr)
+    target = {c: v * g * 1e6 for c, v in zip(_CLASSES, anchored_nltcg_M(), strict=True)}
 
     groups = {c: [c] for c in ["100_150", "150_200", "200_300", "300_400"]}
     if top_share_1m is None:

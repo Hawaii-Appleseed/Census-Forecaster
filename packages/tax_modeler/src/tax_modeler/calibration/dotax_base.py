@@ -64,8 +64,16 @@ from pathlib import Path
 
 import numpy as np
 
-BASE_YEAR = 2023
-"""Newest DOTAX edition on file; the default base year for forward targets."""
+BASE_YEAR = int(os.environ.get("DOTAX_BASE_YEAR", "2023"))
+"""Newest DOTAX edition on file; the default base year for forward targets.
+
+``DOTAX_BASE_YEAR=2022`` anchors every module that reads this one on the
+TY2022 constants instead, which is how ``scripts/dotax_scorecard.py`` scores
+the TY2022-anchored model (built at commit 48761b8) with the current code:
+the $1M+ tail is calibrated to TY2022's $663M and aged from 2022, the gains
+anchor and its window end at TY2022. The windows below end at the base year
+so a scorecard never sees the edition it is scored against.
+"""
 
 _HAND_TYPED_YEAR = 2022   # the one vintage kept as literals; later years come from the JSON
 
@@ -83,8 +91,19 @@ def _parse_window(text: str) -> tuple[int, int] | None:
 
 
 TOP_CLASS_WINDOW: tuple[int, int] | None = _parse_window(
-    os.environ.get("DOTAX_TOP_CLASS_WINDOW", "2019-2023"))
+    os.environ.get("DOTAX_TOP_CLASS_WINDOW", f"2019-{BASE_YEAR}"))
 """Years whose mean share sets the $1M+ class at ``BASE_YEAR`` (module doc); None is as printed."""
+
+GAINS_WINDOW: tuple[int, int] | None = _parse_window(
+    os.environ.get("DOTAX_GAINS_WINDOW", f"2019-{BASE_YEAR}"))
+"""Years whose mean share of resident tax before credits sets the Table 21 gains
+anchor at ``BASE_YEAR`` (:func:`nltcg_anchor_M`); None is the edition as printed.
+Same reasoning as the $1M+ class: resident NLTCG was $3,741M, $3,406M, $5,489M,
+$2,995M and $2,646M in TY2019-2023 (1.52, 1.32, 1.74, 0.99 and 0.89 times the
+year's resident tax before credits), with no trend and no persistence, and the
+$1M+ class's tax swing *is* mostly this swing. Anchoring the class on its window
+mean but its gains on one edition put a normal-year tail on a low-gains year.
+``DOTAX_GAINS_WINDOW=none`` restores the single-edition anchor."""
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "calibration"
 
@@ -282,6 +301,33 @@ def cg_class_returns(year: int = BASE_YEAR) -> dict[str, int]:
         "400_1m": f[(400_000, 500_000)] + f[(500_000, 750_000)] + f[(750_000, 1_000_000)],
         "1mp": f[(1_000_000, np.inf)],
     }
+
+
+def nltcg_anchor_M(year: int = BASE_YEAR, nltcg_by_year: dict[int, list[float]] | None = None,
+                   *, nonresident: bool = False) -> list[float]:
+    """Net long-term gains by anchor class at ``year``, $M, from ``GAINS_WINDOW``.
+
+    Each class's mean share of the year's resident tax before credits over the
+    window, applied to ``year``'s printed total tax before credits
+    (``dotax_a8_top_class.json`` carries the totals), so the class mix and the
+    level are both window means on the base edition's scale. ``nltcg_by_year``
+    is the Table 21 series by class (``cg_anchor.DOTAX_NLTCG_RES``; this module
+    only reads the parsed JSON editions, which start at TY2023). As printed when
+    the window is off, ``year`` is not the base year, or ``nonresident``
+    (nonresident gains are an add-on, not anchored).
+    """
+    series = nltcg_by_year if nltcg_by_year is not None else {year: nltcg_M(year, nonresident=nonresident)}
+    if GAINS_WINDOW is None or year != BASE_YEAR or nonresident:
+        return list(series[year])
+    totals = load_top_class_series()
+    years = list(range(GAINS_WINDOW[0], GAINS_WINDOW[1] + 1))
+    missing = [y for y in years if y not in series or str(y) not in totals]
+    if missing:
+        raise ValueError(f"no Table 21 or A-8 total for TY{missing}: gains window {GAINS_WINDOW}")
+    tax = {y: float(totals[str(y)]["total_tax_before_M"]) for y in years}
+    n_cls = len(series[year])
+    shares = [sum(series[y][i] / tax[y] for y in years) / len(years) for i in range(n_cls)]
+    return [round(sh * tax[year], 3) for sh in shares]
 
 
 # ── The Earned Income Tax Credit Report (Act 107), by tax year ───────────────
