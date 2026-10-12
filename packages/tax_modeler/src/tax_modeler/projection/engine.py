@@ -56,6 +56,8 @@ from tax_modeler.calibration.cbo_aging import (
     HAWAII_QCEW_WAGES,
     HAWAII_MODES,
     copy_factors,
+    parse_growth_shift_env,
+    with_growth_shift,
 )
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
 
@@ -105,6 +107,11 @@ class AgingSpec:
     method: str = "ensemble"
     hawaii_mode: str = field(default_factory=lambda: os.environ.get("HAWAII_AGING_MODE", HAWAII_AGING_MODE))
     hawaii_shift_se: float = field(default_factory=lambda: float(os.environ.get("HAWAII_AGING_SHIFT_SE", "0")))
+    growth_shift: Mapping[str, float] = field(default_factory=parse_growth_shift_env)
+    """Log points added to a component's annual Hawaii growth in every projected year
+    (not to years covered by realized QCEW wages). Default empty: no effect. The
+    aging-input uncertainty band's sensitivity hook; env ``HAWAII_GROWTH_SHIFT`` (JSON)
+    sets the default so consumers that bypass the spec (``cg_anchor``) see it too."""
 
     def __post_init__(self) -> None:
         if self.engine not in AGING_ENGINES:
@@ -119,11 +126,13 @@ class AgingSpec:
         ``hawaii_shift_se`` standard errors for the aging band), each with wages on
         QCEW's realized growth through its latest complete year."""
         if self.hawaii_factors is not None:
-            return copy_factors(self.hawaii_factors)
+            return with_growth_shift(copy_factors(self.hawaii_factors), self.growth_shift)
         from tax_modeler.calibration.hawaii_differentials import build_factors
 
-        return build_factors(self.hawaii_mode, shift_se=self.hawaii_shift_se,
-                             qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0")
+        return with_growth_shift(
+            build_factors(self.hawaii_mode, shift_se=self.hawaii_shift_se,
+                          qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0"),
+            self.growth_shift)
 
     def with_drift(self, drift: float) -> AgingSpec:
         return replace(self, top_share_drift=float(drift))

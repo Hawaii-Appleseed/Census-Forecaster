@@ -29,7 +29,7 @@ reruns every headline script. Code: `calibration/hawaii_differentials.py`,
 **Verdict, short.** The estimated differentials lose the backtest, so **the
 ratio factors stay the default** (`hawaii_mode="ratio"`). The QCEW wage anchor
 passes its gate and ships. MID five-year total vs Act 46: **$691.9M** (was
-$685.6M; published $687.8M), sampling CI90 [$679.8M, $704.1M].
+$685.6M; published $687.8M), sampling CI90 [$679.8M, $704.1M]; aging-input band CI90 [-$360M, $1,744M] (see Results).
 
 ### Estimated differentials (IRS SOI state data TY2012-2023; gains DOTAX Table 21 vs SOI US)
 
@@ -145,24 +145,26 @@ MID by component, five years: static bracket $322.2M, behavioral -$84.9M,
 bracket (post-behavioral) $237.2M, credits $454.7M, total $691.9M. LOW $569.1M,
 HIGH $881.3M, RECESSION $684.1M.
 
-**Aging band (two-run approximation, a sensitivity, not the shipped path).** Ratio
-mode has no d̂ to shift, so the band is the estimated-factor path: every d̂_c moved
-by +1.645 SE and -1.645 SE together (perfect correlation, conservative), two reruns
-of MID, around the additive point.
+**Aging-input uncertainty (one-step backtest errors; persistent-shift approximation; excludes CBO's national forecast error and behavioral parameters).** The earlier band, [$455M, $1,336M], came from the losing additive path (every d̂ moved by 1.645 SE at once) and is **withdrawn**. The new band is built on the shipped ratio path. Method: (1) each component's one-step log-growth error on the ratio path (`hawaii_differentials.backtest`, TY2016-2022, default sample incl. 2020-21; gains TY2020-2023) gives sigma_c = RMSE and a residual correlation matrix R; (2) one MID rerun per component with `AgingSpec.growth_shift={c: +sigma_c}` (log points added to that component's annual growth in every projected year; QCEW-covered wage years untouched, so wages shift from 2026 on), Delta_c = five-year total minus $691.9M; (3) SD = sqrt(Delta' R Delta), CI90 = $691.9M +/- 1.645 SD. A one-step error is treated as a persistent annual shift, so the band assumes an error that repeats for five years.
 
-| MID, five years | 2027 | 2028 | 2029 | 2030 | 2031 | **Total** |
-|---|--:|--:|--:|--:|--:|--:|
-| d̂ - 1.645 SE | 55.6 | 77.5 | 87.4 | 116.0 | 118.8 | **$455.3M** |
-| d̂ (additive point) | 85.9 | 112.8 | 133.6 | 169.4 | 179.1 | **$680.9M** |
-| d̂ + 1.645 SE | 139.3 | 190.0 | 257.8 | 341.2 | 408.1 | **$1,336.4M** |
+| component | sigma_c (log pts/yr) | n | Delta_c, 5-yr total ($M) | by year 2027-2031 ($M) |
+|---|--:|--:|--:|---|
+| wages (after QCEW, 2026+) | 0.0297 | 7 | +35.2 | 0.4, 3.8, 6.8, 10.1, 14.0 |
+| business (incl. proprietors) | 0.0874 | 7 | +40.9 | 2.8, 3.9, 7.7, 11.1, 15.5 |
+| capital_gains | 0.1990 | 4 | +620.0 | 51.8, 78.0, 115.3, 160.0, 214.9 |
+| dividends | 0.4437 | 7 | 0.0 | 0 (see note) |
+| interest | 0.1410 | 7 | +134.5 | 5.4, 8.5, 26.9, 39.0, 54.7 |
+| retirement | 0.0093 | 7 | 0.0 | about 0 (Hawaii exempts pensions) |
 
-The aging band, **[$455M, $1,336M]**, is about 36 times wider than the sampling CI
-(about $24M), and asymmetric because the shifts compound: a +1.645 SE move on
-dividends is +36 points a year. It says what the factors the data cannot pin down
-would do if all of them moved the same way, an upper bound on this uncertainty,
-not a probability statement; the ratio constants are a point inside it that
-the backtest prefers to the additive point. Two runs, one shift direction each: not
-a distribution.
+R: computed on the 7 years (2016-2022) where wages, business, dividends, interest and retirement all have errors. Gains has only 3 years overlapping them (2020-2022), too few to estimate correlations, so its correlations are set to 0 (independent). R is a seven-observation estimate; the large entries are business-dividends -0.84, business-wages +0.75, dividends-interest -0.60. Dividends carry no weight because the PUMS-based population holds no separate dividend income (PUMS reports one interest/dividend/rental item, carried as interest); dividend-side gains enter through the DOTAX gains anchor.
+
+| | Aging-input band (this) | Sampling (SDR) |
+|---|---|---|
+| MID five-year total vs Act 46 | $691.9M | $691.9M |
+| SD | $639.6M | about $7.4M |
+| CI90 | **[-$360M, $1,744M]** | **[$679.8M, $704.1M]** |
+
+Bounds on the SD: independent components (R = I) $636.7M, CI90 [-$355M, $1,739M]; perfectly correlated (sum of |Delta_c|) $830.6M, CI90 [-$674M, $2,058M]. Gains alone is about 94% of the variance (+$620M for one sigma); without gains the SD is $157M. The band is wide because the backtest says one-step gains growth is wrong by about 20 log points a year, and the Hawaii gains anchor is 4 observations. It is an upper-end sensitivity on persistent error, not a forecast distribution; the aging band does not shrink the sampling CI, it dominates it (about 87 times wider).
 
 ### The three frames (five years, MID, CD2, $M)
 

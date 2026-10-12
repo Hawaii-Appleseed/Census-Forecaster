@@ -117,9 +117,32 @@ class HawaiiFactors(dict):
         self.realized = {c: dict(v) for c, v in (realized or {}).items()}
         self.se = dict(se or {})
         self.shift_se = float(shift_se)
+        self.growth_shift: Dict[str, float] = {}
 
     def describe(self) -> str:
         return "additive (" + ", ".join(f"{c} {d:+.3f}" for c, d in sorted(self.d_hat.items())) + ")"
+
+
+def with_growth_shift(hf, growth_shift):
+    """``hf`` carrying a per-component log-point shift added to annual growth in every
+    *projected* year (years covered by ``realized`` data are untouched). Empty shift
+    returns ``hf`` unchanged. Never mutates ``hf``."""
+    if not growth_shift:
+        return hf
+    import copy
+    out = copy.copy(hf) if isinstance(hf, HawaiiFactors) else HawaiiFactors({}, fallback=dict(hf))
+    shift = {c: float(v) for c, v in growth_shift.items()}
+    if "business" in shift:  # proprietors ARE business income (additive mode ties them the same way)
+        shift.setdefault("proprietors", shift["business"])
+    out.growth_shift = {**getattr(hf, "growth_shift", {}), **shift}
+    return out
+
+
+def parse_growth_shift_env() -> Dict[str, float]:
+    """``HAWAII_GROWTH_SHIFT`` as JSON ``{component: log points}`` (default none)."""
+    import json
+    raw = os.environ.get("HAWAII_GROWTH_SHIFT", "").strip()
+    return {c: float(v) for c, v in json.loads(raw).items()} if raw else {}
 
 
 def copy_factors(hf):
@@ -134,8 +157,10 @@ def default_hawaii_factors():
     if mode not in HAWAII_MODES:
         raise ValueError(f"HAWAII_AGING_MODE must be one of {HAWAII_MODES}, not {mode!r}")
     from tax_modeler.calibration.hawaii_differentials import build_factors
-    return build_factors(mode, shift_se=float(os.environ.get("HAWAII_AGING_SHIFT_SE", "0")),
-                         qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0")
+    return with_growth_shift(
+        build_factors(mode, shift_se=float(os.environ.get("HAWAII_AGING_SHIFT_SE", "0")),
+                      qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0"),
+        parse_growth_shift_env())
 
 
 def hawaii_growth(hawaii_factors, component: str, cbo_rates: "CBOComponentRates",
@@ -162,11 +187,12 @@ def hawaii_growth(hawaii_factors, component: str, cbo_rates: "CBOComponentRates"
         return 1.0 / hawaii_growth(hf, component, cbo_rates, to_year, from_year)
     if start == to_year:
         return out
+    shift = getattr(hf, "growth_shift", {}).get(component, 0.0) * (to_year - start)
     if isinstance(hf, HawaiiFactors) and component in hf.d_hat:
         return out * math.exp(math.log(cbo_rates.growth(component, to_year, start))
-                              + hf.d_hat[component] * (to_year - start))
+                              + hf.d_hat[component] * (to_year - start) + shift)
     ratio = hf.get(component, 1.0) if hf is not None else 1.0
-    return out * net_growth_factor(cbo_rates.growth(component, to_year, start), ratio)
+    return out * net_growth_factor(cbo_rates.growth(component, to_year, start), ratio) * math.exp(shift)
 
 
 def net_growth_factor(cbo_f: float, hi_f: float) -> float:

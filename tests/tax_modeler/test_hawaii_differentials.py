@@ -116,3 +116,34 @@ def test_env_selects_the_default_mode(monkeypatch):
     monkeypatch.setenv("HAWAII_AGING_SHIFT_SE", "1.645")
     spec = AgingSpec()
     assert spec.hawaii_mode == "additive" and spec.hawaii_shift_se == 1.645
+
+
+def test_empty_growth_shift_reproduces_current_run_exactly(rates, monkeypatch):
+    monkeypatch.delenv("HAWAII_GROWTH_SHIFT", raising=False)
+    spec = AgingSpec()
+    assert not spec.growth_shift
+    base = spec.resolved_hawaii_factors()
+    for explicit in (AgingSpec(growth_shift={}), AgingSpec(growth_shift={"wages": 0.0})):
+        hf = explicit.resolved_hawaii_factors()
+        for c in ("wages", "business", "capital_gains", "dividends", "interest", "retirement", "other"):
+            assert hawaii_growth(hf, c, rates, 2023, 2031) == hawaii_growth(base, c, rates, 2023, 2031)
+
+
+def test_growth_shift_adds_log_points_per_projected_year_only(rates):
+    for mode in ("ratio", "additive"):
+        b = AgingSpec(hawaii_mode=mode).resolved_hawaii_factors()
+        s = AgingSpec(hawaii_mode=mode, growth_shift={"wages": 0.02, "business": 0.01}).resolved_hawaii_factors()
+        # wages: QCEW realized through 2025, so only 2025 -> 2028 is projected
+        assert (hawaii_growth(s, "wages", rates, 2023, 2028) / hawaii_growth(b, "wages", rates, 2023, 2028)
+                == pytest.approx(math.exp(0.02 * 3)))
+        assert (hawaii_growth(s, "wages", rates, 2023, 2025) == hawaii_growth(b, "wages", rates, 2023, 2025))
+        assert (hawaii_growth(s, "business", rates, 2023, 2028) / hawaii_growth(b, "business", rates, 2023, 2028)
+                == pytest.approx(math.exp(0.01 * 5)))
+        assert (hawaii_growth(s, "proprietors", rates, 2023, 2028) / hawaii_growth(b, "proprietors", rates, 2023, 2028)
+                == pytest.approx(math.exp(0.01 * 5)))
+        assert hawaii_growth(s, "interest", rates, 2023, 2028) == hawaii_growth(b, "interest", rates, 2023, 2028)
+
+
+def test_growth_shift_env_is_the_spec_default(monkeypatch):
+    monkeypatch.setenv("HAWAII_GROWTH_SHIFT", '{"dividends": 0.05}')
+    assert dict(AgingSpec().growth_shift) == {"dividends": 0.05}
