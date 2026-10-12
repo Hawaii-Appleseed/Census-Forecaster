@@ -104,7 +104,7 @@ total-tax error falls from +7.9% to +1.3%: the aggregate is now close, the split
 between the $1M+ class and the rest is not. TY2023 is one year, a low-gains and
 falling-top year; it is a gate on direction, not a calibration target.
 The ladder's forecast-year check (`runs/top_tail_ladder/ladder.csv`, MID, five-year
-total vs Act 46) runs 689.8 -> 759.0 -> 703.7 -> 637.9 across the same steps.
+total vs Act 46) runs 738.5 -> 811.0 -> 754.1 -> 685.6 across the same steps (rerun at `d455aa1`).
 
 ### Results (CD2, vs Act 46, $M; CBO engine, drift −1/0/+1, windowed gains)
 
@@ -136,14 +136,14 @@ MID by component ($M):
 Was: static $309.6M, behavioral -$77.8M, bracket $231.8M, credits $456.0M, total
 $687.8M.
 
-*October 11, 2026 rerun at `d455aa1`.* The tables above (and the site's Act 24
-data) were first published from a run at `ff9a83e`, which predates the windowed
-gains anchor's final form (`819643e`: TY2023 base, TY2019-2023 window); that
-run gave a MID total of $637.3M (static $259.7M, behavioral -$77.6M, credits
-$455.2M). The rerun puts MID at $685.6M, almost on the published $687.8M. The
-decomposition ladder below, the "Other frames" table and `runs/top_tail_ladder`
-are from the earlier run and were **not** rerun; read their levels, not their
-final rows, as indicative.
+*October 11, 2026 rerun at `d455aa1`.* The tables in this section, the
+decomposition ladder, the "Other frames" table and the site's Act 24 data are
+all one run on one commit. The first draft of this section (the earlier
+$637.3M MID total: static $259.7M, behavioral -$77.6M, credits $455.2M) came
+from a run at `ff9a83e` that predated the gains window's final form (`819643e`:
+TY2023 base, TY2019-2023 window); the rerun puts MID at $685.6M, almost on the
+published $687.8M. The TY2022-base gate ladder above (`reports/dotax_scorecard/
+ladder/`) is a separate scoring and was not rerun.
 
 *Simulator parity (October 11, 2026).* The simulator population kept each
 unit's gains share from before aging, while the headline run anchors on the
@@ -162,18 +162,19 @@ change to the previous):
 
 | Step | Static | Post-response | Credits | **Total** | Step change |
 |---|--:|--:|--:|--:|--:|
-| 0 - as published (scalar, +1.0%, CBO x 0.85) | 312.2 | 233.8 | 456.0 | **689.8** | |
-| 1 - one engine | 390.5 | 303.1 | 456.0 | **759.0** | +69.2 |
-| 2 - drift 0 | 327.8 | 247.7 | 456.0 | **703.7** | -55.3 |
-| 3 - gains window, null growth | 259.5 | 181.9 | 456.0 | **637.9** | -65.8 |
-| Final run (`sb3125_cd2_enhanced`) | 259.7 | 182.1 | 455.2 | **637.3** | -0.6 |
+| 0 - as published (scalar, +1.0%, CBO x 0.85) | 367.1 | 283.8 | 454.8 | **738.5** | |
+| 1 - one engine | 448.8 | 356.4 | 454.7 | **811.0** | +72.5 |
+| 2 - drift 0 | 384.7 | 299.4 | 454.7 | **754.1** | -56.9 |
+| 3 - gains window, null growth | 313.6 | 230.9 | 454.7 | **685.6** | -68.5 |
+| Final run (`sb3125_cd2_enhanced`) | 313.6 | 230.9 | 454.7 | **685.6** | 0.0 |
 
-Step 0 is $689.8M here against the $687.8M published; the origin of that $2.0M
-was not investigated (the October 9 section shows the same gap). The $0.6M between
-step 3 and the final run is $0.8M lower credits and +$0.2M bracket; not separately
-attributed. The engine alone raises the five-year total by $69M on the forecast
-years (the opposite sign of its effect in the TY2023 gate); the drift and the gains
-window then take back $121M.
+Step 0 is $738.5M here against the $687.8M published: the October 9 figure was on
+the TY2022-anchored gains and tail, and the same scalar/+1.0%/CBO x 0.85 settings
+on today's DOTAX base (TY2023 tail, TY2019-2023 anchors elsewhere) score higher;
+the gap was not decomposed further. The final run equals step 3 to the
+dollar. The engine alone raises the five-year total by $72.5M on the forecast
+years (the opposite sign of its effect in the TY2023 gate); the drift and the
+gains window then take back $125.4M.
 
 ### Other frames
 
@@ -182,21 +183,22 @@ the previous section's figures in brackets):
 
 | Frame | Act 24 effect | Previous |
 |---|--:|--:|
-| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +637.3 | +687.8 |
-| vs Act 46 frozen at TY2026 (ITEP frame), bracket total | -1,668.0 | -1,539.8 |
-| ITEP five-year figure / gap | -2,204.0 / +536.0 | -2,204.0 / +664.2 |
-| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -5,219.4 | -5,097.2 (published -4,791.3) |
-| vs pre-Act-46 law: C, Act 24 increment | +259.7 | +309.6 |
-| vs pre-Act-46 law: total | -4,959.7 | -4,787.6 |
-| memo: vs frozen 2026 (pre-Act-46 script) | -1,973.3 | -1,858.7 |
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +685.6 | +687.8 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,674.2 | -1,539.8 |
+| ITEP five-year figure / gap | -2,204.0 / +529.8 | -2,204.0 / +664.2 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,837.2 | -5,097.2 (published -4,791.3) |
+| vs pre-Act-46 law: C, Act 24 increment | +313.6 | +309.6 |
+| vs pre-Act-46 law: total | -4,523.6 | -4,787.6 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,737.7 | -1,858.7 |
 
-Frozen frame by year: -179.3, -190.0, -417.6, -429.0, -452.1. The split of that
-frame into bracket and SD-expansion (earlier -1,413.1 / -126.7) is not in the
-`runs/` outputs (`bracket.csv` carries a single total column), so the split
-is not rerun here. The frozen and pre-Act-46 frames move the opposite way from the vs-Act-46 frame
-(more revenue foregone); the cause was not decomposed. The ITEP gap narrows to about 24% below ITEP (from about 30%).
-Act 46's own cost (A + B) is the pre-Act-46 frame's comparable to ITEP's ~$1.4B/yr
-and is about -$1,044M/yr over five years on this base.
+Frozen frame by year (total): -179.3, -189.9, -418.5, -431.3, -455.3 (bracket
+only: -179.3, -173.8, -403.1, -400.4, -391.1, sum -1,547.7). The split of that
+frame into bracket and SD-expansion is as in the bracket column; `bracket.csv`
+carries a single total column, so it is not rerun separately. The gap to ITEP is
+about 24% below ITEP (from about 30%). Act 46's own cost (A + B) is the
+pre-Act-46 frame's comparable to ITEP's ~$1.4B/yr and is about -$967M/yr over
+five years on this base. The Act 24 page's tie-out holds: column C equals the
+page's static bracket change to $0.005M every year.
 
 ### Code
 
