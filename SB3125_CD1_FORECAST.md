@@ -7,11 +7,179 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** October 10, 2026
+**Last updated:** October 12, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
 > **Maintenance note:** This document must be updated whenever forecast methodology changes — including parameter recalibration, new behavioral channels, tax treatment corrections, or data source changes. Update the relevant section(s) and the Results table before committing.
+
+---
+
+## Estimated Hawaii aging differentials and QCEW wages — October 12, 2026 (supersedes the MID tables below)
+
+The CBO engine grew each income source at the CBO rate times a hand-set Hawaii
+ratio (wages 0.85, business 0.90, gains 0.85, `other` 0.90, the rest 1.00). This
+entry estimates the Hawaii differentials from administrative data with standard
+errors, backtests them against those ratios, anchors wages to Hawaii QCEW, and
+reruns every headline script. Code: `calibration/hawaii_differentials.py`,
+`cbo_aging.hawaii_growth`, `AgingSpec.hawaii_mode`; fetch
+`scripts/fetch_soi_state_components.py`; full backtest
+`backtests/results/hawaii_aging_factors_2026-10-11.md`.
+
+**Verdict, short.** The estimated differentials lose the backtest, so **the
+ratio factors stay the default** (`hawaii_mode="ratio"`). The QCEW wage anchor
+passes its gate and ships. MID five-year total vs Act 46: **$691.9M** (was
+$685.6M; published $687.8M), sampling CI90 [$679.8M, $704.1M].
+
+### Estimated differentials (IRS SOI state data TY2012-2023; gains DOTAX Table 21 vs SOI US)
+
+d = ln(HI growth) - ln(US growth) per year; d̂ is the mean weighted 0.5^(age/3),
+SE = weighted SD / sqrt(n_eff); n counts growth years. Default includes TY2020-21.
+Retirement is taxable IRA + pensions + taxable Social Security. Gains are DOTAX
+Table 21 resident net long-term gains (TY2018-2023, five growth years) against SOI
+US A01000, i.e. on the Hawaii series. `other` has no SOI series and keeps its
+0.90 ratio (flagged). Business is SOI A00900 (net, so noisy).
+
+| component | old ratio | d̂ (incl. 2020-21) | SE | n | d̂ (excl. 2020-21) | SE | n |
+|---|---|---|---|---|---|---|---|
+| wages | 0.85 | -0.0087 | 0.0100 | 11 | +0.0017 | 0.0031 | 9 |
+| business | 0.90 | -0.0042 | 0.0304 | 11 | -0.0054 | 0.0104 | 9 |
+| capital_gains | 0.85 | -0.0160 | 0.1139 | 5 | +0.0929 | 0.1289 | 3 |
+| dividends | 1.00 | -0.0598 | 0.2192 | 11 | -0.0529 | 0.2420 | 9 |
+| interest | 1.00 | +0.0044 | 0.0591 | 11 | -0.0256 | 0.0746 | 9 |
+| retirement | 1.00 | -0.0010 | 0.0035 | 11 | -0.0020 | 0.0039 | 9 |
+| other | 0.90 | no SOI series: keeps its ratio factor (flagged) | | | | | |
+
+The SEs say what the data can and cannot carry. Wages (-0.9 ± 1.0 log points a
+year; +0.2 ± 0.3 without 2020-21) and retirement (-0.1 ± 0.4) are close to the old
+ratios' implied gaps and tight. Business, interest, dividends (±22 points) and gains
+(±11 points) are not estimated to any useful precision; the sign of the gains
+differential flips with 2020-21 out.
+
+### Backtest (the gate)
+
+One-step-ahead for each target year; the prediction is that year's *realized*
+national growth plus d̂ estimated on earlier years (isolates the factor, not
+CBO's national error), against the old ratio applied to the same realized growth.
+Targets TY2016-2022; gains TY2020-2023 (no gains growth before TY2019, so TY2019
+has nothing to estimate on; n=1 for TY2020). Errors in log points.
+
+Including TY2020-21 (default):
+
+| component | n | RMSE additive | RMSE ratio | change | bias additive | bias ratio |
+|---|---|---|---|---|---|---|
+| wages | 7 | 0.0313 | 0.0297 | +5.6% | +0.0084 | +0.0071 |
+| business | 7 | 0.0937 | 0.0874 | +7.2% | +0.0078 | +0.0002 |
+| capital_gains | 4 | 0.3696 | 0.1990 | +85.7% | +0.1377 | +0.1168 |
+| dividends | 7 | 0.4891 | 0.4437 | +10.2% | -0.0741 | -0.0994 |
+| interest | 7 | 0.1601 | 0.1410 | +13.5% | +0.0125 | +0.0140 |
+| retirement | 7 | 0.0104 | 0.0093 | +11.5% | +0.0008 | -0.0002 |
+| POOLED | 39 | 0.2516 | 0.2110 | +19.3% | +0.0061 | -0.0021 |
+
+Excluding TY2020-21:
+
+| component | n | RMSE additive | RMSE ratio | change | bias additive | bias ratio |
+|---|---|---|---|---|---|---|
+| wages | 7 | 0.0299 | 0.0297 | +0.6% | +0.0134 | +0.0071 |
+| business | 7 | 0.0839 | 0.0874 | -4.0% | +0.0149 | +0.0002 |
+| capital_gains | 4 | 0.4764 | 0.1990 | +139.4% | +0.3705 | +0.1168 |
+| dividends | 7 | 0.4432 | 0.4437 | -0.1% | -0.0922 | -0.0994 |
+| interest | 7 | 0.1502 | 0.1410 | +6.5% | +0.0056 | +0.0140 |
+| retirement | 7 | 0.0101 | 0.0093 | +8.2% | +0.0005 | -0.0002 |
+| POOLED | 39 | 0.2530 | 0.2110 | +19.9% | +0.0276 | -0.0021 |
+
+**Verdict: null.** Gate was pooled RMSE lower and no component worse by more than
+10%. Additive pooled RMSE is 19% *higher* (0.252 against 0.211) and gains (+86%),
+interest (+14%), retirement (+12%) and dividends (+10%) each breach the 10% limit;
+without 2020-21 gains is worse still (+139%). Only business (-4%) and dividends (-0.1%) come out
+ahead, and only without 2020-21. With 3-11 yearly differentials per component, the 0.85/1.00
+constants predict a year better than the series' own recent mean. Not shipped;
+`HAWAII_AGING_MODE=additive` reproduces the estimated path.
+
+### Wages anchored to Hawaii QCEW
+
+QCEW Hawaii total wages (ENU1500030010, four quarters summed, complete years only;
+`qcew_hawaii_total_wages.json`, added to `refresh_annual_anchors`, no hand-typed
+numbers) replace CBO growth through 2025, the latest complete QCEW year; beyond
+2025 wages grow at the CBO rate times the 0.85 ratio. Gate: QCEW growth must track
+SOI HI A00200 growth better than the national growth plus d̂ would.
+
+| year | SOI HI A00200 | QCEW total wages | US + d̂ (<t) |
+|---|---|---|---|
+| 2016 | +0.0166 | +0.0416 | +0.0207 |
+| 2017 | +0.0429 | +0.0407 | +0.0530 |
+| 2018 | +0.0296 | +0.0323 | +0.0430 |
+| 2019 | +0.0490 | +0.0340 | +0.0413 |
+| 2020 | -0.0613 | -0.0676 | +0.0144 |
+| 2021 | +0.0618 | +0.0777 | +0.0511 |
+| 2022 | +0.0824 | +0.0832 | +0.0566 |
+
+QCEW RMSE against SOI HI wage growth **0.013**, US + d̂ **0.031**; correlation with
+SOI HI 0.96 against 0.88. **Passes**, mostly on TY2020 (QCEW -6.8%, SOI -6.1%,
+national + d̂ +1.4%). `census_forecaster` has no calibrated projection of this
+series (QCEW enters its B19013/B20002 ensembles only as an anchor), so the
+first-projected-year option was not available and not used. Effect: 2024 -> 2025
+wage growth is QCEW's +5.6% against 0.85 x CBO's 4.5% = 3.8%, which lifts the Act 46
+baseline about 2% and the MID total by $6.3M. **Gains** need no change: they are
+already on the Hawaii series (DOTAX Table 21 resident gains, the TY2019-2023
+windowed anchor, grown with the income base, now the QCEW-anchored wage path);
+the realization model remains a null (`calibration.cg_realization`).
+`HAWAII_QCEW_WAGES=0` restores the CBO-only wage path; with it off and ratio mode,
+the rerun reproduces the previous $685.6M to the dollar.
+
+### Results (CD2, vs Act 46, $M; ratio factors, QCEW wages through 2025)
+
+MID five-year total **$691.9M** (previous $685.6M, +$6.3M; published $687.8M).
+Sampling CI90 [$679.8M, $704.1M].
+
+| Tax Year | **MID** | Sampling CI90 | Previous MID |
+|---|--:|---|--:|
+| 2027 | **$86.9M** | [85.6, 88.3] | $85.3M |
+| 2028 | **$114.4M** | [112.9, 115.8] | $114.5M |
+| 2029 | **$135.7M** | [132.8, 138.6] | $134.2M |
+| 2030 | **$172.1M** | [169.0, 175.2] | $170.6M |
+| 2031 | **$182.8M** | [179.5, 186.2] | $181.0M |
+| **5-year** | **$691.9M** | **[679.8, 704.1]** | **$685.6M** |
+
+MID by component, five years: static bracket $322.2M, behavioral -$84.9M,
+bracket (post-behavioral) $237.2M, credits $454.7M, total $691.9M. LOW $569.1M,
+HIGH $881.3M, RECESSION $684.1M.
+
+**Aging band (two-run approximation, a sensitivity, not the shipped path).** Ratio
+mode has no d̂ to shift, so the band is the estimated-factor path: every d̂_c moved
+by +1.645 SE and -1.645 SE together (perfect correlation, conservative), two reruns
+of MID, around the additive point.
+
+| MID, five years | 2027 | 2028 | 2029 | 2030 | 2031 | **Total** |
+|---|--:|--:|--:|--:|--:|--:|
+| d̂ - 1.645 SE | 55.6 | 77.5 | 87.4 | 116.0 | 118.8 | **$455.3M** |
+| d̂ (additive point) | 85.9 | 112.8 | 133.6 | 169.4 | 179.1 | **$680.9M** |
+| d̂ + 1.645 SE | 139.3 | 190.0 | 257.8 | 341.2 | 408.1 | **$1,336.4M** |
+
+The aging band, **[$455M, $1,336M]**, is about 36 times wider than the sampling CI
+(about $24M), and asymmetric because the shifts compound: a +1.645 SE move on
+dividends is +36 points a year. It says what the factors the data cannot pin down
+would do if all of them moved the same way, an upper bound on this uncertainty,
+not a probability statement; the ratio constants are a point inside it that
+the backtest prefers to the additive point. Two runs, one shift direction each: not
+a distribution.
+
+### The three frames (five years, MID, CD2, $M)
+
+| Frame | Act 24 effect | Previous |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +691.9 | +685.6 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,662.5 | -1,674.2 |
+| ITEP five-year figure / gap | -2,204.0 / +541.5 | -2,204.0 / +529.8 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,870.4 | -4,837.2 |
+| vs pre-Act-46 law: C, Act 24 increment | +322.2 | +313.6 |
+| vs pre-Act-46 law: total | -4,548.2 | -4,523.6 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,746.6 | -1,737.7 |
+
+The Act 24 page's tie-out holds (column C equals the page's static bracket change
+to $0.005M every year). The base was rebuilt on this machine from the PUMS files
+(no cached base was on disk) and, with `HAWAII_QCEW_WAGES=0`, reproduced the
+previous MID by year to $0.1M, so no rake input changed.
 
 ---
 

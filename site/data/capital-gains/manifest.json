@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-11T06:04:08+00:00",
-  "git_sha": "ff9a83e",
+  "created_at": "2026-10-12T11:30:19+00:00",
+  "git_sha": "1371a34",
   "script": "forecast_cg_rate_options.py",
   "params": {
     "years": [
@@ -34,8 +34,8 @@
   "params_fingerprint": "8d30a59a663e812e",
   "inputs": {
     "tax_unit_cache": {
-      "created_at": "2026-10-11T05:40:19+00:00",
-      "git_sha": "ff9a83e",
+      "created_at": "2026-10-12T09:34:22+00:00",
+      "git_sha": "717031a",
       "built_by": "forecast_sb3125.py",
       "pums": "HI 5yr 2020-24",
       "n_units": 39996
@@ -54,5 +54,5 @@
     "nonresident_addon.csv",
     "revenue_by_year.csv"
   ],
-  "published_at": "2026-10-11T23:17:27+00:00"
+  "published_at": "2026-10-12T11:51:16+00:00"
 }

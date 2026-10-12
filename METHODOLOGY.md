@@ -1347,6 +1347,18 @@ cap_rates)` multiplies a year's anchor by exp(β × next year's rise in the
 24 did not touch the rate (`act24_cap_rate_path` is 7.25% throughout), so the
 hook is 1.0 in every year; a test holds it there and checks a hypothetical rise.
 
+### Estimated Hawaii differentials and QCEW wages (October 2026)
+
+`calibration/hawaii_differentials.py` estimates the Hawaii-minus-national log
+growth gap per component from IRS SOI state data (and DOTAX Table 21 for gains),
+with recency weights and standard errors, and `AgingSpec.hawaii_mode="additive"`
+grows each source at CBO + d̂. It lost its one-step backtest to the
+`DEFAULT_HAWAII_FACTORS` ratios, so `"ratio"` stays the default; wages grow at
+QCEW's realized rate through its latest complete year (`qcew_hawaii_total_wages.json`)
+in either mode. Estimates, backtest, aging band and results:
+`SB3125_CD1_FORECAST.md` ("Estimated Hawaii aging differentials and QCEW wages —
+October 12, 2026"), `backtests/results/hawaii_aging_factors_2026-10-11.md`.
+
 ## SPM unit of analysis (Tier 4, May 2026)
 
 The poverty pipeline reports the Supplemental Poverty Measure at the
