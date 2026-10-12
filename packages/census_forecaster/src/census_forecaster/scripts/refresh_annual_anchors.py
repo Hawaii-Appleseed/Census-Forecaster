@@ -1,6 +1,6 @@
 """Refresh the annual ACS anchors no other refresh script owns.
 
-Four bundled anchor files in ``data/anchors/``, each fetched in full from its
+Five bundled anchor files in ``data/anchors/``, each fetched in full from its
 source and rewritten whole:
 
 1. ``pce_deflator.json``       — BEA PCE chain-type price index, annual, 2017=100
@@ -12,6 +12,9 @@ source and rewritten whole:
 3. ``qcew_hawaii_wages.json``  — BLS QCEW Hawaii statewide average annual pay,
    all industries, total covered (BLS API ``ENU1500050010``, period A01).
    Anchors B19013 and B20002.
+   ``qcew_hawaii_total_wages.json`` — the same universe's total wages (``ENU1500030010``,
+   quarterly, four quarters summed, complete years only): the series that tracks SOI A00200
+   for the Hawaii wage path in ``tax_modeler.calibration.hawaii_differentials``.
 4. ``hud_fmr_honolulu.json``   — HUD Fair Market Rent, 2-bedroom, Urban Honolulu
    HI MSA (Honolulu County), by HUD fiscal year, from HUD's combined history
    workbook ``FMR_2Bed_1983_<year>.xlsx`` (keyless; needs openpyxl, the
@@ -95,6 +98,7 @@ _RANGES = {
     "pce_deflator.json": (50.0, 400.0),
     "fred_hi_hpi.json": (100.0, 5000.0),
     "qcew_hawaii_wages.json": (20_000.0, 250_000.0),
+    "qcew_hawaii_total_wages.json": (5_000_000.0, 200_000_000.0),   # $000, four quarters summed
     "hud_fmr_honolulu.json": (500.0, 10_000.0),    # USD/month; a percentile (40/50) would fail
 }
 
@@ -176,6 +180,25 @@ ANCHOR_SPECS: tuple[dict, ...] = (
             "file agreed within 1% through 2019, then ran 2-5% low (2020 "
             "growth +3.9% against QCEW's +10.0%, a pandemic composition "
             "effect), and its series id was monthly employment.",
+        ],
+    },
+    {
+        "filename": "qcew_hawaii_total_wages.json",
+        "kind": "bls_quarterly_sum",
+        "bls_id": "ENU1500030010",
+        "source": "BLS QCEW",
+        "series_id": ("ENU1500030010 (Hawaii statewide, all industries, total covered, "
+                      "total quarterly wages; the four quarters of a year summed)"),
+        "title": ("Quarterly Census of Employment and Wages — Hawaii statewide total "
+                  "wages (all ownership, all industries), calendar-year sum of quarters"),
+        "frequency": "annual",
+        "units": "USD thousands, nominal",
+        "limitations": [
+            "A year appears only when all four quarters are published (the latest complete QCEW year).",
+            "UI-covered employment only; excludes self-employed, federal civilian and some agricultural workers.",
+            "Total wages move with employment as well as pay (unlike qcew_hawaii_wages.json, "
+            "which is average pay): this is the series that tracks SOI A00200, the wage base the aging grows.",
+            "Trailing revisions through Q3 of year+1 are common (typically <0.5%).",
         ],
     },
     {
@@ -358,6 +381,15 @@ def years_lost(previous: dict[int, float], new: dict[int, float]) -> list[int]:
     return sorted(set(previous) - set(new))
 
 
+def annual_from_bls_quarterly_sum(points: Sequence[dict], first_year: int = FIRST_YEAR) -> dict[int, float]:
+    """BLS API quarterly points → ``{year: sum of Q01-Q04}``, complete years only."""
+    by_year: dict[int, dict[str, float]] = defaultdict(dict)
+    for p in points:
+        if re.fullmatch(r"Q0[1-4]", p["period"]) and int(p["year"]) >= first_year:
+            by_year[int(p["year"])][p["period"]] = float(p["value"])
+    return {y: sum(q.values()) for y, q in sorted(by_year.items()) if len(q) == 4}
+
+
 def build_payload(spec: dict, values: dict[int, float], today: Optional[date] = None) -> dict:
     today = today or date.today()
     return {
@@ -422,6 +454,9 @@ def fetch_values(spec: dict, api_key: Optional[str], first_year: int = FIRST_YEA
     elif kind == "bls_annual":
         values = annual_from_bls(fetch_bls_annual(spec["bls_id"], api_key, first_year=first_year),
                                  first_year)
+    elif kind == "bls_quarterly_sum":
+        values = annual_from_bls_quarterly_sum(
+            fetch_bls_annual(spec["bls_id"], api_key, first_year=first_year), first_year)
     elif kind == "hud_fmr_workbook":
         values = annual_from_hud_workbook(fetch_hud_workbook(), spec["hud_fips"], first_year)
     else:  # pragma: no cover - spec typo

@@ -51,7 +51,7 @@ import numpy as np
 import pandas as pd
 
 from tax_modeler.calibration import dotax_base
-from tax_modeler.calibration.cbo_aging import net_growth_factor
+from tax_modeler.calibration.cbo_aging import hawaii_growth
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,7 @@ def _component_growth_factor(
     for component, share in composition.items():
         if share <= 0:
             continue
-        cbo_factor = cbo_rates.growth(component, year, base_year)
-        hi_factor = hawaii_factors.get(component, 1.0)
-        net_factor = net_growth_factor(cbo_factor, hi_factor)
-        factor += share * net_factor
+        factor += share * hawaii_growth(hawaii_factors, component, cbo_rates, base_year, year)
     return factor
 
 
@@ -189,12 +186,13 @@ def build_agi_targets(
         national TY2022 dollars, so they age from this year, not ``base_year``.
     """
     from tax_modeler.calibration.cbo_aging import (
+        copy_factors,
+        default_hawaii_factors,
         load_cbo_rates,
-        DEFAULT_HAWAII_FACTORS,
     )
 
     cbo_rates = load_cbo_rates(cbo_vintage)
-    hi = dict(hawaii_factors or DEFAULT_HAWAII_FACTORS)
+    hi = copy_factors(hawaii_factors) if hawaii_factors else default_hawaii_factors()
     bagi = dict(base_agi or dotax_base.agi_targets_M(base_year))
     if soi_tier_total_filers is None:
         soi_tier_total_filers = dotax_base.filer_targets(base_year)[(1_000_000, np.inf)]

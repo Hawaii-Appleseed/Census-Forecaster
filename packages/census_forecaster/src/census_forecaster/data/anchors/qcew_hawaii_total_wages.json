@@ -1,0 +1,32 @@
+{
+  "frequency": "annual",
+  "last_refresh": "2026-10",
+  "limitations": [
+    "A year appears only when all four quarters are published (the latest complete QCEW year).",
+    "UI-covered employment only; excludes self-employed, federal civilian and some agricultural workers.",
+    "Total wages move with employment as well as pay (unlike qcew_hawaii_wages.json, which is average pay): this is the series that tracks SOI A00200, the wage base the aging grows.",
+    "Trailing revisions through Q3 of year+1 are common (typically <0.5%)."
+  ],
+  "series_id": "ENU1500030010 (Hawaii statewide, all industries, total covered, total quarterly wages; the four quarters of a year summed)",
+  "source": "BLS QCEW",
+  "title": "Quarterly Census of Employment and Wages \u2014 Hawaii statewide total wages (all ownership, all industries), calendar-year sum of quarters",
+  "units": "USD thousands, nominal",
+  "values_by_year": {
+    "2010": 24473757.0,
+    "2011": 25214638.0,
+    "2012": 26258236.0,
+    "2013": 27104696.0,
+    "2014": 28307980.0,
+    "2015": 29927222.0,
+    "2016": 31197426.0,
+    "2017": 32494225.0,
+    "2018": 33560268.0,
+    "2019": 34722149.0,
+    "2020": 32451978.0,
+    "2021": 35075730.0,
+    "2022": 38118833.0,
+    "2023": 40700323.0,
+    "2024": 43100811.0,
+    "2025": 45525486.0
+  }
+}

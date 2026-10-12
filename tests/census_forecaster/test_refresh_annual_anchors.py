@@ -31,6 +31,14 @@ def test_fred_annual_keeps_years_from_first_year_and_rounds():
     assert ra.annual_from_fred_annual(rows, first_year=2010) == {2010: 87.421, 2011: 89.7}
 
 
+def test_bls_quarterly_sum_keeps_complete_years_only():
+    pts = [{"year": "2024", "period": f"Q0{q}", "value": str(q * 100)} for q in (1, 2, 3, 4)]
+    pts += [{"year": "2025", "period": f"Q0{q}", "value": "50"} for q in (1, 2, 3)]   # incomplete
+    pts += [{"year": "2024", "period": "A01", "value": "9"}]
+    assert ra.annual_from_bls_quarterly_sum(pts, first_year=2010) == {2024: 1000.0}
+    assert "qcew_hawaii_total_wages.json" in SPECS
+
+
 def test_fred_quarterly_is_the_mean_of_four_quarters_complete_years_only():
     rows = [{"date": f"2023-{m:02d}-01", "value": v}
             for m, v in ((1, 100.0), (4, 110.0), (7, 120.0), (10, 130.0))]

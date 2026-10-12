@@ -97,15 +97,15 @@ def cg_growth(yr: int, from_year: int = BASE_YEAR, model: str = GAINS_GROWTH_MOD
     the CBO table is relative to 2022, so each is a ratio of two years.
     """
     from tax_modeler.calibration.cbo_aging import (
-        DEFAULT_HAWAII_FACTORS,
+        default_hawaii_factors,
+        hawaii_growth,
         load_cbo_rates,
-        net_growth_factor,
     )
     if model not in GAINS_GROWTH_MODELS:
         raise ValueError(f"model must be one of {GAINS_GROWTH_MODELS}, not {model!r}")
     rates = load_cbo_rates("2025-01")
     comp = "capital_gains" if model == "cbo" else "wages"
-    return net_growth_factor(rates.growth(comp, yr, from_year), DEFAULT_HAWAII_FACTORS[comp])
+    return hawaii_growth(default_hawaii_factors(), comp, rates, from_year, yr)
 
 
 def anchored_nltcg_M(year: int = BASE_YEAR) -> list[float]:

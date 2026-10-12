@@ -48,7 +48,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from tax_modeler.calibration.cbo_aging import net_growth_factor
+from tax_modeler.calibration.cbo_aging import hawaii_growth
 
 logger = logging.getLogger(__name__)
 
@@ -175,9 +175,7 @@ def _aged_tier_avg_agi(
     }
     aged_per_dollar = 0.0
     for comp, share in components.items():
-        cbo_f = cbo_rates.factor(comp, target_year)
-        hi_f = hawaii_factors.get(comp, 1.0)
-        aged_per_dollar += share * net_growth_factor(cbo_f, hi_f)
+        aged_per_dollar += share * hawaii_growth(hawaii_factors, comp, cbo_rates, cbo_rates.base_year, target_year)
     return anchor.avg_agi * aged_per_dollar
 
 
@@ -212,9 +210,7 @@ def _aged_tier_capgain_share(
     aged_total = 0.0
     aged_cg = 0.0
     for comp, share in components.items():
-        cbo_f = cbo_rates.factor(comp, target_year)
-        hi_f = hawaii_factors.get(comp, 1.0)
-        aged = share * net_growth_factor(cbo_f, hi_f)
+        aged = share * hawaii_growth(hawaii_factors, comp, cbo_rates, cbo_rates.base_year, target_year)
         aged_total += aged
         if comp == "capital_gains":
             aged_cg = aged
@@ -292,14 +288,15 @@ def synthesize_top_filers_from_soi(
     hi_factors = None
     if target_year is not None and cbo_vintage is not None:
         from tax_modeler.calibration.cbo_aging import (
-            DEFAULT_HAWAII_FACTORS,
+            copy_factors,
+            default_hawaii_factors,
             load_cbo_rates,
         )
         cbo_rates = load_cbo_rates(vintage=cbo_vintage)
         hi_factors = (
-            dict(cbo_hawaii_factors)
+            copy_factors(cbo_hawaii_factors)
             if cbo_hawaii_factors is not None
-            else dict(DEFAULT_HAWAII_FACTORS)
+            else default_hawaii_factors()
         )
         logger.info(
             "SOI tier aging: applying CBO %s + HI factors to %d tiers, TY%d",

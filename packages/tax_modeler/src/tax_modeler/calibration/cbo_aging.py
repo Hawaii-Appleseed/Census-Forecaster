@@ -158,8 +158,8 @@ def hawaii_growth(hawaii_factors, component: str, cbo_rates: "CBOComponentRates"
         while start < to_year and (start + 1) in realized:
             start += 1
             out *= realized[start]
-    elif realized:
-        raise ValueError("realized Hawaii growth is forward-only: to_year must not precede from_year")
+    elif any(y in realized for y in range(to_year + 1, from_year + 1)):
+        return 1.0 / hawaii_growth(hf, component, cbo_rates, to_year, from_year)
     if start == to_year:
         return out
     if isinstance(hf, HawaiiFactors) and component in hf.d_hat:

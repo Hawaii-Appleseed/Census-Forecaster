@@ -44,11 +44,19 @@ rates (now 0), and, for the gains base, the CBO x 0.85 growth
 """
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import pandas as pd
 
+from tax_modeler.calibration.cbo_aging import (
+    DEFAULT_HAWAII_FACTORS,
+    HAWAII_AGING_MODE,
+    HAWAII_QCEW_WAGES,
+    HAWAII_MODES,
+    copy_factors,
+)
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
 
 AGING_ENGINES = ("cbo", "scalar")
@@ -95,10 +103,27 @@ class AgingSpec:
     cbo_vintage: str = "2025-01"
     hawaii_factors: Mapping[str, float] | None = None
     method: str = "ensemble"
+    hawaii_mode: str = field(default_factory=lambda: os.environ.get("HAWAII_AGING_MODE", HAWAII_AGING_MODE))
+    hawaii_shift_se: float = field(default_factory=lambda: float(os.environ.get("HAWAII_AGING_SHIFT_SE", "0")))
 
     def __post_init__(self) -> None:
         if self.engine not in AGING_ENGINES:
             raise ValueError(f"engine must be one of {AGING_ENGINES}, not {self.engine!r}")
+        if self.hawaii_mode not in HAWAII_MODES:
+            raise ValueError(f"hawaii_mode must be one of {HAWAII_MODES}, not {self.hawaii_mode!r}")
+
+    def resolved_hawaii_factors(self):
+        """Explicit ``hawaii_factors`` if given, else the factors ``hawaii_mode`` names:
+        the ``DEFAULT_HAWAII_FACTORS`` ratios for ``"ratio"``, the estimated
+        differentials (``hawaii_differentials``) for ``"additive"`` (shifted
+        ``hawaii_shift_se`` standard errors for the aging band), each with wages on
+        QCEW's realized growth through its latest complete year."""
+        if self.hawaii_factors is not None:
+            return copy_factors(self.hawaii_factors)
+        from tax_modeler.calibration.hawaii_differentials import build_factors
+
+        return build_factors(self.hawaii_mode, shift_se=self.hawaii_shift_se,
+                             qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0")
 
     def with_drift(self, drift: float) -> AgingSpec:
         return replace(self, top_share_drift=float(drift))
@@ -126,7 +151,7 @@ def age_incomes(units: pd.DataFrame, year: int, spec: AgingSpec = DEFAULT_SPEC,
     if spec.engine == "cbo":
         return project_tax_units_forward(
             units, target_year=year, use_cbo_aging=True, cbo_vintage=spec.cbo_vintage,
-            cbo_hawaii_factors=dict(spec.hawaii_factors) if spec.hawaii_factors else None,
+            cbo_hawaii_factors=spec.resolved_hawaii_factors(),
             **projector_kw)
     return project_tax_units_forward(units, target_year=year, base_year=base_year,
                                      method=spec.method, **projector_kw)
@@ -159,17 +184,12 @@ def project_units(units: pd.DataFrame, year: int, spec: AgingSpec = DEFAULT_SPEC
 
 def component_growth(spec: AgingSpec, from_year: int, to_year: int) -> dict[str, float]:
     """Net growth factor per CBO component from ``from_year`` to ``to_year``
-    (CBO x Hawaiʻi factor on the increment, ``cbo_aging.net_growth_factor``)."""
-    from tax_modeler.calibration.cbo_aging import (
-        CBO_COMPONENTS,
-        DEFAULT_HAWAII_FACTORS,
-        load_cbo_rates,
-        net_growth_factor,
-    )
+    (CBO x Hawaiʻi factor on the increment on the ratio path, CBO + d̂ on the additive one; ``cbo_aging.hawaii_growth``)."""
+    from tax_modeler.calibration.cbo_aging import CBO_COMPONENTS, hawaii_growth, load_cbo_rates
 
     rates = load_cbo_rates(vintage=spec.cbo_vintage)
-    hi = dict(DEFAULT_HAWAII_FACTORS if spec.hawaii_factors is None else spec.hawaii_factors)
-    return {c: net_growth_factor(rates.growth(c, to_year, from_year), hi.get(c, 1.0))
+    hi = spec.resolved_hawaii_factors()
+    return {c: hawaii_growth(hi, c, rates, from_year, to_year)
             for c in CBO_COMPONENTS if c != "proprietors"}
 
 

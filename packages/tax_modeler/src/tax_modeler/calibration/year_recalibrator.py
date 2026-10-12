@@ -231,7 +231,7 @@ def project_and_recalibrate(
         )
     use_cbo_aging = spec.engine == "cbo"
     cbo_vintage, cbo_hawaii_factors = spec.cbo_vintage, (
-        dict(spec.hawaii_factors) if spec.hawaii_factors is not None else None)
+        spec.resolved_hawaii_factors())
     apply_top_premium = apply_top_premium and spec.top_share_drift != 0.0
     top_premium_threshold = spec.drift_threshold
     if top_bracket_differential is None:
