@@ -37,8 +37,8 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
 // (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor,
-// 3 dropped hhfw for per-unit filer weights)
-export const WEB_FORMAT_VERSION = 3;
+// 3 dropped hhfw for per-unit filer weights, 4 made the model gains share per year)
+export const WEB_FORMAT_VERSION = 4;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
@@ -76,7 +76,7 @@ export function gainsClasses(pop, year, scenario = "mid") {
  * own base. */
 export function unitArrays(pop, year, scenario = "mid") {
   const A = pop.arrays;
-  let agi = A[`agi_${year}`], item = A[`item_${year}`], weight = A.weight, cgModel = A.cg;
+  let agi = A[`agi_${year}`], item = A[`item_${year}`], weight = A.weight, cgModel = A[`cg_${year}`];
   const k = pop.meta.cg_anchor?.k?.[scenario]?.[String(year)];
   if (!k) throw new Error(`population has no capital-gains scale factors for ${scenario} ${year}`);
   const cls = gainsClasses(pop, year, scenario);
@@ -87,8 +87,10 @@ export function unitArrays(pop, year, scenario = "mid") {
     const oa = A[`ovr_${scenario}_${year}_agi`], oi = A[`ovr_${scenario}_${year}_item`];
     for (let j = 0; j < idx.length; j++) { agi[idx[j]] = oa[j]; item[idx[j]] = oi[j]; }
     const t = A[`tail_${scenario}_idx`];
-    const tw = A[`tail_${scenario}_weight`], tc = A[`tail_${scenario}_cg`];
-    for (let j = 0; j < t.length; j++) { weight[t[j]] = tw[j]; cgModel[t[j]] = tc[j]; }
+    const tw = A[`tail_${scenario}_weight`];
+    for (let j = 0; j < t.length; j++) weight[t[j]] = tw[j];
+    const ci = A[`cgovr_${scenario}_${year}_idx`], cv = A[`cgovr_${scenario}_${year}_val`];
+    for (let j = 0; j < ci.length; j++) cgModel[ci[j]] = cv[j];
   }
   const cg = new Float64Array(pop.n);
   for (let i = 0; i < pop.n; i++) cg[i] = Math.min(1, cgModel[i] * k[cls[i]]);

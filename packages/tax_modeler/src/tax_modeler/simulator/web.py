@@ -13,13 +13,13 @@ Two files:
 Money and weights stay float64, so the kernel reads exactly the values the
 Python reference scorer uses; codes and counts are packed small.
 
-Capital gains ship as the model's share (``cg``, ``tail_*_cg``) plus the
+Capital gains ship as the model's share (``cg_<year>``, ``cgovr_*``) plus the
 DOTAX anchor (:mod:`.gains`): per year each unit's class code
 (``cgcls_<year>``, with LOW/HIGH overrides ``cgcls_<scenario>_<year>_idx`` /
 ``_val``) and, in the metadata, each scenario-year's scale factors
 (``cg_anchor.k``; LOW's and HIGH's equal MID's, which DOTAX anchors). The
 kernel's share is ``min(1, cg x k[class])``, as
-:func:`.population.unit_arrays` computes it. Format 2 added these.
+:func:`.population.unit_arrays` computes it. Format 2 added these; 4 made the model share per year (aged).
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
 # 3 dropped hhfw: distribution totals sum each unit's own filer weight.
-WEB_FORMAT_VERSION = 3
+WEB_FORMAT_VERSION = 4
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it
@@ -62,7 +62,7 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
     a = pop.arrays
     out: dict[str, tuple[str, np.ndarray]] = {
         "fs": ("u1", a["fs"]), "deps": ("u1", a["deps"]), "hh": ("u4", a["hh"]),
-        "weight": ("f8", a["weight"]), "cg": ("f8", a["cg"]), "hh_weight": ("f8", a["hh_weight"]),
+        "weight": ("f8", a["weight"]), "hh_weight": ("f8", a["hh_weight"]),
     }
     # Household fifths: shipped once when every year has the same (they do:
     # fixed base-year breaks on base-year household income), else per year.
@@ -76,12 +76,15 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
         out[f"agi_{y}"] = ("f8", a[f"agi_{y}"])
         out[f"item_{y}"] = ("f8", a[f"item_{y}"])
         out[f"cgcls_{y}"] = ("u1", a[f"cgcls_{y}"])
+        out[f"cg_{y}"] = ("f8", a[f"cg_{y}"])
         for k in SCENARIOS:
             if k == "mid":
                 continue
             out[f"ovr_{k}_{y}_idx"] = ("u4", a[f"ovr_{k}_{y}_idx"])
             out[f"ovr_{k}_{y}_agi"] = ("f8", a[f"ovr_{k}_{y}_agi"])
             out[f"ovr_{k}_{y}_item"] = ("f8", a[f"ovr_{k}_{y}_item"])
+            out[f"cgovr_{k}_{y}_idx"] = ("u4", a[f"cgovr_{k}_{y}_idx"])
+            out[f"cgovr_{k}_{y}_val"] = ("f8", a[f"cgovr_{k}_{y}_val"])
             out[f"cgcls_{k}_{y}_idx"] = ("u4", a[f"cgcls_{k}_{y}_idx"])
             out[f"cgcls_{k}_{y}_val"] = ("u1", a[f"cgcls_{k}_{y}_val"])
     for k in SCENARIOS:
@@ -89,7 +92,6 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
             continue
         out[f"tail_{k}_idx"] = ("u4", a[f"tail_{k}_idx"])
         out[f"tail_{k}_weight"] = ("f8", a[f"tail_{k}_weight"])
-        out[f"tail_{k}_cg"] = ("f8", a[f"tail_{k}_cg"])
     return out
 
 

@@ -108,33 +108,51 @@ total vs Act 46) runs 689.8 -> 759.0 -> 703.7 -> 637.9 across the same steps.
 
 ### Results (CD2, vs Act 46, $M; CBO engine, drift −1/0/+1, windowed gains)
 
-MID five-year total **$637.3M** (published $687.8M, -$50.5M, -7.3%); 90% CI on
-the MID total [$628.5M, $646.1M] (sum of the annual replicate-weight bounds;
+MID five-year total **$685.6M** (published $687.8M, -$2.2M, -0.3%); 90% CI on
+the MID total [$673.5M, $697.8M] (sum of the annual replicate-weight bounds;
 `runs/sb3125_cd2_enhanced/enhanced.csv`). Brackets are the previous section's
 figures.
 
 | Tax Year | LOW | **MID** | HIGH | RECESSION | MID CI90 |
 |---|--:|--:|--:|--:|---|
-| 2027 | $71.9M | **$79.4M** [$88.7M] | $105.7M | $75.8M | [78.3, 80.5] |
-| 2028 | $87.6M | **$108.1M** [$117.8M] | $140.1M | $105.9M | [106.9, 109.3] |
-| 2029 | $97.7M | **$123.2M** [$133.7M] | $161.2M | $121.6M | [121.1, 125.2] |
-| 2030 | $124.8M | **$158.6M** [$169.3M] | $198.9M | $158.0M | [156.4, 160.8] |
-| 2031 | $136.0M | **$168.0M** [$178.4M] | $214.5M | $168.0M | [165.7, 170.4] |
-| **5-year total** | **$518.0M** [$572.1M] | **$637.3M** [$687.8M] | **$820.5M** [$890.6M] | **$629.2M** [$690.4M] | [628.5, 646.1] |
+| 2027 | $77.1M | **$85.3M** [$88.7M] | $112.3M | $81.2M | [84.0, 86.6] |
+| 2028 | $93.1M | **$114.5M** [$117.8M] | $147.3M | $111.8M | [113.0, 116.0] |
+| 2029 | $107.6M | **$134.2M** [$133.7M] | $173.4M | $132.4M | [131.3, 137.1] |
+| 2030 | $135.8M | **$170.6M** [$169.3M] | $212.2M | $169.9M | [167.5, 173.8] |
+| 2031 | $147.9M | **$181.0M** [$178.4M] | $228.7M | $181.0M | [177.6, 184.4] |
+| **5-year total** | **$561.6M** [$572.1M] | **$685.6M** [$687.8M] | **$874.0M** [$890.6M] | **$676.3M** [$690.4M] | [673.5, 697.8] |
 
 MID by component ($M):
 
 | Tax Year | Act 46 baseline | Static bracket | Behavioral response | Bracket (post-behav.) | Credit total | **Total** |
 |---|--:|--:|--:|--:|--:|--:|
-| 2027 | 2,581.6 | 41.5 | -11.0 | 30.5 | 48.9 | **79.4** |
-| 2028 | 2,748.5 | 46.4 | -12.6 | 33.8 | 74.3 | **108.1** |
-| 2029 | 2,615.4 | 50.7 | -15.8 | 34.8 | 88.3 | **123.2** |
-| 2030 | 2,740.0 | 56.9 | -17.9 | 39.0 | 119.6 | **158.6** |
-| 2031 | 2,857.9 | 64.2 | -20.2 | 44.0 | 124.0 | **168.0** |
-| **5-year** | | **259.7** | **-77.6** | **182.1** | **455.2** | **637.3** |
+| 2027 | 2,474.3 | 48.3 | -11.8 | 36.6 | 48.8 | **85.3** |
+| 2028 | 2,635.6 | 53.7 | -13.3 | 40.3 | 74.2 | **114.5** |
+| 2029 | 2,519.6 | 63.2 | -17.1 | 46.1 | 88.1 | **134.2** |
+| 2030 | 2,640.7 | 70.1 | -19.1 | 51.0 | 119.6 | **170.6** |
+| 2031 | 2,757.1 | 78.4 | -21.4 | 57.0 | 124.0 | **181.0** |
+| **5-year** | | **313.6** | **-82.7** | **230.9** | **454.7** | **685.6** |
 
 Was: static $309.6M, behavioral -$77.8M, bracket $231.8M, credits $456.0M, total
-$687.8M. The spread across scenarios is now the drift band (-1/0/+1 %/yr) plus the
+$687.8M.
+
+*October 11, 2026 rerun at `d455aa1`.* The tables above (and the site's Act 24
+data) were first published from a run at `ff9a83e`, which predates the windowed
+gains anchor's final form (`819643e`: TY2023 base, TY2019-2023 window); that
+run gave a MID total of $637.3M (static $259.7M, behavioral -$77.6M, credits
+$455.2M). The rerun puts MID at $685.6M, almost on the published $687.8M. The
+decomposition ladder below, the "Other frames" table and `runs/top_tail_ladder`
+are from the earlier run and were **not** rerun; read their levels, not their
+final rows, as indicative.
+
+*Simulator parity (October 11, 2026).* The simulator population kept each
+unit's gains share from before aging, while the headline run anchors on the
+share CBO component aging refreshes each year, so the simulator's DOTAX scale
+factors (e.g. TY2027 class 100_150: 0.895 against 0.848) and scores drifted from
+the Act 24 run's. The population now stores the aged share per year and scenario
+(`cg_<year>`, `cgovr_*`; population format 2, web format 4), the kernel reads
+it, and `build_simulator_population.py` checks that `frame_for`'s share equals
+`project_units`' for TY2027 MID and that the factors reproduce the run's. The spread across scenarios is now the drift band (-1/0/+1 %/yr) plus the
 credit and behavioral dials, not a tail premium.
 
 ### Decomposition of the move, MID five-year total

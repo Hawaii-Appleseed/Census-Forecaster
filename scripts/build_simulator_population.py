@@ -60,8 +60,9 @@ CG_PAGE = REPO / "site" / "data" / "capital-gains"   # the capital-gains page's 
 # populations differ (the page projects with project_and_recalibrate and
 # re-synthesizes its tail), so the levels cannot match exactly; on the
 # 2026-09-27 population the ratios ran 0.934-0.966 and the response ratios
-# within 0.0032 of the page's.
-CG_LEVEL_BAND = (0.90, 1.02)
+# within 0.0032 of the page's. On the 2026-10-11 population (the aged gains
+# share, top-tail aging) they run 1.020-1.044, response ratios within 0.0013.
+CG_LEVEL_BAND = (0.90, 1.05)
 CG_RESPONSE_RATIO_TOL = 0.005
 
 
@@ -90,6 +91,21 @@ def check_reproduces_act24(pop, out_dir: Path) -> list[str]:
             for c, k in ran[str(y)].items():
                 if ours[c] != k:
                     problems.append(f"TY{y} gains factor {c}: {ours[c]!r} vs the Act 24 run's {k!r}")
+    # The gains share the simulator anchors on is the aged one project_units
+    # returns (TY2027 MID), not the pre-aging unit share.
+    from tax_modeler.artifacts import load_calibrated_base
+    from tax_modeler.scenarios.act24_population import build_units, project_units
+    from tax_modeler.simulator.population import frame_for
+    from tax_modeler.simulator.scenarios import SCENARIOS
+    base, ded, meta = load_calibrated_base(REPO / "data" / "artifacts" / "sb3125_calibrated_base.pkl")
+    sc = SCENARIOS["mid"]
+    units, _ = build_units(base, alpha=sc.alpha, spec=sc.aging_spec, ded_params=ded,
+                           cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True)
+    proj = project_units(units, year=2027, spec=sc.aging_spec).set_index("filer_id")
+    fr = frame_for(pop, 2027, "mid", gains="model").set_index("filer_id")
+    if not np.array_equal(proj.loc[fr.index, "synthetic_cg_share"].fillna(0.0).to_numpy(),
+                          fr["synthetic_cg_share"].to_numpy()):
+        problems.append("TY2027 MID: frame_for's gains share is not project_units' share")
     res = score_systems(pop, statute(TaxSystemRegistry.get_act46_system),
                         statute(TaxSystemRegistry.get_sb3125_cd2_system),
                         distribution_years=pop.years)

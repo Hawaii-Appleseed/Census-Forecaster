@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-09T09:59:41+00:00",
-  "git_sha": "493ef76",
+  "created_at": "2026-10-12T00:02:51+00:00",
+  "git_sha": "d455aa1-dirty",
   "script": "scripts/build_simulator_population.py",
   "params": {
     "years": [
@@ -14,47 +14,629 @@
       "low": {
         "label": "LOW",
         "alpha": 1.7,
-        "top_premium": 0.003,
+        "top_share_drift": -0.01,
+        "aging": "cbo",
         "behavior": "high",
         "tail_k": 1.6627146774032775
       },
       "mid": {
         "label": "MID",
         "alpha": 1.5,
-        "top_premium": 0.01,
+        "top_share_drift": 0.0,
+        "aging": "cbo",
         "behavior": "mid",
         "tail_k": 1.3514439042624151
       },
       "high": {
         "label": "HIGH",
         "alpha": 1.4,
-        "top_premium": 0.023,
+        "top_share_drift": 0.01,
+        "aging": "cbo",
         "behavior": "low",
         "tail_k": 1.1739722119079032
       }
     }
   },
-  "params_fingerprint": "836525574f07813a",
+  "params_fingerprint": "9316776a97166755",
   "inputs": {
     "calibrated_base": {
-      "created_at": "2026-10-09T09:34:13+00:00",
-      "git_sha": "493ef76",
-      "n_units": 39990,
+      "created_at": "2026-10-11T23:26:37+00:00",
+      "git_sha": "d455aa1",
+      "n_units": 39996,
       "tax_year": 2023,
       "params_fingerprint": "ab6b63a25f3fa23b",
       "built_by": "forecast_sb3125_enhanced.py",
-      "cd": "2"
+      "cd": "2",
+      "calibration_report": {
+        "stage": "base_ipf_rake",
+        "converged": true,
+        "iterations": 10,
+        "max_iterations": 100,
+        "tolerance": 0.001,
+        "final_max_dev": 0.00021987514168993232,
+        "convergence_mode": "tolerance",
+        "target_year": null,
+        "margins": [
+          {
+            "margin": "dotax_filer_count",
+            "key": "$0k-$10k",
+            "target": 110447.0,
+            "achieved": 110438.9904092265,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -7.251976761246555e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$10k-$20k",
+            "target": 63776.0,
+            "achieved": 63773.32934961059,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -4.187547650227789e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$20k-$30k",
+            "target": 56358.0,
+            "achieved": 56355.91448352575,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -3.7004799216675215e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$30k-$40k",
+            "target": 58625.0,
+            "achieved": 58622.74332931367,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -3.849331661115593e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$40k-$50k",
+            "target": 54823.0,
+            "achieved": 54821.026541172476,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -3.599691420615718e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$50k-$75k",
+            "target": 96433.0,
+            "achieved": 96426.8940416745,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -6.331814135718417e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$75k-$100k",
+            "target": 57836.0,
+            "achieved": 57833.80366298709,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -3.7975257848204764e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$100k-$150k",
+            "target": 65585.0,
+            "achieved": 65582.1756954672,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -4.306326954026261e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$150k-$200k",
+            "target": 30326.0,
+            "achieved": 30325.396144904505,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -1.9912124760750164e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$200k-$300k",
+            "target": 21375.0,
+            "achieved": 21374.700004521692,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -1.403487617815763e-05
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$300k-$400k",
+            "target": 6607.0,
+            "achieved": 6606.971337694775,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -4.338172427005492e-06
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$400k-$500k",
+            "target": 2952.0,
+            "achieved": 2951.9942781620666,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -1.9382919828519623e-06
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$500k-$750k",
+            "target": 3120.0,
+            "achieved": 3119.993608369332,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -2.0485995731015023e-06
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$750k-$1000k",
+            "target": 1158.0,
+            "achieved": 1157.9991195200712,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -7.603453616666826e-07
+          },
+          {
+            "margin": "dotax_filer_count",
+            "key": "$1000k+",
+            "target": 1633.0,
+            "achieved": 1632.9982490456816,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -1.072231670770241e-06
+          },
+          {
+            "margin": "dotax_filing_status",
+            "key": "single",
+            "target": 334868.0,
+            "achieved": 334941.62914894626,
+            "source": "DOTAX Table 4 filing status",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 0.00021987514168645585
+          },
+          {
+            "margin": "dotax_filing_status",
+            "key": "married_filing_jointly",
+            "target": 211911.0,
+            "achieved": 211940.4855673555,
+            "source": "DOTAX Table 4 filing status",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 0.00013914127796810628
+          },
+          {
+            "margin": "dotax_filing_status",
+            "key": "head_of_household",
+            "target": 67904.0,
+            "achieved": 67907.0275630835,
+            "source": "DOTAX Table 4 filing status",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 4.4585931366265565e-05
+          },
+          {
+            "margin": "dotax_filing_status",
+            "key": "married_filing_separately",
+            "target": 16371.0,
+            "achieved": 16371.175975774418,
+            "source": "DOTAX Table 4 filing status",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 1.0749237946275447e-05
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$0k-$10k",
+            "target": 3.0,
+            "achieved": 1.398966185264174,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": false,
+            "relative": -0.5336779382452753
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$10k-$20k",
+            "target": 21.0,
+            "achieved": 20.999999999995328,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -2.2246754702965042e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$20k-$30k",
+            "target": 50.0,
+            "achieved": 50.00000000001457,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 2.914646302087931e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$30k-$40k",
+            "target": 90.0,
+            "achieved": 90.00000000005512,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 6.124878382252064e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$40k-$50k",
+            "target": 120.0,
+            "achieved": 120.00000000007168,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 5.973295931956575e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$50k-$75k",
+            "target": 311.0,
+            "achieved": 311.00000000013387,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 4.304381074508131e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$75k-$100k",
+            "target": 277.0,
+            "achieved": 277.0000000000186,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 6.710396378153148e-14
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$100k-$150k",
+            "target": 467.0,
+            "achieved": 467.00000000028433,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 6.088453557639437e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$150k-$200k",
+            "target": 319.0,
+            "achieved": 319.00000000013347,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 4.183960736212452e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$200k-$300k",
+            "target": 349.0,
+            "achieved": 349.00000000023283,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 6.671365147675347e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$300k-$400k",
+            "target": 166.0,
+            "achieved": 165.99999999995555,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -2.677804430671799e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$400k-$500k",
+            "target": 103.0,
+            "achieved": 102.99999999982748,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -1.674949283908275e-12
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$500k-$750k",
+            "target": 157.0,
+            "achieved": 156.99999999999918,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": -5.249869894788001e-15
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$750k-$1000k",
+            "target": 87.0,
+            "achieved": 87.00000000002065,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": true,
+            "relative": 2.3733760805963804e-13
+          },
+          {
+            "margin": "dotax_tax_M",
+            "key": "$1000k+",
+            "target": 562.3,
+            "achieved": 146.54886526300962,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023,
+            "counted": false,
+            "relative": -0.7393760176720441
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$30k-$40k",
+            "target": 2004.0,
+            "achieved": 2058.3292405631946,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.027110399482632046
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$40k-$50k",
+            "target": 2426.0,
+            "achieved": 2464.4582128063807,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.01585251970584532
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$50k-$75k",
+            "target": 5868.0,
+            "achieved": 5983.582578974777,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.019697099348121486
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$75k-$100k",
+            "target": 4983.0,
+            "achieved": 5118.127457121119,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.02711769157558074
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$100k-$150k",
+            "target": 7963.0,
+            "achieved": 8298.72080482645,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.042160091024293515
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$150k-$200k",
+            "target": 5202.0,
+            "achieved": 5447.794122902756,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.04724992750918024
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$200k-$300k",
+            "target": 5090.0,
+            "achieved": 5453.27102550923,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.07136955314523177
+          },
+          {
+            "margin": "dotax_agi_M_check",
+            "key": "$300k-$400k",
+            "target": 2258.0,
+            "achieved": 2371.7662750899917,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023,
+            "counted": false,
+            "relative": 0.05038364707262698
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$0k-$25k",
+            "target": 1839.840527963715,
+            "achieved": 2008.9194002687325,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": 0.09189865628851505
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$25k-$50k",
+            "target": 5502.134066021403,
+            "achieved": 5226.295017071472,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": -0.050133102109122196
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$50k-$75k",
+            "target": 6331.520258530222,
+            "achieved": 5983.582578974777,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": -0.054953260093684744
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$75k-$100k",
+            "target": 5831.095727335251,
+            "achieved": 5118.127457121119,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": -0.12227003354992952
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$100k-$200k",
+            "target": 15681.361715815374,
+            "achieved": 13746.514927729204,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": -0.12338512580414417
+          },
+          {
+            "margin": "soi_agi_M_check",
+            "key": "$200k+",
+            "target": 17664.9642506922,
+            "achieved": 13914.981978373635,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022,
+            "counted": false,
+            "relative": -0.21228360381038539
+          }
+        ],
+        "clip_events": [],
+        "dropped_bins": [
+          {
+            "stage": "tax_total_margin",
+            "key": "$0k-$10k",
+            "reason": "target below the 10 $M materiality floor",
+            "target": 3.0,
+            "feasible": null
+          }
+        ],
+        "weights_before": {
+          "n": 39996,
+          "weight_sum": 725372.5392041206,
+          "kish_deff": 2.022612303032802,
+          "effective_n": 19774.42732847421,
+          "max_mean_ratio": 18.278433885224587,
+          "min_mean_ratio": 0.04521362188581181,
+          "top1_share": 0.06818642470577166,
+          "n_zero": 0
+        },
+        "weights_after": {
+          "n": 39996,
+          "weight_sum": 631160.3182551598,
+          "kish_deff": 2.342084408690725,
+          "effective_n": 17077.095877325195,
+          "max_mean_ratio": 22.4595067782775,
+          "min_mean_ratio": 0.011253168495362769,
+          "top1_share": 0.08000035635415066,
+          "n_zero": 0
+        },
+        "source_years": {
+          "dotax_filer_count": 2023,
+          "dotax_filing_status": 2023,
+          "dotax_tax_M": 2023,
+          "dotax_agi_M_check": 2023,
+          "soi_agi_M_check": 2022
+        },
+        "statutory_tax_M": null,
+        "cor_tax_M": null,
+        "statute_vs_cor_wedge": null,
+        "warnings": [],
+        "notes": [
+          "generalized raking (logit distance, weight-ratio bounds [0.2, 5]), 32 fitted cells, Newton tol 1e-6; units at lower bound: 39, at upper bound: 0; weight ratio range [0.200, 4.835]"
+        ],
+        "children": [],
+        "margin_summary": {
+          "dotax_filer_count": {
+            "cells": 15,
+            "counted": 15,
+            "max_abs_relative": 7.251976761246555e-05,
+            "within_tolerance": 15,
+            "source": "DOTAX Table A-8 returns",
+            "source_year": 2023
+          },
+          "dotax_filing_status": {
+            "cells": 4,
+            "counted": 4,
+            "max_abs_relative": 0.00021987514168645585,
+            "within_tolerance": 4,
+            "source": "DOTAX Table 4 filing status",
+            "source_year": 2023
+          },
+          "dotax_tax_M": {
+            "cells": 15,
+            "counted": 13,
+            "max_abs_relative": 1.674949283908275e-12,
+            "within_tolerance": 13,
+            "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
+            "source_year": 2023
+          },
+          "dotax_agi_M_check": {
+            "cells": 8,
+            "counted": 0,
+            "max_abs_relative": null,
+            "within_tolerance": 0,
+            "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
+            "source_year": 2023
+          },
+          "soi_agi_M_check": {
+            "cells": 6,
+            "counted": 0,
+            "max_abs_relative": null,
+            "within_tolerance": 0,
+            "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
+            "source_year": 2022
+          }
+        }
+      }
     },
     "tax_units_cache": {
-      "created_at": "2026-08-03T19:43:48+00:00",
-      "git_sha": "42b44f5",
+      "created_at": "2026-10-11T06:39:31+00:00",
+      "git_sha": "7f3ccbe",
       "built_by": "forecast_sb3125.py",
       "pums": "HI 5yr 2020-24",
-      "n_units": 39990
+      "n_units": 39996
     },
     "population": {
-      "created_at": "2026-10-09T09:49:05+00:00",
-      "git_sha": "493ef76"
+      "created_at": "2026-10-11T23:47:56+00:00",
+      "git_sha": "d455aa1-dirty"
     }
   },
   "outputs": [
@@ -64,5 +646,5 @@
     "population.json",
     "population.npz"
   ],
-  "published_at": "2026-10-09T09:59:47+00:00"
+  "published_at": "2026-10-12T00:03:01+00:00"
 }

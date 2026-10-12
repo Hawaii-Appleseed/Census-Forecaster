@@ -34,7 +34,7 @@ const blob = gunzipSync(readFileSync(join(DATA, "population.bin.gz")));
 const pop = decodePopulation(meta, blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength));
 
 // check_cg_page_parity's bounds
-const LEVEL_BAND = [0.90, 1.02];
+const LEVEL_BAND = [0.90, 1.05];   // = CG_LEVEL_BAND in scripts/build_simulator_population.py
 const RESPONSE_RATIO_TOL = 0.005;
 
 function csv(name) {
@@ -51,9 +51,9 @@ const rel = (a, b) => Math.abs(a - b) / Math.max(1, Math.abs(b));
 // kernel scores and the model's own (the scenario's tail overrides applied).
 function classTotals(y, s) {
   const A = pop.arrays, u = unitArrays(pop, y, s), cls = gainsClasses(pop, y, s);
-  const cgModel = Float64Array.from(A.cg);
+  const cgModel = Float64Array.from(A[`cg_${y}`]);
   if (s !== "mid") {
-    const t = A[`tail_${s}_idx`], tc = A[`tail_${s}_cg`];
+    const t = A[`cgovr_${s}_${y}_idx`], tc = A[`cgovr_${s}_${y}_val`];
     for (let j = 0; j < t.length; j++) cgModel[t[j]] = tc[j];
   }
   const anchored = new Float64Array(meta.cg_anchor.classes.length), model = anchored.slice();

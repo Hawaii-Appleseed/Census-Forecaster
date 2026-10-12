@@ -20,7 +20,10 @@ recorded here per year (``quint_<year>``), with the projected frame's row
 order (``order_<year>``), so the browser kernel and :func:`frame_for`
 reproduce the published tables.
 
-Capital gains: the arrays carry the model's own gains share (``cg``). The
+Capital gains: the arrays carry the model's own gains share per year
+(``cg_<year>``, after the engine's component aging refreshed it, so the
+simulator anchors on the same share the Act 24 run does; LOW/HIGH's differing
+units are ``cgovr_<scenario>_<year>_idx`` / ``_val``). The
 simulator and the Act 24 page score on the DOTAX-anchored base instead
 (:mod:`.gains`), which :func:`unit_arrays` applies by default.
 """
@@ -41,8 +44,7 @@ FILING_STATUSES = ("single", "married_filing_jointly", "head_of_household",
                    "married_filing_separately")
 QUINTILE_LABELS = ("Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)")
 NO_QUINTILE = 255   # households whose units all weigh <= 0.01, which the tables drop
-FORMAT_VERSION = 1
-SHARE_DRIFT_TOL = 0.05   # max per-unit gains-share drift under CBO aging
+FORMAT_VERSION = 2
 
 
 @dataclass
@@ -149,7 +151,6 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         "fs": mid_units["filing_status"].map(status_code).to_numpy(np.uint8),
         "deps": mid_units["num_dependents"].to_numpy(np.float64),
         "weight": mid_units["weight"].to_numpy(np.float64),
-        "cg": mid_units["synthetic_cg_share"].fillna(0.0).to_numpy(np.float64),
     }
     if np.isnan(arrays["deps"]).any():
         raise RuntimeError("NaN num_dependents in the population")
@@ -168,19 +169,12 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         agi[pos] = proj["income"].to_numpy(np.float64)
         item[pos] = proj["hi_itemized_deduction"].to_numpy(np.float64)
         tci[pos] = proj["total_cash_income"].to_numpy(np.float64)
-        for col, ref in (("weight", arrays["weight"]), ("synthetic_cg_share", arrays["cg"]),
-                         ("num_dependents", arrays["deps"].astype(float))):
+        for col, ref in (("weight", arrays["weight"]), ("num_dependents", arrays["deps"].astype(float))):
             got = np.empty(len(canon_ids)); got[pos] = proj[col].fillna(0.0).to_numpy(np.float64)
-            if col == "synthetic_cg_share":
-                # CBO component aging refreshes the share to the aged composition
-                # (the scalar engine left it fixed). The population keeps the
-                # unit-level share; the drift is bounded, not zero (MID TY2031:
-                # max 2.4pp, weighted mean 0.07pp), and the simulator re-anchors
-                # gains by class anyway (gains.py).
-                if np.abs(got - ref).max() > SHARE_DRIFT_TOL:
-                    raise RuntimeError(f"TY{y}: projection moved {col} by more than {SHARE_DRIFT_TOL}")
-            elif not np.array_equal(got, ref):
+            if not np.array_equal(got, ref):
                 raise RuntimeError(f"TY{y}: projection changed {col}")
+        cg = np.empty(len(canon_ids)); cg[pos] = proj["synthetic_cg_share"].fillna(0.0).to_numpy(np.float64)
+        arrays[f"cg_{y}"] = cg
         if np.isnan(item).any():
             raise RuntimeError(f"TY{y}: NaN itemized deduction survived the refresh")
         arrays[f"agi_{y}"], arrays[f"item_{y}"], arrays[f"tci_{y}"] = agi, item, tci
@@ -202,6 +196,10 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
             a2 = np.empty(len(canon_ids)); i2 = np.empty(len(canon_ids))
             a2[pos2] = p2["income"].to_numpy(np.float64)
             i2[pos2] = p2["hi_itemized_deduction"].to_numpy(np.float64)
+            c2 = np.empty(len(canon_ids)); c2[pos2] = p2["synthetic_cg_share"].fillna(0.0).to_numpy(np.float64)
+            cdiff = np.flatnonzero(c2 != cg)
+            arrays[f"cgovr_{k}_{y}_idx"] = cdiff.astype(np.int32)
+            arrays[f"cgovr_{k}_{y}_val"] = c2[cdiff]
             diff = np.flatnonzero((a2 != agi) | (i2 != item))
             arrays[f"ovr_{k}_{y}_idx"] = diff.astype(np.int32)
             arrays[f"ovr_{k}_{y}_agi"] = a2[diff]
@@ -211,11 +209,10 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         if k == "mid":
             continue
         u = built[k]["units"]
-        w = u["weight"].to_numpy(np.float64); c = u["synthetic_cg_share"].fillna(0.0).to_numpy(np.float64)
-        diff = np.flatnonzero((w != arrays["weight"]) | (c != arrays["cg"]))
+        w = u["weight"].to_numpy(np.float64)
+        diff = np.flatnonzero(w != arrays["weight"])
         arrays[f"tail_{k}_idx"] = diff.astype(np.int32)
         arrays[f"tail_{k}_weight"] = w[diff]
-        arrays[f"tail_{k}_cg"] = c[diff]
 
     meta = {
         "format_version": FORMAT_VERSION,
@@ -255,14 +252,15 @@ def unit_arrays(pop: Population, year: int, scenario: str = "mid",
     agi = a[f"agi_{year}"].copy()
     item = a[f"item_{year}"].copy()
     weight = a["weight"].copy()
-    cg = a["cg"].copy()
+    cg = a[f"cg_{year}"].copy()
     if scenario != "mid":
         idx = a[f"ovr_{scenario}_{year}_idx"]
         agi[idx] = a[f"ovr_{scenario}_{year}_agi"]
         item[idx] = a[f"ovr_{scenario}_{year}_item"]
         t = a[f"tail_{scenario}_idx"]
         weight[t] = a[f"tail_{scenario}_weight"]
-        cg[t] = a[f"tail_{scenario}_cg"]
+        ci = a[f"cgovr_{scenario}_{year}_idx"]
+        cg[ci] = a[f"cgovr_{scenario}_{year}_val"]
     if gains == "anchored":
         from .gains import anchored_share
         cg = anchored_share(pop, year, scenario, cg)

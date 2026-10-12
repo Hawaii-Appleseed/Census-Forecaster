@@ -506,6 +506,7 @@ SYNTH_K = {"low": [0.0, 0.9, 1.5, 1.4, 2.4, 1.95, 1.0],
 def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
     rng = np.random.default_rng(9)
     hh = np.repeat(np.arange(n // 2), 2)
+    cg0 = np.where(rng.random(n) < 0.2, 0.4, 0.0)
     a = {
         "filer_id": np.array([f"U{i}" for i in range(n)]),
         "hh_id": np.array([f"H{i}" for i in range(n // 2)]),
@@ -513,11 +514,11 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
         "fs": rng.integers(0, 4, n).astype(np.uint8),
         "deps": rng.integers(0, 3, n).astype(np.uint8),
         "weight": rng.uniform(1, 30, n),
-        "cg": np.where(rng.random(n) < 0.2, 0.4, 0.0),
         "hh_weight": rng.uniform(5, 40, n // 2),
     }
     for y in years:
         a[f"agi_{y}"] = rng.lognormal(11, 1.3, n)
+        a[f"cg_{y}"] = cg0
         a[f"item_{y}"] = a[f"agi_{y}"] * 0.1
         a[f"tci_{y}"] = a[f"agi_{y}"] * 1.05
         a[f"order_{y}"] = rng.permutation(n).astype(np.int32)
@@ -527,10 +528,11 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
             a[f"ovr_{k}_{y}_idx"] = idx
             a[f"ovr_{k}_{y}_agi"] = a[f"agi_{y}"][idx] * 1.1
             a[f"ovr_{k}_{y}_item"] = a[f"item_{y}"][idx]
+            a[f"cgovr_{k}_{y}_idx"] = np.array([7], dtype=np.int32)
+            a[f"cgovr_{k}_{y}_val"] = np.array([0.5])
     for k in ("low", "high"):
         a[f"tail_{k}_idx"] = np.array([7], dtype=np.int32)
         a[f"tail_{k}_weight"] = np.array([2.0])
-        a[f"tail_{k}_cg"] = np.array([0.5])
     meta = {"years": list(years), "filing_statuses": ["single", "married_filing_jointly",
                                                       "head_of_household", "married_filing_separately"],
             "quintile_labels": ["Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)"],
@@ -538,7 +540,7 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
             "n_households": n // 2, "scenarios": {}, "calibrated_base": {}}
     if anchor:
         for y in years:
-            a[f"cgcls_{y}"] = np.where(a["cg"] > 0, 1 + np.arange(n) % 6, 0).astype(np.uint8)
+            a[f"cgcls_{y}"] = np.where(cg0 > 0, 1 + np.arange(n) % 6, 0).astype(np.uint8)
             for k in ("low", "high"):
                 a[f"cgcls_{k}_{y}_idx"] = np.array([7], dtype=np.int32)   # the tail unit: $1M+
                 a[f"cgcls_{k}_{y}_val"] = np.array([6], dtype=np.uint8)
@@ -826,7 +828,7 @@ class TestPopulationScoring:
         pop = _synthetic_population(years=YEARS)
         write_web_files(pop, tmp_path, kernel_source=b"k")
         m = json.loads((tmp_path / "population.json").read_text())
-        assert m["web_format_version"] == WEB_FORMAT_VERSION == 3
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 4
         assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
         assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
         assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25
