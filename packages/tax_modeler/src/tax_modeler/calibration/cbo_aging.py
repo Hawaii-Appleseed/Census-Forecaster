@@ -35,6 +35,8 @@ absorbed.
 from __future__ import annotations
 
 import logging
+import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional
@@ -77,6 +79,94 @@ DEFAULT_HAWAII_FACTORS: Dict[str, float] = {
     "retirement":    1.00,
     "other":         0.90,
 }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Hawaii mode: "ratio" (the constants above) or "additive" (estimated differentials)
+# ─────────────────────────────────────────────────────────────────────────────
+
+HAWAII_MODES = ("ratio", "additive")
+HAWAII_QCEW_WAGES = True
+"""Wages grow at Hawaii QCEW's realized rate through the latest complete QCEW year
+(both modes; ``HAWAII_QCEW_WAGES=0`` in the environment turns it off to reproduce
+the CBO-only wage path)."""
+HAWAII_AGING_MODE = "ratio"
+"""Default Hawaii mode for every consumer that is not handed explicit factors
+(``HAWAII_AGING_MODE`` in the environment overrides, for the band reruns and
+reproduction). Set from the backtest verdict
+(``backtests/results/hawaii_aging_factors_<date>.md``): ``"additive"`` only if it
+beat the ratio constants. ``"ratio"`` reproduces ``DEFAULT_HAWAII_FACTORS``."""
+
+
+class HawaiiFactors(dict):
+    """Hawaii factors for ``"additive"`` mode: HI log growth = CBO log growth + d̂_c.
+
+    The dict part is the *ratio* fallback (``DEFAULT_HAWAII_FACTORS``), used by
+    components with no estimated differential (``other``). ``d_hat`` is the
+    per-year log differential by component (already shifted by ``shift_se`` SEs
+    when a band run asks); ``realized`` maps ``component -> {year: HI growth
+    factor from year-1}`` for years where Hawaii data has replaced CBO (QCEW
+    wages through the latest complete year).
+    """
+
+    def __init__(self, d_hat: Dict[str, float], *, realized: Optional[Dict[str, Dict[int, float]]] = None,
+                 se: Optional[Dict[str, float]] = None, shift_se: float = 0.0,
+                 fallback: Optional[Dict[str, float]] = None):
+        super().__init__(DEFAULT_HAWAII_FACTORS if fallback is None else fallback)
+        self.d_hat = dict(d_hat)
+        self.realized = {c: dict(v) for c, v in (realized or {}).items()}
+        self.se = dict(se or {})
+        self.shift_se = float(shift_se)
+
+    def describe(self) -> str:
+        return "additive (" + ", ".join(f"{c} {d:+.3f}" for c, d in sorted(self.d_hat.items())) + ")"
+
+
+def copy_factors(hf):
+    """A copy of ``hf`` that keeps the additive attributes."""
+    return hf if isinstance(hf, HawaiiFactors) else dict(hf)
+
+
+def default_hawaii_factors():
+    """The factors a consumer uses when none are passed: per ``HAWAII_AGING_MODE``
+    (and ``HAWAII_AGING_SHIFT_SE``, the band runs' common shift in SE units)."""
+    mode = os.environ.get("HAWAII_AGING_MODE", HAWAII_AGING_MODE)
+    if mode not in HAWAII_MODES:
+        raise ValueError(f"HAWAII_AGING_MODE must be one of {HAWAII_MODES}, not {mode!r}")
+    from tax_modeler.calibration.hawaii_differentials import build_factors
+    return build_factors(mode, shift_se=float(os.environ.get("HAWAII_AGING_SHIFT_SE", "0")),
+                         qcew_wages=os.environ.get("HAWAII_QCEW_WAGES", "1" if HAWAII_QCEW_WAGES else "0") != "0")
+
+
+def hawaii_growth(hawaii_factors, component: str, cbo_rates: "CBOComponentRates",
+                  from_year: int, to_year: int) -> float:
+    """Net Hawaii growth factor ``from_year`` -> ``to_year`` for one component.
+
+    A plain ratio dict: ``net_growth_factor`` on the CBO growth over the window
+    (the old rule, exactly). :class:`HawaiiFactors`: first the realized Hawaii
+    growth, year by year, through the last year it covers (``from_year`` to that
+    year, wages from QCEW), then from there to ``to_year`` either CBO + d̂_c
+    (``exp(ln CBO growth + d̂ x years)``) or, for a component with no ``d_hat``,
+    its ratio on the CBO growth over the remainder.
+    """
+    if to_year == from_year:
+        return 1.0
+    hf = hawaii_factors
+    realized = hf.realized.get(component, {}) if isinstance(hf, HawaiiFactors) else {}
+    out, start = 1.0, from_year
+    if to_year > from_year:
+        while start < to_year and (start + 1) in realized:
+            start += 1
+            out *= realized[start]
+    elif realized:
+        raise ValueError("realized Hawaii growth is forward-only: to_year must not precede from_year")
+    if start == to_year:
+        return out
+    if isinstance(hf, HawaiiFactors) and component in hf.d_hat:
+        return out * math.exp(math.log(cbo_rates.growth(component, to_year, start))
+                              + hf.d_hat[component] * (to_year - start))
+    ratio = hf.get(component, 1.0) if hf is not None else 1.0
+    return out * net_growth_factor(cbo_rates.growth(component, to_year, start), ratio)
 
 
 def net_growth_factor(cbo_f: float, hi_f: float) -> float:
@@ -416,7 +506,7 @@ def age_filers_with_components(
     if cbo_rates is None:
         cbo_rates = load_cbo_rates()
     if hawaii_factors is None:
-        hawaii_factors = dict(DEFAULT_HAWAII_FACTORS)
+        hawaii_factors = default_hawaii_factors()
 
     out = df.copy()
     components = _component_amounts_for_filer(out)
@@ -433,25 +523,14 @@ def age_filers_with_components(
             comp_M, inc_M, (comp_M / inc_M - 1) * 100,
         )
 
-    # Re-base the cumulative CBO factors to the *income dollar-year*.
-    # ``cbo_rates.factor(comp, year)`` is cumulative growth from the CSV's
-    # base_year (2022). The input incomes are already in ``base_year`` dollars
-    # (e.g. the 2020-2024 5-year PUMS is in 2024 dollars), so applying the raw
-    # cumulative-from-2022 factor double-counts the 2022→base_year growth. The
-    # correct aging factor over the window is factor(target)/factor(base_year).
-    # When base_year == cbo_rates.base_year this is a no-op (the prior behavior).
-    rebase = base_year != cbo_rates.base_year
-
-    # Aged total per component
+    # Growth runs from the *income dollar-year* (``base_year``; the input incomes are
+    # already in those dollars, so the raw cumulative-from-2022 CBO factor would
+    # double-count 2022 -> base_year) to ``target_year``: CBO x the Hawaii factor on
+    # the ratio path, CBO + d̂ (or realized Hawaii growth) on the additive one
+    # (``hawaii_growth``).
     aged_total = pd.Series(0.0, index=out.index)
     for comp, amt in components.items():
-        cbo_f = cbo_rates.factor(comp, target_year)
-        if rebase:
-            base_f = cbo_rates.factor(comp, base_year)
-            if base_f > 0:
-                cbo_f = cbo_f / base_f
-        hi_f = hawaii_factors.get(comp, 1.0)
-        net_f = net_growth_factor(cbo_f, hi_f)
+        net_f = hawaii_growth(hawaii_factors, comp, cbo_rates, base_year, target_year)
         aged_amt = amt * net_f
         out[f"cbo_aged_{comp}"] = aged_amt
         aged_total = aged_total + aged_amt
@@ -512,15 +591,9 @@ def age_filers_with_components(
             if col in out.columns:
                 top_M = float((out.loc[top, col] * out.loc[top, "weight"]).sum() / 1e6)
                 if top_M > 1.0:
-                    cbo_f = cbo_rates.factor(comp, target_year)
-                    if rebase:
-                        base_f = cbo_rates.factor(comp, base_year)
-                        if base_f > 0:
-                            cbo_f = cbo_f / base_f
-                    hi_f = hawaii_factors.get(comp, 1.0)
                     logger.info(
-                        "  $1M+ %-13s: $%6.0fM aged (factor=%.3f × HI %.2f = %.3f)",
-                        comp, top_M, cbo_f, hi_f, net_growth_factor(cbo_f, hi_f),
+                        "  $1M+ %-13s: $%6.0fM aged (net factor=%.3f)",
+                        comp, top_M, hawaii_growth(hawaii_factors, comp, cbo_rates, base_year, target_year),
                     )
 
     return out

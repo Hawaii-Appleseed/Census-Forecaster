@@ -1,0 +1,292 @@
+{
+ "source": "IRS SOI Historic Table 2 (state data), all returns (AGI_STUB=0)",
+ "units": "$ millions (published in $000)",
+ "retrieved": "2026-10-11",
+ "urls": {
+  "2012": "https://www.irs.gov/pub/irs-soi/12in54cmcsv.csv",
+  "2013": "https://www.irs.gov/pub/irs-soi/13in54cmcsv.xlsx",
+  "2014": "https://www.irs.gov/pub/irs-soi/14in54cmcsv.csv",
+  "2015": "https://www.irs.gov/pub/irs-soi/15in54cmcsv.csv",
+  "2016": "https://www.irs.gov/pub/irs-soi/16in54cmcsv.csv",
+  "2017": "https://www.irs.gov/pub/irs-soi/17in54cmcsv.csv",
+  "2018": "https://www.irs.gov/pub/irs-soi/18in55cmagi.csv",
+  "2019": "https://www.irs.gov/pub/irs-soi/19in55cmcsv.csv",
+  "2020": "https://www.irs.gov/pub/irs-soi/20in55cmcsv.csv",
+  "2021": "https://www.irs.gov/pub/irs-soi/21in55cmcsv.csv",
+  "2022": "https://www.irs.gov/pub/irs-soi/22in55cmcsv.csv",
+  "2023": "https://www.irs.gov/pub/irs-soi/23in55cmcsv.csv"
+ },
+ "columns": {
+  "A00200": "wages",
+  "A00300": "interest",
+  "A00600": "dividends",
+  "A00900": "business",
+  "A01000": "net_capital_gain",
+  "A01700": "pensions_annuities",
+  "A02500": "taxable_social_security"
+ },
+ "years": {
+  "2012": {
+   "HI": {
+    "wages": 25693.038,
+    "interest": 353.437,
+    "dividends": 811.808,
+    "business": 1501.567,
+    "net_capital_gain": 1759.512,
+    "pensions_annuities": 3480.554,
+    "taxable_social_security": 1187.486,
+    "pensions_ira": 4451.95
+   },
+   "US": {
+    "wages": 6303276.607,
+    "interest": 111370.731,
+    "dividends": 256489.955,
+    "business": 309555.008,
+    "net_capital_gain": 604338.742,
+    "pensions_annuities": 604905.788,
+    "taxable_social_security": 221888.25,
+    "pensions_ira": 835214.097
+   }
+  },
+  "2013": {
+   "HI": {
+    "wages": 26565.881,
+    "interest": 317.763,
+    "dividends": 706.768,
+    "business": 1581.89,
+    "net_capital_gain": 1549.766,
+    "pensions_annuities": 3642.91,
+    "taxable_social_security": 1281.404,
+    "pensions_ira": 4540.111
+   },
+   "US": {
+    "wages": 6450670.537,
+    "interest": 99836.029,
+    "dividends": 210600.378,
+    "business": 311850.142,
+    "net_capital_gain": 486555.752,
+    "pensions_annuities": 628097.054,
+    "taxable_social_security": 240247.207,
+    "pensions_ira": 843375.092
+   }
+  },
+  "2014": {
+   "HI": {
+    "wages": 27633.762,
+    "interest": 313.582,
+    "dividends": 821.822,
+    "business": 1655.27,
+    "net_capital_gain": 2103.983,
+    "pensions_annuities": 3781.588,
+    "taxable_social_security": 1385.839,
+    "pensions_ira": 4755.373
+   },
+   "US": {
+    "wages": 6729585.142,
+    "interest": 92958.863,
+    "dividends": 250723.542,
+    "business": 323702.465,
+    "net_capital_gain": 696578.897,
+    "pensions_annuities": 659649.067,
+    "taxable_social_security": 260435.734,
+    "pensions_ira": 896059.539
+   }
+  },
+  "2015": {
+   "HI": {
+    "wages": 29216.879,
+    "interest": 288.279,
+    "dividends": 834.221,
+    "business": 1749.553,
+    "net_capital_gain": 2146.273,
+    "pensions_annuities": 3940.056,
+    "taxable_social_security": 1480.365,
+    "pensions_ira": 4986.152
+   },
+   "US": {
+    "wages": 7070643.171,
+    "interest": 94128.066,
+    "dividends": 255749.188,
+    "business": 337532.0,
+    "net_capital_gain": 694508.609,
+    "pensions_annuities": 683514.468,
+    "taxable_social_security": 276389.876,
+    "pensions_ira": 933883.931
+   }
+  },
+  "2016": {
+   "HI": {
+    "wages": 29705.77,
+    "interest": 337.557,
+    "dividends": 845.067,
+    "business": 1754.947,
+    "net_capital_gain": 2472.336,
+    "pensions_annuities": 3966.931,
+    "taxable_social_security": 1536.664,
+    "pensions_ira": 5042.769
+   },
+   "US": {
+    "wages": 7187733.797,
+    "interest": 95757.087,
+    "dividends": 251621.537,
+    "business": 337945.333,
+    "net_capital_gain": 618949.579,
+    "pensions_annuities": 695119.723,
+    "taxable_social_security": 285022.263,
+    "pensions_ira": 950166.071
+   }
+  },
+  "2017": {
+   "HI": {
+    "wages": 31008.568,
+    "interest": 323.343,
+    "dividends": 983.664,
+    "business": 1812.69,
+    "net_capital_gain": 2974.645,
+    "pensions_annuities": 4171.461,
+    "taxable_social_security": 1647.161,
+    "pensions_ira": 5371.079
+   },
+   "US": {
+    "wages": 7557396.023,
+    "interest": 106605.858,
+    "dividends": 279740.132,
+    "business": 350904.404,
+    "net_capital_gain": 855728.034,
+    "pensions_annuities": 729165.302,
+    "taxable_social_security": 308253.971,
+    "pensions_ira": 1012353.008
+   }
+  },
+  "2018": {
+   "HI": {
+    "wages": 31939.264,
+    "interest": 367.779,
+    "dividends": 1011.736,
+    "business": 1829.751,
+    "net_capital_gain": 2828.154,
+    "taxable_social_security": 1785.516,
+    "pensions_ira": 5705.371
+   },
+   "US": {
+    "wages": 7890791.77,
+    "interest": 127360.352,
+    "dividends": 318307.981,
+    "business": 357275.31,
+    "net_capital_gain": 924693.3,
+    "taxable_social_security": 336749.979,
+    "pensions_ira": 1077822.234
+   }
+  },
+  "2019": {
+   "HI": {
+    "wages": 33544.393,
+    "interest": 462.651,
+    "dividends": 1105.01,
+    "business": 1909.38,
+    "net_capital_gain": 2516.062,
+    "pensions_annuities": 4542.118,
+    "taxable_social_security": 1934.457,
+    "pensions_ira": 6007.069
+   },
+   "US": {
+    "wages": 8255244.337,
+    "interest": 152285.865,
+    "dividends": 328784.764,
+    "business": 358812.722,
+    "net_capital_gain": 864843.111,
+    "pensions_annuities": 785391.63,
+    "taxable_social_security": 360800.221,
+    "pensions_ira": 1115628.117
+   }
+  },
+  "2020": {
+   "HI": {
+    "wages": 31550.461,
+    "interest": 389.955,
+    "dividends": 2125.641,
+    "business": 1552.374,
+    "net_capital_gain": 3328.882,
+    "pensions_annuities": 4759.536,
+    "taxable_social_security": 2000.941,
+    "pensions_ira": 6057.414
+   },
+   "US": {
+    "wages": 8390581.092,
+    "interest": 126333.222,
+    "dividends": 322842.761,
+    "business": 344749.061,
+    "net_capital_gain": 1121205.81,
+    "pensions_annuities": 820963.796,
+    "taxable_social_security": 373666.593,
+    "pensions_ira": 1105355.381
+   }
+  },
+  "2021": {
+   "HI": {
+    "wages": 33561.669,
+    "interest": 373.408,
+    "dividends": 1287.233,
+    "business": 2155.474,
+    "net_capital_gain": 6245.283,
+    "pensions_annuities": 4988.1,
+    "taxable_social_security": 2201.422,
+    "pensions_ira": 6859.482
+   },
+   "US": {
+    "wages": 9012497.171,
+    "interest": 103674.558,
+    "dividends": 384935.193,
+    "business": 419525.679,
+    "net_capital_gain": 2050443.583,
+    "pensions_annuities": 853473.354,
+    "taxable_social_security": 413593.936,
+    "pensions_ira": 1260965.26
+   }
+  },
+  "2022": {
+   "HI": {
+    "wages": 36446.083,
+    "interest": 369.546,
+    "dividends": 2670.985,
+    "business": 2137.701,
+    "net_capital_gain": 3898.62,
+    "pensions_annuities": 5236.19,
+    "taxable_social_security": 2392.124,
+    "pensions_ira": 7181.635
+   },
+   "US": {
+    "wages": 9708853.012,
+    "interest": 133121.649,
+    "dividends": 408262.606,
+    "business": 421556.959,
+    "net_capital_gain": 1251675.034,
+    "pensions_annuities": 898621.459,
+    "taxable_social_security": 455904.718,
+    "pensions_ira": 1333302.204
+   }
+  },
+  "2023": {
+   "HI": {
+    "wages": 38270.169,
+    "interest": 988.61,
+    "dividends": 1586.982,
+    "business": 1922.965,
+    "net_capital_gain": 2938.443,
+    "pensions_annuities": 5442.946,
+    "taxable_social_security": 2748.308,
+    "pensions_ira": 7328.882
+   },
+   "US": {
+    "wages": 10171094.747,
+    "interest": 311468.789,
+    "dividends": 497802.404,
+    "business": 389534.282,
+    "net_capital_gain": 943479.996,
+    "pensions_annuities": 928820.112,
+    "taxable_social_security": 523454.692,
+    "pensions_ira": 1363409.652
+   }
+  }
+ }
+}
