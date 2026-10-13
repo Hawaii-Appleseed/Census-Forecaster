@@ -1,6 +1,6 @@
 {
  "web_format_version": 5,
- "model_version": "2026-10-13+617c9a29c9",
+ "model_version": "2026-10-13+a1e0797bd0",
  "years": [
   2027,
   2028,
@@ -97,142 +97,142 @@
    "low": {
     "2027": [
      0.0,
-     0.882875244240096,
-     1.334246756373693,
-     0.9705634655901931,
-     1.8325358201758262,
-     1.9475584860419037,
-     1.0579387534327065
+     1.0201664536597217,
+     1.029613645683358,
+     1.0123853751463425,
+     1.0187231311348406,
+     1.3850705903389895,
+     0.9059899862458034
     ],
     "2028": [
      0.0,
-     0.8741542517774228,
-     1.3208147813998314,
-     0.9610274781473788,
-     1.8100448892741927,
-     2.0504234631060343,
-     1.0392307958390619
+     1.0100319122722106,
+     1.0198032380920201,
+     1.0022512033589368,
+     1.00851136537326,
+     1.4422099219489928,
+     0.8899203268686603
     ],
     "2029": [
      0.0,
-     0.8660316224997202,
-     1.3083240080477585,
-     0.9521629544420624,
-     1.7911122922828568,
-     2.074002813097066,
-     1.0269410105975625
+     0.999987167432956,
+     1.0102608914696676,
+     0.9930202990532343,
+     0.9979236628323269,
+     1.4673748361473837,
+     0.8781522332391342
     ],
     "2030": [
      0.0,
-     0.8579109109306526,
-     1.2959487567302372,
-     0.9431420585542263,
-     1.7749770655232475,
-     2.1599132537238876,
-     1.0111951084143773
+     0.9903484927720656,
+     1.0010634153831282,
+     0.983291830030381,
+     0.9893948598120865,
+     1.466917143621159,
+     0.8687238738554188
     ],
     "2031": [
      0.0,
-     0.8489302217008916,
-     1.2817541779628778,
-     0.9337837798561773,
-     1.7544822174064931,
-     2.200558624906218,
-     0.9974297672152292
+     0.9804530903758851,
+     0.9912945048756484,
+     0.9726653405515013,
+     0.9802101819209411,
+     1.4797364668302413,
+     0.8572639585759559
     ]
    },
    "mid": {
     "2027": [
      0.0,
-     0.882875244240096,
-     1.334246756373693,
-     0.9705634655901931,
-     1.8325358201758262,
-     1.9475584860419037,
-     1.0579387534327065
+     1.0201664536597217,
+     1.029613645683358,
+     1.0123853751463425,
+     1.0187231311348406,
+     1.3850705903389895,
+     0.9059899862458034
     ],
     "2028": [
      0.0,
-     0.8741542517774228,
-     1.3208147813998314,
-     0.9610274781473788,
-     1.8100448892741927,
-     2.0504234631060343,
-     1.0392307958390619
+     1.0100319122722106,
+     1.0198032380920201,
+     1.0022512033589368,
+     1.00851136537326,
+     1.4422099219489928,
+     0.8899203268686603
     ],
     "2029": [
      0.0,
-     0.8660316224997202,
-     1.3083240080477585,
-     0.9521629544420624,
-     1.7911122922828568,
-     2.074002813097066,
-     1.0269410105975625
+     0.999987167432956,
+     1.0102608914696676,
+     0.9930202990532343,
+     0.9979236628323269,
+     1.4673748361473837,
+     0.8781522332391342
     ],
     "2030": [
      0.0,
-     0.8579109109306526,
-     1.2959487567302372,
-     0.9431420585542263,
-     1.7749770655232475,
-     2.1599132537238876,
-     1.0111951084143773
+     0.9903484927720656,
+     1.0010634153831282,
+     0.983291830030381,
+     0.9893948598120865,
+     1.466917143621159,
+     0.8687238738554188
     ],
     "2031": [
      0.0,
-     0.8489302217008916,
-     1.2817541779628778,
-     0.9337837798561773,
-     1.7544822174064931,
-     2.200558624906218,
-     0.9974297672152292
+     0.9804530903758851,
+     0.9912945048756484,
+     0.9726653405515013,
+     0.9802101819209411,
+     1.4797364668302413,
+     0.8572639585759559
     ]
    },
    "high": {
     "2027": [
      0.0,
-     0.882875244240096,
-     1.334246756373693,
-     0.9705634655901931,
-     1.8325358201758262,
-     1.9475584860419037,
-     1.0579387534327065
+     1.0201664536597217,
+     1.029613645683358,
+     1.0123853751463425,
+     1.0187231311348406,
+     1.3850705903389895,
+     0.9059899862458034
     ],
     "2028": [
      0.0,
-     0.8741542517774228,
-     1.3208147813998314,
-     0.9610274781473788,
-     1.8100448892741927,
-     2.0504234631060343,
-     1.0392307958390619
+     1.0100319122722106,
+     1.0198032380920201,
+     1.0022512033589368,
+     1.00851136537326,
+     1.4422099219489928,
+     0.8899203268686603
     ],
     "2029": [
      0.0,
-     0.8660316224997202,
-     1.3083240080477585,
-     0.9521629544420624,
-     1.7911122922828568,
-     2.074002813097066,
-     1.0269410105975625
+     0.999987167432956,
+     1.0102608914696676,
+     0.9930202990532343,
+     0.9979236628323269,
+     1.4673748361473837,
+     0.8781522332391342
     ],
     "2030": [
      0.0,
-     0.8579109109306526,
-     1.2959487567302372,
-     0.9431420585542263,
-     1.7749770655232475,
-     2.1599132537238876,
-     1.0111951084143773
+     0.9903484927720656,
+     1.0010634153831282,
+     0.983291830030381,
+     0.9893948598120865,
+     1.466917143621159,
+     0.8687238738554188
     ],
     "2031": [
      0.0,
-     0.8489302217008916,
-     1.2817541779628778,
-     0.9337837798561773,
-     1.7544822174064931,
-     2.200558624906218,
-     0.9974297672152292
+     0.9804530903758851,
+     0.9912945048756484,
+     0.9726653405515013,
+     0.9802101819209411,
+     1.4797364668302413,
+     0.8572639585759559
     ]
    }
   }
@@ -2557,8 +2557,8 @@
   }
  },
  "provenance": {
-  "created_at": "2026-10-13T08:11:55+00:00",
-  "git_sha": "2c47bb4",
+  "created_at": "2026-10-13T19:42:51+00:00",
+  "git_sha": "8eeda74",
   "n_units": 39996,
   "tax_year": 2023,
   "params_fingerprint": "ab6b63a25f3fa23b",
@@ -2567,10 +2567,10 @@
   "calibration_report": {
    "stage": "base_ipf_rake",
    "converged": true,
-   "iterations": 10,
+   "iterations": 8,
    "max_iterations": 100,
    "tolerance": 0.001,
-   "final_max_dev": 0.00021987514168993232,
+   "final_max_dev": 0.00021987514156790878,
    "convergence_mode": "tolerance",
    "target_year": null,
    "margins": [
@@ -2578,481 +2578,481 @@
      "margin": "dotax_filer_count",
      "key": "$0k-$10k",
      "target": 110447.0,
-     "achieved": 110438.9904092265,
+     "achieved": 110438.99040907843,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -7.251976761246555e-05
+     "relative": -7.251976895320173e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$10k-$20k",
      "target": 63776.0,
-     "achieved": 63773.32934961059,
+     "achieved": 63773.32934956798,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -4.187547650227789e-05
+     "relative": -4.1875477170366325e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$20k-$30k",
      "target": 56358.0,
-     "achieved": 56355.91448352575,
+     "achieved": 56355.91448348039,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -3.7004799216675215e-05
+     "relative": -3.7004800021500077e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$30k-$40k",
      "target": 58625.0,
-     "achieved": 58622.74332931367,
+     "achieved": 58622.743329300894,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -3.849331661115593e-05
+     "relative": -3.8493316829093355e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$40k-$50k",
      "target": 54823.0,
-     "achieved": 54821.026541172476,
+     "achieved": 54821.02654116848,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -3.599691420615718e-05
+     "relative": -3.599691427901895e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$50k-$75k",
      "target": 96433.0,
-     "achieved": 96426.8940416745,
+     "achieved": 96426.89404173441,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -6.331814135718417e-05
+     "relative": -6.331814073592136e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$75k-$100k",
      "target": 57836.0,
-     "achieved": 57833.80366298709,
+     "achieved": 57833.80366298435,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -3.7975257848204764e-05
+     "relative": -3.797525789563259e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$100k-$150k",
      "target": 65585.0,
-     "achieved": 65582.1756954672,
+     "achieved": 65582.17569542976,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -4.306326954026261e-05
+     "relative": -4.3063270111156536e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$150k-$200k",
      "target": 30326.0,
-     "achieved": 30325.396144904505,
+     "achieved": 30325.396144873317,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -1.9912124760750164e-05
+     "relative": -1.9912125789187553e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$200k-$300k",
      "target": 21375.0,
-     "achieved": 21374.700004521692,
+     "achieved": 21374.7000045167,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -1.403487617815763e-05
+     "relative": -1.4034876411669066e-05
     },
     {
      "margin": "dotax_filer_count",
      "key": "$300k-$400k",
      "target": 6607.0,
-     "achieved": 6606.971337694775,
+     "achieved": 6606.971337696248,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -4.338172427005492e-06
+     "relative": -4.338172204002401e-06
     },
     {
      "margin": "dotax_filer_count",
      "key": "$400k-$500k",
      "target": 2952.0,
-     "achieved": 2951.9942781620666,
+     "achieved": 2951.994278167597,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -1.9382919828519623e-06
+     "relative": -1.9382901094838953e-06
     },
     {
      "margin": "dotax_filer_count",
      "key": "$500k-$750k",
      "target": 3120.0,
-     "achieved": 3119.993608369332,
+     "achieved": 3119.9936083696293,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -2.0485995731015023e-06
+     "relative": -2.048599477779461e-06
     },
     {
      "margin": "dotax_filer_count",
      "key": "$750k-$1000k",
      "target": 1158.0,
-     "achieved": 1157.9991195200712,
+     "achieved": 1157.9991195196228,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -7.603453616666826e-07
+     "relative": -7.60345748869522e-07
     },
     {
      "margin": "dotax_filer_count",
      "key": "$1000k+",
      "target": 1633.0,
-     "achieved": 1632.9982490456816,
+     "achieved": 1632.9982490456557,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023,
      "counted": true,
-     "relative": -1.072231670770241e-06
+     "relative": -1.0722316866432347e-06
     },
     {
      "margin": "dotax_filing_status",
      "key": "single",
      "target": 334868.0,
-     "achieved": 334941.62914894626,
+     "achieved": 334941.6291489069,
      "source": "DOTAX Table 4 filing status",
      "source_year": 2023,
      "counted": true,
-     "relative": 0.00021987514168645585
+     "relative": 0.00021987514156895173
     },
     {
      "margin": "dotax_filing_status",
      "key": "married_filing_jointly",
      "target": 211911.0,
-     "achieved": 211940.4855673555,
+     "achieved": 211940.48556715128,
      "source": "DOTAX Table 4 filing status",
      "source_year": 2023,
      "counted": true,
-     "relative": 0.00013914127796810628
+     "relative": 0.00013914127700439237
     },
     {
      "margin": "dotax_filing_status",
      "key": "head_of_household",
      "target": 67904.0,
-     "achieved": 67907.0275630835,
+     "achieved": 67907.02756306299,
      "source": "DOTAX Table 4 filing status",
      "source_year": 2023,
      "counted": true,
-     "relative": 4.4585931366265565e-05
+     "relative": 4.4585931064315036e-05
     },
     {
      "margin": "dotax_filing_status",
      "key": "married_filing_separately",
      "target": 16371.0,
-     "achieved": 16371.175975774418,
+     "achieved": 16371.175975776017,
      "source": "DOTAX Table 4 filing status",
      "source_year": 2023,
      "counted": true,
-     "relative": 1.0749237946275447e-05
+     "relative": 1.0749238043941544e-05
     },
     {
      "margin": "dotax_tax_M",
      "key": "$0k-$10k",
      "target": 3.0,
-     "achieved": 1.398966185264174,
+     "achieved": 1.4041529651472702,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": false,
-     "relative": -0.5336779382452753
+     "relative": -0.5319490116175766
     },
     {
      "margin": "dotax_tax_M",
      "key": "$10k-$20k",
      "target": 21.0,
-     "achieved": 20.999999999995328,
+     "achieved": 20.99999999998418,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": -2.2246754702965042e-13
+     "relative": -7.533444767475538e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$20k-$30k",
      "target": 50.0,
-     "achieved": 50.00000000001457,
+     "achieved": 49.99999999997999,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 2.914646302087931e-13
+     "relative": -4.0017766878008843e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$30k-$40k",
      "target": 90.0,
-     "achieved": 90.00000000005512,
+     "achieved": 90.00000000004299,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 6.124878382252064e-13
+     "relative": 4.776426168165118e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$40k-$50k",
      "target": 120.0,
-     "achieved": 120.00000000007168,
+     "achieved": 120.00000000007033,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 5.973295931956575e-13
+     "relative": 5.860793332127893e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$50k-$75k",
      "target": 311.0,
-     "achieved": 311.00000000013387,
+     "achieved": 311.000000000351,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 4.304381074508131e-13
+     "relative": 1.1286434452266544e-12
     },
     {
      "margin": "dotax_tax_M",
      "key": "$75k-$100k",
      "target": 277.0,
-     "achieved": 277.0000000000186,
+     "achieved": 277.0000000000244,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 6.710396378153148e-14
+     "relative": 8.803547541980736e-14
     },
     {
      "margin": "dotax_tax_M",
      "key": "$100k-$150k",
      "target": 467.0,
-     "achieved": 467.00000000028433,
+     "achieved": 467.0000000000367,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 6.088453557639437e-13
+     "relative": 7.863136741773443e-14
     },
     {
      "margin": "dotax_tax_M",
      "key": "$150k-$200k",
      "target": 319.0,
-     "achieved": 319.00000000013347,
+     "achieved": 318.9999999998132,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 4.183960736212452e-13
+     "relative": -5.855406720270067e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$200k-$300k",
      "target": 349.0,
-     "achieved": 349.00000000023283,
+     "achieved": 349.00000000016655,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 6.671365147675347e-13
+     "relative": 4.772241182297062e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$300k-$400k",
      "target": 166.0,
-     "achieved": 165.99999999995555,
+     "achieved": 166.0000000000057,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": -2.677804430671799e-13
+     "relative": 3.4414238527175935e-14
     },
     {
      "margin": "dotax_tax_M",
      "key": "$400k-$500k",
      "target": 103.0,
-     "achieved": 102.99999999982748,
+     "achieved": 103.00000000002562,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": -1.674949283908275e-12
+     "relative": 2.487589422476623e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$500k-$750k",
      "target": 157.0,
-     "achieved": 156.99999999999918,
+     "achieved": 130.71503800456605,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
-     "counted": true,
-     "relative": -5.249869894788001e-15
+     "counted": false,
+     "relative": -0.1674201400983054
     },
     {
      "margin": "dotax_tax_M",
      "key": "$750k-$1000k",
      "target": 87.0,
-     "achieved": 87.00000000002065,
+     "achieved": 86.99999999998872,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": true,
-     "relative": 2.3733760805963804e-13
+     "relative": -1.2969446717092403e-13
     },
     {
      "margin": "dotax_tax_M",
      "key": "$1000k+",
      "target": 562.3,
-     "achieved": 146.54886526300962,
+     "achieved": 141.90595049036247,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023,
      "counted": false,
-     "relative": -0.7393760176720441
+     "relative": -0.7476330242035168
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$30k-$40k",
      "target": 2004.0,
-     "achieved": 2058.3292405631946,
+     "achieved": 2057.1121940430253,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.027110399482632046
+     "relative": 0.026503090839832977
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$40k-$50k",
      "target": 2426.0,
-     "achieved": 2464.4582128063807,
+     "achieved": 2463.2369023081924,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.01585251970584532
+     "relative": 0.015349094108900405
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$50k-$75k",
      "target": 5868.0,
-     "achieved": 5983.582578974777,
+     "achieved": 5977.070141991544,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.019697099348121486
+     "relative": 0.018587277094673484
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$75k-$100k",
      "target": 4983.0,
-     "achieved": 5118.127457121119,
+     "achieved": 5149.378044959008,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.02711769157558074
+     "relative": 0.033389132040740045
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$100k-$150k",
      "target": 7963.0,
-     "achieved": 8298.72080482645,
+     "achieved": 8332.87502736896,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.042160091024293515
+     "relative": 0.046449205998864776
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$150k-$200k",
      "target": 5202.0,
-     "achieved": 5447.794122902756,
+     "achieved": 5463.6726050504985,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.04724992750918024
+     "relative": 0.05030230777595127
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$200k-$300k",
      "target": 5090.0,
-     "achieved": 5453.27102550923,
+     "achieved": 5485.90591155409,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.07136955314523177
+     "relative": 0.0777811221127879
     },
     {
      "margin": "dotax_agi_M_check",
      "key": "$300k-$400k",
      "target": 2258.0,
-     "achieved": 2371.7662750899917,
+     "achieved": 2412.20671757844,
      "source": "DOTAX Table A-1 AGI ($M) \u2014 check, not fitted",
      "source_year": 2023,
      "counted": false,
-     "relative": 0.05038364707262698
+     "relative": 0.06829349759895484
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$0k-$25k",
      "target": 1839.840527963715,
-     "achieved": 2008.9194002687325,
+     "achieved": 2011.1856662225134,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": 0.09189865628851505
+     "relative": 0.09313042932500162
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$25k-$50k",
      "target": 5502.134066021403,
-     "achieved": 5226.295017071472,
+     "achieved": 5219.421615694721,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": -0.050133102109122196
+     "relative": -0.05138232673619874
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$50k-$75k",
      "target": 6331.520258530222,
-     "achieved": 5983.582578974777,
+     "achieved": 5977.070141991544,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": -0.054953260093684744
+     "relative": -0.05598183407233685
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$75k-$100k",
      "target": 5831.095727335251,
-     "achieved": 5118.127457121119,
+     "achieved": 5149.378044959008,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": -0.12227003354992952
+     "relative": -0.11691073414906546
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$100k-$200k",
      "target": 15681.361715815374,
-     "achieved": 13746.514927729204,
+     "achieved": 13796.54763241946,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": -0.12338512580414417
+     "relative": -0.12019454161911154
     },
     {
      "margin": "soi_agi_M_check",
      "key": "$200k+",
      "target": 17664.9642506922,
-     "achieved": 13914.981978373635,
+     "achieved": 13880.245129862717,
      "source": "IRS SOI Table 2 federal AGI ($M, x0.9354 universe scale) \u2014 check, not fitted",
      "source_year": 2022,
      "counted": false,
-     "relative": -0.21228360381038539
+     "relative": -0.2142500300096095
     }
    ],
    "clip_events": [],
@@ -3063,6 +3063,13 @@
      "reason": "target below the 10 $M materiality floor",
      "target": 3.0,
      "feasible": null
+    },
+    {
+     "stage": "tax_total_margin",
+     "key": "$500k-$750k",
+     "reason": "target outside the range [118.6, 151.2] $M reachable at the count target with weight ratios in [0.2, 5]",
+     "target": 157.0,
+     "feasible": 151.19024194993656
     }
    ],
    "weights_before": {
@@ -3077,12 +3084,12 @@
    },
    "weights_after": {
     "n": 39996,
-    "weight_sum": 631160.3182551598,
-    "kish_deff": 2.342084408690725,
-    "effective_n": 17077.095877325195,
-    "max_mean_ratio": 22.4595067782775,
-    "min_mean_ratio": 0.011253168495362769,
-    "top1_share": 0.08000035635415066,
+    "weight_sum": 631160.3182548973,
+    "kish_deff": 2.345190483453452,
+    "effective_n": 17054.478210700898,
+    "max_mean_ratio": 25.37318612893915,
+    "min_mean_ratio": 0.01423667042837626,
+    "top1_share": 0.08021925491396675,
     "n_zero": 0
    },
    "source_years": {
@@ -3097,14 +3104,88 @@
    "statute_vs_cor_wedge": null,
    "warnings": [],
    "notes": [
-    "generalized raking (logit distance, weight-ratio bounds [0.2, 5]), 32 fitted cells, Newton tol 1e-6; units at lower bound: 39, at upper bound: 0; weight ratio range [0.200, 4.835]"
+    "generalized raking (logit distance, weight-ratio bounds [0.2, 5]), 31 fitted cells, Newton tol 1e-6; units at lower bound: 39, at upper bound: 0; weight ratio range [0.200, 4.226]"
    ],
    "children": [],
+   "anchored_at_base": true,
+   "base_anchor_factors": {
+    "100_150": 0.8614622908306854,
+    "150_200": 1.327322471859901,
+    "200_300": 0.9454558868803158,
+    "300_400": 1.8335975802232616,
+    "400_1m": 1.8745740453077888
+   },
+   "base_anchor_passes": [
+    {
+     "pass": 1,
+     "factors": {
+      "100_150": 0.8650943949547882,
+      "150_200": 1.3070304685308962,
+      "200_300": 0.94566867427914,
+      "300_400": 1.7814521408336546,
+      "400_1m": 1.6958577053222819
+     },
+     "moved": 0.007350193730940932,
+     "residual": {
+      "100_150": 0.005459883286072387,
+      "150_200": -0.01986621758755136,
+      "200_300": 0.005624804031633124,
+      "300_400": -0.028564249215734083,
+      "400_1m": -0.09430893951696229
+     },
+     "gains_M_before": {
+      "100_150": 159.86694724478923,
+      "150_200": 109.15583334515625,
+      "200_300": 262.3085724914043,
+      "300_400": 114.06368733819045,
+      "400_1m": 351.83954298017494
+     },
+     "target_M": {
+      "100_150": 138.3,
+      "150_200": 142.67,
+      "200_300": 248.057,
+      "300_400": 203.199,
+      "400_1m": 596.6697999999999
+     }
+    },
+    {
+     "pass": 2,
+     "factors": {
+      "100_150": 0.8614622908306854,
+      "150_200": 1.327322471859901,
+      "200_300": 0.9454558868803158,
+      "300_400": 1.8335975802232616,
+      "400_1m": 1.8745740453077888
+     },
+     "moved": 0.0024131517443845424,
+     "residual": {
+      "100_150": 0.0006447135655949232,
+      "150_200": -0.009674528383303405,
+      "200_300": 0.006036394775381204,
+      "300_400": -0.0012353773524785838,
+      "400_1m": -0.08278440403294562
+     },
+     "gains_M_before": {
+      "100_150": 160.540979532187,
+      "150_200": 107.4870674042644,
+      "200_300": 262.3676085179437,
+      "300_400": 110.81984520030736,
+      "400_1m": 318.2962025391917
+     },
+     "target_M": {
+      "100_150": 138.3,
+      "150_200": 142.67,
+      "200_300": 248.057,
+      "300_400": 203.199,
+      "400_1m": 596.6697999999999
+     }
+    }
+   ],
    "margin_summary": {
     "dotax_filer_count": {
      "cells": 15,
      "counted": 15,
-     "max_abs_relative": 7.251976761246555e-05,
+     "max_abs_relative": 7.251976895320173e-05,
      "within_tolerance": 15,
      "source": "DOTAX Table A-8 returns",
      "source_year": 2023
@@ -3112,16 +3193,16 @@
     "dotax_filing_status": {
      "cells": 4,
      "counted": 4,
-     "max_abs_relative": 0.00021987514168645585,
+     "max_abs_relative": 0.00021987514156895173,
      "within_tolerance": 4,
      "source": "DOTAX Table 4 filing status",
      "source_year": 2023
     },
     "dotax_tax_M": {
      "cells": 15,
-     "counted": 13,
-     "max_abs_relative": 1.674949283908275e-12,
-     "within_tolerance": 13,
+     "counted": 12,
+     "max_abs_relative": 1.1286434452266544e-12,
+     "within_tolerance": 12,
      "source": "DOTAX Table A-8 tax before credits ($M, on hi_tax_before_credits)",
      "source_year": 2023
     },
@@ -3142,12 +3223,86 @@
      "source_year": 2022
     }
    }
-  }
+  },
+  "anchored_at_base": true,
+  "base_anchor_factors": {
+   "100_150": 0.8614622908306854,
+   "150_200": 1.327322471859901,
+   "200_300": 0.9454558868803158,
+   "300_400": 1.8335975802232616,
+   "400_1m": 1.8745740453077888
+  },
+  "base_anchor_passes": [
+   {
+    "pass": 1,
+    "factors": {
+     "100_150": 0.8650943949547882,
+     "150_200": 1.3070304685308962,
+     "200_300": 0.94566867427914,
+     "300_400": 1.7814521408336546,
+     "400_1m": 1.6958577053222819
+    },
+    "moved": 0.007350193730940932,
+    "residual": {
+     "100_150": 0.005459883286072387,
+     "150_200": -0.01986621758755136,
+     "200_300": 0.005624804031633124,
+     "300_400": -0.028564249215734083,
+     "400_1m": -0.09430893951696229
+    },
+    "gains_M_before": {
+     "100_150": 159.86694724478923,
+     "150_200": 109.15583334515625,
+     "200_300": 262.3085724914043,
+     "300_400": 114.06368733819045,
+     "400_1m": 351.83954298017494
+    },
+    "target_M": {
+     "100_150": 138.3,
+     "150_200": 142.67,
+     "200_300": 248.057,
+     "300_400": 203.199,
+     "400_1m": 596.6697999999999
+    }
+   },
+   {
+    "pass": 2,
+    "factors": {
+     "100_150": 0.8614622908306854,
+     "150_200": 1.327322471859901,
+     "200_300": 0.9454558868803158,
+     "300_400": 1.8335975802232616,
+     "400_1m": 1.8745740453077888
+    },
+    "moved": 0.0024131517443845424,
+    "residual": {
+     "100_150": 0.0006447135655949232,
+     "150_200": -0.009674528383303405,
+     "200_300": 0.006036394775381204,
+     "300_400": -0.0012353773524785838,
+     "400_1m": -0.08278440403294562
+    },
+    "gains_M_before": {
+     "100_150": 160.540979532187,
+     "150_200": 107.4870674042644,
+     "200_300": 262.3676085179437,
+     "300_400": 110.81984520030736,
+     "400_1m": 318.2962025391917
+    },
+    "target_M": {
+     "100_150": 138.3,
+     "150_200": 142.67,
+     "200_300": 248.057,
+     "300_400": 203.199,
+     "400_1m": 596.6697999999999
+    }
+   }
+  ]
  },
  "top_tail": {
   "tax_year": 2027,
-  "records_1m": 48,
-  "returns_1m": 2179.861988655391
+  "records_1m": 64,
+  "returns_1m": 2458.88865301332
  },
  "arrays": [
   {
@@ -3237,542 +3392,542 @@
   {
    "name": "ovr_low_2027_idx",
    "dtype": "u4",
-   "length": 710,
+   "length": 746,
    "offset": 1890520
   },
   {
    "name": "ovr_low_2027_agi",
    "dtype": "f8",
-   "length": 710,
-   "offset": 1893360
+   "length": 746,
+   "offset": 1893504
   },
   {
    "name": "ovr_low_2027_item",
    "dtype": "f8",
-   "length": 710,
-   "offset": 1899040
+   "length": 746,
+   "offset": 1899472
   },
   {
    "name": "cgovr_low_2027_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 1904720
+   "length": 24,
+   "offset": 1905440
   },
   {
    "name": "cgovr_low_2027_val",
    "dtype": "f8",
-   "length": 16,
-   "offset": 1904784
+   "length": 24,
+   "offset": 1905536
   },
   {
    "name": "cgcls_low_2027_idx",
    "dtype": "u4",
-   "length": 4,
-   "offset": 1904912
+   "length": 1,
+   "offset": 1905728
   },
   {
    "name": "cgcls_low_2027_val",
    "dtype": "u1",
-   "length": 4,
-   "offset": 1904928
+   "length": 1,
+   "offset": 1905736
   },
   {
    "name": "ovr_high_2027_idx",
    "dtype": "u4",
-   "length": 710,
-   "offset": 1904936
+   "length": 746,
+   "offset": 1905744
   },
   {
    "name": "ovr_high_2027_agi",
    "dtype": "f8",
-   "length": 710,
-   "offset": 1907776
+   "length": 746,
+   "offset": 1908728
   },
   {
    "name": "ovr_high_2027_item",
    "dtype": "f8",
-   "length": 710,
-   "offset": 1913456
+   "length": 746,
+   "offset": 1914696
   },
   {
    "name": "cgovr_high_2027_idx",
    "dtype": "u4",
-   "length": 12,
-   "offset": 1919136
+   "length": 24,
+   "offset": 1920664
   },
   {
    "name": "cgovr_high_2027_val",
    "dtype": "f8",
-   "length": 12,
-   "offset": 1919184
+   "length": 24,
+   "offset": 1920760
   },
   {
    "name": "cgcls_high_2027_idx",
    "dtype": "u4",
-   "length": 7,
-   "offset": 1919280
+   "length": 12,
+   "offset": 1920952
   },
   {
    "name": "cgcls_high_2027_val",
    "dtype": "u1",
-   "length": 7,
-   "offset": 1919312
+   "length": 12,
+   "offset": 1921000
   },
   {
    "name": "agi_2028",
    "dtype": "f8",
    "length": 40020,
-   "offset": 1919320
+   "offset": 1921016
   },
   {
    "name": "item_2028",
    "dtype": "f8",
    "length": 40020,
-   "offset": 2239480
+   "offset": 2241176
   },
   {
    "name": "cgcls_2028",
    "dtype": "u1",
    "length": 40020,
-   "offset": 2559640
+   "offset": 2561336
   },
   {
    "name": "cg_2028",
    "dtype": "f8",
    "length": 40020,
-   "offset": 2599664
+   "offset": 2601360
   },
   {
    "name": "ovr_low_2028_idx",
    "dtype": "u4",
-   "length": 738,
-   "offset": 2919824
+   "length": 789,
+   "offset": 2921520
   },
   {
    "name": "ovr_low_2028_agi",
    "dtype": "f8",
-   "length": 738,
-   "offset": 2922776
+   "length": 789,
+   "offset": 2924680
   },
   {
    "name": "ovr_low_2028_item",
    "dtype": "f8",
-   "length": 738,
-   "offset": 2928680
+   "length": 789,
+   "offset": 2930992
   },
   {
    "name": "cgovr_low_2028_idx",
    "dtype": "u4",
-   "length": 8,
-   "offset": 2934584
+   "length": 24,
+   "offset": 2937304
   },
   {
    "name": "cgovr_low_2028_val",
    "dtype": "f8",
-   "length": 8,
-   "offset": 2934616
+   "length": 24,
+   "offset": 2937400
   },
   {
    "name": "cgcls_low_2028_idx",
    "dtype": "u4",
-   "length": 14,
-   "offset": 2934680
+   "length": 15,
+   "offset": 2937592
   },
   {
    "name": "cgcls_low_2028_val",
    "dtype": "u1",
-   "length": 14,
-   "offset": 2934736
+   "length": 15,
+   "offset": 2937656
   },
   {
    "name": "ovr_high_2028_idx",
    "dtype": "u4",
-   "length": 738,
-   "offset": 2934752
+   "length": 789,
+   "offset": 2937672
   },
   {
    "name": "ovr_high_2028_agi",
    "dtype": "f8",
-   "length": 738,
-   "offset": 2937704
+   "length": 789,
+   "offset": 2940832
   },
   {
    "name": "ovr_high_2028_item",
    "dtype": "f8",
-   "length": 738,
-   "offset": 2943608
+   "length": 789,
+   "offset": 2947144
   },
   {
    "name": "cgovr_high_2028_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 2949512
+   "length": 24,
+   "offset": 2953456
   },
   {
    "name": "cgovr_high_2028_val",
    "dtype": "f8",
-   "length": 16,
-   "offset": 2949576
+   "length": 24,
+   "offset": 2953552
   },
   {
    "name": "cgcls_high_2028_idx",
    "dtype": "u4",
-   "length": 4,
-   "offset": 2949704
+   "length": 14,
+   "offset": 2953744
   },
   {
    "name": "cgcls_high_2028_val",
    "dtype": "u1",
-   "length": 4,
-   "offset": 2949720
+   "length": 14,
+   "offset": 2953800
   },
   {
    "name": "agi_2029",
    "dtype": "f8",
    "length": 40020,
-   "offset": 2949728
+   "offset": 2953816
   },
   {
    "name": "item_2029",
    "dtype": "f8",
    "length": 40020,
-   "offset": 3269888
+   "offset": 3273976
   },
   {
    "name": "cgcls_2029",
    "dtype": "u1",
    "length": 40020,
-   "offset": 3590048
+   "offset": 3594136
   },
   {
    "name": "cg_2029",
    "dtype": "f8",
    "length": 40020,
-   "offset": 3630072
+   "offset": 3634160
   },
   {
    "name": "ovr_low_2029_idx",
    "dtype": "u4",
-   "length": 781,
-   "offset": 3950232
+   "length": 839,
+   "offset": 3954320
   },
   {
    "name": "ovr_low_2029_agi",
    "dtype": "f8",
-   "length": 781,
-   "offset": 3953360
+   "length": 839,
+   "offset": 3957680
   },
   {
    "name": "ovr_low_2029_item",
    "dtype": "f8",
-   "length": 781,
-   "offset": 3959608
+   "length": 839,
+   "offset": 3964392
   },
   {
    "name": "cgovr_low_2029_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 3965856
+   "length": 24,
+   "offset": 3971104
   },
   {
    "name": "cgovr_low_2029_val",
    "dtype": "f8",
-   "length": 16,
-   "offset": 3965920
+   "length": 24,
+   "offset": 3971200
   },
   {
    "name": "cgcls_low_2029_idx",
    "dtype": "u4",
-   "length": 39,
-   "offset": 3966048
+   "length": 71,
+   "offset": 3971392
   },
   {
    "name": "cgcls_low_2029_val",
    "dtype": "u1",
-   "length": 39,
-   "offset": 3966208
+   "length": 71,
+   "offset": 3971680
   },
   {
    "name": "ovr_high_2029_idx",
    "dtype": "u4",
-   "length": 781,
-   "offset": 3966248
+   "length": 839,
+   "offset": 3971752
   },
   {
    "name": "ovr_high_2029_agi",
    "dtype": "f8",
-   "length": 781,
-   "offset": 3969376
+   "length": 839,
+   "offset": 3975112
   },
   {
    "name": "ovr_high_2029_item",
    "dtype": "f8",
-   "length": 781,
-   "offset": 3975624
+   "length": 839,
+   "offset": 3981824
   },
   {
    "name": "cgovr_high_2029_idx",
    "dtype": "u4",
    "length": 24,
-   "offset": 3981872
+   "offset": 3988536
   },
   {
    "name": "cgovr_high_2029_val",
    "dtype": "f8",
    "length": 24,
-   "offset": 3981968
+   "offset": 3988632
   },
   {
    "name": "cgcls_high_2029_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 3982160
+   "length": 10,
+   "offset": 3988824
   },
   {
    "name": "cgcls_high_2029_val",
    "dtype": "u1",
-   "length": 16,
-   "offset": 3982224
+   "length": 10,
+   "offset": 3988864
   },
   {
    "name": "agi_2030",
    "dtype": "f8",
    "length": 40020,
-   "offset": 3982240
+   "offset": 3988880
   },
   {
    "name": "item_2030",
    "dtype": "f8",
    "length": 40020,
-   "offset": 4302400
+   "offset": 4309040
   },
   {
    "name": "cgcls_2030",
    "dtype": "u1",
    "length": 40020,
-   "offset": 4622560
+   "offset": 4629200
   },
   {
    "name": "cg_2030",
    "dtype": "f8",
    "length": 40020,
-   "offset": 4662584
+   "offset": 4669224
   },
   {
    "name": "ovr_low_2030_idx",
    "dtype": "u4",
-   "length": 824,
-   "offset": 4982744
+   "length": 896,
+   "offset": 4989384
   },
   {
    "name": "ovr_low_2030_agi",
    "dtype": "f8",
-   "length": 824,
-   "offset": 4986040
+   "length": 896,
+   "offset": 4992968
   },
   {
    "name": "ovr_low_2030_item",
    "dtype": "f8",
-   "length": 824,
-   "offset": 4992632
+   "length": 896,
+   "offset": 5000136
   },
   {
    "name": "cgovr_low_2030_idx",
    "dtype": "u4",
-   "length": 12,
-   "offset": 4999224
+   "length": 24,
+   "offset": 5007304
   },
   {
    "name": "cgovr_low_2030_val",
    "dtype": "f8",
-   "length": 12,
-   "offset": 4999272
+   "length": 24,
+   "offset": 5007400
   },
   {
    "name": "cgcls_low_2030_idx",
    "dtype": "u4",
-   "length": 73,
-   "offset": 4999368
+   "length": 74,
+   "offset": 5007592
   },
   {
    "name": "cgcls_low_2030_val",
    "dtype": "u1",
-   "length": 73,
-   "offset": 4999664
+   "length": 74,
+   "offset": 5007888
   },
   {
    "name": "ovr_high_2030_idx",
    "dtype": "u4",
-   "length": 824,
-   "offset": 4999744
+   "length": 896,
+   "offset": 5007968
   },
   {
    "name": "ovr_high_2030_agi",
    "dtype": "f8",
-   "length": 824,
-   "offset": 5003040
+   "length": 896,
+   "offset": 5011552
   },
   {
    "name": "ovr_high_2030_item",
    "dtype": "f8",
-   "length": 824,
-   "offset": 5009632
+   "length": 896,
+   "offset": 5018720
   },
   {
    "name": "cgovr_high_2030_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 5016224
+   "length": 24,
+   "offset": 5025888
   },
   {
    "name": "cgovr_high_2030_val",
    "dtype": "f8",
-   "length": 16,
-   "offset": 5016288
+   "length": 24,
+   "offset": 5025984
   },
   {
    "name": "cgcls_high_2030_idx",
    "dtype": "u4",
-   "length": 16,
-   "offset": 5016416
+   "length": 24,
+   "offset": 5026176
   },
   {
    "name": "cgcls_high_2030_val",
    "dtype": "u1",
-   "length": 16,
-   "offset": 5016480
+   "length": 24,
+   "offset": 5026272
   },
   {
    "name": "agi_2031",
    "dtype": "f8",
    "length": 40020,
-   "offset": 5016496
+   "offset": 5026296
   },
   {
    "name": "item_2031",
    "dtype": "f8",
    "length": 40020,
-   "offset": 5336656
+   "offset": 5346456
   },
   {
    "name": "cgcls_2031",
    "dtype": "u1",
    "length": 40020,
-   "offset": 5656816
+   "offset": 5666616
   },
   {
    "name": "cg_2031",
    "dtype": "f8",
    "length": 40020,
-   "offset": 5696840
+   "offset": 5706640
   },
   {
    "name": "ovr_low_2031_idx",
    "dtype": "u4",
-   "length": 874,
-   "offset": 6017000
+   "length": 952,
+   "offset": 6026800
   },
   {
    "name": "ovr_low_2031_agi",
    "dtype": "f8",
-   "length": 874,
-   "offset": 6020496
+   "length": 952,
+   "offset": 6030608
   },
   {
    "name": "ovr_low_2031_item",
    "dtype": "f8",
-   "length": 874,
-   "offset": 6027488
+   "length": 952,
+   "offset": 6038224
   },
   {
    "name": "cgovr_low_2031_idx",
    "dtype": "u4",
-   "length": 20,
-   "offset": 6034480
+   "length": 24,
+   "offset": 6045840
   },
   {
    "name": "cgovr_low_2031_val",
    "dtype": "f8",
-   "length": 20,
-   "offset": 6034560
+   "length": 24,
+   "offset": 6045936
   },
   {
    "name": "cgcls_low_2031_idx",
    "dtype": "u4",
-   "length": 51,
-   "offset": 6034720
+   "length": 46,
+   "offset": 6046128
   },
   {
    "name": "cgcls_low_2031_val",
    "dtype": "u1",
-   "length": 51,
-   "offset": 6034928
+   "length": 46,
+   "offset": 6046312
   },
   {
    "name": "ovr_high_2031_idx",
    "dtype": "u4",
-   "length": 874,
-   "offset": 6034984
+   "length": 952,
+   "offset": 6046360
   },
   {
    "name": "ovr_high_2031_agi",
    "dtype": "f8",
-   "length": 874,
-   "offset": 6038480
+   "length": 952,
+   "offset": 6050168
   },
   {
    "name": "ovr_high_2031_item",
    "dtype": "f8",
-   "length": 874,
-   "offset": 6045472
+   "length": 952,
+   "offset": 6057784
   },
   {
    "name": "cgovr_high_2031_idx",
    "dtype": "u4",
-   "length": 12,
-   "offset": 6052464
+   "length": 24,
+   "offset": 6065400
   },
   {
    "name": "cgovr_high_2031_val",
    "dtype": "f8",
-   "length": 12,
-   "offset": 6052512
+   "length": 24,
+   "offset": 6065496
   },
   {
    "name": "cgcls_high_2031_idx",
    "dtype": "u4",
-   "length": 18,
-   "offset": 6052608
+   "length": 42,
+   "offset": 6065688
   },
   {
    "name": "cgcls_high_2031_val",
    "dtype": "u1",
-   "length": 18,
-   "offset": 6052680
+   "length": 42,
+   "offset": 6065856
   },
   {
    "name": "tail_low_idx",
    "dtype": "u4",
    "length": 24,
-   "offset": 6052704
+   "offset": 6065904
   },
   {
    "name": "tail_low_weight",
    "dtype": "f8",
    "length": 24,
-   "offset": 6052800
+   "offset": 6066000
   },
   {
    "name": "tail_high_idx",
    "dtype": "u4",
    "length": 24,
-   "offset": 6052992
+   "offset": 6066192
   },
   {
    "name": "tail_high_weight",
    "dtype": "f8",
    "length": 24,
-   "offset": 6053088
+   "offset": 6066288
   }
  ]
 }

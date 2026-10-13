@@ -1,17 +1,17 @@
 """Scratch diagnostic: decompose the capital-gains growth-shift sensitivity of the MID Act 24 total.
 
 Usage (env HAWAII_GROWTH_SHIFT set for shifted runs; HAWAII_PUMS_DIR not needed, reads the cached base):
-  python scripts/diagnostics/gains_shift_decomp.py NAME [--hold tail,factors,labels,credit] [--save]
+  python scripts/diagnostics/gains_shift_decomp.py NAME [--hold tail,factors,credit] [--save]
   --save   : keep per-year projected frames/factors/labels in /tmp/gs/NAME.pkl (use on the base run)
   --hold X : comma list, taken from /tmp/gs/base.pkl:
      tail    age the synthetic tail with the UNSHIFTED spec (base tail aging)
      factors use base-run anchor factors (k per class, year)
-     labels  use base-run AGI-class (rank) labels in apply_anchor_factors
-     ordinary keep non-gains income at base-run anchored values (gains $ as the live run anchors them)
      credit  use base projected frame for the credit overlay's AGI-eligibility input
      (ETI hold is done post hoc in the write-up: eti term is reported separately)
-NOTE: the labels/ordinary holds predate the 2026-10-12 anchor fix (income now moves with anchored
-gains, cg_anchor.rescale_gains) and still hand-roll the old min(1, share x k) rule; the unheld run is current.
+NOTE: the old `labels` and `ordinary` holds were dropped on 2026-10-13: they hand-rolled the pre-fix
+min(1, share x k) rule, and with the gains anchored at the base year (pipeline.calibrate_anchored) and
+income moving with anchored gains (cg_anchor.rescale_gains) there is no reclassified income left to hold.
+The unshifted run reproduces the headline MID by year (compare with runs/sb3125_cd2_enhanced/enhanced.csv).
 Writes /tmp/gs/NAME.json. MID scenario, CD2 only. Does not change defaults.
 """
 import json, os, pickle, sys, warnings, logging
@@ -57,20 +57,7 @@ out, store = {}, {"factors": factors, "labels": {}, "proj": {}, "tail_k": tail_k
 for y in TARGET_YEARS:
     proj = ap.project_units(units, year=y, spec=spec)
     store["labels"][y] = cg_anchor.rank_classes(proj)
-    lab = B["labels"][y] if "labels" in holds else None
-    if lab is not None:
-        k = np.fromiter((factors[y].get(c, 0.0) for c in lab), float, count=len(lab))
-        p2 = proj.copy()
-        p2["synthetic_cg_share"] = np.minimum(1.0, p2["synthetic_cg_share"].fillna(0).to_numpy(float) * k)
-        proj_a = p2
-    else:
-        proj_a = cg_anchor.apply_anchor_factors(proj, factors[y])
-    if "ordinary" in holds:  # keep ordinary (non-gains) income at the base run's anchored value; gains $ as anchored now
-        bp_a = cg_anchor.apply_anchor_factors(B["proj"][y], B["factors"][y])
-        ord_base = bp_a["income"].to_numpy(float) * (1 - bp_a["synthetic_cg_share"].fillna(0).to_numpy(float))
-        g_now = proj_a["income"].to_numpy(float) * proj_a["synthetic_cg_share"].fillna(0).to_numpy(float)
-        proj_a = proj_a.copy(); inc_n = ord_base + g_now
-        proj_a["income"] = inc_n; proj_a["synthetic_cg_share"] = np.where(inc_n > 0, g_now / np.maximum(inc_n, 1), 0.0)
+    proj_a = cg_anchor.apply_anchor_factors(proj, factors[y])
     store["proj"][y] = proj
     bcfg = ap.statute(TaxSystemRegistry.get_act46_system)(y)
     scfg = ap.statute(get_sc)(y)

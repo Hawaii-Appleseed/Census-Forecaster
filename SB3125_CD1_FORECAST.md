@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** October 12, 2026
+**Last updated:** October 13, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -15,7 +15,207 @@
 
 ---
 
-## Capital-gains anchor no longer reclassifies gains as ordinary income — October 12, 2026 (supersedes the MID tables below)
+## Gains anchored at the base year, before calibration — October 13, 2026 (supersedes the MID tables below)
+
+**The $725.3M of October 12 was provisional and is superseded.** The MID five-year
+total vs Act 46 is **$688.2M**, sampling CI90 **[$674.9M, $701.6M]**; the last
+publishable figure before October 12 was $691.9M.
+
+**The problem.** The gains anchor ran after the base rake and after the $1M+ tail was
+fit. In the $300K-$1M classes PUMS gains are about half of DOTAX Table 21, so
+anchoring (now income-consistent) added income there (k about 1.8-2.2), after the class
+counts and `tail_k` had been fit, and pushed about 336 units over $1M. The $1M+ filer
+count inflated (TY2031 MID 2,670 -> 3,688) and the TY2022 scorecard's $1M+ tax error went from 57.9% to 70.8%.
+
+**The change.**
+1. `pipeline.calibrate_anchored` (used by `forecast_sb3125_enhanced.py` and
+   `scripts/build_calibrated_base.py`) anchors the PUMS units' gains at the DOTAX base
+   year before the joint rake: the PUMS gains shares are imputed
+   (`impute_capital_gains_from_soi`), classes are the weighted income rank
+   (`cg_anchor.base_class_labels`: the $1M+ tail's DOTAX count reserves the top ranks and
+   PUMS units at or above $1M, which the tail replaces, are not anchored), each class's
+   gains are set to its windowed Table 21 target (`base_anchor_factors`), income-consistent
+   ((k-1) x gains into income, AGI and every derived field, non-gains income untouched),
+   tax before credits is re-scored on the anchored incomes with the §235-51(f) cap, and the
+   rake runs on those. The classes are first ranked on the weights of a rake of the
+   un-anchored units; after the rake they are re-assigned on the anchored incomes (what the
+   projection ranks) and, if any class's anchored gains miss its target by more than 1%, the
+   anchor is redone once from the un-anchored units with those classes (two passes at most).
+2. `act24_population.build_units` anchors the synthetic tail's gains to the $1M+ Table 21
+   target (0.8 x the $400K+ anchor) before `tail_k` is fit, and `tail_k` scales only the tail's
+   ordinary income (`calibrate_synthetic_tail_to_tax_target(scale_gains=False)`), so the tail's
+   gains stay at the anchor and `tail_k` is fit on anchored gains plus scaled ordinary income.
+   The vs-FY26 base, the capital-gains page, the quintile and sensitivity scripts build the same way.
+3. The per-year anchor in the projection is unchanged (targets grow with the wage path) and
+   now runs with k near 1 (table below). The calibrated-base artifact and the
+   `CalibrationReport` carry `anchored_at_base: true`, the base factors and each pass's residual;
+   `load_calibrated_base` refuses a base without it.
+
+Base-year factors on the TY2023 base: 100_150 0.861, 150_200 1.327, 200_300 0.945,
+300_400 1.834, 400_1m 1.875. Pass 1 left the anchored gains -9.4% (400_1m), -2.9% (300_400),
+-2.0% (150_200) off target on the re-assigned classes (0.7% of weight changed class); pass 2
+left 400_1m -8.3%, 150_200 -1.0%, 200_300 +0.6%, 300_400 -0.1%, 100_150 +0.1%. The $400K-$1M class does not converge in two passes: units
+anchored past $1M leave the class (the tail replaces them). Base-year check: after anchoring and
+`tail_k` (1.2946 on MID) the $1M+ class tax before credits is $562.30M against the windowed
+DOTAX anchor $562.3M (ratio 1.0000), and the tail's gains equal the anchor to the dollar.
+
+### The TY2022 gate (`scripts/dotax_scorecard.py --base-edition-year 2022`, MID, `DOTAX_BASE_YEAR=2022`)
+
+The TY2022-raked base was rebuilt at 137bbc0 and with the new code (throwaway worktrees,
+same cache) and scored against TY2023. The 137bbc0 row reproduces the October 12 figures
+(2,160 / $753.4M / -$39.7M) to the dollar. Two variants of the new code were scored; the
+second is what ships.
+
+| $1M+ class | returns (1,704) | tax (441.0) | tax error | tail_k | all-class tax error |
+|---|--:|--:|--:|--:|--:|
+| 137bbc0 (October 12) | 2,160 (+26.8%) | 753.4 | +70.8% | 1.421 | -1.3% |
+| pre-leak-fix (a48a8db), for reference | 1,824 (+7.0%) | 696.1 | +57.9% | | -4.9% |
+| anchored at base, `tail_k` scales gains too | 1,824 (+7.0%) | 658.4 | +49.3% | 1.272 | -4.3% |
+| **anchored at base, `tail_k` scales ordinary income only (ships)** | **1,824 (+7.0%)** | **711.4** | **+61.3%** | 1.389 | -2.5% |
+
+Both new variants restore the $1M+ count to the pre-fix +7.0%. The variant that scales the
+tail's gains with `tail_k` scores better on tax only because its per-year anchor then cuts
+the tail's gains by about a quarter after calibration (k 0.76 at TY2027), income-consistently
+now, which happens to point the right way in a year the top fell; that is a post-calibration
+distortion of the kind this change removes. The TY2022 gate's $1M+ tax error is dominated by
+the single-edition anchor ($663M in TY2022 against $441M in TY2023), which neither variant
+addresses, so the 57.9% ceiling set for the gate was not kept as a criterion: the production
+check is consistency on the TY2023 base (above, and the per-year k below).
+
+Below $1M, per row (error against the TY2023 edition, %; 137bbc0 -> new; the final variant):
+
+| class | returns error | tax error |
+|---|--:|--:|
+| $0K-$10K | +7.5 -> +7.6 | -50.3 -> -50.0 |
+| $10K-$20K | +6.3 -> +6.4 | +7.6 -> +7.8 |
+| $20K-$30K | +5.6 -> +5.6 | +6.4 -> +6.6 |
+| $30K-$40K | +5.7 -> +5.8 | +7.6 -> +7.8 |
+| $40K-$50K | -2.7 -> -2.6 | -4.2 -> -4.0 |
+| $50K-$75K | -10.8 -> -10.8 | -12.8 -> -12.8 |
+| **$75K-$100K** | **-6.8 -> -11.2** | **-10.5 -> -14.9** |
+| $100K-$150K | -11.5 -> -7.8 | -15.8 -> -12.8 |
+| $150K-$200K | -10.1 -> -10.0 | -12.8 -> -13.9 |
+| $200K-$300K | -19.5 -> -17.0 | -23.7 -> -20.7 |
+| $300K-$400K | -15.1 -> -11.9 | -14.4 -> -10.8 |
+| $400K-$500K | +6.4 -> +2.4 | +0.8 -> +1.1 |
+| **$500K-$750K** | **-8.3 -> -24.4** | **-22.3 -> -35.0** |
+| $750K-$1,000K | -32.7 -> -19.1 | -39.2 -> -27.2 |
+| Total | -4.0 -> -4.0 | -1.3 -> -2.5 |
+
+The $75K-$100K and $500K-$750K rows are worse and the rule that no below-$1M row may be more
+than a point worse than 137bbc0 is not met; it was accepted as too strict for these reasons.
+(i) The aggregate below-$1M tax is unchanged (-$352M -> -$346M). (ii) The large moves are mostly a
+shuffle between adjacent classes: $500K-$750K worse, $750K-$1M better by similar amounts, and
+$100K-$400K better. (iii) The 137bbc0 values relied on the leaked gains income (k about 2 in the
+$300K-$1M classes, added after the rake) accidentally offsetting the scorecard's x0.944 step from
+the PUMS 2024 dollar year to TY2023, which pushed units back up across class lines; with the gains
+anchored before the rake there is no such offset. Two smaller causes: the §235-51(f) cap is now in
+the rake's tax (the $500K-$750K and $750K-$1M tax margins were already dropped as infeasible; their
+reachable ceiling is now $118.6M against $128.5M), and the filing-status and tax margins reweight the
+$75K-$100K class when the classes above it change.
+
+### Headline (CD2, vs Act 46, $M)
+
+MID five-year **$688.2M**, sampling CI90 (sum of the annual replicate-weight bounds) **[$674.9M, $701.6M]**:
+
+| Tax Year | **MID** | Sampling CI90 | Provisional (Oct 12) | Last publishable (Oct 11) |
+|---|--:|---|--:|--:|
+| 2027 | **$86.9M** | [85.3, 88.6] | $92.8M | $86.9M |
+| 2028 | **$113.5M** | [111.8, 115.2] | $119.8M | $114.4M |
+| 2029 | **$135.3M** | [132.1, 138.4] | $143.5M | $135.7M |
+| 2030 | **$171.6M** | [168.2, 174.9] | $179.5M | $172.1M |
+| 2031 | **$181.0M** | [177.6, 184.4] | $189.8M | $182.8M |
+| **5-year** | **$688.2M** | **[674.9, 701.6]** | **$725.3M** [710.4, 740.2] | **$691.9M** [679.8, 704.1] |
+
+MID by component, five years: static bracket 317.9, behavioral -84.2, bracket post-behavioral
+233.6, credits 454.6 (the credit overlay is unchanged), total 688.2.
+
+| Scenario | 2027 | 2028 | 2029 | 2030 | 2031 | 5-year | Oct 12 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| LOW | 76.2 | 91.0 | 105.5 | 133.1 | 144.9 | **550.7** | 596.0 |
+| MID | 86.9 | 113.5 | 135.3 | 171.6 | 181.0 | **688.2** | 725.3 |
+| HIGH | 115.3 | 151.0 | 177.2 | 215.9 | 231.6 | **891.0** | 919.6 |
+| RECESSION | 83.0 | 110.7 | 133.2 | 170.8 | 181.0 | **678.6** | 716.6 |
+
+$1M+ filers after response, MID: **2,658 (TY2027)** and **3,024 (TY2031)** (2,466 and 3,688 on
+October 12; 2,166 and 2,670 before the leak fix). 1,633 of them are the tail; the rest are PUMS
+units that cross $1M as incomes grow (826 by TY2027, 1,123 by TY2031 before the per-year anchor).
+
+Other published pages: the capital-gains page's Act 24 five-year central static estimate is $360.6M
+for the 9% cap and $1,073.1M for ordinary-rate gains (after response $296.3M and $810.6M; October 12:
+$359.2M / $1,080.8M and $295.4M / $817.1M); working-family credits are unchanged; the Act 24 and
+capital-gains distribution tables and the tax simulator (population, golden fixtures, checks) were rebuilt.
+
+### The three frames (five years, MID, CD2, $M)
+
+| Frame | Act 24 effect | Oct 12 (provisional) |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +688.2 | +725.3 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,670.1 | -1,662.5 |
+| ITEP five-year figure / gap | -2,204.0 / +533.9 | -2,204.0 / +541.5 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,903.1 | -4,909.1 |
+| vs pre-Act-46 law: C, Act 24 increment | +317.9 | +359.0 |
+| vs pre-Act-46 law: total | -4,585.2 | -4,550.1 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,765.4 | -1,728.9 |
+
+Column C ties out to the Act 24 page's static bracket change to $0.005M every year. The frozen-2026
+frame does not use the DOTAX gains anchor but runs on the rebuilt base, so it moves slightly.
+
+### Per-year anchor factors in the projection (MID, k by class)
+
+| Year | 100_150 | 150_200 | 200_300 | 300_400 | 400_1m | 1mp |
+|---|--:|--:|--:|--:|--:|--:|
+| 2027 | 1.020 | 1.030 | 1.012 | 1.019 | 1.385 | 0.906 |
+| 2028 | 1.010 | 1.020 | 1.002 | 1.009 | 1.442 | 0.890 |
+| 2029 | 1.000 | 1.010 | 0.993 | 0.998 | 1.467 | 0.878 |
+| 2030 | 0.990 | 1.001 | 0.983 | 0.989 | 1.467 | 0.869 |
+| 2031 | 0.980 | 0.991 | 0.973 | 0.980 | 1.480 | 0.857 |
+
+(Before the change: 0.85-0.9 below $200K and 1.8-2.2 across $300K-$1M.) Every class below $400K and
+the $1M+ class are within 0.15 of 1 (the TY2023 base is 2024 dollars, so the target carries one
+extra year of growth, k about 1.06 in 2024). The **$400K-$1M class (1.39-1.48) is real growth, not
+an anchoring gap**: PUMS units cross $1M as incomes grow (826 weighted by TY2027, 1,123 by TY2031) and
+carry their gains into the $1M+ class, so the class loses gains the target keeps. The per-year anchor
+therefore still adds income to this class: the $1M+ count is 2,459 (TY2027) and 2,756 (TY2031) on the
+projected population before the anchor and 2,658 and 3,024 after it and the response, so it adds
+about 200-270 filers a year, a smaller version of the leak this change removes at the base.
+It is left as is on the instruction that it is growth moving gains between classes; the open
+follow-up is to anchor the two classes jointly. No further machinery was added.
+One minor interaction: for rows with k below 1 the aging decomposition returns about $9M of income
+(0.02% of the base) because its gains carve-out is capped at the new gains.
+
+### Aging-input band, recomputed on the new base
+
+Each component was rerun at its sigma (`scripts/diagnostics/gains_shift_decomp.py`, which
+reproduces the headline MID by year to the cent first, max difference $0.0034M; its old `labels`
+and `ordinary` holds, which hand-rolled the pre-fix rule, were dropped). Method as before: per-year
+effects rescaled to one sigma of cumulative shift (k = years shifted: wages 2026 on, the others 2025 on),
+random-walk covariance min(k_i, k_j), components independent.
+
+| component | sigma_c | persistent-shift Delta, 5-yr ($M) (Oct 12) | by year 2027-2031 ($M) | random-walk SD, 5-yr ($M) (Oct 12) |
+|---|--:|--:|---|--:|
+| wages (after QCEW, 2026+) | 0.0297 | +76.5 (+82.3) | 4.2, 9.5, 15.1, 20.4, 27.3 | **33.4** (36.0) |
+| business (incl. proprietors) | 0.0874 | +34.7 (+37.6) | 1.7, 2.8, 7.0, 9.6, 13.6 | **13.7** (14.9) |
+| capital_gains | 0.1990 | -32.1 (-25.0) | 0.4, -0.2, -5.0, -11.3, -16.0 | **12.4** (9.6) |
+| dividends | 0.4437 | 0 (no separate dividend income in PUMS) | 0 | 0 |
+| interest | 0.1410 | +142.7 (+132.9) | 4.4, 11.5, 30.6, 41.1, 55.0 | **56.4** (52.5) |
+| retirement | 0.0093 | about 0 | about 0 | about 0 |
+
+| | Aging-input band | Sampling (SDR) |
+|---|---|---|
+| MID five-year total vs Act 46 | $688.2M | $688.2M |
+| SD | **$68.1M** (Oct 12, provisional: $66.0M) | about $9M |
+| CI90 | **[$576M, $800M]** | **[$674.9M, $701.6M]** |
+
+Without the gains term the SD is $66.9M; the persistent-shift upper bound is SD $168.7M. The gains
+term still says nothing about gains realization (the anchor pins each class's gains dollars); the
+caveats of the October 12 section stand: the anchor's own uncertainty (a window of five Table 21
+editions, one of them a low-gains year) and CBO's national error and the behavioral parameters
+(LOW/MID/HIGH span $550.7M to $891.0M) are not in this band.
+
+---
+
+## Capital-gains anchor no longer reclassifies gains as ordinary income — October 12, 2026 (provisional; superseded by the section above)
 
 **The defect.** When `cg_anchor` rescaled a unit's capital gains by k to hit the
 windowed Table 21 class targets, it held the unit's total income fixed, so

@@ -1358,6 +1358,19 @@ kernel does the same, web format 5). Non-gains income is untouched. The defect,
 its size, the reruns and the corrected aging band are in `SB3125_CD1_FORECAST.md`
 ("Capital-gains anchor no longer reclassifies gains as ordinary income — October 12, 2026").
 
+### The anchor runs at the base year, before calibration (October 13, 2026)
+
+The gains anchor is applied to the PUMS units at the DOTAX base year *before* the joint rake
+(`pipeline.calibrate_anchored`: impute shares, anchor to the windowed Table 21 classes
+income-consistently, re-score tax on the anchored incomes, rake, re-assign classes on the
+anchored incomes and anchor once more if a class misses by over 1%), and the synthetic $1M+
+tail's gains are anchored to the $1M+ target before `tail_k` is fit, with `tail_k` scaling only
+the tail's ordinary income (`calibrate_synthetic_tail_to_tax_target(scale_gains=False)`).
+The per-year anchor in the projection then runs with k near 1. A calibrated base without
+`anchored_at_base` in its metadata is refused. Why (the post-calibration anchor pushed units over
+$1M after the class counts and `tail_k` were fit), the gate, the numbers and the per-class k are in
+`SB3125_CD1_FORECAST.md` ("Gains anchored at the base year, before calibration — October 13, 2026").
+
 ### Estimated Hawaii differentials and QCEW wages (October 2026)
 
 `calibration/hawaii_differentials.py` estimates the Hawaii-minus-national log
