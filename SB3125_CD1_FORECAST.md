@@ -58,6 +58,11 @@ left 400_1m -8.3%, 150_200 -1.0%, 200_300 +0.6%, 300_400 -0.1%, 100_150 +0.1%. T
 anchored past $1M leave the class (the tail replaces them). Base-year check: after anchoring and
 `tail_k` (1.2946 on MID) the $1M+ class tax before credits is $562.30M against the windowed
 DOTAX anchor $562.3M (ratio 1.0000), and the tail's gains equal the anchor to the dollar.
+The base's total resident tax before credits is $2,965M against DOTAX's $3,082M (−3.8%), because
+the rake drops the $500K–$750K tax bin as infeasible on anchored incomes (feasible about $119M
+against a $149M target): counts in that class are fitted, its tax is not. The Act 46 baseline
+levels below are therefore low by roughly that amount; the Act 24 deltas are affected only
+through that class's bracket change.
 
 ### The TY2022 gate (`scripts/dotax_scorecard.py --base-edition-year 2022`, MID, `DOTAX_BASE_YEAR=2022`)
 
