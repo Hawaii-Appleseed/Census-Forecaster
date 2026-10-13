@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-12T11:30:19+00:00",
-  "git_sha": "1371a34",
+  "created_at": "2026-10-13T08:28:42+00:00",
+  "git_sha": "2c47bb4",
   "script": "forecast_cg_rate_options.py",
   "params": {
     "years": [
@@ -54,5 +54,5 @@
     "nonresident_addon.csv",
     "revenue_by_year.csv"
   ],
-  "published_at": "2026-10-12T11:51:16+00:00"
+  "published_at": "2026-10-13T08:42:14+00:00"
 }

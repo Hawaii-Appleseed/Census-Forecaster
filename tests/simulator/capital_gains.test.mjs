@@ -51,17 +51,26 @@ const rel = (a, b) => Math.abs(a - b) / Math.max(1, Math.abs(b));
 // kernel scores and the model's own (the scenario's tail overrides applied).
 function classTotals(y, s) {
   const A = pop.arrays, u = unitArrays(pop, y, s), cls = gainsClasses(pop, y, s);
-  const cgModel = Float64Array.from(A[`cg_${y}`]);
-  if (s !== "mid") {
-    const t = A[`cgovr_${s}_${y}_idx`], tc = A[`cgovr_${s}_${y}_val`];
-    for (let j = 0; j < t.length; j++) cgModel[t[j]] = tc[j];
-  }
+  const { agi: agiModel, cg: cgModel } = modelArrays(y, s);
   const anchored = new Float64Array(meta.cg_anchor.classes.length), model = anchored.slice();
   for (let i = 0; i < pop.n; i++) {
     anchored[cls[i]] += u.agi[i] * u.cg[i] * u.weight[i];
-    model[cls[i]] += u.agi[i] * cgModel[i] * u.weight[i];
+    model[cls[i]] += agiModel[i] * cgModel[i] * u.weight[i];
   }
   return { anchored, model, sum: anchored.reduce((a, b) => a + b, 0) / 1e6 };
+}
+
+// The model's own income and gains share for (year, scenario), before the anchor.
+function modelArrays(y, s) {
+  const A = pop.arrays;
+  const agi = Float64Array.from(A[`agi_${y}`]), cg = Float64Array.from(A[`cg_${y}`]);
+  if (s !== "mid") {
+    const t = A[`cgovr_${s}_${y}_idx`], tc = A[`cgovr_${s}_${y}_val`];
+    for (let j = 0; j < t.length; j++) cg[t[j]] = tc[j];
+    const o = A[`ovr_${s}_${y}_idx`], oa = A[`ovr_${s}_${y}_agi`];
+    for (let j = 0; j < o.length; j++) agi[o[j]] = oa[j];
+  }
+  return { agi, cg };
 }
 
 test("DOTAX anchors MID: each class's gains are DOTAX's, the total the page's", () => {
@@ -105,14 +114,24 @@ test("LOW and HIGH keep MID's factors, so their gains move with their top income
   }
 });
 
-test("no gains share is capped, and no gains sit on zero income", () => {
-  // the share form, min(1, share x k), then equals the page's dollars
+test("the anchor sets the gains level and leaves non-gains income alone, and no gains sit on zero income", () => {
+  // income moves by (k - 1) x gains (cg_anchor.rescale_gains), so income minus gains is the model's
   for (const s of ["low", "mid", "high"]) {
     for (const y of meta.years) {
-      const u = unitArrays(pop, y, s);
+      const u = unitArrays(pop, y, s), m = modelArrays(y, s);
+      const k = meta.cg_anchor.k[s][String(y)], cls = gainsClasses(pop, y, s);
       for (let i = 0; i < pop.n; i++) {
-        if (u.cg[i] === 1) assert.fail(`${s} ${y} unit ${i}: share capped at 1`);
+        if (u.cg[i] > 1 + 1e-12) assert.fail(`${s} ${y} unit ${i}: share ${u.cg[i]} over 1`);
         if (u.cg[i] > 0 && !(u.agi[i] > 0)) assert.fail(`${s} ${y} unit ${i}: gains at income ${u.agi[i]}`);
+        const g0 = m.agi[i] > 0 && m.cg[i] > 0 ? m.agi[i] * m.cg[i] : 0;
+        const nonGainsModel = m.agi[i] - g0, nonGains = u.agi[i] - u.agi[i] * u.cg[i];
+        if (Math.abs(nonGains - nonGainsModel) > 1e-6 * Math.max(1, Math.abs(nonGainsModel))) {
+          assert.fail(`${s} ${y} unit ${i}: non-gains income ${nonGains} vs the model's ${nonGainsModel}`);
+        }
+        const want = m.agi[i] + (k[cls[i]] - 1) * g0;
+        if (Math.abs(u.agi[i] - want) > 1e-6 * Math.max(1, Math.abs(want))) {
+          assert.fail(`${s} ${y} unit ${i}: income ${u.agi[i]} vs model + (k - 1) x gains ${want}`);
+        }
       }
     }
   }

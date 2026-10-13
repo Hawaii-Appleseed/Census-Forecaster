@@ -1347,6 +1347,17 @@ cap_rates)` multiplies a year's anchor by exp(β × next year's rise in the
 24 did not touch the rate (`act24_cap_rate_path` is 7.25% throughout), so the
 hook is 1.0 in every year; a test holds it there and checks a hypothetical rise.
 
+### The anchor sets gains, not non-gains income (October 12, 2026)
+
+`cg_anchor.apply_anchor_factors` rescales a class's model gains by k to hit the
+windowed Table 21 target. It used to hold each unit's income fixed, so
+(1 − k) × gains became ordinary income; it now moves income (and AGI, total cash
+income and every field derived from gains) by exactly (k − 1) × gains and
+recomputes the share as gains / income (`cg_anchor.rescale_gains`; the simulator
+kernel does the same, web format 5). Non-gains income is untouched. The defect,
+its size, the reruns and the corrected aging band are in `SB3125_CD1_FORECAST.md`
+("Capital-gains anchor no longer reclassifies gains as ordinary income — October 12, 2026").
+
 ### Estimated Hawaii differentials and QCEW wages (October 2026)
 
 `calibration/hawaii_differentials.py` estimates the Hawaii-minus-national log

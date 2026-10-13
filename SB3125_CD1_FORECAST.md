@@ -15,6 +15,166 @@
 
 ---
 
+## Capital-gains anchor no longer reclassifies gains as ordinary income — October 12, 2026 (supersedes the MID tables below)
+
+**The defect.** When `cg_anchor` rescaled a unit's capital gains by k to hit the
+windowed Table 21 class targets, it held the unit's total income fixed, so
+(1 − k) × gains was reclassified as ordinary income. Under a gains-growth shift
+the targets do not move, k falls (the $1M+ class 1.06 → 0.54 in 2027, 1.00 → 0.22
+in 2031) and the shift survived only as extra ordinary income, taxed at Act 24's
+higher top rates: +$620M a sigma on the five-year total (−$84M with k held at its
+base value), which is why the gains term had been 95% of the aging band's
+variance (`backtests/results/gains_sensitivity_diagnosis_2026-10-12.md`). In the
+base run (no shift) the same rule turned ordinary income into gains where k > 1
+(the $300K–$1M classes, k about 1.8–2.2) and gains into ordinary income where k < 1.
+
+**The fix.** The anchor sets the gains level and does not touch non-gains income:
+when a unit's gains g are rescaled by k, its income, AGI (`income`, `agi`, `hi_agi`,
+`federal_agi`), total cash income and every field derived from gains move by exactly
+(k − 1) × g, and `synthetic_cg_share` is recomputed as k g / income
+(`cg_anchor.rescale_gains`). Same rule everywhere the anchor is applied:
+`apply_anchor_factors` (the headline run and its quintile pass, the pre-Act-46
+reconciliation, the TY2022 scorecard, the top-tail ladder), the capital-gains page
+(`forecast_cg_rate_options.py` adds the change in gains to income), and the tax
+simulator (`simulator.gains.anchor_gains`, `kernel.js` `unitArrays`, and the
+household quintiles, which are now ranked on the anchored frame as the published
+tables are; web format 5). Gains below the $100K class (k = 0) now leave income
+as well (TY2027: $6M of weighted gains). `forecast_sb3125_vs_fy26base.py` and
+`forecast_working_family_credits.py` do not use the DOTAX gains anchor (they score
+the stacked shortcut on `project_and_recalibrate`'s SOI-anchored base) and are
+unchanged: the reruns reproduce their previous numbers exactly. Tests:
+non-gains income is unchanged per unit after anchoring; class gains hit the DOTAX
+targets; a gains change leaves Act 24 minus Act 46 liability alone on the
+alternative-tax slice (the `gains_unit_test.py` logic); simulator and kernel agree
+with the Python rule.
+
+**Effect on the headline (CD2, vs Act 46, $M).** MID five-year **$725.3M**, up from
+$691.9M (+$33.4M). The anchor now adds income where the model's gains are below
+DOTAX's (the $300K–$1M classes) instead of reclassifying it, and removes income where
+they are above it (the $100K–$200K classes, k about 0.85–0.9): TY2027 weighted income
++$623M (+1.1%), Act 46 baseline +$61M (+2.4%), and the COR scale factor on the MID
+bracket change 1.19 against 1.22 in TY2027.
+Sampling CI90 on the total (sum of the annual replicate-weight bounds) is
+[$710.4M, $740.2M], width about the same as before.
+
+| Tax Year | **MID** | Sampling CI90 | Before | Before CI90 |
+|---|--:|---|--:|---|
+| 2027 | **$92.8M** | [91.1, 94.6] | $86.9M | [85.6, 88.3] |
+| 2028 | **$119.8M** | [117.9, 121.7] | $114.4M | [112.9, 115.8] |
+| 2029 | **$143.5M** | [139.9, 147.0] | $135.7M | [132.8, 138.6] |
+| 2030 | **$179.5M** | [175.7, 183.2] | $172.1M | [169.0, 175.2] |
+| 2031 | **$189.8M** | [185.8, 193.8] | $182.8M | [179.5, 186.2] |
+| **5-year** | **$725.3M** | **[710.4, 740.2]** | **$691.9M** | **[679.8, 704.1]** |
+
+MID by component, five years ($M), after (before): static bracket 359.0 (322.2),
+behavioral −88.4 (−84.9), bracket post-behavioral 270.6 (237.2), credits 454.7
+(454.7), total 725.3 (691.9). The credit overlay is unchanged (its only microdata
+input is the AGI-eligibility share).
+
+Scenarios, five-year total and by year ($M):
+
+| Scenario | 2027 | 2028 | 2029 | 2030 | 2031 | 5-year | Before |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| LOW | 83.8 | 99.2 | 115.2 | 143.0 | 154.9 | **596.0** | 569.1 |
+| MID | 92.8 | 119.8 | 143.5 | 179.5 | 189.8 | **725.3** | 691.9 |
+| HIGH | 119.3 | 155.7 | 183.3 | 222.7 | 238.6 | **919.6** | 881.3 |
+| RECESSION | 88.5 | 118.3 | 141.2 | 178.8 | 189.8 | **716.6** | 684.1 |
+
+Other published pages: the capital-gains page's Act 24 central five-year static
+estimate moves from $355.3M to $359.2M for the 9% cap and $1,061.5M to $1,080.8M for
+ordinary-rate gains (after response $291.8M → $295.4M and $800.3M → $817.1M;
+the gains totals are unchanged, $24,134.7M); working-family credits are unchanged;
+the Act 24 and capital-gains distribution tables and the tax simulator (population,
+golden fixtures, checks) were rebuilt on the new rule.
+
+### The three frames (five years, MID, CD2, $M)
+
+| Frame | Act 24 effect | Before |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +725.3 | +691.9 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,662.5 | -1,662.5 |
+| ITEP five-year figure / gap | -2,204.0 / +541.5 | -2,204.0 / +541.5 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,909.1 | -4,870.4 |
+| vs pre-Act-46 law: C, Act 24 increment | +359.0 | +322.2 |
+| vs pre-Act-46 law: total | -4,550.1 | -4,548.2 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,728.9 | -1,746.6 |
+
+Column C ties out to the Act 24 page's static bracket change to $0.005M every year.
+The frozen-2026 frame does not use the gains anchor, so it does not move.
+
+### Aging-input band, recomputed (replaces the one in the section below)
+
+The earlier **gains term (SD $248.8M) is withdrawn**: it was the reclassification
+defect, not Act 24 economics. Under the fixed anchor a gains-growth shift of +0.199
+log points a year on the model's own gains moves the MID five-year total by
+**−$25.0M** (by year +0.3, +0.7, −3.4, −7.9, −14.6), against +$620.0M before. The anchor
+pins each class's gains dollars to the DOTAX target, so the shifted model gains
+are scaled back down by k (0.22 for the $1M+ class in 2031, as before) and, with
+non-gains income untouched, only the composition of who holds the gains moves.
+The unshifted fixed run reproduces the headline by year to the cent
+(`scripts/diagnostics/gains_shift_decomp.py`; max difference $0.005M, the CSV's rounding).
+The fix can reach the other components (a different k changes every class's income),
+so wages, business and interest were rerun at their sigmas. Method unchanged: per-year
+effects rescaled to one sigma of cumulative shift (k = years shifted: wages 2026 on,
+the others 2025 on), random-walk covariance min(k_i, k_j), components independent.
+
+| component | sigma_c | persistent-shift Delta, 5-yr ($M) (before) | by year 2027-2031 ($M) | random-walk SD, 5-yr ($M) (before) |
+|---|--:|--:|---|--:|
+| wages (after QCEW, 2026+) | 0.0297 | +82.3 (+35.2) | 4.4, 10.4, 16.3, 22.3, 28.8 | **36.0** (15.1) |
+| business (incl. proprietors) | 0.0874 | +37.6 (+40.9) | 2.6, 3.4, 7.0, 10.3, 14.3 | **14.9** (16.3) |
+| capital_gains | 0.1990 | -25.0 (+620.0) | 0.3, 0.7, -3.4, -7.9, -14.6 | **9.6** (248.8) |
+| dividends | 0.4437 | 0 (no separate dividend income in PUMS) | 0 | 0 |
+| interest | 0.1410 | +132.9 (+134.5) | 4.5, 9.8, 28.0, 39.1, 51.6 | **52.5** (52.9) |
+| retirement | 0.0093 | about 0 (Hawaii exempts pensions) | about 0 | about 0 |
+
+Wages roughly double (36.0 against 15.1) because the gains anchor grows with the
+wage path (`cg_growth`, CBO wages x the Hawaii factor): a wage shift now raises the
+gains dollars and, with them, income, where before k absorbed it.
+
+| | Aging-input band | Sampling (SDR) |
+|---|---|---|
+| MID five-year total vs Act 46 | $725.3M | $725.3M |
+| SD | **$66.0M** (before $255.3M) | about $9M |
+| CI90 | **[$617M, $834M]** (before [$272M, $1,112M]) | **[$710.4M, $740.2M]** |
+
+Without the gains term the SD is $65.3M. **The band no longer says anything about
+gains realization.** The anchor holds each class's gains at the windowed DOTAX share
+of the income base, so shifting the model's own gains growth cannot move the level of
+gains, and nothing in this band shifts the anchor's growth except through wages. The
+gains uncertainty that remains is the anchor's (a window of five Table 21 editions, one
+of them a low-gains year, and wage growth as the null for its growth); the October 8
+section's $1M+ anchor-spread figure (about $63M SD on the five-year total, *Sensitivity*,
+computed before this fix and not rerun) is the only estimate of it. Taken at face value
+with the components above it gives SD about $91M, CI90 about [$576M, $874M]: indicative, not a
+result. The persistent-shift upper bound is SD $162.7M. None of these covers CBO's national
+forecast error or the behavioral parameters (LOW/MID/HIGH span $596.0M to $919.6M).
+
+### The TY2022-base scorecard gate, before and after the fix
+
+`scripts/dotax_scorecard.py --base-edition-year 2022` (MID, `DOTAX_BASE_YEAR=2022`,
+the ladder's step-3 configuration: CBO engine, drift 0, TY2019–2022 gains window) on
+one TY2022-raked base rebuilt at this commit (`scripts/build_calibrated_base.py`;
+the ladder's own base, built at `48761b8`, is gone, so the "before" row here,
+$696.1M, is not the ladder's $688.7M to the dollar), scored against TY2023 with the
+code before and after the fix:
+
+| | $1M+ returns (1,704) | $1M+ tax (441.0) | $1M+ error | Count part | Per-filer part | Total tax (2,960.0) | Total error |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| before (`a48a8db`) | 1,824 | 696.1 | +255.1 (+57.9%) | +31.1 | +224.1 | 2,816.3 | -143.7 (-4.9%) |
+| after (`2c47bb4`) | 2,160 | 753.4 | +312.4 (+70.8%) | +118.0 | +194.5 | 2,920.3 | -39.7 (-1.3%) |
+
+The fix moves the all-class total toward DOTAX (the anchor adds the income the old
+rule left out) and the $1M+ class away from it: the added income carries about 340
+units from below $1M across $1M (returns 1,824 → 2,160 against 1,704
+actual), so the count part of the error grows from +$31M to +$118M while the
+per-filer part shrinks by $30M. The same mechanism lifts the headline's MID $1M+
+filers after response (TY2027 2,166 → 2,466; TY2031 2,670 → 3,688). The
+tail is still calibrated to DOTAX's $1M+ tax on the pre-anchor incomes; whether it should
+be recalibrated, or the rank cut at $1M re-derived, on the anchored incomes is not
+done here and is the open follow-up.
+
+---
+
 ## Estimated Hawaii aging differentials and QCEW wages — October 12, 2026 (supersedes the MID tables below)
 
 The CBO engine grew each income source at the CBO rate times a hand-set Hawaii
@@ -25,6 +185,8 @@ reruns every headline script. Code: `calibration/hawaii_differentials.py`,
 `cbo_aging.hawaii_growth`, `AgingSpec.hawaii_mode`; fetch
 `scripts/fetch_soi_state_components.py`; full backtest
 `backtests/results/hawaii_aging_factors_2026-10-11.md`.
+
+*Superseded October 12, 2026 (second entry): the MID total below, $691.9M, is $725.3M after the capital-gains anchor fix above; the aging-input band here is recomputed there.*
 
 **Verdict, short.** The estimated differentials lose the backtest, so **the
 ratio factors stay the default** (`hawaii_mode="ratio"`). The QCEW wage anchor
@@ -145,26 +307,7 @@ MID by component, five years: static bracket $322.2M, behavioral -$84.9M,
 bracket (post-behavioral) $237.2M, credits $454.7M, total $691.9M. LOW $569.1M,
 HIGH $881.3M, RECESSION $684.1M.
 
-**Aging-input uncertainty (one-step backtest errors; independent-annual-shock model; excludes CBO's national forecast error and behavioral parameters).** The earlier bands are **withdrawn**: [$455M, $1,336M] came from the losing additive path (every d̂ moved by 1.645 SE at once), and [-$360M, $1,744M] treated each one-step error as a shift repeated every year, so level error grew linearly with the horizon. One-step errors behave as independent yearly shocks, so level error grows with the square root of the horizon. Method: (1) each component's one-step log-growth error on the shipped ratio path (`hawaii_differentials.backtest`, TY2016-2022, default sample incl. 2020-21; gains TY2020-2023) gives sigma_c = RMSE; (2) one MID rerun per component with `AgingSpec.growth_shift={c: +sigma_c}` in every projected year (QCEW-covered wage years untouched, so wages shift from 2026 on) gives the by-year effect of a cumulative shift of k·sigma_c, k = years shifted by that tax year; (3) each year's effect is rescaled to one sigma of cumulative shift, and the five-year total's variance is the sum over years i, j of effect_i × effect_j × min(k_i, k_j), the random-walk covariance; components are combined as independent (gains has too few overlapping years for a correlation, and it is 95% of the variance). CI90 = $691.9M +/- 1.645 SD.
-
-| component | sigma_c (log pts/yr) | n | persistent-shift Delta, 5-yr ($M) | by year 2027-2031 ($M) | random-walk SD, 5-yr ($M) |
-|---|--:|--:|--:|---|--:|
-| wages (after QCEW, 2026+) | 0.0297 | 7 | +35.2 | 0.4, 3.8, 6.8, 10.1, 14.0 | 15.1 |
-| business (incl. proprietors) | 0.0874 | 7 | +40.9 | 2.8, 3.9, 7.7, 11.1, 15.5 | 16.3 |
-| capital_gains | 0.1990 | 4 | +620.0 | 51.8, 78.0, 115.3, 160.0, 214.9 | 248.8 |
-| dividends | 0.4437 | 7 | 0.0 | 0 (see note) | 0 |
-| interest | 0.1410 | 7 | +134.5 | 5.4, 8.5, 26.9, 39.0, 54.7 | 52.9 |
-| retirement | 0.0093 | 7 | 0.0 | about 0 (Hawaii exempts pensions) | about 0 |
-
-Dividends carry no weight because the PUMS-based population holds no separate dividend income (PUMS reports one interest/dividend/rental item, carried as interest); dividend-side gains enter through the DOTAX gains anchor. The by-year effects are first-order (linear in the shift); a one-sigma gains shift is large enough that the true response is somewhat nonlinear.
-
-| | Aging-input band | Sampling (SDR) |
-|---|---|---|
-| MID five-year total vs Act 46 | $691.9M | $691.9M |
-| SD | $255.3M | about $7.4M |
-| CI90 | **[$272M, $1,112M]** | **[$679.8M, $704.1M]** |
-
-Capital-gains realization is the uncertainty in this estimate: without gains the aging SD is $57.4M. The gains sigma rests on four growth years, two of them the TY2020-21 realization spike, so it is itself uncertain. An alternative with a firmer basis takes the gains term from the $1M+ class's TY2019-2023 anchor spread instead (about $63M SD on the five-year total, October 8 section, *Sensitivity*) and the backtest errors for the other components: SD about $85M, CI90 about [$552M, $832M]. The persistent-shift version, kept as an upper bound, gives SD $639.6M. None of these covers CBO's national forecast error or the behavioral parameters (LOW/MID/HIGH span $569.1M to $881.3M).
+**Aging-input uncertainty.** Superseded: the band that stood here, SD $255.3M and CI90 [$272M, $1,112M], took 95% of its variance from a capital-gains term that was an anchoring artifact. That gains term (SD $248.8M) is **withdrawn**, and the band is recomputed in the October 12 section above ("Capital-gains anchor no longer reclassifies gains as ordinary income"): SD $66.0M, CI90 [$617M, $834M]. The method (one-step backtest errors as independent yearly shocks, a MID rerun per component at +sigma_c, per-year effects rescaled to one sigma of cumulative shift, random-walk covariance min(k_i, k_j), components independent) is unchanged. Sampling CI90 and the MID total in this section are also superseded ($725.3M, [$710.4M, $740.2M]).
 
 ### The three frames (five years, MID, CD2, $M)
 
