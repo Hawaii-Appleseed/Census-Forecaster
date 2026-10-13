@@ -60,7 +60,7 @@ def _targets(yr, top_share):
 def test_classes_hit_the_dotax_targets(yr):
     df = _frame()
     w = df["weight"].to_numpy()
-    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M)
+    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, pool_top=False)
     k = {r["group"]: r["scale"] for r in rows}
     assert (df["synthetic_cg_share"] * [k.get(x, 0.0) for x in labels]).max() < 1   # no clipping
     want = _targets(yr, TOP_SHARE_1M)
@@ -146,8 +146,13 @@ def test_anchored_class_gains_hit_the_targets(yr):
     labels = rank_classes(df)                                 # classes by the pre-anchor ranks
     w = df["weight"].to_numpy()
     g = (out["income"] * out["synthetic_cg_share"]).to_numpy()
-    for c, t in _targets(yr, TOP_SHARE_1M).items():
+    want = _targets(yr, TOP_SHARE_1M)
+    for c, t in want.items():
+        if c in cg_anchor.POOLED_TOP_CELL:
+            continue
         assert (g * w)[labels == c].sum() / 1e6 == pytest.approx(t, rel=1e-9), c
+    top = np.isin(labels, cg_anchor.POOLED_TOP_CELL)          # the top two classes hit their sum
+    assert (g * w)[top].sum() / 1e6 == pytest.approx(want["1mp"] + want["400_1m"], rel=1e-9)
     nl, _, _ = anchor_nltcg(df, yr, TOP_SHARE_1M)
     np.testing.assert_allclose(g, nl, rtol=1e-12, atol=1e-6)
     assert (g[labels == "lt100"] == 0).all()
@@ -295,3 +300,44 @@ def test_the_page_imports_the_package_code():
                 if isinstance(t, ast.Name)}
     assert not defined & MOVED
     assert all(hasattr(cg_anchor, name) for name in MOVED)
+
+
+# ── the two top classes share one k in the per-year projection anchor ────────
+
+@pytest.mark.parametrize("yr", [2027, 2031])
+def test_pooled_top_cell_hits_the_pooled_target(yr):
+    df = _frame()
+    w = df["weight"].to_numpy()
+    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, pool_top=True)
+    want = _targets(yr, TOP_SHARE_1M)
+    top = np.isin(labels, cg_anchor.POOLED_TOP_CELL)
+    assert (nl * w)[top].sum() / 1e6 == pytest.approx(want["1mp"] + want["400_1m"], rel=1e-12)
+    by = {r["group"]: r for r in rows}
+    assert by["400_1m"]["scale"] == by["1mp"]["scale"]          # one k
+    for c in cg_anchor.POOLED_TOP_CELL:                          # split reported against separate targets
+        assert by[c]["dotax_target_M"] == pytest.approx(want[c], rel=1e-12)
+        assert by[c]["pooled_target_M"] == pytest.approx(want["1mp"] + want["400_1m"], rel=1e-12)
+    for c in ("100_150", "150_200", "200_300", "300_400"):       # other classes unchanged
+        assert (nl * w)[labels == c].sum() / 1e6 == pytest.approx(want[c], rel=1e-12)
+
+
+def test_pooled_flag_default_and_separate_reproduces_separate_factors():
+    df = _frame(seed=2)
+    assert cg_anchor.POOL_TOP_CELL is True
+    sep = cg_anchor.anchor_factors(df, 2027, pool_top=False)
+    _, labels, rows = anchor_nltcg(df, 2027, TOP_SHARE_1M, pool_top=False)
+    assert sep == {r["group"]: r["scale"] for r in rows}
+    pooled = cg_anchor.anchor_factors(df, 2027)
+    assert pooled["400_1m"] == pooled["1mp"]
+    for c in ("100_150", "150_200", "200_300", "300_400"):
+        assert pooled[c] == sep[c]
+    # the base-year anchor ignores the flag
+    assert cg_anchor.POOLED_TOP_CELL == ("400_1m", "1mp")
+
+
+def test_pooled_anchor_leaves_non_gains_income_unchanged():
+    df = _frame(seed=4)
+    out = cg_anchor.apply_anchor_factors(df, cg_anchor.anchor_factors(df, 2027, pool_top=True))
+    g0 = cg_anchor.model_gains(df["income"], df["synthetic_cg_share"])
+    g1 = cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])
+    np.testing.assert_allclose(out["income"] - g1, df["income"] - g0, rtol=1e-9, atol=1e-6)

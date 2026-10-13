@@ -48,6 +48,13 @@ import pandas as pd
 from tax_modeler.calibration import dotax_base
 
 TOP_SHARE_1M = 0.80
+#: The two top DOTAX cells share one anchor factor in the per-year projection
+#: anchor (``anchor_nltcg``): units that grow past $1M leave 400_1m, so separate
+#: cells ran k(400_1m) 1.39-1.48 against k(1mp) 0.86-0.91. The base-year anchor
+#: (:func:`base_anchor_factors`) is unchanged. ``POOL_TOP_CELL = False``
+#: (env ``CG_POOL_TOP_CELL=0``) restores separate cells.
+POOLED_TOP_CELL = ("400_1m", "1mp")
+POOL_TOP_CELL = os.environ.get("CG_POOL_TOP_CELL", "1") != "0"
 TOP_SHARE_VARIANTS = {"central": TOP_SHARE_1M, "low": 0.70, "model": None}
 _TOP_SHARE_NOTE = """
 Derivation (DOTAX TY2022): the $1M+ class (1,824 returns) owed $662.6M before credits
@@ -200,7 +207,8 @@ def model_gains(income, share) -> np.ndarray:
     return np.where((inc > 0) & (sh > 0), inc * sh, 0.0)
 
 
-def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
+def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None,
+                 pool_top: bool | None = None):
     """Per-unit net long-term capital gain eligible for §235-51(f), $.
 
     Returns (nltcg, labels, anchor_rows). ``nltcg`` is ``k x`` the model's
@@ -223,8 +231,25 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
         target["1mp"] = target["400p"] * top_share_1m
         target["400_1m"] = target["400p"] * (1 - top_share_1m)
 
+    pool = (POOL_TOP_CELL if pool_top is None else pool_top) and top_share_1m is not None
     nltcg = np.zeros(len(df))
     rows = []
+    if pool:
+        # one k for both top classes: target = sum of their targets; rows still
+        # report each class (its own model gains and separate target) with the
+        # shared scale, so the split is visible
+        groups = {g: l for g, l in groups.items() if g not in POOLED_TOP_CELL}
+        m = np.isin(labels, POOLED_TOP_CELL)
+        have = float((model_cg[m] * w[m]).sum())
+        ptarget = sum(target[c] for c in POOLED_TOP_CELL)
+        kp = ptarget / have if have > 0 else 0.0
+        nltcg[m] = model_cg[m] * kp
+        for c in POOLED_TOP_CELL:
+            mc = labels == c
+            rows.append({"tax_year": yr, "group": c,
+                         "model_cg_M": float((model_cg[mc] * w[mc]).sum()) / 1e6,
+                         "dotax_target_M": target[c] / 1e6, "scale": kp,
+                         "pooled": True, "pooled_target_M": ptarget / 1e6})
     for grp, labs in groups.items():
         m = np.isin(labels, labs)
         have = float((model_cg[m] * w[m]).sum())
@@ -240,7 +265,8 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def anchor_factors(df: pd.DataFrame, yr: int,
-                   top_share_1m: float = TOP_SHARE_1M) -> dict[str, float]:
+                   top_share_1m: float = TOP_SHARE_1M,
+                   pool_top: bool | None = None) -> dict[str, float]:
     """Each class's scale factor k (``anchor_nltcg``'s ``scale``) on ``df``,
     keyed by class label; classes with no factor (``lt100``) are left out.
 
@@ -248,7 +274,7 @@ def anchor_factors(df: pd.DataFrame, yr: int,
     to every scenario (:func:`apply_anchor_factors`), as the tax simulator
     does (``tax_modeler.simulator.gains``): DOTAX anchors MID, and the other
     scenarios' gains move with their own top incomes."""
-    _, _, rows = anchor_nltcg(df, yr, top_share_1m)
+    _, _, rows = anchor_nltcg(df, yr, top_share_1m, pool_top)
     return {r["group"]: float(r["scale"]) for r in rows}
 
 

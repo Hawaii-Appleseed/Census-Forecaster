@@ -143,7 +143,8 @@ def check_gains_anchor(pop) -> list[str]:
     DOTAX anchors MID; LOW and HIGH keep MID's factors
     (tax_modeler.simulator.gains). For every year:
 
-    * MID: each DOTAX class's gains (income x anchored share, weighted) equal
+    * MID: (the top two classes, 400_1m and 1mp, are checked against the sum of their
+      targets, one k: cg_anchor.POOLED_TOP_CELL) each DOTAX class's gains (income x anchored share, weighted) equal
       DOTAX's windowed resident gains (anchored_nltcg_M) grown by cg_growth, with TOP_SHARE_1M of
       the $400K+ class at $1M+; the total equals the capital-gains page's
       published nltcg_M and the class targets its anchor_check.csv. Its
@@ -164,6 +165,8 @@ def check_gains_anchor(pop) -> list[str]:
 
     from tax_modeler.calibration.cg_anchor import (
         _CLASSES,
+        POOL_TOP_CELL,
+        POOLED_TOP_CELL,
         anchored_nltcg_M,
         anticipatory_realization_factor,
         cg_growth,
@@ -174,6 +177,7 @@ def check_gains_anchor(pop) -> list[str]:
     from tax_modeler.simulator.scenarios import SCENARIOS
 
     anchor = ensure_gains_anchor(pop)
+    pooled = POOL_TOP_CELL
     top = anchor["top_share"]
     dotax = dict(zip(_CLASSES, anchored_nltcg_M(), strict=True))  # the windowed anchor
     rev = pd.read_csv(CG_PAGE / "revenue_by_year.csv")
@@ -221,8 +225,19 @@ def check_gains_anchor(pop) -> list[str]:
                 want = (target[name] if s == "mid"
                         else k_mid[c] * float(mw[own == c].sum()) / 1e6)
                 what = "DOTAX" if s == "mid" else "MID's k x model"
+                if s == "mid" and pooled and name in POOLED_TOP_CELL:
+                    continue            # the top two classes hit the sum of their targets, below
                 if not np.isclose(got, want, rtol=1e-9, atol=1e-9):
                     problems.append(f"{s} {y} {name}: gains ${got:.6f}M vs {what} ${want:.6f}M")
+            if s == "mid" and pooled:
+                top_sel = np.isin(own, [code[c] for c in POOLED_TOP_CELL])
+                got = float(gw[top_sel].sum()) / 1e6
+                want = sum(target[c] for c in POOLED_TOP_CELL)
+                if not np.isclose(got, want, rtol=1e-9, atol=1e-9):
+                    problems.append(f"mid {y} {'+'.join(POOLED_TOP_CELL)}: gains ${got:.6f}M "
+                                    f"vs the pooled DOTAX ${want:.6f}M")
+                if k_mid[code[POOLED_TOP_CELL[0]]] != k_mid[code[POOLED_TOP_CELL[1]]]:
+                    problems.append(f"mid {y}: pooled classes have different k {k_mid}")
             if s != "mid":
                 continue
             pub = rev[rev.tax_year == y]["nltcg_M"].unique()
