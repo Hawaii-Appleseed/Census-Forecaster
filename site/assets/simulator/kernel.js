@@ -37,8 +37,9 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
 // (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor,
-// 3 dropped hhfw for per-unit filer weights, 4 made the model gains share per year)
-export const WEB_FORMAT_VERSION = 4;
+// 3 dropped hhfw for per-unit filer weights, 4 made the model gains share per year,
+// 5 moved a unit's income with its anchored gains instead of holding it)
+export const WEB_FORMAT_VERSION = 5;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
@@ -70,10 +71,11 @@ export function gainsClasses(pop, year, scenario = "mid") {
 
 /** Income, itemized deduction, weight and capital-gains share for one
  * (year, scenario): MID's arrays with LOW/HIGH's differing units swapped in
- * (tax_modeler.simulator.population.unit_arrays). The share is the
- * DOTAX-anchored one, min(1, model share x k[class]), with the model share
- * after the scenario's tail overrides; there is no fallback to the model's
- * own base. */
+ * (tax_modeler.simulator.population.unit_arrays). Gains are the DOTAX-anchored
+ * ones (cg_anchor.rescale_gains): with g = income x model share (after the
+ * scenario's tail overrides), g goes to k[class] x g and the unit's income
+ * moves by the same (k - 1) x g, so non-gains income is untouched; the share is
+ * k g / income. There is no fallback to the model's own base. */
 export function unitArrays(pop, year, scenario = "mid") {
   const A = pop.arrays;
   let agi = A[`agi_${year}`], item = A[`item_${year}`], weight = A.weight, cgModel = A[`cg_${year}`];
@@ -93,8 +95,15 @@ export function unitArrays(pop, year, scenario = "mid") {
     for (let j = 0; j < ci.length; j++) cgModel[ci[j]] = cv[j];
   }
   const cg = new Float64Array(pop.n);
-  for (let i = 0; i < pop.n; i++) cg[i] = Math.min(1, cgModel[i] * k[cls[i]]);
-  return { agi, item, weight, cg };
+  const inc = new Float64Array(pop.n);
+  for (let i = 0; i < pop.n; i++) {
+    const y = agi[i], sh = cgModel[i], ki = k[cls[i]];
+    const g = y > 0 && sh > 0 ? y * sh : 0;
+    const y2 = y + (ki - 1) * g;
+    inc[i] = y2;
+    cg[i] = y2 > 0 ? ki * g / y2 : 0;
+  }
+  return { agi: inc, item, weight, cg };
 }
 
 // ---------------------------------------------------------------------------

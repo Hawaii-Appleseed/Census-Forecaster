@@ -18,8 +18,10 @@ DOTAX anchor (:mod:`.gains`): per year each unit's class code
 (``cgcls_<year>``, with LOW/HIGH overrides ``cgcls_<scenario>_<year>_idx`` /
 ``_val``) and, in the metadata, each scenario-year's scale factors
 (``cg_anchor.k``; LOW's and HIGH's equal MID's, which DOTAX anchors). The
-kernel's share is ``min(1, cg x k[class])``, as
-:func:`.population.unit_arrays` computes it. Format 2 added these; 4 made the model share per year (aged).
+kernel scales each unit's gains g = income x share by ``k[class]`` and moves
+its income by the same ``(k - 1) g`` (share = k g / income'), as
+:func:`.population.unit_arrays` computes it. Format 2 added these; 4 made the model share per year (aged);
+5 moved income with the anchored gains (it was held fixed).
 """
 from __future__ import annotations
 
@@ -40,7 +42,7 @@ from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
 # 3 dropped hhfw: distribution totals sum each unit's own filer weight.
-WEB_FORMAT_VERSION = 4
+WEB_FORMAT_VERSION = 5
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it

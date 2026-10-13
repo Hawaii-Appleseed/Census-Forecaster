@@ -10,6 +10,8 @@ Usage (env HAWAII_GROWTH_SHIFT set for shifted runs; HAWAII_PUMS_DIR not needed,
      ordinary keep non-gains income at base-run anchored values (gains $ as the live run anchors them)
      credit  use base projected frame for the credit overlay's AGI-eligibility input
      (ETI hold is done post hoc in the write-up: eti term is reported separately)
+NOTE: the labels/ordinary holds predate the 2026-10-12 anchor fix (income now moves with anchored
+gains, cg_anchor.rescale_gains) and still hand-roll the old min(1, share x k) rule; the unheld run is current.
 Writes /tmp/gs/NAME.json. MID scenario, CD2 only. Does not change defaults.
 """
 import json, os, pickle, sys, warnings, logging

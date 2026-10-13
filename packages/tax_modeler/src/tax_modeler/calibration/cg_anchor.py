@@ -14,6 +14,15 @@ income rank (:func:`rank_classes`), so income growth does not push gains
 across fixed nominal class lines. Gains below the $100K class are left
 unallocated (rates there are under 7.25%).
 
+The anchor sets the gains level and does not touch non-gains income: when a
+class's gains are rescaled by k, each unit's income (and AGI, and every income
+field derived from gains) moves by exactly ``(k - 1) x gains`` and the share is
+recomputed as gains / income (:func:`rescale_gains`). Until 2026-10-12 income
+was held fixed, which reclassified ``(1 - k) x gains`` as ordinary income and
+made the gains-growth sensitivity an artifact (k falls toward 0.2 under a
+gains-growth shift and the leaked ordinary income is taxed at Act 24's top
+rates; see SB3125_CD1_FORECAST.md).
+
 Moved verbatim from ``forecast_cg_rate_options.py`` (the capital-gains page),
 which imports these names back, so the page and the tax simulator
 (``tax_modeler.simulator.gains``) anchor with one implementation.
@@ -172,14 +181,24 @@ def rank_classes(df: pd.DataFrame) -> np.ndarray:
     return labels
 
 
+def model_gains(income, share) -> np.ndarray:
+    """A unit's gains as the model carries them, ``income x share`` (zero for a
+    unit with non-positive income or share)."""
+    inc = np.asarray(income, dtype=float)
+    sh = np.nan_to_num(np.asarray(share, dtype=float), nan=0.0)
+    return np.where((inc > 0) & (sh > 0), inc * sh, 0.0)
+
+
 def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
     """Per-unit net long-term capital gain eligible for §235-51(f), $.
 
-    Returns (nltcg, labels, anchor_rows).
+    Returns (nltcg, labels, anchor_rows). ``nltcg`` is ``k x`` the model's
+    gains in the unit's class; :func:`apply_anchor_factors` puts the same
+    gains on the frame, moving income by the change in gains.
     """
     inc = df["income"].to_numpy(float)
     w = df["weight"].to_numpy(float)
-    model_cg = inc * df["synthetic_cg_share"].fillna(0.0).to_numpy(float)
+    model_cg = model_gains(inc, df["synthetic_cg_share"])
     labels = rank_classes(df)
     g = cg_growth(yr) * anticipatory_realization_factor(yr)
     target = {c: v * g * 1e6 for c, v in zip(_CLASSES, anchored_nltcg_M(), strict=True)}
@@ -202,7 +221,7 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None):
         nltcg[m] = model_cg[m] * k
         rows.append({"tax_year": yr, "group": grp, "model_cg_M": have / 1e6,
                      "dotax_target_M": target[grp] / 1e6, "scale": k})
-    return np.clip(nltcg, 0.0, np.maximum(inc, 0.0)), labels, rows
+    return nltcg, labels, rows
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,14 +241,70 @@ def anchor_factors(df: pd.DataFrame, yr: int,
     return {r["group"]: float(r["scale"]) for r in rows}
 
 
+def rescale_gains(income, share, k) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Rescale each unit's gains by ``k`` and leave everything else alone.
+
+    A unit's gains are ``g = income x share`` (zero for a unit with
+    non-positive income or share). The anchor sets the gains level, so
+    ``g -> k g`` and the unit's income moves by exactly that change,
+    ``income' = income + (k - 1) g``: non-gains income, ``income - g``, is
+    untouched, and the share is recomputed as ``k g / income'``. (Holding
+    income fixed instead, as this did until 2026-10-12, reclassified
+    ``(1 - k) g`` as ordinary income whenever ``k < 1``, which Act 24's higher
+    top rates then taxed.)
+
+    Returns ``(income', share', delta)``, ``delta = (k - 1) g``; ``share'``
+    is 0 where ``income'`` is not positive.
+    """
+    inc = np.asarray(income, dtype=float)
+    k = np.asarray(k, dtype=float)
+    g = model_gains(inc, share)
+    delta = (k - 1.0) * g
+    new_inc = inc + delta
+    new_share = np.where(new_inc > 0, k * g / np.where(new_inc > 0, new_inc, 1.0), 0.0)
+    return new_inc, new_share, delta
+
+
+# Income fields that carry a unit's gains: each moves by the same (k - 1) g as
+# ``income`` (see :func:`rescale_gains`). ``investment_income`` and
+# ``primary_intp`` hold the gains only on the synthetic $1M+ rows (the
+# synthesizer writes them there); on a PUMS row they are interest and
+# dividends, which are not gains.
+_GAINS_INCOME_COLUMNS = ("agi", "hi_agi", "federal_agi", "synthetic_total_income")
+_SYNTHETIC_GAINS_COLUMNS = ("investment_income", "primary_intp")
+
+
 def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
                          share_col: str = "synthetic_cg_share") -> pd.DataFrame:
-    """A copy of ``df`` with its gains share rescaled to the anchored base:
-    ``min(1, share × k[class])``, with each unit's class from its own weighted
-    income rank (:func:`rank_classes`) and k = 0 below the $100K class. The
-    same share the tax simulator's kernel and ``anchored_share`` compute."""
+    """A copy of ``df`` with its capital gains anchored to the DOTAX base.
+
+    Each unit's class comes from its own weighted income rank
+    (:func:`rank_classes`, on the incoming ``income``) and each class's gains
+    are scaled by ``k = factors[class]`` (0 below the $100K class). The anchor
+    sets the gains level and does not touch non-gains income: ``income`` and
+    every income field derived from gains (``agi``, ``hi_agi``,
+    ``federal_agi``, ``total_cash_income``, ``synthetic_total_income``, the
+    synthetic rows' ``investment_income`` / ``primary_intp``,
+    ``cbo_aged_capital_gains``) move by ``(k - 1) x gains``, and the share is
+    recomputed as gains / income (:func:`rescale_gains`). Tax columns the
+    projection computed are not refreshed here: every scorer re-derives the
+    tax from ``income``, the share and the deductions. Not idempotent."""
     labels = rank_classes(df)
     k = np.fromiter((factors.get(c, 0.0) for c in labels), dtype=float, count=len(labels))
     out = df.copy()
-    out[share_col] = np.minimum(1.0, out[share_col].fillna(0.0).to_numpy(float) * k)
+    inc, share, delta = rescale_gains(out["income"], out[share_col], k)
+    out["income"] = inc
+    out[share_col] = share
+    for col in _GAINS_INCOME_COLUMNS:
+        if col in out.columns:
+            out[col] = out[col].to_numpy(float) + delta
+    if "total_cash_income" in out.columns:
+        out["total_cash_income"] = np.maximum(out["total_cash_income"].to_numpy(float) + delta, 0.0)
+    if "is_synthetic_ultra_high" in out.columns:
+        syn = out["is_synthetic_ultra_high"].fillna(False).to_numpy(dtype=bool)
+        for col in _SYNTHETIC_GAINS_COLUMNS:
+            if col in out.columns:
+                out[col] = np.where(syn, out[col].to_numpy(float) + delta, out[col].to_numpy(float))
+    if "cbo_aged_capital_gains" in out.columns:
+        out["cbo_aged_capital_gains"] = out["cbo_aged_capital_gains"].to_numpy(float) * k
     return out

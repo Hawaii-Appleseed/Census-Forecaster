@@ -352,6 +352,7 @@ def _nonresident_addon(yr, opt, labels, nltcg, w, changes) -> list[dict]:
 
 
 def run() -> None:
+    from tax_modeler.calibration.cg_anchor import model_gains
     from tax_modeler.config.tax_system_config import TaxCalculator
     from tax_modeler.config.tax_system_config import TaxSystemRegistry as R
 
@@ -365,7 +366,8 @@ def run() -> None:
         t0 = time.perf_counter()
         print(f"  TY {yr}: projecting...", flush=True)
         df = project(units, yr)
-        income = df["income"].to_numpy(float)
+        income_model = df["income"].to_numpy(float)
+        model_cg = model_gains(income_model, df["synthetic_cg_share"])
         w = df["weight"].to_numpy(float)
         laws = {"act46": R.get_act46_system(yr)}
         if yr >= 2027:
@@ -376,8 +378,15 @@ def run() -> None:
         dist_changes = {}
         for variant, share in TOP_SHARE_VARIANTS.items():
             nltcg, labels, rows = anchor_nltcg(df, yr, share)
+            # the anchor sets the gains level, not non-gains income: income
+            # moves by the change in gains (cg_anchor.rescale_gains)
+            income = income_model + (nltcg - model_cg)
             if variant == "central":
                 anchor_rows += rows
+                df_central = df.assign(income=income)
+                if "total_cash_income" in df.columns:
+                    df_central["total_cash_income"] = np.maximum(
+                        df["total_cash_income"].to_numpy(float) + (nltcg - model_cg), 0.0)
             for law, sc in scorers.items():
                 for opt, cap in OPTIONS.items():
                     stat = score_option(sc, income, nltcg, cap, yr, behavioral=False)
@@ -395,7 +404,7 @@ def run() -> None:
                             dist_changes[f"{opt}_static"] = stat
                             dist_changes[f"{opt}_behavioral"] = beh
         if dist_changes:
-            dists[(yr, headline)] = distribution(df, dist_changes)
+            dists[(yr, headline)] = distribution(df_central, dist_changes)
         print(f"    done in {time.perf_counter() - t0:.0f}s", flush=True)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)

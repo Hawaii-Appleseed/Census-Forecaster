@@ -577,17 +577,27 @@ class TestPopulationScoring:
         assert low["synthetic_cg_share"][7] == 0.5 * SYNTH_K["low"][6]
         assert (low["income"][[1, 2, 3]] == mid["income"][[1, 2, 3]]).all()
 
-    def test_anchored_share_is_the_scaled_model_share(self):
+    def test_anchored_gains_are_the_scaled_model_gains_with_non_gains_income_untouched(self):
         pop = _synthetic_population()
         for s in ("low", "mid", "high"):
-            model = unit_arrays(pop, 2028, s, gains="model")["synthetic_cg_share"]
-            got = unit_arrays(pop, 2028, s)["synthetic_cg_share"]
-            k = np.asarray(SYNTH_K[s])
-            np.testing.assert_array_equal(got, np.minimum(1.0, model * k[gains_classes(pop, 2028, s)]))
-        # a scale that would push a share past 1 stops at 1
+            model = unit_arrays(pop, 2028, s, gains="model")
+            got = unit_arrays(pop, 2028, s)
+            k = np.asarray(SYNTH_K[s])[gains_classes(pop, 2028, s)]
+            g0 = model["income"] * model["synthetic_cg_share"]
+            g1 = got["income"] * got["synthetic_cg_share"]
+            np.testing.assert_allclose(g1, k * g0, rtol=1e-12, atol=1e-9)
+            # non-gains income is what it was; income moved by (k - 1) x gains
+            np.testing.assert_allclose(got["income"] - g1, model["income"] - g0, rtol=1e-12, atol=1e-6)
+            np.testing.assert_allclose(got["income"], model["income"] + (k - 1) * g0, rtol=1e-12, atol=1e-6)
+            # total cash income moves with it
+            np.testing.assert_allclose(got["total_cash_income"] - model["total_cash_income"],
+                                       np.where(model["total_cash_income"] + (k - 1) * g0 > 0,
+                                                (k - 1) * g0, -model["total_cash_income"]),
+                                       rtol=1e-12, atol=1e-6)
+        # a scale past 1 raises gains and income together; the share stays <= 1
         pop.meta["cg_anchor"]["k"]["mid"]["2028"] = [0.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
-        got = unit_arrays(pop, 2028)["synthetic_cg_share"]
-        assert got.max() == 1.0 and set(np.unique(got)) <= {0.0, 1.0}
+        got = unit_arrays(pop, 2028)
+        assert got["synthetic_cg_share"].max() <= 1.0
         with pytest.raises(ValueError, match="gains"):
             unit_arrays(pop, 2028, gains="dotax")
 
@@ -633,8 +643,8 @@ class TestPopulationScoring:
                 d = frame_for(pop, y, s)
                 g = (d["income"] * d["synthetic_cg_share"]).to_numpy()
                 inc = model["income"].to_numpy()
-                want = inc * np.minimum(1.0, model["synthetic_cg_share"].to_numpy()
-                                        * np.asarray(k_mid)[[CLASSES.index(x) for x in labels]])
+                want = inc * model["synthetic_cg_share"].to_numpy() \
+                    * np.asarray(k_mid)[[CLASSES.index(x) for x in labels]]
                 np.testing.assert_allclose(g, want, rtol=1e-12, atol=0)
                 # the rule is not the old one: pinning the scenario to DOTAX
                 # would have given other factors and other gains
@@ -828,7 +838,7 @@ class TestPopulationScoring:
         pop = _synthetic_population(years=YEARS)
         write_web_files(pop, tmp_path, kernel_source=b"k")
         m = json.loads((tmp_path / "population.json").read_text())
-        assert m["web_format_version"] == WEB_FORMAT_VERSION == 4
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 5
         assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
         assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
         assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25

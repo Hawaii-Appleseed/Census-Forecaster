@@ -154,8 +154,8 @@ def check_gains_anchor(pop) -> list[str]:
       model gains in that class, the classes recomputed here from the
       scenario's weighted income ranks (rank_classes).
     * Every scenario: the stored class codes are the ones rank_classes
-      gives, no anchored share is capped at 1 (so the share form equals the
-      scaled dollars), and no gains sit on income <= 0.
+      gives, a unit's non-gains income is the model's (the anchor moves income by
+      (k - 1) x gains), no share exceeds 1, and no gains sit on income <= 0.
 
     Sums at rtol 1e-9; codes and k exactly.
     """
@@ -204,11 +204,16 @@ def check_gains_anchor(pop) -> list[str]:
             k = anchor["k"][s][str(y)]
             if s != "mid" and list(k) != list(k_mid):
                 problems.append(f"{s} {y}: scale factors {k} are not MID's {k_mid}")
-            raw = model["synthetic_cg_share"] * np.asarray(k)[cls]
-            capped, at_zero = raw > 1, (u["income"] <= 0) & (u["synthetic_cg_share"] > 0)
-            if capped.any() or at_zero.any():
-                problems.append(f"{s} {y}: {int(capped.sum())} shares capped at 1, "
-                                f"{int(at_zero.sum())} gains at income <= 0")
+            # the anchor sets the gains level and leaves non-gains income alone
+            g_model = model["income"] * model["synthetic_cg_share"]
+            g_got = u["income"] * u["synthetic_cg_share"]
+            positive = (model["income"] > 0) & (model["synthetic_cg_share"] > 0)
+            drift = np.abs((u["income"] - g_got) - (model["income"] - g_model))[positive]
+            at_zero = (u["income"] <= 0) & (u["synthetic_cg_share"] > 0)
+            if (drift > 1e-6).any() or at_zero.any() or (u["synthetic_cg_share"] > 1 + 1e-12).any():
+                problems.append(f"{s} {y}: {int((drift > 1e-6).sum())} units' non-gains income "
+                                f"moved, {int(at_zero.sum())} gains at income <= 0, "
+                                f"{int((u['synthetic_cg_share'] > 1 + 1e-12).sum())} shares over 1")
             gw = u["income"] * u["synthetic_cg_share"] * u["weight"]
             mw = model["income"] * model["synthetic_cg_share"] * model["weight"]
             for c, name in enumerate(CLASSES):
@@ -417,7 +422,7 @@ def main() -> int:
         print(f"FAILED: {len(problems)} differences, first: {problems[:5]}")
         return 1
     print("  MID class totals = DOTAX = the capital-gains page's base; LOW/HIGH keep MID's "
-          "factors on their own classes; no share capped", flush=True)
+          "factors on their own classes; non-gains income untouched", flush=True)
     rows = pop.meta["cg_anchor"]["rows"]
     y0 = str(pop.years[0])
     print(f"  anchored gains TY{y0}, LOW/MID/HIGH: "

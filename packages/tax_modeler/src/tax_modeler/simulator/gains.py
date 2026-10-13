@@ -23,8 +23,13 @@ ordinary income, which stretched the scenario range of Act 24 against Act 46
 1.02 / 1 / 1.10; with MID's factors, 1.00 / 1 / 1.10) and gave a plan that
 changes only the gains rate almost no range across scenarios.
 
-The anchored share is kept as a share, ``min(1, cg x k[class])``, so gains
-still scale with income wherever income moves (the top-income premium, ETI):
+The anchored gains are kept as a share of income, so they still scale with
+income wherever income moves (the top-income premium, ETI). The anchor sets the
+gains level and leaves non-gains income alone: gains go to ``k x`` the model's
+and the unit's income moves by exactly ``(k - 1) x gains``
+(``cg_anchor.rescale_gains``; share = ``k g / income'``). It held income fixed
+until 2026-10-12, which turned ``(1 - k) x gains`` into ordinary income when
+``k < 1`` (see SB3125_CD1_FORECAST.md):
 
 * ``cgcls_<year>`` (u1): each unit's class code in the MID scenario, in
   canonical order (``CLASSES``; 0 wherever the unit has no gains);
@@ -44,7 +49,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from tax_modeler.calibration.cg_anchor import TOP_SHARE_1M, anchor_nltcg
+from tax_modeler.calibration.cg_anchor import TOP_SHARE_1M, anchor_nltcg, rescale_gains
 
 from .population import Population, frame_for, unit_arrays
 from .scenarios import SCENARIOS
@@ -121,9 +126,15 @@ def gains_classes(pop: Population, year: int, scenario: str = "mid") -> np.ndarr
     return cls
 
 
-def anchored_share(pop: Population, year: int, scenario: str, model_share: np.ndarray) -> np.ndarray:
-    """``min(1, model share x k[class])`` for (year, scenario), canonical order;
-    ``model_share`` is the scenario's (tail overrides applied)."""
+def anchor_gains(pop: Population, year: int, scenario: str, income: np.ndarray,
+                 model_share: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The anchored income, gains share and income change for (year, scenario),
+    canonical order (``calibration.cg_anchor.rescale_gains`` with this
+    population's ``k[class]``): each unit's gains go to ``k x`` the model's and
+    its income moves by the same ``(k - 1) x gains``, so non-gains income is
+    untouched. ``income`` and ``model_share`` are the scenario's (tail
+    overrides applied). The kernel (``site/assets/simulator/kernel.js``,
+    ``unitArrays``) does the same."""
     anchor = pop.meta.get("cg_anchor") or ensure_gains_anchor(pop)
     k = np.asarray(anchor["k"][scenario][str(year)], dtype=float)
-    return np.minimum(1.0, model_share * k[gains_classes(pop, year, scenario)])
+    return rescale_gains(income, model_share, k[gains_classes(pop, year, scenario)])

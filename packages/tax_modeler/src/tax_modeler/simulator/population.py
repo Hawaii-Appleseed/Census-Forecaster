@@ -122,6 +122,7 @@ def _household_quintiles(projected: pd.DataFrame, breaks: np.ndarray, year: int)
 
 def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = None) -> Population:
     """Build the scoring population from the calibrated base (a few minutes)."""
+    from tax_modeler.calibration.cg_anchor import anchor_factors, apply_anchor_factors
     from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
 
     keys = list(SCENARIOS)
@@ -180,7 +181,10 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         arrays[f"agi_{y}"], arrays[f"item_{y}"], arrays[f"tci_{y}"] = agi, item, tci
         arrays[f"order_{y}"] = pos.astype(np.int32)
 
-        fifth = _household_quintiles(proj, breaks, y)
+        # ranked on the anchored frame, as the Act 24 page's quintile tables are
+        # (anchoring moves each unit's total cash income by (k - 1) x gains)
+        fifth = _household_quintiles(apply_anchor_factors(proj, anchor_factors(proj, y)),
+                                     breaks, y)
         hh_of = {h: i for i, h in enumerate(hh_ids)}
         hi = np.fromiter((hh_of[str(h)] for h in fifth.index), dtype=np.int64, count=len(fifth))
         quint = np.full(H, NO_QUINTILE, dtype=np.uint8)
@@ -241,7 +245,8 @@ GAINS_BASES = ("anchored", "model")
 def unit_arrays(pop: Population, year: int, scenario: str = "mid",
                 gains: str = "anchored") -> dict[str, np.ndarray]:
     """Canonical-order arrays for one (year, scenario): income, itemized
-    deduction, weight and capital-gains share with LOW/HIGH overrides applied.
+    deduction, weight, capital-gains share and total cash income with LOW/HIGH
+    overrides applied.
 
     ``gains``: ``"anchored"``, the simulator's DOTAX-anchored gains base
     (:mod:`.gains`, computed and cached on first use), or ``"model"``, the
@@ -261,11 +266,13 @@ def unit_arrays(pop: Population, year: int, scenario: str = "mid",
         weight[t] = a[f"tail_{scenario}_weight"]
         ci = a[f"cgovr_{scenario}_{year}_idx"]
         cg[ci] = a[f"cgovr_{scenario}_{year}_val"]
+    tci = a[f"tci_{year}"]
     if gains == "anchored":
-        from .gains import anchored_share
-        cg = anchored_share(pop, year, scenario, cg)
+        from .gains import anchor_gains
+        agi, cg, delta = anchor_gains(pop, year, scenario, agi, cg)
+        tci = np.maximum(tci + delta, 0.0)
     return {"income": agi, "hi_itemized_deduction": item, "weight": weight,
-            "synthetic_cg_share": cg}
+            "synthetic_cg_share": cg, "total_cash_income": tci}
 
 
 def frame_for(pop: Population, year: int, scenario: str = "mid",
@@ -289,6 +296,6 @@ def frame_for(pop: Population, year: int, scenario: str = "mid",
         "weight": u["weight"],
         "hh_weight": a["hh_weight"][a["hh"]],
         "synthetic_cg_share": u["synthetic_cg_share"],
-        "total_cash_income": a[f"tci_{year}"],
+        "total_cash_income": u["total_cash_income"],
     })
     return df.iloc[order].reset_index(drop=True)
