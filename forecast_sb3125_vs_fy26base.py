@@ -51,7 +51,6 @@ import pandas as pd
 
 from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
 from tax_modeler.pipeline import enrich_for_credits as _enrich_for_credits
-from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
 from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
 from tax_modeler.scenarios.top_income_synthesis import (
     synthesize_top_filers, calibrate_synthetic_tail_to_tax_target,
@@ -165,7 +164,9 @@ def main(cd: str, replicate_se: bool = True, aging: str = "cbo", age_margins: bo
     units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
     units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
     units = _enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)
+    # the base carries its gains anchored at the base year; the tail's go to the $1M+ target before tail_k
+    from tax_modeler.calibration.cg_anchor import anchor_tail_gains
+    units, _ = anchor_tail_gains(units)
     # Re-score on the SAME deduction basis the base was calibrated under —
     # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3). The
     # tail is not aged to the PUMS dollar year (age_synthetic_tail):
@@ -174,7 +175,8 @@ def main(cd: str, replicate_se: bool = True, aging: str = "cbo", age_margins: bo
     def score(u):
         return _compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
 
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(
+        score(units), score=score, scale_gains=False)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()

@@ -507,6 +507,89 @@ def calibrate(df: pd.DataFrame, *, return_report: bool = False):
     return calibrated
 
 
+# A class's gains after the rake are "off target" beyond this share of its
+# Table 21 target; the base then anchors once more with the post-rake classes.
+BASE_ANCHOR_TOLERANCE = 0.01
+
+
+def calibrate_anchored(
+    df: pd.DataFrame,
+    *,
+    deduction_params,
+    tax_year: int = 2023,
+    max_passes: int = 2,
+    tolerance: float = BASE_ANCHOR_TOLERANCE,
+):
+    """Stage 5 with the capital-gains anchor at the base year: anchor, then rake.
+
+    ``df`` is the enriched, scored PUMS tax units (``enrich_for_credits``,
+    ``compute_base_tax``) with their pre-rake weights. The units' gains are set
+    to DOTAX Table 21's windowed class targets (``calibration.cg_anchor``,
+    base-year level) with the PUMS gains shares imputed first
+    (``impute_capital_gains_from_soi``), income-consistent (non-gains income is
+    unchanged, income and AGI move by ``(k - 1) x gains``), the tax before
+    credits is re-scored on the anchored incomes with the §235-51(f) cap on the
+    gains, and the joint rake (``calibrate``) runs on those. The $1M+ tail is not
+    here: ``act24_population.build_units`` anchors its gains to the $1M+ target
+    before ``tail_k`` is fit.
+
+    The first pass's classes are the weighted income rank of the pre-anchor
+    incomes (``cg_anchor.base_class_labels``), on the weights of a rake of the
+    un-anchored units (the classes need weights near DOTAX's universe). Anchoring
+    moves incomes, and the projection ranks the anchored incomes, so after the
+    rake the classes are re-assigned on the anchored incomes and the new weights:
+    when the anchored gains then miss a class's target by more than ``tolerance``,
+    the anchor is redone from the un-anchored units with those classes and weights
+    and the rake repeated, at most ``max_passes`` anchors in all. Each pass's
+    residual (anchored gains over target on the re-assigned classes, and the share
+    of weight that changed class) is recorded.
+
+    Returns ``(base, CalibrationReport)``: the rake's report with
+    ``anchored_at_base``, ``base_anchor_factors`` (the factors applied) and
+    ``base_anchor_passes`` (per pass: factors, share of weight that changed class
+    after the rake, residual of gains against target by class). The returned base
+    is re-scored on its own incomes and weights.
+    """
+
+    from tax_modeler.calibration import cg_anchor
+    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+
+    def score(u: pd.DataFrame) -> pd.DataFrame:
+        # drop the alias compute_base_tax only fills when absent (it would keep the stale tax)
+        u = u.drop(columns=[c for c in ("hi_state_tax",) if c in u.columns])
+        return compute_base_tax(u, deduction_params=deduction_params, tax_year=tax_year)
+
+    raw = score(impute_capital_gains_from_soi(df))
+    base, report = calibrate(raw, return_report=True)    # the weights the classes are ranked on
+    passes: list[dict] = []
+    factors: dict[str, float] = {}
+    ranked = raw.assign(weight=base["weight"].to_numpy())
+    labels = cg_anchor.base_class_labels(ranked)              # pre-anchor ranks, un-anchored weights
+    for n in range(1, max_passes + 1):
+        factors, rows = cg_anchor.base_anchor_factors(ranked, labels)
+        anchored = score(cg_anchor.apply_base_anchor(raw, labels, factors))
+        base, report = calibrate(anchored, return_report=True)
+        w = base["weight"].to_numpy(float)
+        after = anchored.assign(weight=w)
+        labels_after = cg_anchor.base_class_labels(after)     # the classes the projection will see
+        residual = cg_anchor.base_gains_residual(after, labels_after)
+        moved = float(w[labels != labels_after].sum() / w.sum())
+        passes.append({"pass": n, "factors": dict(factors), "moved": moved, "residual": residual,
+                       "gains_M_before": {r["group"]: r["model_cg_M"] for r in rows},
+                       "target_M": {r["group"]: r["dotax_target_M"] for r in rows}})
+        logger.info("base gains anchor pass %d: k %s; %.2f%% of weight changed class; residual %s",
+                    n, {c: round(k, 3) for c, k in factors.items()}, 100 * moved,
+                    {c: round(r, 4) for c, r in residual.items()})
+        if max(abs(r) for r in residual.values()) <= tolerance:
+            break
+        ranked, labels = raw.assign(weight=w), labels_after
+    base = score(base)
+    report.anchored_at_base = True
+    report.base_anchor_factors = {c: float(k) for c, k in factors.items()}
+    report.base_anchor_passes = passes
+    return base, report
+
+
 # ---------------------------------------------------------------------------
 # Deprecated underscore-prefixed aliases.
 #

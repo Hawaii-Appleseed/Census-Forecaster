@@ -180,6 +180,13 @@ class CalibrationReport:
     warnings: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)       # informational (method, bounds, units at bounds)
     children: List["CalibrationReport"] = field(default_factory=list)
+    # The base's capital gains were anchored to DOTAX Table 21 at the base year,
+    # before this rake (``pipeline.calibrate_anchored``): the class scale factors
+    # applied (``cg_anchor.base_anchor_factors``) and, per pass, the residual of
+    # the anchored gains against the targets after the rake.
+    anchored_at_base: bool = False
+    base_anchor_factors: Dict[str, float] = field(default_factory=dict)
+    base_anchor_passes: List[Dict[str, Any]] = field(default_factory=list)
 
     # -- derived -----------------------------------------------------------
 
@@ -277,6 +284,14 @@ class CalibrationReport:
             yrs = ", ".join(f"{k}: {'TY' + str(y) if y is not None else 'n/a'}"
                             for k, y in self.source_years.items())
             lines.append(f"- **Margin source years:** {yrs}")
+
+        if self.anchored_at_base:
+            fac = ", ".join(f"{c} {k:.3f}" for c, k in self.base_anchor_factors.items())
+            lines.append(f"- **Gains anchored at the base year, before this rake:** k by class: {fac}")
+            for p_ in self.base_anchor_passes:
+                res = ", ".join(f"{c} {r:+.1%}" for c, r in p_.get("residual", {}).items())
+                lines.append(f"  - pass {p_.get('pass')}: {p_.get('moved', 0.0):.1%} of weight changed class "
+                             f"after the rake; residual of gains vs target: {res}")
 
         if self.statute_vs_cor_wedge is not None:
             lines.append(

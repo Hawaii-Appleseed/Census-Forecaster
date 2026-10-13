@@ -1,7 +1,7 @@
 """Build the tax-unit cache and the calibrated base, nothing else.
 
 The same steps as forecast_sb3125.py (the cache) and forecast_sb3125_enhanced.py
-(enrich, base tax, IPF rake, re-score, ``save_calibrated_base``), without the
+(enrich, base tax, gains anchor, IPF rake, re-score, ``save_calibrated_base``), without the
 2027-2031 projection, so a base can be built for ``scripts/dotax_scorecard.py``
 in a few minutes. Run from the repo root under ``uv run``, with
 ``HAWAII_PUMS_DIR`` set if the raw PUMS lives elsewhere::
@@ -30,7 +30,8 @@ from tax_modeler.artifacts import (  # noqa: E402
     save_calibrated_base,
     write_cache_sidecar,
 )
-from tax_modeler.pipeline import calibrate, compute_base_tax, enrich_for_credits  # noqa: E402
+from tax_modeler.artifacts import anchored_base_meta  # noqa: E402
+from tax_modeler.pipeline import calibrate_anchored, compute_base_tax, enrich_for_credits  # noqa: E402
 
 
 def main() -> int:
@@ -69,14 +70,17 @@ def main() -> int:
     cal = load_canonical_deduction_params()
     units = enrich_for_credits(units)
     units = compute_base_tax(units, deduction_params=cal, tax_year=2023)
-    base = calibrate(units)
-    base = compute_base_tax(base, deduction_params=cal, tax_year=2023)
+    # Gains anchored to DOTAX Table 21 at the base year, then the rake on the anchored incomes.
+    base, report = calibrate_anchored(units, deduction_params=cal, tax_year=2023)
+    print(report.to_markdown(max_cells=0), flush=True)
     print(f"calibrated: {base['weight'].sum():,.0f} filers, "
           f"${(base['hi_tax_liability'] * base['weight']).sum() / 1e6:,.0f}M hi_tax_liability "
           f"({time.perf_counter()-t0:.0f}s)", flush=True)
     out = ARTIFACT_DIR / "sb3125_calibrated_base.pkl"
     save_calibrated_base(base, out, deduction_params=cal, tax_year=2023,
-                         extra_meta={"built_by": "build_calibrated_base.py", "cd": "2"})
+                         extra_meta={"built_by": "build_calibrated_base.py", "cd": "2",
+                                     "calibration_report": report.to_dict(),
+                                     **anchored_base_meta(report)})
     print(f"saved {out} ({time.perf_counter()-t0:.0f}s)", flush=True)
     return 0
 

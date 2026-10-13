@@ -510,7 +510,7 @@ if __name__ == "__main__":
         print("Importing modules...", flush=True)
         # The scenario workers import their own dependencies; the main process
         # only needs the one-time calibration setup (enrich, base tax, rake).
-        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, calibrate
+        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, calibrate_anchored
         from tax_modeler.config.tax_system_config import TaxSystemRegistry
 
         get_scenario_system = (
@@ -547,17 +547,16 @@ if __name__ == "__main__":
         print(f"  Loaded itemized-deduction params for calibration", flush=True)
 
         units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        calibrated_base, CAL_REPORT = calibrate(units, return_report=True)
+        # Capital gains are anchored to DOTAX Table 21 at the base year, before the rake
+        # (the gains on the anchored incomes, the tax on them); the base comes back
+        # re-scored, the report carries the base-year factors.
+        calibrated_base, CAL_REPORT = calibrate_anchored(
+            units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
         # What the rake did: convergence, residuals, clip events, weight
         # dispersion. Cells go to calibration_report.json with the run.
         print("\n" + CAL_REPORT.to_markdown(max_cells=0) + "\n", flush=True)
         if not CAL_REPORT.converged:
             print("!! Base IPF rake did not converge — see the report above.", flush=True)
-        # Re-compute Hawaii tax post-calibration so hi_tax_liability reflects
-        # final calibrated weights with itemized deductions on.
-        calibrated_base = _compute_base_tax(
-            calibrated_base, deduction_params=CAL_DED_PARAMS, tax_year=2023,
-        )
 
         # Validate post-rake AND post-synthesis (top-tier filers added in
         # synthesis fill the $1M+ bin which the IPF rake can't reach via its
@@ -574,7 +573,9 @@ if __name__ == "__main__":
         _DOTAX_AFTER_M = _dotax_base.load_indinc(_dotax_base.BASE_YEAR)[
             "table_a8_resident_liability"]["total"]["tax_after_M"]
         _score = lambda u: _score_base(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)  # noqa: E731
-        _vb, _ = _calibrate_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)), score=_score)
+        from tax_modeler.calibration.cg_anchor import anchor_tail_gains as _anchor_tail
+        _vb, _ = _calibrate_tail(_score(_anchor_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)))[0]),
+                                 score=_score, scale_gains=False)
         _hi_tl = (_vb["hi_tax_liability"] * _vb["weight"]).sum() / 1e6
         _hi_st = (_vb["hi_state_tax"]     * _vb["weight"]).sum() / 1e6
         print(
@@ -590,7 +591,7 @@ if __name__ == "__main__":
         # parquet can't round-trip without lossy string conversion.
         # save_calibrated_base embeds CAL_DED_PARAMS + provenance metadata so
         # consumers re-score on the SAME deduction basis (C3 fix).
-        from tax_modeler.artifacts import save_calibrated_base
+        from tax_modeler.artifacts import anchored_base_meta, save_calibrated_base
         calibrated_pkl = ARTIFACT_DIR / "sb3125_calibrated_base.pkl"
         save_calibrated_base(
             calibrated_base, calibrated_pkl,
@@ -598,7 +599,8 @@ if __name__ == "__main__":
             extra_meta={"built_by": "forecast_sb3125_enhanced.py", "cd": CD,
                         # Consumers (fy26base, cg_rate_options) print and
                         # persist it with their own per-year reports.
-                        "calibration_report": CAL_REPORT.to_dict()},
+                        "calibration_report": CAL_REPORT.to_dict(),
+                        **anchored_base_meta(CAL_REPORT)},
         )
 
         # Capital gains: DOTAX anchors MID; every scenario rescales its gains

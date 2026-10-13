@@ -23,6 +23,17 @@ made the gains-growth sensitivity an artifact (k falls toward 0.2 under a
 gains-growth shift and the leaked ordinary income is taxed at Act 24's top
 rates; see SB3125_CD1_FORECAST.md).
 
+The anchor is applied at the base year, before calibration
+(:func:`base_class_labels`, :func:`base_anchor_factors`,
+:func:`apply_base_anchor`; ``pipeline.calibrate_anchored``): the PUMS units'
+gains are set to the Table 21 classes' windowed targets, the base is raked on the
+anchored incomes, and the synthetic $1M+ tail's gains are set to the $1M+ target
+before ``tail_k`` is fit (:func:`anchor_tail_gains`). The per-year anchor in the
+projection then runs with k near 1. Before 2026-10-13 it ran only after the rake and the
+tail calibration, so where PUMS gains are about half of DOTAX's ($300K-$1M, k about 2)
+it added income to units the class counts and ``tail_k`` had already been fit on and
+pushed about 336 of them over $1M.
+
 Moved verbatim from ``forecast_cg_rate_options.py`` (the capital-gains page),
 which imports these names back, so the page and the tax simulator
 (``tax_modeler.simulator.gains``) anchor with one implementation.
@@ -291,6 +302,13 @@ def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
     tax from ``income``, the share and the deductions. Not idempotent."""
     labels = rank_classes(df)
     k = np.fromiter((factors.get(c, 0.0) for c in labels), dtype=float, count=len(labels))
+    return apply_unit_factors(df, k, share_col)
+
+
+def apply_unit_factors(df: pd.DataFrame, k, share_col: str = "synthetic_cg_share") -> pd.DataFrame:
+    """:func:`apply_anchor_factors` with one factor ``k`` per unit (frame order)
+    in place of the class lookup."""
+    k = np.asarray(k, dtype=float)
     out = df.copy()
     inc, share, delta = rescale_gains(out["income"], out[share_col], k)
     out["income"] = inc
@@ -308,3 +326,98 @@ def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
     if "cbo_aged_capital_gains" in out.columns:
         out["cbo_aged_capital_gains"] = out["cbo_aged_capital_gains"].to_numpy(float) * k
     return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The base-year anchor: PUMS units before the rake, the synthetic tail before
+# tail_k
+# ─────────────────────────────────────────────────────────────────────────────
+
+_BASE_CLASSES = ("100_150", "150_200", "200_300", "300_400", "400_1m")
+
+
+def base_class_labels(df: pd.DataFrame) -> np.ndarray:
+    """DOTAX class of each unit of the PUMS-only base, as :func:`rank_classes`
+    will rank it once the synthetic $1M+ tail is on.
+
+    The tail replaces every PUMS unit at or above $1M (``synthesize_top_filers``
+    zeroes their weight) and holds DOTAX's $1M+ count, so the ranking runs on the
+    units below $1M plus one placeholder of that many returns above all of them;
+    the $400K+ class then reaches as far down as it does on the full population.
+    Units at or above $1M are labeled ``"1mp"`` and are not anchored (the tail is).
+    """
+    inc = df["income"].to_numpy(float)
+    w = df["weight"].to_numpy(float)
+    top = inc >= 1_000_000
+    inc_r = np.append(inc[~top], 1e13)
+    w_r = np.append(w[~top], float(DOTAX_RETURNS["1mp"]))
+    lab_r = rank_classes(pd.DataFrame({"income": inc_r, "weight": w_r}))
+    labels = np.full(len(df), "1mp", dtype=object)
+    labels[~top] = lab_r[:-1]
+    return labels
+
+
+def _base_targets(year: int = BASE_YEAR, top_share_1m: float = TOP_SHARE_1M) -> dict[str, float]:
+    """The classes' Table 21 anchor at ``year`` in dollars, with the $400K+ class
+    split at $1M (``top_share_1m`` above): ``100_150`` .. ``300_400``,
+    ``400_1m`` and ``1mp``."""
+    g = cg_growth(year) * anticipatory_realization_factor(year)
+    t = {c: v * g * 1e6 for c, v in zip(_CLASSES, anchored_nltcg_M(), strict=True)}
+    return {**{c: t[c] for c in _CLASSES[1:5]},
+            "400_1m": t["400p"] * (1 - top_share_1m), "1mp": t["400p"] * top_share_1m}
+
+
+def base_anchor_factors(df: pd.DataFrame, labels=None, *, year: int = BASE_YEAR,
+                        top_share_1m: float = TOP_SHARE_1M) -> tuple[dict[str, float], list[dict]]:
+    """Each class's scale factor k on the PUMS-only base: Table 21's windowed
+    gains over the model's own (weighted ``income x share``), classes from
+    ``labels`` (:func:`base_class_labels` by default). Returns
+    ``(factors, rows)``, the rows in :func:`anchor_nltcg`'s format. The $1M+
+    class is not in it (see :func:`anchor_tail_gains`)."""
+    labels = base_class_labels(df) if labels is None else labels
+    w = df["weight"].to_numpy(float)
+    model_cg = model_gains(df["income"], df["synthetic_cg_share"])
+    target = _base_targets(year, top_share_1m)
+    factors, rows = {}, []
+    for c in _BASE_CLASSES:
+        m = labels == c
+        have = float((model_cg[m] * w[m]).sum())
+        k = target[c] / have if have > 0 else 0.0
+        factors[c] = k
+        rows.append({"tax_year": year, "group": c, "model_cg_M": have / 1e6,
+                     "dotax_target_M": target[c] / 1e6, "scale": k})
+    return factors, rows
+
+
+def apply_base_anchor(df: pd.DataFrame, labels, factors: dict[str, float]) -> pd.DataFrame:
+    """``df`` (the PUMS-only base) with its gains anchored: class ``labels``
+    scaled by ``factors`` (0 below the $100K class, 1 for the units at or above
+    $1M that the tail replaces), income-consistent as :func:`apply_anchor_factors`."""
+    k = np.fromiter((1.0 if c == "1mp" else factors.get(c, 0.0) for c in labels),
+                    dtype=float, count=len(labels))
+    return apply_unit_factors(df, k)
+
+
+def base_gains_residual(df_anchored: pd.DataFrame, labels, *, year: int = BASE_YEAR,
+                        top_share_1m: float = TOP_SHARE_1M) -> dict[str, float]:
+    """Per class, the anchored base's weighted gains over the Table 21 target,
+    minus 1, with ``labels`` and the frame's current weights."""
+    w = df_anchored["weight"].to_numpy(float)
+    g = model_gains(df_anchored["income"], df_anchored["synthetic_cg_share"])
+    target = _base_targets(year, top_share_1m)
+    return {c: float((g[labels == c] * w[labels == c]).sum() / target[c] - 1.0)
+            for c in _BASE_CLASSES}
+
+
+def anchor_tail_gains(df: pd.DataFrame, *, year: int = BASE_YEAR,
+                      top_share_1m: float = TOP_SHARE_1M) -> tuple[pd.DataFrame, float]:
+    """``df`` with the synthetic $1M+ tail's gains set to the $1M+ Table 21
+    target at ``year`` (the $400K+ window anchor times ``top_share_1m``), income-
+    consistent; returns ``(df, k)``. Run before ``tail_k`` is fit, so the tail's
+    tax, and ``tail_k`` with it, are the anchored tail's."""
+    syn = df["is_synthetic_ultra_high"].fillna(False).to_numpy(dtype=bool)
+    w = df["weight"].to_numpy(float)
+    g = model_gains(df["income"], df["synthetic_cg_share"])
+    have = float((g[syn] * w[syn]).sum())
+    k = _base_targets(year, top_share_1m)["1mp"] / have if have > 0 else 1.0
+    return apply_unit_factors(df, np.where(syn, k, 1.0)), float(k)

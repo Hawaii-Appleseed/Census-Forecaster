@@ -8,11 +8,13 @@ estimates use; ``forecast_act24_vs_pre_act46.py`` and
 
 Two steps:
 
-* :func:`build_units` — the calibrated base plus the synthetic $1M+ tail
-  (Pareto ``alpha``), capital-gains shares, and the tail calibrated to the
-  DOTAX $1M+ tax target (iterated until re-scoring lands on it) and then
-  aged to the PUMS income dollar year by the scenario's aging spec,
-  re-scored on the calibration's deduction basis.
+* :func:`build_units` — the calibrated base (its capital gains already
+  anchored to DOTAX Table 21 at the base year, before the rake:
+  ``pipeline.calibrate_anchored``) plus the synthetic $1M+ tail (Pareto
+  ``alpha``) with its gains anchored to the $1M+ Table 21 target, and the tail
+  calibrated to the DOTAX $1M+ tax target (iterated until re-scoring lands on
+  it, on the anchored tail) and then aged to the PUMS income dollar year by the
+  scenario's aging spec, re-scored on the calibration's deduction basis.
 * :func:`project_units` — one tax year through the one aging engine
   (``projection.engine.project_units``): CBO component aging (or the old
   county-median scalar, ``AgingSpec(engine="scalar")``), the scenario's
@@ -48,7 +50,12 @@ def build_units(
 ) -> tuple[pd.DataFrame, float]:
     """Synthesize the $1M+ tail on the calibrated base; return (units, tail_k).
 
-    The tail's incomes are scaled until its re-scored tax is DOTAX's $1M+
+    The base carries its gains anchored at the base year (``load_calibrated_base``
+    refuses one that does not), so its shares are not imputed here; the tail's
+    gains are anchored to the $1M+ Table 21 target (``cg_anchor.anchor_tail_gains``)
+    before ``tail_k`` is fit, and ``tail_k`` scales only the tail's ordinary
+    income, so its gains stay at the anchor. The tail's ordinary income is scaled until its re-scored
+    tax is DOTAX's $1M+
     tax target (``calibrate_synthetic_tail_to_tax_target``; ``tail_k`` is that
     scale), then aged from the target's tax year to the PUMS income dollar
     year (``age_synthetic_tail``) by ``spec``'s engine and drift, since
@@ -61,7 +68,7 @@ def build_units(
     ``total_cash_income`` (used to rank households) and leaves every tax input
     unchanged.
     """
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+    from tax_modeler.calibration.cg_anchor import anchor_tail_gains
     from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.top_income_synthesis import (
         age_synthetic_tail,
@@ -75,8 +82,9 @@ def build_units(
     units = synthesize_top_filers(base_calibrated, pareto_alpha=alpha)
     if enrich:
         units = enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)    # CG rate cap for $100K-$1M filers
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, _ = anchor_tail_gains(units)             # the $1M+ class's Table 21 gains, before tail_k
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(
+        score(units), score=score, scale_gains=False)
     units = score(age_synthetic_tail(units, spec=spec))
     return units, tail_k
 

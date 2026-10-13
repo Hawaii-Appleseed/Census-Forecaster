@@ -147,7 +147,6 @@ CALIBRATION: dict = {"base_meta": None, "years": {}}
 def build_base() -> pd.DataFrame:
     """Calibrated base + $1M+ synthesis, identical to forecast_act24_vs_pre_act46.py."""
     from tax_modeler.artifacts import load_calibrated_base
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
     from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.top_income_synthesis import (
         calibrate_synthetic_tail_to_tax_target,
@@ -166,14 +165,17 @@ def build_base() -> pd.DataFrame:
     units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
     units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
     units = enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)
+    # the base carries its gains anchored at the base year; the tail's go to the $1M+ target before tail_k
+    from tax_modeler.calibration.cg_anchor import anchor_tail_gains
+    units, _ = anchor_tail_gains(units)
 
     def score(u):
         return compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
 
     # Not aged to the PUMS dollar year: project()'s SOI anchor replaces every
     # $1M+ unit with SOI tiers aged from TY2022, so the tail's level is moot.
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(
+        score(units), score=score, scale_gains=False)
     print(f"  tail_k={tail_k:.4f}", flush=True)
     return units
 

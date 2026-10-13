@@ -260,17 +260,44 @@ def _synthetic_tail_tax_m(df: pd.DataFrame) -> float:
     return float((df.loc[mask, tax_col] * df.loc[mask, "weight"]).sum() / 1e6)
 
 
-def _scale_synthetic_incomes(df: pd.DataFrame, factor) -> pd.DataFrame:
+# The columns that hold the tail's gains (``synthetic_cg_share`` x income), as opposed to
+# its ordinary income; see ``_scale_synthetic_incomes(gains_fixed=True)``.
+_TAIL_GAINS_COLUMNS = ("investment_income", "primary_intp")
+_TAIL_TOTAL_COLUMNS = ("income", "agi", "synthetic_total_income")
+
+
+def _scale_synthetic_incomes(df: pd.DataFrame, factor, *, gains_fixed: bool = False) -> pd.DataFrame:
     """``df`` with the synthetic rows' income columns multiplied by ``factor``
     (a scalar, or one value per synthetic row in frame order), their federal
     income columns rebuilt from them (as :func:`synthesize_top_filers` builds
-    them) and their tax columns cleared: re-score afterwards."""
+    them) and their tax columns cleared: re-score afterwards.
+
+    ``gains_fixed=True`` scales only the rows' ordinary income: a row's gains
+    (``income x synthetic_cg_share``) stay where they are, its total income
+    becomes ``gains + factor x ordinary``, the columns that hold the gains
+    (``investment_income``, ``primary_intp``) are left alone and
+    ``synthetic_cg_share`` is recomputed as gains / income."""
     mask = _synthetic_mask(df)
     out = df.copy()
     f = factor if np.isscalar(factor) else np.asarray(factor, dtype=float)
-    for col in _TAIL_INCOME_COLUMNS:
-        if col in out.columns:
-            out.loc[mask, col] = out.loc[mask, col].to_numpy(dtype=float) * f
+    if gains_fixed:
+        inc = out.loc[mask, "income"].to_numpy(dtype=float)
+        share = (out.loc[mask, "synthetic_cg_share"].fillna(0.0).to_numpy(dtype=float)
+                 if "synthetic_cg_share" in out.columns else np.zeros(len(inc)))
+        gains = inc * share
+        new_inc = gains + f * (inc - gains)
+        for col in _TAIL_TOTAL_COLUMNS:
+            if col in out.columns:
+                out.loc[mask, col] = new_inc
+        for col in _TAIL_INCOME_COLUMNS:
+            if col not in _TAIL_TOTAL_COLUMNS and col not in _TAIL_GAINS_COLUMNS and col in out.columns:
+                out.loc[mask, col] = out.loc[mask, col].to_numpy(dtype=float) * f
+        if "synthetic_cg_share" in out.columns:
+            out.loc[mask, "synthetic_cg_share"] = np.where(new_inc > 0, gains / np.where(new_inc > 0, new_inc, 1.0), 0.0)
+    else:
+        for col in _TAIL_INCOME_COLUMNS:
+            if col in out.columns:
+                out.loc[mask, col] = out.loc[mask, col].to_numpy(dtype=float) * f
     if mask.any() and "federal_agi" in out.columns:
         from tax_modeler.liability.federal import add_federal_income_columns
 
@@ -348,9 +375,15 @@ def calibrate_synthetic_tail_to_tax_target(
     target_tax_m: float = DOTAX_1M_PLUS_TAX_TARGET_M,
     rtol: float = 1e-3,
     max_iter: int = 8,
+    scale_gains: bool = True,
 ) -> tuple[pd.DataFrame, float]:
     """Scale the synthetic $1M+ tail's incomes until its re-scored Hawaii tax
     is ``target_tax_m`` within ``rtol``; return ``(units, k)``.
+
+    ``scale_gains=False`` scales only the tail's ordinary income (the Act 24
+    population, ``act24_population.build_units``): its gains, already anchored to
+    the $1M+ Table 21 target, stay at the anchor, and ``k`` multiplies the ordinary
+    part alone (:func:`_scale_synthetic_incomes`, ``gains_fixed``).
 
     Alternates scaling and re-scoring: the first step is
     :func:`rescale_synthetic_tail_to_tax_target`'s proportional ``k``, which
@@ -388,7 +421,7 @@ def calibrate_synthetic_tail_to_tax_target(
         if k_next is None or k_next <= 0:
             k_next = k * target_tax_m / tax          # the proportional step
         prev = (k, tax)
-        tail = score(_scale_synthetic_incomes(tail, k_next / k))
+        tail = score(_scale_synthetic_incomes(tail, k_next / k, gains_fixed=not scale_gains))
         k, tax = k_next, _synthetic_tail_tax_m(tail)
     if off(tax):
         raise RuntimeError(
@@ -396,7 +429,7 @@ def calibrate_synthetic_tail_to_tax_target(
             f"${target_tax_m:.1f}M after {max_iter} steps (k={k:.4f})."
         )
 
-    out = score(_scale_synthetic_incomes(units, k))
+    out = score(_scale_synthetic_incomes(units, k, gains_fixed=not scale_gains))
     whole = _synthetic_tail_tax_m(out)
     if off(whole):
         raise RuntimeError(

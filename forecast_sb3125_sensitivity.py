@@ -121,7 +121,6 @@ def run_growth_sweep(cd: str):
     from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
     from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
     from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
     from tax_modeler.scenarios.quintile_analysis import per_unit_tax
     from tax_modeler.scenarios.top_income_synthesis import (
         calibrate_synthetic_tail_to_tax_target, redistribute_mid_high_incomes,
@@ -138,12 +137,15 @@ def run_growth_sweep(cd: str):
     units = redistribute_mid_high_incomes(base, pareto_alpha=1.5)
     units = synthesize_top_filers(units, pareto_alpha=1.5)
     units = enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)
+    # the base carries its gains anchored at the base year; the tail's go to the $1M+ target before tail_k
+    from tax_modeler.calibration.cg_anchor import anchor_tail_gains
+    units, _ = anchor_tail_gains(units)
 
     def score(u):
         return compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
 
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, tail_k = calibrate_synthetic_tail_to_tax_target(
+        score(units), score=score, scale_gains=False)
     print(f"  tail_k={tail_k:.4f}; growth assumptions vintage {GROWTH_VINTAGE}", flush=True)
     get_scenario_system = (
         TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"

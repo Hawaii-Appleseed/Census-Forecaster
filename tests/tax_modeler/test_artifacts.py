@@ -33,6 +33,13 @@ def units_df():
 
 
 _PARAMS = {"mortgage_share": 0.31, "salt_cap": 10_000, "tax_year": 2023}
+_ANCHORED = {"anchored_at_base": True, "base_anchor_factors": {"300_400": 2.0}}
+
+
+def _save(path, units_df, **extra):
+    """A base as ``build_calibrated_base`` saves it: gains anchored at the base year."""
+    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023,
+                         extra_meta={**_ANCHORED, **extra})
 
 
 def test_canonical_params_exist_and_load():
@@ -51,11 +58,10 @@ def test_fingerprint_stable_and_order_insensitive():
 
 def test_calibrated_base_round_trip(tmp_path, units_df):
     path = tmp_path / "base.pkl"
-    save_calibrated_base(
-        units_df, path, deduction_params=_PARAMS, tax_year=2023,
-        extra_meta={"built_by": "test"},
-    )
+    _save(path, units_df, built_by="test")
     units, params, meta = load_calibrated_base(path)
+    assert meta["anchored_at_base"] is True
+    assert meta["base_anchor_factors"] == {"300_400": 2.0}
 
     pd.testing.assert_frame_equal(units, units_df)
     assert params == _PARAMS
@@ -68,14 +74,14 @@ def test_calibrated_base_round_trip(tmp_path, units_df):
 
 def test_round_trip_with_expected_params_ok(tmp_path, units_df):
     path = tmp_path / "base.pkl"
-    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023)
+    _save(path, units_df)
     units, params, _ = load_calibrated_base(path, expected_params=_PARAMS)
     assert params == _PARAMS
 
 
 def test_fingerprint_mismatch_raises(tmp_path, units_df):
     path = tmp_path / "base.pkl"
-    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023)
+    _save(path, units_df)
     stale = dict(_PARAMS, salt_cap=99_999)
     with pytest.raises(ValueError, match="Stale calibrated-base artifact"):
         load_calibrated_base(path, expected_params=stale)
@@ -85,13 +91,28 @@ def test_legacy_bare_dataframe_falls_back_to_canonical(tmp_path, units_df, caplo
     path = tmp_path / "legacy.pkl"
     units_df.to_pickle(path)  # old format: bare DataFrame
 
+    with pytest.raises(ValueError, match="anchored_at_base"):
+        load_calibrated_base(path)
     with caplog.at_level("WARNING"):
-        units, params, meta = load_calibrated_base(path)
+        units, params, meta = load_calibrated_base(path, require_anchored=False)
 
     pd.testing.assert_frame_equal(units, units_df)
     assert params == load_canonical_deduction_params()
     assert meta["artifact_version"] == 0
     assert any("Legacy bare-DataFrame" in r.message for r in caplog.records)
+
+
+def test_a_base_without_the_base_year_anchor_is_refused(tmp_path, units_df):
+    """A base built before the gains anchor moved to the base year has to be
+    rebuilt, not loaded: the tail and every projection assume anchored gains."""
+    path = tmp_path / "old.pkl"
+    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023,
+                         extra_meta={"built_by": "old"})
+    with pytest.raises(ValueError, match="rebuild"):
+        load_calibrated_base(path)
+    units, _, meta = load_calibrated_base(path, require_anchored=False)
+    assert "anchored_at_base" not in meta
+    pd.testing.assert_frame_equal(units, units_df)
 
 
 def test_unrecognized_payload_raises(tmp_path):

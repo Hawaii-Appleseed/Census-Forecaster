@@ -192,6 +192,96 @@ def test_a_gains_growth_shift_moves_act24_minus_act46_only_through_the_gains_cha
     assert np.abs(diff(old) - diff(df)).max() > 100
 
 
+# ── the base-year anchor: PUMS units before the rake ─────────────────────────
+
+def _pums(n=20_000, seed=0):
+    """A PUMS-only frame (no tail): its units at or above $1M get replaced by the tail."""
+    df = _frame(n=n, seed=seed)
+    df["agi"] = df["hi_agi"] = df["federal_agi"] = df["income"]
+    df["total_cash_income"] = df["income"] * 1.1
+    return df
+
+
+def test_base_labels_reserve_the_top_ranks_for_the_tail():
+    df = _pums()
+    labels = cg_anchor.base_class_labels(df)
+    top = df["income"].to_numpy() >= 1_000_000
+    assert (labels[top] == "1mp").all() and (labels[~top] != "1mp").all()
+    # the tail's 1M+ slots sit above every unit below $1M, so the $400K-$1M class holds
+    # the next n(400_1m) ranks: rank_classes on the population with a placeholder tail
+    # of DOTAX's $1M+ count
+    w, inc = df["weight"].to_numpy(), df["income"].to_numpy()
+    placeholder = pd.DataFrame({"income": np.append(inc[~top], 1e13),
+                                "weight": np.append(w[~top], DOTAX_RETURNS["1mp"])})
+    np.testing.assert_array_equal(labels[~top], rank_classes(placeholder)[:-1])
+
+
+def test_base_anchor_leaves_non_gains_income_unchanged_and_hits_the_class_targets():
+    df = _pums()
+    labels = cg_anchor.base_class_labels(df)
+    factors, rows = cg_anchor.base_anchor_factors(df, labels)
+    assert set(factors) == {"100_150", "150_200", "200_300", "300_400", "400_1m"}
+    out = cg_anchor.apply_base_anchor(df, labels, factors)
+    g0 = cg_anchor.model_gains(df["income"], df["synthetic_cg_share"])
+    g1 = cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])
+    # non-gains income, income - gains, is untouched for every unit; so are the units at/above $1M
+    np.testing.assert_allclose(out["income"] - g1, df["income"] - g0, rtol=1e-12, atol=1e-6)
+    np.testing.assert_array_equal(out.loc[labels == "1mp", "income"], df.loc[labels == "1mp", "income"])
+    for col in ("agi", "hi_agi", "federal_agi"):
+        np.testing.assert_allclose(out[col], out["income"], rtol=1e-12)
+    # below the $100K class the gains go; each class holds its windowed Table 21 target
+    assert (g1[labels == "lt100"] == 0).all()
+    w = df["weight"].to_numpy()
+    want = cg_anchor._base_targets()
+    for c in factors:
+        assert (g1 * w)[labels == c].sum() == pytest.approx(want[c], rel=1e-9), c
+    assert {r["group"]: r["dotax_target_M"] * 1e6 for r in rows} == pytest.approx(
+        {c: want[c] for c in factors}, rel=1e-12)
+    assert cg_anchor.base_gains_residual(out, labels) == pytest.approx(dict.fromkeys(factors, 0.0), abs=1e-9)
+
+
+def test_projection_anchor_factors_are_near_one_after_the_base_anchor():
+    """With the gains anchored at the base year, the per-year anchor in the MID
+    projection (TY2027) runs with k near 1 below $400K: it only carries the target
+    forward (wage growth) against the model's own component aging, instead of adding
+    the base's whole gap (k about 0.85-2.2 before). The $400K+ classes are not
+    asserted: PUMS units cross $1M as incomes grow, which moves their gains from
+    the $400K-$1M class into the $1M+ one (the doc's per-class table)."""
+    from tax_modeler.projection import engine
+    from tax_modeler.projection.engine import AgingSpec
+
+    rng = np.random.default_rng(5)
+    n = 20_000
+    df = _pums(n=n, seed=5)
+    df = df[df["income"] < 1_000_000].reset_index(drop=True)        # the tail replaces PUMS $1M+
+    n = len(df)
+    df["weight"] = df["weight"] * 618_000 / df["weight"].sum()      # DOTAX's filer universe
+    df["county"] = rng.choice(["Honolulu", "Maui", "Hawaii", "Kauai"], n)
+    df["filing_status"] = rng.choice(["single", "married_filing_jointly"], n)
+    df["num_dependents"] = 0
+    df["hi_itemized_deduction"] = 0.0
+    # PUMS has no gains column: the gains sit inside the reported components
+    df["primary_wagp"], df["primary_intp"] = df["income"] * 0.85, df["income"] * 0.15
+    df["is_synthetic_ultra_high"] = False
+    tail = pd.DataFrame({
+        "income": np.array([1.4e6, 3.0e6, 6.8e6, 1.5e7]), "weight": np.array([1000.0, 500.0, 150.0, 54.0]),
+        "synthetic_cg_share": np.array([0.21, 0.25, 0.30, 0.45]), "is_synthetic_ultra_high": True,
+        "county": "Honolulu", "filing_status": "married_filing_jointly", "num_dependents": 0,
+        "hi_itemized_deduction": 0.0})
+    tail["agi"] = tail["synthetic_total_income"] = tail["income"]
+    tail["primary_wagp"] = tail["earned_income"] = tail["income"] * (1 - tail["synthetic_cg_share"])
+    tail["primary_intp"] = tail["investment_income"] = tail["income"] * tail["synthetic_cg_share"]
+
+    labels = cg_anchor.base_class_labels(df)
+    factors, _ = cg_anchor.base_anchor_factors(df, labels)
+    base = cg_anchor.apply_base_anchor(df, labels, factors)
+    units, _ = cg_anchor.anchor_tail_gains(pd.concat([base, tail], ignore_index=True))
+    projected = engine.project_units(units, 2027, AgingSpec())
+    k = cg_anchor.anchor_factors(projected, 2027)
+    for c in ("100_150", "150_200", "200_300", "300_400"):
+        assert 0.85 <= k[c] <= 1.15, (c, k)
+
+
 def test_the_page_imports_the_package_code():
     """forecast_cg_rate_options.py takes these names from the package rather
     than defining its own (checked on the source: importing the script turns

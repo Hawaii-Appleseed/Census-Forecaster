@@ -142,12 +142,29 @@ def save_calibrated_base(
     )
 
 
+def anchored_base_meta(report: Any) -> Dict[str, Any]:
+    """The artifact metadata entries for a base built by
+    ``pipeline.calibrate_anchored`` (its ``CalibrationReport``): the anchor flag
+    and the base-year class factors."""
+    return {"anchored_at_base": True,
+            "base_anchor_factors": dict(report.base_anchor_factors),
+            "base_anchor_passes": list(report.base_anchor_passes)}
+
+
 def load_calibrated_base(
     path: Path | str,
     *,
     expected_params: Any = None,
+    require_anchored: bool = True,
 ) -> Tuple[pd.DataFrame, Any, Dict[str, Any]]:
     """Load a calibrated base; returns ``(units, deduction_params, meta)``.
+
+    A base whose metadata lacks ``anchored_at_base: true`` (capital gains
+    anchored to DOTAX Table 21 before the rake, ``pipeline.calibrate_anchored``;
+    ``anchored_base_meta`` builds the entries) raises ``ValueError`` and has to be
+    rebuilt: every consumer now assumes the gains are anchored at the base year
+    and the tail is fit on anchored incomes. ``require_anchored=False`` loads it
+    anyway (tests, forensics).
 
     Legacy bare-DataFrame pickles are accepted with a loud warning — their
     deduction params fall back to the canonical config (fingerprint cannot
@@ -157,7 +174,15 @@ def load_calibrated_base(
     path = Path(path)
     obj = pd.read_pickle(path)
 
+    def _refuse():
+        raise ValueError(
+            f"Calibrated base at {path} was built before the capital-gains anchor moved to "
+            f"the base year (no anchored_at_base in its metadata): rebuild it with "
+            f"scripts/build_calibrated_base.py or forecast_sb3125_enhanced.py.")
+
     if isinstance(obj, pd.DataFrame):
+        if require_anchored:
+            _refuse()
         logger.warning(
             "Legacy bare-DataFrame artifact at %s — no embedded deduction "
             "params; falling back to the canonical config. Re-run "
@@ -172,6 +197,8 @@ def load_calibrated_base(
     units = obj["units"]
     params = obj.get("deduction_params")
     meta = dict(obj.get("meta", {}))
+    if require_anchored and meta.get("anchored_at_base") is not True:
+        _refuse()
 
     if expected_params is not None:
         expected_fp = params_fingerprint(expected_params)
