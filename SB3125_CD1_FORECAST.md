@@ -17,6 +17,9 @@
 
 ## Gains anchored by base-year cohort in projection — October 13, 2026 (supersedes the MID tables below)
 
+MID five-year total vs Act 46 **$688.9M** (was $688.7M), sampling CI90 **[$675.5M, $702.4M]**
+(sum of the annual replicate-weight bounds), against the $688.7M of the section below (CI [$675.2M, $702.2M]).
+
 **The problem.** The per-year gains anchor assigned DOTAX classes by each year's projected income, so PUMS
 units that grow past $1M left 400_1m and entered 1mp carrying their anchored gains while the class targets
 (base-year Table 21 shares grown by the window rule) did not move with them: separate cells ran k(400_1m)
@@ -89,7 +92,76 @@ between the two (closer than pooled on every $400K-$1M row, equal to separate on
 total tax: -2.7% against -2.5%). The gate scores one projection step on a base whose classes barely move, so it cannot see the
 crossing the cohort anchor addresses; it is reported, not used to pick the mode.
 
-*(Reruns, headline, scenarios, frames and the aging band follow in the next commit.)*
+### Headline (CD2, vs Act 46, $M)
+
+| Tax Year | **MID** | Sampling CI90 | Oct 13 (pooled cell) |
+|---|--:|---|--:|
+| 2027 | **$87.1M** | [85.4, 88.8] | $87.1M |
+| 2028 | **$113.8M** | [112.0, 115.5] | $113.7M |
+| 2029 | **$135.5M** | [132.4, 138.7] | $135.5M |
+| 2030 | **$171.3M** | [168.0, 174.6] | $171.3M |
+| 2031 | **$181.2M** | [177.7, 184.7] | $181.2M |
+| **5-year** | **$688.9M** | **[675.5, 702.4]** | **$688.7M** [675.2, 702.2] |
+
+The shift is +$0.2M over five years, well inside the previous CI: where k was already near 1 the three modes
+agree, and what the cohort anchor changes is who holds the gains, not how many there are. MID by component, five
+years: static bracket 317.9, behavioral -83.6, bracket post-behavioral 234.3, credits 454.6 (unchanged), total 688.9
+(the static column and the vs-pre-Act-46 column C, $317.9M, are unchanged).
+
+| Scenario | 2027 | 2028 | 2029 | 2030 | 2031 | 5-year | Oct 13 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| LOW | 76.3 | 91.4 | 105.6 | 133.5 | 145.4 | **552.3** | 551.7 |
+| MID | 87.1 | 113.8 | 135.5 | 171.3 | 181.2 | **688.9** | 688.7 |
+| HIGH | 115.4 | 151.1 | 177.2 | 215.9 | 231.6 | **891.3** | 891.2 |
+| RECESSION | 83.0 | 110.9 | 133.6 | 170.6 | 181.2 | **679.3** | 679.1 |
+
+$1M+ filers after response, MID: **2,454 (TY2027)** and **2,738 (TY2031)**, against 2,452 / 2,742 with no anchor
+(2,452 / 2,716 pooled, 2,658 / 3,024 separate); by year 2,454, 2,593, 2,654, 2,682, 2,738.
+
+Other published pages. **Capital-gains page** (it re-rakes its weights every year and swaps the tail for SOI $1M+ tiers,
+so it labels those tiers cohort `1mp` and takes the cohort totals from its own base population): the gains total is
+$23,813.5M over five years (was $24,134.7M, -1.3%: the 400_1m cohort holds less than its Table 21 target after the base
+rake), the Act 24 five-year central static estimate is **$356.7M** for the 9% cap (was $361.1M) and **$1,064.8M** for
+ordinary-rate gains (was $1,093.4M), after response $293.3M and $804.4M (were $297.0M and $826.5M). On this page the
+per-year k is not near 1 for every cohort (TY2027 400_1m 1.126, TY2031 400_1m 1.466 and 1mp 0.769) because its weights
+are re-raked and its SOI tiers grow faster than the wage path; that is the page's population, not the crossing, and it
+is shown in `anchor_check.csv`. Working-family credits are unchanged; the Act 24 and capital-gains distribution tables
+and the tax simulator (population, golden fixtures, checks; `cg_anchor.mode` "cohort", web format 6) were rebuilt. The
+simulator's anchor check tests each cohort's gains against its target exactly and the page's targets within 15% per
+cohort (TY2027 400_1m +11.8%, 200_300 +5.9%; the $1M+ cohort exactly) and 5% in total (TY2027 +2.4%), since the two
+populations' weights differ.
+
+### The three frames (five years, MID, CD2, $M)
+
+| Frame | Act 24 effect | Oct 13 |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +688.9 | +688.7 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,670.1 | -1,670.1 |
+| ITEP five-year figure / gap | -2,204.0 / +533.9 | -2,204.0 / +533.9 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,903.1 | -4,903.1 |
+| vs pre-Act-46 law: C, Act 24 increment | +317.9 | +317.9 |
+| vs pre-Act-46 law: total | -4,585.2 | -4,585.2 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,765.4 | -1,765.4 |
+
+Only the first row moves: the other frames do not use the gains anchor. Column C ties out to the Act 24 page's static
+bracket change to $0.005M every year.
+
+### Aging-input band, recomputed
+
+Same method as the sections below (`scripts/diagnostics/gains_shift_decomp.py`; the unshifted run reproduces the
+headline MID by year to the cent: 87.09, 113.76, 135.54, 171.33, 181.21; random walk covariance min(k_i, k_j),
+components independent).
+
+| component | sigma_c | persistent-shift Delta, 5-yr ($M) (Oct 13) | by year 2027-2031 ($M) | random-walk SD, 5-yr ($M) (Oct 13) |
+|---|--:|--:|---|--:|
+| wages (after QCEW, 2026+) | 0.0297 | +76.4 (+76.4) | 4.1, 9.5, 14.8, 20.8, 27.3 | **33.3** (33.3) |
+| business (incl. proprietors) | 0.0874 | +34.7 (+34.7) | 1.7, 2.7, 6.9, 9.9, 13.4 | **13.7** (13.7) |
+| capital_gains | 0.1990 | -30.9 (-31.2) | 0.4, -0.0, -4.5, -10.7, -16.0 | **11.9** (12.0) |
+| dividends | 0.4437 | 0 | 0 | 0 |
+| interest | 0.1410 | +142.2 (+142.4) | 4.1, 11.0, 30.3, 41.5, 55.3 | **56.1** (56.2) |
+
+Aging-input SD **$67.8M** (Oct 13: $67.8M), CI90 **[$577M, $800M]**; without the gains term $66.7M; persistent-shift
+upper bound SD $168.0M. Sampling CI90 is [$675.5M, $702.4M]. The caveats of the sections below stand.
 
 ---
 
