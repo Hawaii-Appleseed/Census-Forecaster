@@ -79,12 +79,23 @@ test("DOTAX anchors MID: each class's gains are DOTAX's, the total the page's", 
   for (const y of meta.years) {
     const { anchored: total, sum: nltcg } = classTotals(y, "mid");
     assert.equal(total[0], 0, `${y}: gains below the $100K class are unallocated`);
+    // the top two classes are anchored jointly (cg_anchor.POOLED_TOP_CELL): one k, the sum of their targets
+    const pooled = ["400_1m", "1mp"];
+    let pooledGot = 0, pooledWant = 0;
     for (let c = 1; c < classes.length; c++) {
       const want = anchorCheck.find((r) => r.tax_year === y && r.group === classes[c]);
       assert.ok(want, `anchor_check.csv ${y} ${classes[c]}`);
+      if (pooled.includes(classes[c])) {
+        pooledGot += total[c] / 1e6;
+        pooledWant += want.dotax_target_M;
+        continue;
+      }
       assert.ok(rel(total[c] / 1e6, want.dotax_target_M) < 1e-9,
         `mid ${y} ${classes[c]}: $${total[c] / 1e6}M vs DOTAX $${want.dotax_target_M}M`);
     }
+    assert.ok(rel(pooledGot, pooledWant) < 1e-9, `mid ${y} 400_1m+1mp: $${pooledGot}M vs pooled DOTAX $${pooledWant}M`);
+    const kMidY = meta.cg_anchor.k.mid[String(y)];
+    assert.equal(kMidY[classes.indexOf("400_1m")], kMidY[classes.indexOf("1mp")], `${y}: one k for the pooled classes`);
     const pub = [...new Set(published.filter((r) => r.tax_year === y).map((r) => r.nltcg_M))];
     assert.equal(pub.length, 1, `${y} nltcg_M`);
     assert.ok(rel(nltcg, pub[0]) < 1e-9, `${y}: $${nltcg}M vs the page's nltcg_M $${pub[0]}M`);

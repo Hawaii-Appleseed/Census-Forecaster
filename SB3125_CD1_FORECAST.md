@@ -15,7 +15,126 @@
 
 ---
 
-## Gains anchored at the base year, before calibration — October 13, 2026 (supersedes the MID tables below)
+## Top two gains classes anchored jointly in projection — October 13, 2026 (supersedes the MID tables below)
+
+MID five-year total vs Act 46 **$688.7M** (was $688.2M), sampling CI90 **[$675.2M, $702.2M]**
+(sum of the annual replicate-weight bounds), against the $688.2M of the section below.
+
+**The problem.** The per-year gains anchor computed one k per DOTAX class from that year's membership,
+and PUMS units that grow past $1M leave 400_1m for 1mp, so 400_1m's k ran 1.39-1.48 (adding income to
+the units that stayed, pushing about 200-270 more filers a year over $1M) while 1mp's ran 0.86-0.91.
+That was the open follow-up of the section below.
+
+**The change.** In the per-year projection anchor only (`cg_anchor.anchor_nltcg` / `anchor_factors`, used
+by the headline, `act24_population.mid_gains_factors`, `forecast_cg_rate_options.py`, the dotax scorecard,
+`simulator.gains` and `simulator.population`), 400_1m and 1mp form one cell,
+`cg_anchor.POOLED_TOP_CELL = ("400_1m", "1mp")`: target = the sum of the two Table 21 targets (the $400K+
+anchor split 0.2 / 0.8 as before), one k applied to every unit in either class, income-consistent and with
+non-gains income untouched as before. `POOL_TOP_CELL = False` (env `CG_POOL_TOP_CELL=0`, or
+`pool_top=False`) restores separate cells and reproduces the previous factors exactly. Each class still
+reports its own model gains and separate target (rows carry `pooled` and `pooled_target_M`). The
+base-year anchor (before calibration) is unchanged, so its checks hold ($1M+ tax $562.3M against the
+windowed anchor, tail gains = anchor). The simulator kernel needs no change (it applies one k per class
+code; the pack's k table now holds equal values for the two classes), so the web format stays 5;
+`build_simulator_population.py`'s anchor check tests the pooled sum for the two classes.
+
+### Check before the reruns (TY2023 base, MID)
+
+| Year | pooled k | k 400_1m (separate) | k 1mp (separate) | 400_1m gains, pooled implied / separate target ($M) | 1mp gains, pooled implied / separate target ($M) | $1M+ filers after response: no anchor / separate / pooled |
+|---|--:|--:|--:|--:|--:|--:|
+| 2027 | 0.973 | 1.385 | 0.906 | 504.7 / 718.3 | 3,086.6 / 2,873.0 | 2,452 / 2,658 / **2,452** |
+| 2028 | 0.964 | 1.442 | 0.890 | 498.1 / 745.4 | 3,229.0 / 2,981.7 | 2,593 / 2,638 / **2,580** |
+| 2029 | 0.955 | 1.467 | 0.878 | 503.7 / 774.1 | 3,366.6 / 3,096.2 | 2,654 / 2,712 / **2,649** |
+| 2030 | 0.946 | 1.467 | 0.869 | 518.2 / 803.7 | 3,500.2 / 3,214.7 | 2,683 / 2,801 / **2,674** |
+| 2031 | 0.936 | 1.480 | 0.857 | 527.7 / 834.3 | 3,643.7 / 3,337.2 | 2,742 / 3,024 / **2,716** |
+
+Pooled k is within [0.85, 1.15] every year (0.94-0.97) and the over-$1M excess over the no-anchor
+projection is gone (TY2031 +282 before, -26 now; the no-anchor column here is post-response on the same
+frame, so it reads 2,452 / 2,742 where the section below quotes 2,459 / 2,756 before the response). The
+pooled cell leaves 400_1m about 30% under its separate target and 1mp about 7-9% over it: the sum is
+right, the split follows where the projected units actually sit. Other classes' k are unchanged.
+
+### Headline (CD2, vs Act 46, $M)
+
+| Tax Year | **MID** | Sampling CI90 | Oct 13 (separate cells) |
+|---|--:|---|--:|
+| 2027 | **$87.1M** | [85.4, 88.7] | $86.9M |
+| 2028 | **$113.7M** | [111.9, 115.4] | $113.5M |
+| 2029 | **$135.5M** | [132.3, 138.7] | $135.3M |
+| 2030 | **$171.3M** | [168.0, 174.7] | $171.6M |
+| 2031 | **$181.2M** | [177.6, 184.7] | $181.0M |
+| **5-year** | **$688.7M** | **[675.2, 702.2]** | **$688.2M** [674.9, 701.6] |
+
+The shift is +$0.5M over five years, inside the previous CI. MID by
+component, five years: static bracket 317.9, behavioral -83.8, bracket post-behavioral 234.1, credits 454.6
+(unchanged), total 688.7 (the static column is unchanged to $0.1M; the vs-pre-Act-46 column C is $317.9M as before).
+
+| Scenario | 2027 | 2028 | 2029 | 2030 | 2031 | 5-year | Oct 13 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| LOW | 76.2 | 91.3 | 105.5 | 133.3 | 145.2 | **551.7** | 550.7 |
+| MID | 87.1 | 113.7 | 135.5 | 171.3 | 181.2 | **688.7** | 688.2 |
+| HIGH | 115.4 | 151.1 | 177.2 | 215.9 | 231.6 | **891.2** | 891.0 |
+| RECESSION | 82.9 | 110.9 | 133.5 | 170.7 | 181.2 | **679.1** | 678.6 |
+
+$1M+ filers after response, MID: **2,452 (TY2027)** and **2,716 (TY2031)** (2,658 and 3,024 with separate cells).
+
+Other published pages: the capital-gains page's Act 24 five-year central static estimate is $361.1M for the
+9% cap and $1,093.4M for ordinary-rate gains (after response $297.0M and $826.5M; before $360.6M / $1,073.1M and
+$296.3M / $810.6M); the gains total ($24,134.7M) is unchanged since the sum of the targets is. Working-family credits
+are unchanged; the Act 24 and capital-gains distribution tables and the tax simulator (population, golden
+fixtures, checks) were rebuilt.
+
+### The three frames (five years, MID, CD2, $M)
+
+| Frame | Act 24 effect | Oct 13 |
+|---|--:|--:|
+| vs Act 46 (`forecast_sb3125_*`), total incl. credits | +688.7 | +688.2 |
+| vs Act 46 frozen at TY2026 (ITEP frame), total incl. credits | -1,670.1 | -1,670.1 |
+| ITEP five-year figure / gap | -2,204.0 / +533.9 | -2,204.0 / +533.9 |
+| vs pre-Act-46 (2017) law: A + B, Act 46's cost | -4,903.1 | -4,903.1 |
+| vs pre-Act-46 law: C, Act 24 increment | +317.9 | +317.9 |
+| vs pre-Act-46 law: total | -4,585.2 | -4,585.2 |
+| memo: vs frozen 2026 (pre-Act-46 script) | -1,765.4 | -1,765.4 |
+
+Column C ties out to the Act 24 page's static bracket change to $0.005M every year.
+
+### The TY2022 gate (`scripts/dotax_scorecard.py --base-edition-year 2022`, MID, `DOTAX_BASE_YEAR=2022`)
+
+Run on a TY2022-raked base built at the new code (throwaway worktree), with `CG_POOL_TOP_CELL=0` on the same base as
+control; the control reproduces the October 13 table to the dollar. The pooled cell **does not improve the gate and
+is slightly worse on the $400K-$1M rows and the $1M+ tax**; it is shipped on the consistency check above (the
+production base is TY2023, where the check passes), not on the TY2022 scorecard.
+
+| class | returns error, separate -> pooled (%) | tax error, separate -> pooled (%) |
+|---|--:|--:|
+| $300K-$400K | -11.9 -> -9.2 | -10.8 -> -8.0 |
+| $400K-$500K | +2.4 -> +8.2 | +1.1 -> +7.3 |
+| $500K-$750K | -24.4 -> -31.5 | -35.0 -> -41.7 |
+| $750K-$1,000K | -19.1 -> -30.2 | -27.2 -> -37.3 |
+| **$1M+** (1,704 / $441.0M) | +7.0 -> +7.0 (1,824) | +61.3 -> **+63.2** ($711.4M -> $719.7M) |
+| Total | -4.0 -> -4.0 | -2.5 -> -2.5 |
+
+### Aging-input band, recomputed
+
+Same method as the section below (`scripts/diagnostics/gains_shift_decomp.py`; the unshifted run reproduces
+the headline MID by year to the cent: 87.06, 113.69, 135.48, 171.33, 181.15; random walk covariance
+min(k_i, k_j), components independent).
+
+| component | sigma_c | persistent-shift Delta, 5-yr ($M) (Oct 13) | by year 2027-2031 ($M) | random-walk SD, 5-yr ($M) (Oct 13) |
+|---|--:|--:|---|--:|
+| wages (after QCEW, 2026+) | 0.0297 | +76.4 (+76.5) | 4.0, 9.5, 14.8, 20.7, 27.2 | **33.3** (33.4) |
+| business (incl. proprietors) | 0.0874 | +34.7 (+34.7) | 1.7, 2.7, 6.9, 9.9, 13.4 | **13.7** (13.7) |
+| capital_gains | 0.1990 | -31.2 (-32.1) | 0.4, -0.1, -4.6, -10.7, -16.1 | **12.0** (12.4) |
+| dividends | 0.4437 | 0 | 0 | 0 |
+| interest | 0.1410 | +142.4 (+142.7) | 4.2, 11.0, 30.3, 41.6, 55.3 | **56.2** (56.4) |
+
+Aging-input SD **$67.8M** (Oct 13: $68.1M), CI90 **[$577M, $800M]**; without the gains term $66.7M; persistent-shift
+upper bound SD $168.2M. Sampling CI90 is [$675.2M, $702.2M]. The caveats of the sections below stand.
+
+
+---
+
+## Gains anchored at the base year, before calibration — October 13, 2026 (superseded by the section above)
 
 **The $725.3M of October 12 was provisional and is superseded.** The MID five-year
 total vs Act 46 is **$688.2M**, sampling CI90 **[$674.9M, $701.6M]**; the last
@@ -185,7 +304,7 @@ therefore still adds income to this class: the $1M+ count is 2,459 (TY2027) and 
 projected population before the anchor and 2,658 and 3,024 after it and the response, so it adds
 about 200-270 filers a year, a smaller version of the leak this change removes at the base.
 It is left as is on the instruction that it is growth moving gains between classes; the open
-follow-up is to anchor the two classes jointly. No further machinery was added.
+follow-up was to anchor the two classes jointly (done: see the section above).
 One minor interaction: for rows with k below 1 the aging decomposition returns about $9M of income
 (0.02% of the base) because its gains carve-out is capped at the new gains.
 
