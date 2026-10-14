@@ -142,6 +142,9 @@ GRID = "#d4d4d4"
 # Calibration-report bookkeeping: the base artifact's embedded report and
 # each year's re-anchoring report (year_recalibrator), assembled at the end.
 CALIBRATION: dict = {"base_meta": None, "years": {}}
+#: each cohort's base-year anchored gains on this page's base population (cg_anchor.cohort_base_totals):
+#: the cohort anchor's targets (x growth), since project() re-rakes the weights every year
+COHORT_BASE: dict = {"totals": None}
 
 
 def build_base() -> pd.DataFrame:
@@ -177,6 +180,8 @@ def build_base() -> pd.DataFrame:
     units, tail_k = calibrate_synthetic_tail_to_tax_target(
         score(units), score=score, scale_gains=False)
     print(f"  tail_k={tail_k:.4f}", flush=True)
+    from tax_modeler.calibration.cg_anchor import cohort_base_totals
+    COHORT_BASE["totals"] = cohort_base_totals(units)
     return units
 
 
@@ -199,6 +204,12 @@ def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
         CALIBRATION["years"][yr] = fwd.calibration_report
     ded = scale_deduction_params_for_target_year(yr, geoid="15003")
     projected = compute_base_tax(projected.copy(), tax_year=yr, deduction_params=ded)
+    # The SOI $1M+ tiers project_and_recalibrate adds replace the tail with new units: they are the
+    # $1M+ cohort, whose base-year gains are the tail's (spread over their weight).
+    from tax_modeler.calibration.cg_anchor import COHORT_BASE_COL, COHORT_CLASSES, COHORT_COL
+    new = ~projected[COHORT_COL].isin(COHORT_CLASSES) & (projected["weight"] > 0)
+    projected.loc[new, COHORT_COL] = "1mp"
+    projected.loc[new, COHORT_BASE_COL] = COHORT_BASE["totals"]["1mp"] / float(projected.loc[new, "weight"].sum())
     return projected[projected["weight"] > 0.01].reset_index(drop=True)
 
 
@@ -379,7 +390,7 @@ def run() -> None:
 
         dist_changes = {}
         for variant, share in TOP_SHARE_VARIANTS.items():
-            nltcg, labels, rows = anchor_nltcg(df, yr, share)
+            nltcg, labels, rows = anchor_nltcg(df, yr, share, cohort_base=COHORT_BASE["totals"])
             # the anchor sets the gains level, not non-gains income: income
             # moves by the change in gains (cg_anchor.rescale_gains)
             income = income_model + (nltcg - model_cg)

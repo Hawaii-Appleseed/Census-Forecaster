@@ -201,6 +201,6 @@ def test_anchor_targets_use_the_windowed_series(monkeypatch):
     monkeypatch.setattr(cg_anchor, "cg_growth", lambda yr, from_year=2023, model=None: 2.0)
     df = pd.DataFrame({"income": np.linspace(50_000, 3e6, 400), "weight": 10.0,
                        "synthetic_cg_share": 0.1})
-    _, _, rows = cg_anchor.anchor_nltcg(df, 2027, 0.8)
+    _, _, rows = cg_anchor.anchor_nltcg(df, 2027, 0.8, mode="separate")
     t = {r["group"]: r["dotax_target_M"] for r in rows}
     assert t["100_150"] == 4.0 and t["1mp"] == pytest.approx(120 * 0.8)

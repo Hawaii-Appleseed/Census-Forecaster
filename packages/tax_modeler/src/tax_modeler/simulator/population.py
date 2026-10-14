@@ -156,6 +156,14 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     if np.isnan(arrays["deps"]).any():
         raise RuntimeError("NaN num_dependents in the population")
     arrays["deps"] = arrays["deps"].astype(np.uint8)
+    from .gains import CLASSES
+    cohort = mid_units["cg_anchor_class"]
+    if cohort.isna().any() or not set(cohort) <= set(CLASSES):
+        raise RuntimeError("cg_anchor_class missing or not a DOTAX class on the population")
+    arrays["cgcohort"] = cohort.map({c: i for i, c in enumerate(CLASSES)}).to_numpy(np.uint8)
+    arrays["cgbase"] = mid_units["cg_base_gains"].to_numpy(np.float64)     # the cohorts' target base
+    if np.isnan(arrays["cgbase"]).any():
+        raise RuntimeError("NaN cg_base_gains on the population")
     hhw = mid_units.groupby(hh_codes)["hh_weight"].agg(["first", "nunique"])
     if (hhw["nunique"] > 1).any():
         raise RuntimeError("hh_weight differs within a household")
@@ -281,6 +289,7 @@ def frame_for(pop: Population, year: int, scenario: str = "mid",
     with the columns the income tax scorers and ``generate_quintile_report``
     read; ``gains`` as in :func:`unit_arrays` (``"model"`` is the frame the
     Act 24 page scored)."""
+    from .gains import CLASSES
     a = pop.arrays
     u = unit_arrays(pop, year, scenario, gains)
     order = a[f"order_{year}"]
@@ -290,6 +299,8 @@ def frame_for(pop: Population, year: int, scenario: str = "mid",
         "hh_id": a["hh_id"][a["hh"]],
         "filing_status": statuses,
         "num_dependents": a["deps"].astype(np.int64),
+        **({"cg_anchor_class": np.asarray(CLASSES, dtype=object)[a["cgcohort"]],
+            "cg_base_gains": a["cgbase"]} if "cgcohort" in a else {}),
         "income": u["income"],
         "hi_agi": u["income"],
         "hi_itemized_deduction": u["hi_itemized_deduction"],

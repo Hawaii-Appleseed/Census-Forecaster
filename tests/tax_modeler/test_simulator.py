@@ -544,7 +544,7 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
             for k in ("low", "high"):
                 a[f"cgcls_{k}_{y}_idx"] = np.array([7], dtype=np.int32)   # the tail unit: $1M+
                 a[f"cgcls_{k}_{y}_val"] = np.array([6], dtype=np.uint8)
-        meta["cg_anchor"] = {"top_share": TOP_SHARE_1M, "classes": list(CLASSES),
+        meta["cg_anchor"] = {"top_share": TOP_SHARE_1M, "mode": "pooled", "classes": list(CLASSES),
                              "k": {s: {str(y): SYNTH_K[s] for y in years} for s in SYNTH_K},
                              "rows": {}}
     return Population(arrays=a, meta=meta)
@@ -565,6 +565,51 @@ def _score_option(page, sc, income, nltcg, cap_new, *, behavioral: bool):
     return sc.tax(income1, kept, cap_new) - base_tax
 
 
+@pytest.fixture
+def pooled_mode(monkeypatch):
+    """The synthetic populations carry no base-year cohort: the rank-based anchor."""
+    from tax_modeler.calibration import cg_anchor
+    monkeypatch.setattr(cg_anchor, "CG_ANCHOR_MODE", "pooled")
+
+
+def test_cohort_anchor_keeps_each_unit_in_its_base_year_class(monkeypatch):
+    """CG_ANCHOR_MODE "cohort": cgcls is the unit's base-year class in every year and
+    scenario, k is per cohort and puts each cohort at its (grown) base-year target, and
+    a unit that grows past $1M keeps its cohort's k."""
+    from tax_modeler.calibration import cg_anchor
+    monkeypatch.setattr(cg_anchor, "CG_ANCHOR_MODE", "cohort")
+    pop = _synthetic_population(n=600, years=(2027, 2031), anchor=False)
+    cohort = (1 + np.arange(pop.n_units) % 6).astype(np.uint8)
+    pop.arrays["cgcohort"] = cohort
+    pop.arrays["cgbase"] = np.where(pop.arrays["cg_2027"] > 0, 3e5, 0.0) * (1 + cohort)   # arbitrary bases
+    pop.arrays["agi_2031"][:12] = np.linspace(1.1e6, 8e6, 12)      # cohort 1..6 units cross $1M
+    anchor = ensure_gains_anchor(pop)
+    assert anchor["mode"] == "cohort"
+    for y in (2027, 2031):
+        d = frame_for(pop, y, "mid")
+        g = cg_anchor.cg_growth(y) * cg_anchor.anticipatory_realization_factor(y)
+        target = {c: float((d["cg_base_gains"] * d["weight"])[d["cg_anchor_class"] == c].sum()) * g
+                  for c in CLASSES[1:]}
+        assert (d["cg_anchor_class"].to_numpy() == np.asarray(CLASSES)[cohort][pop.arrays[f"order_{y}"]]).all()
+        gw = (d["income"] * d["synthetic_cg_share"] * d["weight"]).to_numpy()
+        for c in CLASSES[1:]:
+            assert gw[(d["cg_anchor_class"] == c).to_numpy()].sum() / 1e6 == pytest.approx(target[c] / 1e6, rel=1e-9), c
+        has = pop.arrays[f"cg_{y}"] > 0
+        np.testing.assert_array_equal(gains_classes(pop, y, "mid")[has], cohort[has])
+        for s in ("low", "high"):
+            assert anchor["k"][s][str(y)] == anchor["k"]["mid"][str(y)]
+            both = has & (unit_arrays(pop, y, s, gains="model")["synthetic_cg_share"] > 0)
+            np.testing.assert_array_equal(gains_classes(pop, y, s)[both], cohort[both])
+    # the crossers (first 12 units, income >= $1M in 2031) are scaled by their own cohort's k
+    k31 = np.asarray(anchor["k"]["mid"]["2031"])
+    m, a = unit_arrays(pop, 2031, gains="model"), unit_arrays(pop, 2031)
+    cross = np.flatnonzero((m["income"] >= 1e6) & (m["synthetic_cg_share"] > 0))
+    assert len(cross) > 0
+    np.testing.assert_allclose((a["income"] * a["synthetic_cg_share"])[cross],
+                               (k31[cohort] * m["income"] * m["synthetic_cg_share"])[cross], rtol=1e-12)
+
+
+@pytest.mark.usefixtures("pooled_mode")
 class TestPopulationScoring:
 
     def test_overrides_apply(self):
@@ -838,8 +883,8 @@ class TestPopulationScoring:
         pop = _synthetic_population(years=YEARS)
         write_web_files(pop, tmp_path, kernel_source=b"k")
         m = json.loads((tmp_path / "population.json").read_text())
-        assert m["web_format_version"] == WEB_FORMAT_VERSION == 5
-        assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 6
+        assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "mode", "classes", "k")}
         assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
         assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25
         assert {"cg_9", "cg_ordinary"} <= {p["name"] for p in m["presets"]}

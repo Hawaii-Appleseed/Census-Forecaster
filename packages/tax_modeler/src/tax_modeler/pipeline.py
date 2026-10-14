@@ -548,7 +548,9 @@ def calibrate_anchored(
     ``anchored_at_base``, ``base_anchor_factors`` (the factors applied) and
     ``base_anchor_passes`` (per pass: factors, share of weight that changed class
     after the rake, residual of gains against target by class). The returned base
-    is re-scored on its own incomes and weights.
+    is re-scored on its own incomes and weights, and carries ``cg_anchor_class``,
+    each unit's base-year DOTAX class (its cohort in the projection anchor) and
+    ``cg_base_gains``, its base-year anchored gains in dollars (the cohort's target base).
     """
 
     from tax_modeler.calibration import cg_anchor
@@ -584,6 +586,11 @@ def calibrate_anchored(
             break
         ranked, labels = raw.assign(weight=w), labels_after
     base = score(base)
+    # each unit's base-year DOTAX class (the classes the projection sees at the base
+    # year): the cohort the per-year projection anchor keeps it in (CG_ANCHOR_MODE
+    # "cohort"; the synthetic $1M+ tail is "1mp", set by cg_anchor.anchor_tail_gains)
+    base[cg_anchor.COHORT_COL] = list(labels_after)
+    base[cg_anchor.COHORT_BASE_COL] = cg_anchor.model_gains(base["income"], base["synthetic_cg_share"])
     report.anchored_at_base = True
     report.base_anchor_factors = {c: float(k) for c, k in factors.items()}
     report.base_anchor_passes = passes

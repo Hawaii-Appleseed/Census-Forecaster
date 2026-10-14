@@ -15,7 +15,85 @@
 
 ---
 
-## Top two gains classes anchored jointly in projection — October 13, 2026 (supersedes the MID tables below)
+## Gains anchored by base-year cohort in projection — October 13, 2026 (supersedes the MID tables below)
+
+**The problem.** The per-year gains anchor assigned DOTAX classes by each year's projected income, so PUMS
+units that grow past $1M left 400_1m and entered 1mp carrying their anchored gains while the class targets
+(base-year Table 21 shares grown by the window rule) did not move with them: separate cells ran k(400_1m)
+1.39-1.48 against k(1mp) 0.86-0.91 with 200-300 extra $1M+ filers a year, and the pooled top cell fixed k and
+the filers but left 400_1m's gains about 30% under its target and 1mp's 7-9% over.
+
+**The change.** Cohort-based projection anchoring, `cg_anchor.CG_ANCHOR_MODE in {"cohort", "pooled",
+"separate"}` (env `CG_ANCHOR_MODE`, default `"cohort"`; `"pooled"` reproduces 53aa007 and `"separate"` 1b6a0ec
+exactly):
+1. Every unit carries `cg_anchor_class`, its DOTAX class from the base-year anchor
+   (`pipeline.calibrate_anchored`: the classes the projection sees on the final anchored incomes and weights),
+   and `cg_base_gains`, its base-year anchored gains in dollars. The synthetic $1M+ tail is cohort `1mp`
+   (`anchor_tail_gains`), with its anchored gains as its base. `load_calibrated_base` refuses a base without
+   the two columns; the simulator population carries them as `cgcohort` / `cgbase`.
+2. The per-year anchor computes k per cohort: target(c, t) = the cohort's weighted base-year anchored gains
+   x the window growth from base to t (`cg_growth` x the anticipation hook, 1.0 under Act 24), applied
+   income-consistently as before. (The cohort's base total, not the bin's Table 21 target, because after the
+   rake the 400_1m cohort holds about 8% less than its target: units anchored past $1M leave it.) The
+   capital-gains page's top-share sensitivity variants rescale the two top cohorts by s/0.8 and (1-s)/0.2.
+   The cohort totals are the cohorts' base-year anchored gains at base-year weights, so the Act 24 population
+   (weights fixed after the base year) and the capital-gains page share them: the page re-rakes its weights every
+   year and replaces the tail with SOI $1M+ tiers, so it labels those tiers cohort `1mp`, takes the base totals
+   from its own base population (`cg_anchor.cohort_base_totals`) and passes them as `cohort_base`. Because the
+   400_1m cohort holds 8-18% less than its Table 21 target after the base rake (units anchored past $1M leave
+   the class), the total gains the cohort anchor holds are 1.3% below the Table 21 total that the pooled and
+   separate modes restore (five years $23,813.5M against $24,134.7M; TY2027 $4,413M).
+3. Tax, AGI-class tables, $1M+ filer counts, the behavioral response and the scorecard rows classify by
+   CURRENT projected income: a crosser keeps its cohort's k and counts as $1M+.
+4. Applied identically in the headline, `forecast_cg_rate_options.py`, the scorecard, `simulator.gains` /
+   `simulator.population` and the kernel: `cgcls_<year>` is the cohort code (constant across years and
+   scenarios), the k table is per cohort, `population.json`'s `cg_anchor.mode` records the mode, web format 6.
+   `scripts/build_simulator_population.py`'s anchor check tests cohort totals against base x growth.
+
+### Check before the reruns (TY2023 base, MID; `scripts/diagnostics/cohort_anchor_check.py`)
+
+Base-year $1M+ tax before credits: **$562.3M** (windowed anchor $562.3M), unchanged. k by cohort: every PUMS
+cohort (100_150 .. 400_1m) has the same k, which is the window growth's gap to the PUMS component aging, and
+the tail cohort (1mp) is lower because the tail ages on its own premium.
+
+| Year | cohort k, PUMS cohorts | cohort k, 1mp | pooled k | separate k 400_1m / 1mp | 400_1m gains by current class: cohort / pooled / separate target ($M) | 1mp: cohort / pooled / separate target ($M) | $1M+ filers after response: no anchor / separate / pooled / **cohort** |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| 2027 | 1.019 | 0.944 | 0.973 | 1.385 / 0.906 | 528.2 / 504.7 / 718.3 | 3,003.4 / 3,086.6 / 2,873.0 | 2,452 / 2,658 / 2,452 / **2,454** |
+| 2028 | 1.009 | 0.935 | 0.964 | 1.442 / 0.890 | 521.3 / 498.1 / 745.4 | 3,143.8 / 3,229.0 / 2,981.7 | 2,593 / 2,638 / 2,580 / **2,593** |
+| 2029 | 0.999 | 0.926 | 0.955 | 1.467 / 0.878 | 527.1 / 503.7 / 774.1 | 3,278.5 / 3,366.6 / 3,096.2 | 2,654 / 2,712 / 2,649 / **2,654** |
+| 2030 | 0.990 | 0.917 | 0.946 | 1.467 / 0.869 | 542.3 / 518.2 / 803.7 | 3,409.0 / 3,500.2 / 3,214.7 | 2,683 / 2,801 / 2,674 / **2,682** |
+| 2031 | 0.980 | 0.908 | 0.936 | 1.480 / 0.857 | 552.3 / 527.7 / 834.3 | 3,549.8 / 3,643.7 / 3,337.2 | 2,742 / 3,024 / 2,716 / **2,738** |
+
+Every cohort k is in [0.908, 1.019] (the gate for proceeding was [0.90, 1.10]) and the $1M+ filer count is within
+0.2% of the no-anchor projection every year. (A first version that took the cohort target from the bin's
+Table 21 target rather than the cohort's own base gains gave k(400_1m) 1.07-1.11 and +4% filers in TY2027, and
+was dropped.) The cohort anchor still leaves 400_1m's gains by CURRENT class about 25-34% under the separate
+target and 1mp's 4-6% over: the crossers' gains sit in 1mp, as they do in the data.
+
+### The TY2022 gate (`scripts/dotax_scorecard.py --base-edition-year 2022`, MID, `DOTAX_BASE_YEAR=2022`)
+
+TY2022-raked base built at the new code (throwaway worktree), all three modes on it; separate and pooled
+reproduce the October 13 tables to the dollar. The mode was not chosen on this table.
+
+| class | returns error: separate / pooled / cohort (%) | tax error: separate / pooled / cohort (%) |
+|---|--:|--:|
+| $300K-$400K | -11.9 / -9.2 / -11.6 | -10.8 / -8.0 / -10.7 |
+| $400K-$500K | +2.4 / +8.2 / +6.3 | +1.1 / +7.3 / +5.2 |
+| $500K-$750K | -24.4 / -31.5 / -27.3 | -35.0 / -41.7 / -37.7 |
+| $750K-$1,000K | -19.1 / -30.2 / -25.9 | -27.2 / -37.3 / -32.9 |
+| **$1M+** (1,704 / $441.0M) | +7.0 / +7.0 / +7.0 | +61.3 / +63.2 / **+61.3** ($711.4M / $719.7M / $711.4M) |
+| Total | -4.0 / -4.0 / -4.0 | -2.5 / -2.5 / -2.7 |
+
+On the gate, separate cells score best on the $400K-$1M rows (pooled on $300K-$400K) and the cohort anchor is
+between the two (closer than pooled on every $400K-$1M row, equal to separate on the $1M+ row, slightly worse on
+total tax: -2.7% against -2.5%). The gate scores one projection step on a base whose classes barely move, so it cannot see the
+crossing the cohort anchor addresses; it is reported, not used to pick the mode.
+
+*(Reruns, headline, scenarios, frames and the aging band follow in the next commit.)*
+
+---
+
+## Top two gains classes anchored jointly in projection — October 13, 2026 (superseded by the section above)
 
 MID five-year total vs Act 46 **$688.7M** (was $688.2M), sampling CI90 **[$675.2M, $702.2M]**
 (sum of the annual replicate-weight bounds), against the $688.2M of the section below.

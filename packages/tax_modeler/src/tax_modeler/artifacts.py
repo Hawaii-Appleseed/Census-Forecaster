@@ -199,6 +199,12 @@ def load_calibrated_base(
     meta = dict(obj.get("meta", {}))
     if require_anchored and meta.get("anchored_at_base") is not True:
         _refuse()
+    if require_anchored and not {"cg_anchor_class", "cg_base_gains"} <= set(units.columns):
+        raise ValueError(
+            f"Calibrated base at {path} carries no cg_anchor_class / cg_base_gains (each unit's "
+            f"base-year DOTAX class and anchored gains, which the cohort-based projection anchor "
+            f"needs): rebuild it with "
+            f"scripts/build_calibrated_base.py or forecast_sb3125_enhanced.py.")
 
     if expected_params is not None:
         expected_fp = params_fingerprint(expected_params)

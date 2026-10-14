@@ -34,6 +34,12 @@ tail calibration, so where PUMS gains are about half of DOTAX's ($300K-$1M, k ab
 it added income to units the class counts and ``tail_k`` had already been fit on and
 pushed about 336 of them over $1M.
 
+The per-year projection anchor runs per base-year cohort by default
+(``CG_ANCHOR_MODE``, :func:`factor_labels`, :func:`_cohort_targets`): a unit that grows
+past a class line keeps its cohort's k, and its cohort's target is the cohort's base-year
+anchored gains grown by the window rule. ``"pooled"`` and ``"separate"`` classify by each
+year's projected income rank (see ``CG_ANCHOR_MODES``).
+
 Moved verbatim from ``forecast_cg_rate_options.py`` (the capital-gains page),
 which imports these names back, so the page and the tax simulator
 (``tax_modeler.simulator.gains``) anchor with one implementation.
@@ -48,13 +54,54 @@ import pandas as pd
 from tax_modeler.calibration import dotax_base
 
 TOP_SHARE_1M = 0.80
-#: The two top DOTAX cells share one anchor factor in the per-year projection
-#: anchor (``anchor_nltcg``): units that grow past $1M leave 400_1m, so separate
-#: cells ran k(400_1m) 1.39-1.48 against k(1mp) 0.86-0.91. The base-year anchor
-#: (:func:`base_anchor_factors`) is unchanged. ``POOL_TOP_CELL = False``
-#: (env ``CG_POOL_TOP_CELL=0``) restores separate cells.
+#: The two top DOTAX cells; ``"pooled"`` mode gives them one anchor factor in the
+#: per-year projection anchor (``anchor_nltcg``).
 POOLED_TOP_CELL = ("400_1m", "1mp")
-POOL_TOP_CELL = os.environ.get("CG_POOL_TOP_CELL", "1") != "0"
+#: How the per-year projection anchor assigns gains classes (env ``CG_ANCHOR_MODE``):
+#:
+#: ``"cohort"`` (default): each unit keeps the DOTAX class it had in the BASE-YEAR
+#: anchor (``COHORT_COL``, set in ``pipeline.calibrate_anchored`` and, for the
+#: synthetic $1M+ tail, in :func:`anchor_tail_gains`). k is computed per cohort against
+#: the cohort's base-year gains grown by the window rule, so units that grow past
+#: $1M carry their own cohort's k and the targets do not move with them. Tax, AGI
+#: classes and filer counts still use each unit's current projected income.
+#: ``"pooled"`` (53aa007): classes by each year's projected income rank, the two top
+#: cells sharing one k. ``"separate"`` (1b6a0ec): classes by projected income rank,
+#: one k per class (k(400_1m) 1.39-1.48 against k(1mp) 0.86-0.91 as units cross $1M).
+CG_ANCHOR_MODES = ("cohort", "pooled", "separate")
+CG_ANCHOR_MODE = os.environ.get("CG_ANCHOR_MODE", "cohort")
+#: Per-unit base-year DOTAX anchor class (a ``_CLASSES``-style label: ``lt100``,
+#: ``100_150`` .. ``300_400``, ``400_1m``, ``1mp``).
+COHORT_COL = "cg_anchor_class"
+#: Per-unit base-year anchored gains, $ (``income x share`` of the calibrated base;
+#: the synthetic tail's after :func:`anchor_tail_gains`), the weights of which give each
+#: cohort's base-year total.
+COHORT_BASE_COL = "cg_base_gains"
+COHORT_CLASSES = ("lt100", "100_150", "150_200", "200_300", "300_400", "400_1m", "1mp")
+
+
+def anchor_mode(mode: str | None = None) -> str:
+    """``mode`` (or the module default ``CG_ANCHOR_MODE``, read at call time), validated."""
+    m = CG_ANCHOR_MODE if mode is None else mode
+    if m not in CG_ANCHOR_MODES:
+        raise ValueError(f"CG_ANCHOR_MODE must be one of {CG_ANCHOR_MODES}, not {m!r}")
+    return m
+
+
+def factor_labels(df: pd.DataFrame, mode: str | None = None) -> np.ndarray:
+    """The class each unit's gains factor is looked up by: its base-year cohort
+    (``"cohort"``) or its current weighted income rank (:func:`rank_classes`)."""
+    if anchor_mode(mode) != "cohort":
+        return rank_classes(df)
+    if COHORT_COL not in df.columns:
+        raise ValueError(f"cohort anchoring needs the {COHORT_COL!r} column (the base-year "
+                         f"anchor class; rebuild the calibrated base) or CG_ANCHOR_MODE=pooled")
+    lab = df[COHORT_COL].to_numpy(dtype=object)
+    bad = ~np.isin(lab, COHORT_CLASSES)
+    if bad.any():
+        raise ValueError(f"{int(bad.sum())} units have no valid {COHORT_COL!r} (e.g. {lab[bad][0]!r}): "
+                         f"units added after the base anchor need a cohort (the $1M+ tiers: '1mp')")
+    return lab
 TOP_SHARE_VARIANTS = {"central": TOP_SHARE_1M, "low": 0.70, "model": None}
 _TOP_SHARE_NOTE = """
 Derivation (DOTAX TY2022): the $1M+ class (1,824 returns) owed $662.6M before credits
@@ -207,18 +254,57 @@ def model_gains(income, share) -> np.ndarray:
     return np.where((inc > 0) & (sh > 0), inc * sh, 0.0)
 
 
+def cohort_base_totals(df: pd.DataFrame) -> dict[str, float]:
+    """Each cohort's base-year anchored gains in dollars: ``COHORT_BASE_COL`` x weight, by
+    ``COHORT_COL``, on a frame at its base-year weights (the calibrated base with the tail)."""
+    lab = factor_labels(df, "cohort")
+    gb = df[COHORT_BASE_COL].to_numpy(float) * df["weight"].to_numpy(float)
+    return {c: float(gb[lab == c].sum()) for c in COHORT_CLASSES}
+
+
+def _cohort_targets(df: pd.DataFrame, flab, w, g: float, top_share_1m: float | None,
+                    cohort_base: dict[str, float] | None = None) -> dict[str, float]:
+    """Per-cohort target in dollars: the cohort's base-year anchored gains (weighted
+    ``COHORT_BASE_COL``) times ``g``, the window rule's growth from the base to the year
+    (and the anticipation hook). The cohorts are the units' base-year classes, so the
+    targets do not move with units that cross a class line. ``top_share_1m`` other than
+    the base's ``TOP_SHARE_1M`` (the capital-gains page's sensitivity variants) rescales
+    the two top cohorts by ``(1 - s)/(1 - TOP_SHARE_1M)`` and ``s/TOP_SHARE_1M``; ``None``
+    adds the key ``"400p"``, the sum, for the pooled cell. The cohorts' base totals are the
+    frame's own ``COHORT_BASE_COL`` x weight (the weights are constant after the base year on
+    the Act 24 population), or ``cohort_base`` (:func:`cohort_base_totals` on the base-year
+    population) where the weights are re-raked each year, as on the capital-gains page."""
+    if cohort_base is None:
+        if COHORT_BASE_COL not in df.columns:
+            raise ValueError(f"cohort anchoring needs the {COHORT_BASE_COL!r} column (the base-year "
+                             f"anchored gains; rebuild the calibrated base) or CG_ANCHOR_MODE=pooled")
+        gb = df[COHORT_BASE_COL].to_numpy(float)
+        cohort_base = {c: float((gb[flab == c] * w[flab == c]).sum()) for c in COHORT_CLASSES}
+    t = {c: cohort_base[c] * g for c in _BASE_CLASSES + ("1mp",)}
+    if top_share_1m is not None:
+        t["400_1m"] *= (1 - top_share_1m) / (1 - TOP_SHARE_1M)
+        t["1mp"] *= top_share_1m / TOP_SHARE_1M
+    t["400p"] = t["400_1m"] + t["1mp"]
+    return t
+
+
 def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None,
-                 pool_top: bool | None = None):
+                 mode: str | None = None, cohort_base: dict[str, float] | None = None):
     """Per-unit net long-term capital gain eligible for §235-51(f), $.
 
     Returns (nltcg, labels, anchor_rows). ``nltcg`` is ``k x`` the model's
-    gains in the unit's class; :func:`apply_anchor_factors` puts the same
-    gains on the frame, moving income by the change in gains.
+    gains in the unit's factor class (``mode``; see ``CG_ANCHOR_MODES``);
+    :func:`apply_anchor_factors` puts the same gains on the frame, moving
+    income by the change in gains (``cohort_base``: :func:`_cohort_targets`). ``labels`` are always the units' CURRENT classes (weighted income rank); in ``"cohort"`` mode the factor classes are
+    the base-year cohorts, whose target is the cohort's base-year Table 21 gains
+    grown by the window rule, and the rows report per cohort.
     """
+    mode = anchor_mode(mode)
     inc = df["income"].to_numpy(float)
     w = df["weight"].to_numpy(float)
     model_cg = model_gains(inc, df["synthetic_cg_share"])
     labels = rank_classes(df)
+    flab = factor_labels(df, mode) if mode == "cohort" else labels
     g = cg_growth(yr) * anticipatory_realization_factor(yr)
     target = {c: v * g * 1e6 for c, v in zip(_CLASSES, anchored_nltcg_M(), strict=True)}
 
@@ -231,7 +317,9 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None,
         target["1mp"] = target["400p"] * top_share_1m
         target["400_1m"] = target["400p"] * (1 - top_share_1m)
 
-    pool = (POOL_TOP_CELL if pool_top is None else pool_top) and top_share_1m is not None
+    if mode == "cohort":
+        target.update(_cohort_targets(df, flab, w, g, top_share_1m, cohort_base))
+    pool = mode == "pooled" and top_share_1m is not None
     nltcg = np.zeros(len(df))
     rows = []
     if pool:
@@ -251,7 +339,7 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None,
                          "dotax_target_M": target[c] / 1e6, "scale": kp,
                          "pooled": True, "pooled_target_M": ptarget / 1e6})
     for grp, labs in groups.items():
-        m = np.isin(labels, labs)
+        m = np.isin(flab, labs)
         have = float((model_cg[m] * w[m]).sum())
         k = target[grp] / have if have > 0 else 0.0
         nltcg[m] = model_cg[m] * k
@@ -266,7 +354,7 @@ def anchor_nltcg(df: pd.DataFrame, yr: int, top_share_1m: float | None,
 
 def anchor_factors(df: pd.DataFrame, yr: int,
                    top_share_1m: float = TOP_SHARE_1M,
-                   pool_top: bool | None = None) -> dict[str, float]:
+                   mode: str | None = None) -> dict[str, float]:
     """Each class's scale factor k (``anchor_nltcg``'s ``scale``) on ``df``,
     keyed by class label; classes with no factor (``lt100``) are left out.
 
@@ -274,7 +362,7 @@ def anchor_factors(df: pd.DataFrame, yr: int,
     to every scenario (:func:`apply_anchor_factors`), as the tax simulator
     does (``tax_modeler.simulator.gains``): DOTAX anchors MID, and the other
     scenarios' gains move with their own top incomes."""
-    _, _, rows = anchor_nltcg(df, yr, top_share_1m, pool_top)
+    _, _, rows = anchor_nltcg(df, yr, top_share_1m, mode)
     return {r["group"]: float(r["scale"]) for r in rows}
 
 
@@ -312,11 +400,14 @@ _SYNTHETIC_GAINS_COLUMNS = ("investment_income", "primary_intp")
 
 
 def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
-                         share_col: str = "synthetic_cg_share") -> pd.DataFrame:
+                         share_col: str = "synthetic_cg_share",
+                         mode: str | None = None) -> pd.DataFrame:
     """A copy of ``df`` with its capital gains anchored to the DOTAX base.
 
-    Each unit's class comes from its own weighted income rank
-    (:func:`rank_classes`, on the incoming ``income``) and each class's gains
+    Each unit's class comes from :func:`factor_labels` (its base-year cohort, or
+    its own weighted income rank on the incoming ``income``; ``mode`` as in
+    :func:`anchor_nltcg`, and it must be the mode ``factors`` were computed
+    in) and each class's gains
     are scaled by ``k = factors[class]`` (0 below the $100K class). The anchor
     sets the gains level and does not touch non-gains income: ``income`` and
     every income field derived from gains (``agi``, ``hi_agi``,
@@ -326,7 +417,7 @@ def apply_anchor_factors(df: pd.DataFrame, factors: dict[str, float],
     recomputed as gains / income (:func:`rescale_gains`). Tax columns the
     projection computed are not refreshed here: every scorer re-derives the
     tax from ``income``, the share and the deductions. Not idempotent."""
-    labels = rank_classes(df)
+    labels = factor_labels(df, mode)
     k = np.fromiter((factors.get(c, 0.0) for c in labels), dtype=float, count=len(labels))
     return apply_unit_factors(df, k, share_col)
 
@@ -446,4 +537,10 @@ def anchor_tail_gains(df: pd.DataFrame, *, year: int = BASE_YEAR,
     g = model_gains(df["income"], df["synthetic_cg_share"])
     have = float((g[syn] * w[syn]).sum())
     k = _base_targets(year, top_share_1m)["1mp"] / have if have > 0 else 1.0
-    return apply_unit_factors(df, np.where(syn, k, 1.0)), float(k)
+    out = apply_unit_factors(df, np.where(syn, k, 1.0))
+    if COHORT_COL in out.columns:               # the tail's cohort is the $1M+ class
+        out.loc[syn, COHORT_COL] = "1mp"
+        out[COHORT_BASE_COL] = np.where(                   # and its base-year gains the anchor's
+            syn, model_gains(out["income"], out["synthetic_cg_share"]),
+            out[COHORT_BASE_COL].to_numpy(float) if COHORT_BASE_COL in out.columns else 0.0)
+    return out, float(k)

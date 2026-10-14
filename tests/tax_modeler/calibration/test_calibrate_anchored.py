@@ -76,6 +76,17 @@ def test_report_records_the_base_anchor(anchored):
     assert again.anchored_at_base and again.base_anchor_factors == report.base_anchor_factors
 
 
+def test_base_carries_each_units_base_year_class(anchored):
+    """``cg_anchor_class``: the classes the projection sees at the base year, on the
+    final anchored incomes and weights (the cohorts of the per-year anchor)."""
+    _, base, _ = anchored
+    assert "cg_anchor_class" in base.columns
+    np.testing.assert_array_equal(base["cg_anchor_class"].to_numpy(),
+                                  cg_anchor.base_class_labels(base))
+    np.testing.assert_allclose(base["cg_base_gains"],
+                               cg_anchor.model_gains(base["income"], base["synthetic_cg_share"]))
+
+
 def test_base_anchoring_leaves_non_gains_income_unchanged(anchored):
     df, base, report = anchored
     raw = cg_anchor.model_gains(df["income"], 0.0)       # no shares on the stand-in frame ...

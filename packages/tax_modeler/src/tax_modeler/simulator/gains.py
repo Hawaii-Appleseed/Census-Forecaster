@@ -31,8 +31,17 @@ and the unit's income moves by exactly ``(k - 1) x gains``
 until 2026-10-12, which turned ``(1 - k) x gains`` into ordinary income when
 ``k < 1`` (see SB3125_CD1_FORECAST.md):
 
-* ``cgcls_<year>`` (u1): each unit's class code in the MID scenario, in
-  canonical order (``CLASSES``; 0 wherever the unit has no gains);
+* ``cgcls_<year>`` (u1): each unit's factor-class code in the MID scenario, in
+  canonical order (``CLASSES``; 0 wherever the unit has no gains). With
+  ``CG_ANCHOR_MODE = "cohort"`` (the default) the factor class is the unit's
+  base-year DOTAX class (``cgcohort``, from the calibrated base's
+  ``cg_anchor_class``): the same in every year and scenario, k is computed per
+  cohort against the cohort's base-year anchored gains (``cgbase``, weighted) grown by the
+  window rule, and
+  LOW's and HIGH's overrides are empty wherever gains exist in both. In
+  ``"pooled"`` / ``"separate"`` mode it is the unit's weighted income rank in
+  that scenario and year, as before (``meta["cg_anchor"]["mode"]`` records
+  which);
 * ``cgcls_<low|high>_<year>_idx`` / ``_val``: the units whose class differs
   in that scenario (ranks move with the tail and the top premium);
 * ``meta["cg_anchor"]``: the top share, the scale factors ``k`` per scenario
@@ -49,7 +58,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from tax_modeler.calibration.cg_anchor import TOP_SHARE_1M, anchor_nltcg, rescale_gains
+from tax_modeler.calibration.cg_anchor import (
+    TOP_SHARE_1M,
+    anchor_mode,
+    anchor_nltcg,
+    factor_labels,
+    rescale_gains,
+)
 
 from .population import Population, frame_for, unit_arrays
 from .scenarios import SCENARIOS
@@ -67,12 +82,18 @@ def ensure_gains_anchor(pop: Population, top_share: float = TOP_SHARE_1M) -> dic
     return ``pop.meta["cg_anchor"]``. Idempotent: an anchor already on the
     population is kept (``check_gains_anchor`` in the build script verifies it
     against DOTAX on every build)."""
+    mode = anchor_mode()
     have = pop.meta.get("cg_anchor")
     if have is not None:
         if have["top_share"] != top_share:
             raise ValueError(f"population is anchored with top share {have['top_share']}, "
                              f"not {top_share}")
+        if have.get("mode") != mode:
+            raise ValueError(f"population is anchored in mode {have.get('mode')!r}, not {mode!r}")
         return have
+    if mode == "cohort" and not {"cgcohort", "cgbase"} <= set(pop.arrays):
+        raise ValueError("cohort anchoring needs the population's cgcohort and cgbase arrays; rebuild it "
+                         "(scripts/build_simulator_population.py)")
     a = pop.arrays
     order = [ANCHOR_SCENARIO] + [s for s in SCENARIOS if s != ANCHOR_SCENARIO]
     k_table: dict[str, dict[str, list[float]]] = {s: {} for s in order}
@@ -84,7 +105,8 @@ def ensure_gains_anchor(pop: Population, top_share: float = TOP_SHARE_1M) -> dic
             # anchor_nltcg gives the scenario's own classes (by its weighted
             # income ranks) and, per class, its model gains and DOTAX target;
             # its scale is used for MID only.
-            _, labels, rows = anchor_nltcg(d, y, top_share)
+            _, _, rows = anchor_nltcg(d, y, top_share, mode)
+            labels = factor_labels(d, mode)
             c = np.empty(pop.n_units, dtype=np.uint8)
             c[a[f"order_{y}"]] = np.fromiter((_CODE[x] for x in labels), dtype=np.uint8,
                                              count=len(labels))
@@ -111,7 +133,7 @@ def ensure_gains_anchor(pop: Population, top_share: float = TOP_SHARE_1M) -> dic
             diff = np.flatnonzero(codes[s, y] != mid)
             a[f"cgcls_{s}_{y}_idx"] = diff.astype(np.int32)
             a[f"cgcls_{s}_{y}_val"] = codes[s, y][diff]
-    pop.meta["cg_anchor"] = {"top_share": top_share, "classes": list(CLASSES),
+    pop.meta["cg_anchor"] = {"top_share": top_share, "mode": mode, "classes": list(CLASSES),
                              "k": {s: k_table[s] for s in SCENARIOS},
                              "rows": {s: row_table[s] for s in SCENARIOS}}
     return pop.meta["cg_anchor"]

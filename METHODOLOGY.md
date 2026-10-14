@@ -1375,6 +1375,10 @@ $1M after the class counts and `tail_k` were fit), the gate, the numbers and the
 
 In the per-year projection anchor, 400_1m and 1mp are one cell (`cg_anchor.POOLED_TOP_CELL`, target = the sum of their Table 21 targets, one k; `POOL_TOP_CELL` / `CG_POOL_TOP_CELL=0` restores separate cells), because units growing past $1M leave 400_1m and made its k run 1.4-1.5 against 0.86-0.91; see `SB3125_CD1_FORECAST.md` ("Top two gains classes anchored jointly in projection — October 13, 2026").
 
+### Gains anchored by base-year cohort in projection (October 13, 2026)
+
+The per-year projection anchor now computes k per base-year cohort (`cg_anchor.CG_ANCHOR_MODE = "cohort"`, `"pooled"` = the cell above, `"separate"` = one k per projected income-rank class): each unit carries the DOTAX class it had in the base-year anchor (`cg_anchor_class`) and its base-year anchored gains (`cg_base_gains`), the cohort's target is its base-year gains times the window growth, and tax, AGI-class tables and $1M+ filer counts still classify by current projected income. Why, the check and the gate are in `SB3125_CD1_FORECAST.md` ("Gains anchored by base-year cohort in projection — October 13, 2026").
+
 ### Estimated Hawaii differentials and QCEW wages (October 2026)
 
 `calibration/hawaii_differentials.py` estimates the Hawaii-minus-national log

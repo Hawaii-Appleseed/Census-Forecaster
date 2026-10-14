@@ -38,8 +38,10 @@ const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
 // (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor,
 // 3 dropped hhfw for per-unit filer weights, 4 made the model gains share per year,
-// 5 moved a unit's income with its anchored gains instead of holding it)
-export const WEB_FORMAT_VERSION = 5;
+// 5 moved a unit's income with its anchored gains instead of holding it,
+// 6 made cgcls the unit's base-year gains cohort in cohort mode: constant across years and
+// scenarios, and k per cohort; meta.cg_anchor.mode says which)
+export const WEB_FORMAT_VERSION = 6;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
@@ -53,8 +55,9 @@ export function decodePopulation(meta, buffer) {
   return { meta, arrays, n: arrays.fs.length, nHouseholds: arrays.hh_weight.length };
 }
 
-/** Each unit's DOTAX capital-gains class code for one (year, scenario):
- * MID's codes with LOW/HIGH's differing units swapped in
+/** Each unit's gains-factor class code for one (year, scenario): its base-year DOTAX
+ * cohort (meta.cg_anchor.mode "cohort") or its weighted income rank class ("pooled" /
+ * "separate"), as MID's codes with LOW/HIGH's differing units swapped in
  * (tax_modeler.simulator.gains.gains_classes). */
 export function gainsClasses(pop, year, scenario = "mid") {
   const A = pop.arrays;

@@ -5,6 +5,7 @@ shared by the capital-gains page and the tax simulator.
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,16 @@ from tax_modeler.calibration.cg_anchor import (
     cg_growth,
     rank_classes,
 )
+
+_DEFAULT_MODE = cg_anchor.CG_ANCHOR_MODE
+
+
+@pytest.fixture(autouse=True)
+def _rank_mode(monkeypatch):
+    """These frames carry no base-year cohort: the module default is the rank-based
+    pooled anchor (53aa007) except where a test names its mode."""
+    monkeypatch.setattr(cg_anchor, "CG_ANCHOR_MODE", "pooled")
+
 
 REPO = Path(__file__).resolve().parents[2]
 MOVED = {"BASE_YEAR", "_CLASSES", "_TOP_SHARE_NOTE", "DOTAX_NLTCG_NONRES", "DOTAX_NLTCG_RES",
@@ -60,7 +71,7 @@ def _targets(yr, top_share):
 def test_classes_hit_the_dotax_targets(yr):
     df = _frame()
     w = df["weight"].to_numpy()
-    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, pool_top=False)
+    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, mode="separate")
     k = {r["group"]: r["scale"] for r in rows}
     assert (df["synthetic_cg_share"] * [k.get(x, 0.0) for x in labels]).max() < 1   # no clipping
     want = _targets(yr, TOP_SHARE_1M)
@@ -308,7 +319,7 @@ def test_the_page_imports_the_package_code():
 def test_pooled_top_cell_hits_the_pooled_target(yr):
     df = _frame()
     w = df["weight"].to_numpy()
-    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, pool_top=True)
+    nl, labels, rows = anchor_nltcg(df, yr, TOP_SHARE_1M, mode="pooled")
     want = _targets(yr, TOP_SHARE_1M)
     top = np.isin(labels, cg_anchor.POOLED_TOP_CELL)
     assert (nl * w)[top].sum() / 1e6 == pytest.approx(want["1mp"] + want["400_1m"], rel=1e-12)
@@ -323,11 +334,11 @@ def test_pooled_top_cell_hits_the_pooled_target(yr):
 
 def test_pooled_flag_default_and_separate_reproduces_separate_factors():
     df = _frame(seed=2)
-    assert cg_anchor.POOL_TOP_CELL is True
-    sep = cg_anchor.anchor_factors(df, 2027, pool_top=False)
-    _, labels, rows = anchor_nltcg(df, 2027, TOP_SHARE_1M, pool_top=False)
+    assert _DEFAULT_MODE == os.environ.get("CG_ANCHOR_MODE", "cohort")   # shipped default: cohort
+    sep = cg_anchor.anchor_factors(df, 2027, mode="separate")
+    _, labels, rows = anchor_nltcg(df, 2027, TOP_SHARE_1M, mode="separate")
     assert sep == {r["group"]: r["scale"] for r in rows}
-    pooled = cg_anchor.anchor_factors(df, 2027)
+    pooled = cg_anchor.anchor_factors(df, 2027, mode="pooled")
     assert pooled["400_1m"] == pooled["1mp"]
     for c in ("100_150", "150_200", "200_300", "300_400"):
         assert pooled[c] == sep[c]
@@ -337,7 +348,154 @@ def test_pooled_flag_default_and_separate_reproduces_separate_factors():
 
 def test_pooled_anchor_leaves_non_gains_income_unchanged():
     df = _frame(seed=4)
-    out = cg_anchor.apply_anchor_factors(df, cg_anchor.anchor_factors(df, 2027, pool_top=True))
+    out = cg_anchor.apply_anchor_factors(df, cg_anchor.anchor_factors(df, 2027, mode="pooled"))
     g0 = cg_anchor.model_gains(df["income"], df["synthetic_cg_share"])
     g1 = cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])
     np.testing.assert_allclose(out["income"] - g1, df["income"] - g0, rtol=1e-9, atol=1e-6)
+
+
+# ── cohort anchoring: each unit keeps its base-year class ─────────────────────
+
+def _cohort_frame(seed=0, grow=True):
+    """A base frame with cohorts = its own income-rank classes, then a projection in which
+    the top of 400_1m grows past $1M (they cross into the current $1M+ class)."""
+    base = _frame(seed=seed)
+    base[cg_anchor.COHORT_COL] = rank_classes(base)
+    # the cohorts' base-year anchored gains: not the Table 21 targets (as after the rake)
+    base[cg_anchor.COHORT_BASE_COL] = cg_anchor.model_gains(base["income"], base["synthetic_cg_share"]) * 1.7
+    proj = base.copy()
+    if grow:
+        cross = np.flatnonzero((base[cg_anchor.COHORT_COL] == "400_1m").to_numpy())[:80]
+        proj.loc[cross, "income"] = proj.loc[cross, "income"] * 0 + 1_300_000.0
+    return base, proj
+
+
+@pytest.mark.parametrize("yr", [2027, 2031])
+def test_cohort_k_hits_the_cohort_targets(yr):
+    _, proj = _cohort_frame()
+    w = proj["weight"].to_numpy()
+    nl, labels, rows = anchor_nltcg(proj, yr, TOP_SHARE_1M, mode="cohort")
+    coh = proj[cg_anchor.COHORT_COL].to_numpy()
+    g = cg_growth(yr) * cg_anchor.anticipatory_realization_factor(yr)
+    gb = proj[cg_anchor.COHORT_BASE_COL].to_numpy()
+    want = {c: (gb * w)[coh == c].sum() / 1e6 * g
+            for c in ("100_150", "150_200", "200_300", "300_400", "400_1m", "1mp")}
+    for c, t in want.items():
+        assert (nl * w)[coh == c].sum() / 1e6 == pytest.approx(t, rel=1e-12), c
+    assert {r["group"]: r["dotax_target_M"] for r in rows} == pytest.approx(want, rel=1e-12)
+    assert want["1mp"] != pytest.approx(_targets(yr, TOP_SHARE_1M)["1mp"], rel=1e-3)   # not the bin target
+    assert (nl[coh == "lt100"] == 0).all()
+    assert (labels != coh).any()          # current classes differ from the cohorts
+
+
+def test_cohort_k_equals_separate_k_when_the_cohorts_sit_at_the_base_targets():
+    """Nobody changes class and each cohort's base-year gains are its Table 21 target:
+    the cohort and separate anchors coincide (the cohort target is base x growth)."""
+    base, _ = _cohort_frame(grow=False)
+    k0 = cg_anchor.anchor_factors(base, BASE_YEAR, mode="separate")
+    base[cg_anchor.COHORT_BASE_COL] = (cg_anchor.model_gains(base["income"], base["synthetic_cg_share"])
+                                       * base[cg_anchor.COHORT_COL].map(k0).fillna(0.0).to_numpy())
+    coh = cg_anchor.anchor_factors(base, 2027, mode="cohort")
+    sep = cg_anchor.anchor_factors(base, 2027, mode="separate")
+    assert coh == pytest.approx(sep, rel=1e-9)
+
+
+def test_cohort_top_share_variant_rescales_the_top_cohorts_only():
+    _, proj = _cohort_frame(seed=6)
+    _, _, c = anchor_nltcg(proj, 2027, TOP_SHARE_1M, mode="cohort")
+    _, _, v = anchor_nltcg(proj, 2027, 0.7, mode="cohort")
+    c, v = ({r["group"]: r["dotax_target_M"] for r in x} for x in (c, v))
+    assert v["1mp"] == pytest.approx(c["1mp"] * 0.7 / TOP_SHARE_1M)
+    assert v["400_1m"] == pytest.approx(c["400_1m"] * 0.3 / (1 - TOP_SHARE_1M))
+    assert v["300_400"] == c["300_400"]
+    _, _, p = anchor_nltcg(proj, 2027, None, mode="cohort")           # pooled top cell
+    assert sum(r["dotax_target_M"] for r in p if r["group"] == "400p") == pytest.approx(c["400_1m"] + c["1mp"])
+
+
+def test_crosser_keeps_its_cohorts_k_and_counts_as_1m_plus():
+    _, proj = _cohort_frame(seed=1)
+    k = cg_anchor.anchor_factors(proj, 2027, mode="cohort")
+    out = cg_anchor.apply_anchor_factors(proj, k, mode="cohort")
+    coh = proj[cg_anchor.COHORT_COL].to_numpy()
+    cross = (coh == "400_1m") & (proj["income"].to_numpy() >= 1_000_000)
+    assert cross.sum() >= 80
+    g0 = cg_anchor.model_gains(proj["income"], proj["synthetic_cg_share"])
+    g1 = cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])
+    has = cross & (g0 > 0)
+    np.testing.assert_allclose(g1[has], k["400_1m"] * g0[has], rtol=1e-9)    # its cohort's k, not 1mp's
+    assert k["400_1m"] != k["1mp"]
+    # classified by current income, it is $1M+ (tax, AGI classes and filer counts read income)
+    assert (rank_classes(out)[cross] == "1mp").all()
+    assert (out["income"].to_numpy()[cross] >= 1_000_000).all() or (k["400_1m"] < 1)
+
+
+def test_cohort_anchor_leaves_non_gains_income_unchanged():
+    _, proj = _cohort_frame(seed=3)
+    out = cg_anchor.apply_anchor_factors(proj, cg_anchor.anchor_factors(proj, 2027, mode="cohort"),
+                                         mode="cohort")
+    g0 = cg_anchor.model_gains(proj["income"], proj["synthetic_cg_share"])
+    g1 = cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])
+    np.testing.assert_allclose(out["income"] - g1, proj["income"] - g0, rtol=1e-9, atol=1e-6)
+
+
+def test_pooled_and_separate_modes_ignore_the_cohort_column():
+    _, proj = _cohort_frame(seed=5)
+    bare = proj.drop(columns=[cg_anchor.COHORT_COL, cg_anchor.COHORT_BASE_COL])
+    for mode in ("pooled", "separate"):
+        assert (cg_anchor.anchor_factors(proj, 2029, mode=mode)
+                == cg_anchor.anchor_factors(bare, 2029, mode=mode))
+        a = cg_anchor.apply_anchor_factors(proj, cg_anchor.anchor_factors(proj, 2029, mode=mode), mode=mode)
+        b = cg_anchor.apply_anchor_factors(bare, cg_anchor.anchor_factors(bare, 2029, mode=mode), mode=mode)
+        np.testing.assert_array_equal(a["income"], b["income"])
+    p = cg_anchor.anchor_factors(proj, 2029, mode="pooled")
+    assert p["400_1m"] == p["1mp"]
+    s_ = cg_anchor.anchor_factors(proj, 2029, mode="separate")
+    assert s_["400_1m"] != s_["1mp"]
+
+
+def test_cohort_mode_needs_the_cohort_columns_and_validates_the_flag():
+    _, proj = _cohort_frame()
+    with pytest.raises(ValueError, match="cg_anchor_class"):
+        anchor_nltcg(proj.drop(columns=[cg_anchor.COHORT_COL]), 2027, TOP_SHARE_1M, mode="cohort")
+    with pytest.raises(ValueError, match="cg_base_gains"):
+        anchor_nltcg(proj.drop(columns=[cg_anchor.COHORT_BASE_COL]), 2027, TOP_SHARE_1M, mode="cohort")
+    with pytest.raises(ValueError, match="CG_ANCHOR_MODE"):
+        cg_anchor.anchor_mode("nope")
+
+
+def test_anchor_tail_gains_puts_the_tail_in_the_1mp_cohort():
+    df = _frame()
+    df["is_synthetic_ultra_high"] = False
+    df.loc[:59, "is_synthetic_ultra_high"] = True
+    df[cg_anchor.COHORT_COL] = "400_1m"
+    df[cg_anchor.COHORT_BASE_COL] = 5.0
+    df.loc[:59, cg_anchor.COHORT_COL] = np.nan
+    df.loc[:59, cg_anchor.COHORT_BASE_COL] = np.nan
+    out, _ = cg_anchor.anchor_tail_gains(df)
+    assert (out.loc[:59, cg_anchor.COHORT_COL] == "1mp").all()
+    assert (out.loc[60:, cg_anchor.COHORT_COL] == "400_1m").all()
+    # the tail's base-year gains are its anchored gains; the others' are untouched
+    np.testing.assert_allclose(out.loc[:59, cg_anchor.COHORT_BASE_COL],
+                               cg_anchor.model_gains(out["income"], out["synthetic_cg_share"])[:60])
+    assert (out.loc[60:, cg_anchor.COHORT_BASE_COL] == 5.0).all()
+
+
+def test_cohort_labels_must_be_valid_classes():
+    """Units added after the base anchor (the SOI $1M+ tiers) must be given a cohort."""
+    _, proj = _cohort_frame()
+    proj[cg_anchor.COHORT_COL] = proj[cg_anchor.COHORT_COL].astype(object)
+    proj.loc[3, cg_anchor.COHORT_COL] = 0.0
+    with pytest.raises(ValueError, match="no valid 'cg_anchor_class'"):
+        anchor_nltcg(proj, 2027, TOP_SHARE_1M, mode="cohort")
+
+
+def test_cohort_base_totals_pin_the_targets_when_weights_move():
+    base, proj = _cohort_frame(seed=7, grow=False)
+    totals = cg_anchor.cohort_base_totals(base)
+    reweighted = proj.assign(weight=proj["weight"] * np.where(proj[cg_anchor.COHORT_COL] == "400_1m", 0.7, 1.0))
+    g = cg_growth(2029) * cg_anchor.anticipatory_realization_factor(2029)
+    _, _, rows = anchor_nltcg(reweighted, 2029, TOP_SHARE_1M, mode="cohort", cohort_base=totals)
+    t = {r["group"]: r["dotax_target_M"] for r in rows}
+    assert t["400_1m"] == pytest.approx(totals["400_1m"] * g / 1e6, rel=1e-12)
+    _, _, own = anchor_nltcg(reweighted, 2029, TOP_SHARE_1M, mode="cohort")     # the frame's own weights
+    assert {r["group"]: r["dotax_target_M"] for r in own}["400_1m"] == pytest.approx(0.7 * t["400_1m"], rel=1e-12)

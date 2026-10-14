@@ -29,6 +29,8 @@ def units_df():
         "income": [50_000.0, 1_200_000.0],
         "weight": [10.0, 1.5],
         "filing_status": ["single", "married_filing_jointly"],
+        "cg_anchor_class": ["300_400", "1mp"],
+        "cg_base_gains": [9_000.0, 800_000.0],
     })
 
 
@@ -218,3 +220,12 @@ def test_git_sha_for_code_marks_uncommitted_code(tmp_path):
 def test_git_sha_for_code_outside_a_repository(tmp_path, monkeypatch):
     monkeypatch.setenv("GIT_DIR", str(tmp_path / "no-repository"))
     assert git_sha_for_code(("code",), cwd=tmp_path) == "unknown"
+
+
+def test_base_without_the_cohort_column_is_refused(tmp_path, units_df):
+    path = tmp_path / "base.pkl"
+    _save(path, units_df.drop(columns=["cg_base_gains"]))
+    with pytest.raises(ValueError, match="cg_base_gains"):
+        load_calibrated_base(path)
+    units, _, _ = load_calibrated_base(path, require_anchored=False)
+    assert "cg_base_gains" not in units.columns

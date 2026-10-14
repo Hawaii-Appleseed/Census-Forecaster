@@ -41,8 +41,9 @@ from .presets import current_law_vintages, presets
 from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
-# 3 dropped hhfw: distribution totals sum each unit's own filer weight.
-WEB_FORMAT_VERSION = 5
+# 3 dropped hhfw: distribution totals sum each unit's own filer weight; 6 made cgcls the
+# base-year gains cohort in cohort mode (cg_anchor.mode).
+WEB_FORMAT_VERSION = 6
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it
@@ -155,7 +156,7 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
         # The capital-gains base: scale factors by scenario, year and class
         # code (classes[code]; k[0] = 0, gains below $100K unallocated). LOW
         # and HIGH carry MID's factors, applied to their own classes.
-        "cg_anchor": {"top_share": anchor["top_share"], "classes": anchor["classes"],
+        "cg_anchor": {"top_share": anchor["top_share"], "mode": anchor["mode"], "classes": anchor["classes"],
                       "k": anchor["k"]},
         "current_law": {str(y): system_to_json(current_law_system(y), calc) for y in years},
         "current_law_vintages": current_law_vintages(calc),

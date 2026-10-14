@@ -63,6 +63,12 @@ CG_PAGE = REPO / "site" / "data" / "capital-gains"   # the capital-gains page's 
 # within 0.0032 of the page's. On the 2026-10-11 population (the aged gains
 # share, top-tail aging) they run 1.020-1.044, response ratios within 0.0013.
 CG_LEVEL_BAND = (0.90, 1.05)
+# check_gains_anchor, cohort mode: the cohorts' targets are base-year gains x growth at the weights each
+# population has (the page re-rakes its weights every year and swaps the $1M+ tail for SOI tiers; the
+# simulator's are the headline's, fixed), so unlike the Table 21 targets they differ between the two:
+# the $1M+ cohort (the tail's gains) matches exactly, the others within this relative band.
+CG_COHORT_PAGE_BAND = 0.15       # per cohort (TY2027: 400_1m +11.8%, 200_300 +5.9%)
+CG_COHORT_TOTAL_BAND = 0.05      # all gains (TY2027: +2.4%)
 CG_RESPONSE_RATIO_TOL = 0.005
 
 
@@ -143,18 +149,21 @@ def check_gains_anchor(pop) -> list[str]:
     DOTAX anchors MID; LOW and HIGH keep MID's factors
     (tax_modeler.simulator.gains). For every year:
 
-    * MID: (the top two classes, 400_1m and 1mp, are checked against the sum of their
-      targets, one k: cg_anchor.POOLED_TOP_CELL) each DOTAX class's gains (income x anchored share, weighted) equal
+    * The factor class of a unit is its base-year cohort (CG_ANCHOR_MODE "cohort", the
+      default) or its weighted income rank in the scenario ("pooled", "separate";
+      cg_anchor.factor_labels). In pooled mode the top two classes, 400_1m and 1mp,
+      are checked against the sum of their targets, one k (cg_anchor.POOLED_TOP_CELL).
+    * MID: each factor class's gains (income x anchored share, weighted) equal its target:
       DOTAX's windowed resident gains (anchored_nltcg_M) grown by cg_growth, with TOP_SHARE_1M of
-      the $400K+ class at $1M+; the total equals the capital-gains page's
+      the $400K+ class at $1M+ (pooled / separate), or, per cohort, the cohort's base-year
+      anchored gains (cg_base_gains, weighted) grown by cg_growth (cohort); the total equals the capital-gains page's
       published nltcg_M and the class targets its anchor_check.csv. Its
       factor k is 0 below $100K and positive in every other class (a class
       with no MID gains would zero LOW's and HIGH's there).
     * LOW and HIGH: the scale factors k equal MID's, element for element;
       and each class's anchored gains equal MID's k times the scenario's own
-      model gains in that class, the classes recomputed here from the
-      scenario's weighted income ranks (rank_classes).
-    * Every scenario: the stored class codes are the ones rank_classes
+      model gains in that class, the classes recomputed here (factor_labels).
+    * Every scenario: the stored class codes are the ones factor_labels
       gives, a unit's non-gains income is the model's (the anchor moves income by
       (k - 1) x gains), no share exceeds 1, and no gains sit on income <= 0.
 
@@ -165,19 +174,20 @@ def check_gains_anchor(pop) -> list[str]:
 
     from tax_modeler.calibration.cg_anchor import (
         _CLASSES,
-        POOL_TOP_CELL,
         POOLED_TOP_CELL,
         anchored_nltcg_M,
         anticipatory_realization_factor,
+        anchor_mode,
         cg_growth,
-        rank_classes,
+        factor_labels,
     )
     from tax_modeler.simulator.gains import CLASSES, ensure_gains_anchor, gains_classes
     from tax_modeler.simulator.population import frame_for, unit_arrays
     from tax_modeler.simulator.scenarios import SCENARIOS
 
     anchor = ensure_gains_anchor(pop)
-    pooled = POOL_TOP_CELL
+    mode = anchor_mode()
+    pooled = mode == "pooled"
     top = anchor["top_share"]
     dotax = dict(zip(_CLASSES, anchored_nltcg_M(), strict=True))  # the windowed anchor
     rev = pd.read_csv(CG_PAGE / "revenue_by_year.csv")
@@ -189,6 +199,13 @@ def check_gains_anchor(pop) -> list[str]:
         g = cg_growth(y) * anticipatory_realization_factor(y)
         target = {"lt100": 0.0, **{c: dotax[c] * g for c in CLASSES[1:5]},
                   "400_1m": dotax["400p"] * g * (1 - top), "1mp": dotax["400p"] * g * top}
+        if mode == "cohort":
+            # the cohort's base-year anchored gains, grown (the base-year classes' total at the
+            # base year is what calibrate_anchored left within its tolerance of the Table 21 target)
+            d0 = frame_for(pop, y, "mid", gains="model")
+            gbw = (d0["cg_base_gains"] * d0["weight"]).to_numpy()
+            coh = d0["cg_anchor_class"].to_numpy()
+            target = {"lt100": 0.0, **{c: float(gbw[coh == c].sum()) * g / 1e6 for c in CLASSES[1:]}}
         k_mid = anchor["k"]["mid"][str(y)]
         if k_mid[0] != 0 or not all(v > 0 for v in k_mid[1:]):
             # a class without MID gains would zero LOW's and HIGH's there
@@ -197,14 +214,14 @@ def check_gains_anchor(pop) -> list[str]:
             model = unit_arrays(pop, y, s, gains="model")
             u = unit_arrays(pop, y, s)
             cls = gains_classes(pop, y, s)
-            # the scenario's own classes, recomputed from its income ranks
-            labels = rank_classes(frame_for(pop, y, s, gains="model"))
+            # the scenario's own factor classes, recomputed (cohorts, or its income ranks)
+            labels = factor_labels(frame_for(pop, y, s, gains="model"), mode)
             own = np.empty(pop.n_units, dtype=np.uint8)
             own[pop.arrays[f"order_{y}"]] = [code[x] for x in labels]
             own[model["synthetic_cg_share"] == 0] = 0
             if not np.array_equal(cls, own):
                 problems.append(f"{s} {y}: {int((cls != own).sum())} class codes differ "
-                                f"from the scenario's income ranks")
+                                f"from the scenario's factor classes ({mode})")
             k = anchor["k"][s][str(y)]
             if s != "mid" and list(k) != list(k_mid):
                 problems.append(f"{s} {y}: scale factors {k} are not MID's {k_mid}")
@@ -241,14 +258,16 @@ def check_gains_anchor(pop) -> list[str]:
             if s != "mid":
                 continue
             pub = rev[rev.tax_year == y]["nltcg_M"].unique()
-            if len(pub) != 1 or not np.isclose(float(gw.sum()) / 1e6, pub[0], rtol=1e-9):
+            if len(pub) != 1 or not np.isclose(float(gw.sum()) / 1e6, pub[0],
+                                               rtol=CG_COHORT_TOTAL_BAND if mode == "cohort" else 1e-9):
                 problems.append(f"mid {y}: total gains ${float(gw.sum()) / 1e6:.6f}M "
                                 f"vs the page's nltcg_M {list(pub)}")
             ref = anchor_ref[anchor_ref.tax_year == y]
             if len(ref) != len(CLASSES) - 1:
                 problems.append(f"mid {y}: anchor_check.csv has {len(ref)} classes")
             for _, r in ref.iterrows():
-                if not np.isclose(target[r["group"]], r["dotax_target_M"], rtol=1e-9):
+                rtol = CG_COHORT_PAGE_BAND if mode == "cohort" and r["group"] != "1mp" else 1e-9
+                if not np.isclose(target[r["group"]], r["dotax_target_M"], rtol=rtol):
                     problems.append(f"mid {y} {r['group']}: target {target[r['group']]} "
                                     f"vs the page's {r['dotax_target_M']}")
     return problems
