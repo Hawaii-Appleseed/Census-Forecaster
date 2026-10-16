@@ -101,11 +101,21 @@ def score_systems(
     return {"revenue": revenue, "distribution": distribution}
 
 
-def score_spec(pop: Population, spec, **kwargs) -> dict:
-    """Score an ``IncomeTaxSpec`` against current law (Act 24)."""
+def score_spec(pop: Population, spec, *, credit_table: dict | None = None, **kwargs) -> dict:
+    """Score an ``IncomeTaxSpec`` against current law (Act 24). With
+    ``credit_table`` (:func:`.credits.load_credit_table`) the result also has
+    ``credits``: the change from the spec's credits by tax year, the same in
+    every scenario and not in ``revenue``. A spec that changes credits needs
+    the table."""
     kwargs.setdefault("scenarios", [s for s in ("low", "mid", "high")
                                     if s in spec.behavior or "static" in spec.behavior])
-    return score_systems(pop, spec.baseline_for, spec.system_for, **kwargs)
+    res = score_systems(pop, spec.baseline_for, spec.system_for, **kwargs)
+    if credit_table is not None:
+        from .credits import spec_credit_changes
+        res["credits"] = spec_credit_changes(spec, credit_table)
+    elif spec.changes_credits:
+        raise ValueError(f"spec {spec.name!r} changes credits; score it with a credit_table")
+    return res
 
 
 def revenue_frame(result: dict) -> pd.DataFrame:

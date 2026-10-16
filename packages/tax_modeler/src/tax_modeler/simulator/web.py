@@ -122,7 +122,10 @@ def model_version(pop: Population, blob: bytes, meta: dict, kernel_source: bytes
     return f"{str(base.get('created_at', ''))[:10]}+{h.hexdigest()[:10]}"
 
 
-def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = None) -> dict:
+def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = None,
+             credits: dict | None = None) -> dict:
+    """``credits``: the working-family credits' cost table
+    (:func:`tax_modeler.simulator.credits.load_credit_table`)."""
     calc = calc or TaxCalculator()
     years = pop.years
     scen = {}
@@ -157,6 +160,9 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
         "current_law_vintages": current_law_vintages(calc),
         "presets": presets(calc),
         "food_excise": food_excise_tables(years),
+        # The EITC and food/excise credit options' cost, from the
+        # working-family credits run (simulator/credits.py)
+        "credits": credits,
         "provenance": pop.meta.get("calibrated_base", {}),
         # How thin the top is: the page says so next to any top-only change.
         # (Records that carry weight: the survey's own $1M+ records are
@@ -168,14 +174,15 @@ def web_meta(pop: Population, index: list[dict], calc: TaxCalculator | None = No
     }
 
 
-def write_web_files(pop: Population, directory, *, kernel_source: bytes = b"") -> list[Path]:
+def write_web_files(pop: Population, directory, *, kernel_source: bytes = b"",
+                    credits: dict | None = None) -> list[Path]:
     """``kernel_source``: the bytes of ``site/assets/simulator/kernel.js``,
-    folded into the model version."""
+    folded into the model version. ``credits``: the credits' cost table."""
     d = Path(directory)
     d.mkdir(parents=True, exist_ok=True)
     ensure_gains_anchor(pop)
     blob, index = pack(_web_arrays(pop))
-    meta = web_meta(pop, index)
+    meta = web_meta(pop, index, credits=credits)
     meta["model_version"] = model_version(pop, blob, meta, kernel_source)
     (d / "population.bin.gz").write_bytes(gzip.compress(blob, compresslevel=9, mtime=0))
     (d / "population.json").write_text(json.dumps(meta, indent=1) + "\n")

@@ -2,10 +2,12 @@
 // (tax_modeler.reform.income_tax_spec's format), quick edits, guardrail
 // warnings and share links. No DOM here, so tests/simulator/plan.test.mjs
 // can check it in Node.
-import { CG_ORDINARY, resolveSpec } from "./kernel.js";
+import { CG_ORDINARY, FOOD_EXCISE_TABLES, resolveSpec } from "./kernel.js";
 
 export const STATUS_KEYS = ["single", "head_of_household", "married_filing_jointly"];
 export const LINK = { head_of_household: 1.5, married_filing_jointly: 2 };
+/** The EITC's share of the federal credit under Act 163 (percent). */
+export const EITC_RENEW = 40;
 const nf1 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
@@ -61,13 +63,22 @@ export function stateFromSpec(spec, meta) {
   // capital gains rate: null (current law), a percent, or "ordinary"
   const cg = typeof it.capital_gains_rate === "number" || it.capital_gains_rate === CG_ORDINARY
     ? it.capital_gains_rate : null;
+  // credits: the EITC's share of federal (null: current law) and the
+  // food/excise table (null: current law)
+  const cr = spec.credits || {};
+  const eitc = typeof cr.eitc_percent === "number" ? cr.eitc_percent : null;
+  const food = FOOD_EXCISE_TABLES.includes(cr.food_excise) ? cr.food_excise : null;
   return {
     preset: spec.name, label: spec.label || "", firstYear: spec.first_year,
     vintages, linked: vintages.every((v) => isLinked(v.brackets)),
     sd, sdLinked: !sd || (sd.head_of_household === sd.single * 1.5 && sd.married_filing_jointly === sd.single * 2),
-    pe, cg, activeVintage: 0, activeStatus: "single",
+    pe, cg, eitc, food,
+    // "Renew Act 163" (40 percent) or a share of the user's own; the spec is the same
+    eitcOwn: eitc !== null && eitc !== EITC_RENEW,
+    activeVintage: 0, activeStatus: "single",
     distYear: spec.first_year,
-    household: { fs: "married_filing_jointly", agi: 120000, gains: 0, dependents: 2, itemized: 0 },
+    // earned: null means income less capital gains
+    household: { fs: "married_filing_jointly", agi: 120000, earned: null, gains: 0, dependents: 2, itemized: 0 },
   };
 }
 
@@ -104,8 +115,15 @@ export function specFromState(s, meta) {
   if (s.cg !== null) it.capital_gains_rate = s.cg;
   // An untouched preset keeps its name, so a shared link reopens on that preset.
   const name = s.preset && s.preset !== "custom" ? s.preset : "my_plan";
-  return clone({ name, label: s.label || "My plan", first_year: s.firstYear, income_tax: it,
-    model_version: meta.model_version });
+  const spec = { name, label: s.label || "My plan", first_year: s.firstYear, income_tax: it };
+  // Only when a credit changes, so every other plan keeps the same spec.
+  if (s.eitc !== null || s.food !== null) {
+    spec.credits = {};
+    if (s.eitc !== null) spec.credits.eitc_percent = s.eitc;
+    if (s.food !== null) spec.credits.food_excise = s.food;
+  }
+  spec.model_version = meta.model_version;
+  return clone(spec);
 }
 
 // ---- edits -----------------------------------------------------------------

@@ -1419,7 +1419,11 @@ def build_conveyance() -> tuple[str, dict]:
 # ---------------------------------------------------------------------------
 
 def _preset_totals(res: dict, scen: str) -> tuple[float, float]:
-    rows = [r for r in res["revenue"] if r["scenario"] == scen]
+    """A preset's first-year and five-year change, income tax plus credits
+    (the credits' change is the same in every scenario)."""
+    credits = {r["tax_year"]: r["total_$M"] for r in res["credits"]}
+    rows = [{**r, "behavioral_$M": r["behavioral_$M"] + credits[r["tax_year"]]}
+            for r in res["revenue"] if r["scenario"] == scen]
     first = min(r["tax_year"] for r in rows if r["tax_year"] >= res["first_year"])
     return (next(r["behavioral_$M"] for r in rows if r["tax_year"] == first),
             sum(r["behavioral_$M"] for r in rows))
@@ -1480,13 +1484,28 @@ def build_tax_simulator() -> tuple[str, dict]:
         rows.append([esc(res["label"]), m1(f_mid), m1(t_mid), f"{m1(min(totals))} to {m1(max(totals))}"])
     top14 = presets["top_rate_14"]
     top14_first, _ = _preset_totals(top14, "mid")
+    # The EITC and food/excise credit, priced from the working-family credits run
+    cr = meta["credits"]
+    cr_src = cr["source"]
+    renew = {r["tax_year"]: r for r in presets["renew_act163"]["credits"]}
+    renew_fy = presets["renew_act163"]["first_year"]
+    renew_years = [y for y in years if y >= renew_fy]
+    renew_total = sum(renew[y]["total_$M"] for y in renew_years)
+    eitc_pt = cr["eitc_per_point_$M"][str(renew_fy)]
+    T_wf_page = ('Hawaiʻi Appleseed, “Expiring Relief: Working Family Tax Credits,” '
+                 'Hawaiʻi Appleseed Estimates. <a href="../working-family-credits/">On this site</a>')
+    if cr_src["git_sha"] != json.loads((DATA / WORKING_FAMILIES.slug / "manifest.json").read_text())["git_sha"]:
+        print(f"WARNING: the simulator's credit costs come from the working-family credits run at "
+              f"{cr_src['git_sha']}, but site/data/{WORKING_FAMILIES.slug}/ is from another run; rebuild the "
+              f"simulator data (build_simulator_population.py --from-saved) so the two pages agree",
+              file=sys.stderr)
 
     hero = f"""
 <section class="ha-est__hero"><div class="ha-est__hero-inner">
 <p class="ha-est__eyebrow">Try it yourself · Income tax</p>
 <h1>Tax Simulator</h1>
 <hr class="ha-est__hero-rule">
-<p class="ha-est__deck">Change Hawaiʻi’s income tax brackets, rates, standard deduction, personal exemption and tax on capital gains, and see what your version would raise or cost in tax years {Y0} to {Y1}, and who would pay more or less.</p>
+<p class="ha-est__deck">Change Hawaiʻi’s income tax brackets, rates, standard deduction, personal exemption and tax on capital gains, and its earned income and food/excise tax credits, and see what your version would raise or cost in tax years {Y0} to {Y1}, and who would pay more or less.</p>
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · Compared with current law (Act 24)</p>
 </div></section>"""
 
@@ -1495,7 +1514,7 @@ def build_tax_simulator() -> tuple[str, dict]:
 <noscript><div class="ha-est__callout"><p><strong>The simulator needs JavaScript.</strong> With it turned off you can still see what the model gives for a few options, below.</p></div></noscript>
 {table(["Option", f"First year ($M)", f"{Y0} to {Y1} ($M)", "Range across scenarios ($M)"], rows,
        caption=f"Table 1. Change in Revenue Compared With Current Law, Middle Scenario With Behavioral Response")}
-<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, the model behind this page. Each option applies from tax year {Y0}.</p>
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, the model behind this page. Each option applies from tax year {Y0}, except renewing Act 163’s credits, which current law keeps through {renew_fy - 1}: that option applies from {renew_fy}, and its figures are for {renew_fy} and for {renew_fy} to {Y1}.</p>
 </div>"""
     app = f"""
 <div class="ha-sim" id="sim-app" data-data="../data/{TAX_SIMULATOR.slug}/">{fallback}
@@ -1504,7 +1523,7 @@ def build_tax_simulator() -> tuple[str, dict]:
     s1 = section("How to Read These Numbers", f"""
 {lead("Every figure compares your plan with current law,", f"the income tax as Act 24 of 2026 left it, including the changes it already schedules: a new set of brackets in {Y0 + 2} and a standard deduction that rises in steps through {Y1}.{notes.ref(T_act24)} A plan that changes nothing scores zero.")}
 <p>Revenue figures are for tax years, and they include the model’s estimate of how people respond. Filers whose rates rise report somewhat less income, filers whose rate on capital gains rises sell fewer investments, and when the top rate rises a few of the highest earners move away, each taking all of their income tax with them. The middle scenario uses the same assumptions as the Act 24 page, capital gains included.{notes.ref(T_doc)} The low and high scenarios vary that response, how fast top incomes grow and the number of filers above $1 million, and the page shows the range across all three. The household tables are static: they show what each group would owe on the same income, before any response.</p>
-<div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income and, when the rate on capital gains falls, sold the same investments. Capital gains of nonresidents are not counted. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
+<div class="ha-est__callout"><p><strong>What the model leaves out.</strong> Credits other than the earned income and food/excise tax credits stay as they are under current law, apart from the limit that nonrefundable credits cannot exceed the tax. Changes to those two credits are priced separately, not on the households in the tables (see below). Rate cuts get no behavioral response: filers whose rates fall are scored as if they reported the same income and, when the rate on capital gains falls, sold the same investments. Capital gains of nonresidents are not counted. Only {meta['top_tail']['records_1m']} records stand for the {round(meta['top_tail']['returns_1m'], -2):,.0f} returns above $1 million, so changes that touch only the top are less certain than the rest. These are model estimates, not a Department of Taxation fiscal note.</p></div>
 """, "reading")
 
     s_cg = section("Capital Gains", f"""
@@ -1515,12 +1534,18 @@ def build_tax_simulator() -> tuple[str, dict]:
 <p>The Act 24 page scores capital gains the same way, with the same gains and the same alternative tax, so the simulator’s current law is that page’s. Scored against Act 46, Act 24’s bracket changes raise {millions(a24_mid[Y0])} in tax year {Y0} in the middle scenario after the behavioral response, and {millions(sum(a24_mid.values()))} over tax years {Y0} to {Y1}, on both.{notes.ref(T_a24_page)}</p>
 """, "capital-gains")
 
+    s_cr = section("Working-Family Credits", f"""
+{lead("Act 163 of 2023 doubled two credits for working families,", f"for tax years 2023 to {renew_fy - 1}: the state earned income tax credit went from {pct(cr['current_law']['eitc_percent'][str(renew_fy)])} to {pct(cr['current_law']['eitc_percent'][str(Y0)])} percent of the federal credit, and the refundable food/excise tax credit to as much as $220 a person, from $110. Both expansions end after {renew_fy - 1}, so current law returns to the earlier credits from {renew_fy}.{notes.ref(T_wf_page)} The simulator lets you keep either expansion, set the earned income tax credit’s share yourself, or return to the earlier food/excise amounts sooner.")}
+<p>Renewing both expansions would cost {millions(-renew[renew_fy]['total_$M'])} in tax year {renew_fy} and {millions(-renew_total)} over {renew_fy} to {Y1}: {millions(-sum(renew[y]['eitc_$M'] for y in renew_years))} for the earned income tax credit and {millions(-sum(renew[y]['food_excise_$M'] for y in renew_years))} for the food/excise credit. Each point of the federal credit costs about ${eitc_pt:,.1f} million a year.</p>
+<p>The simulator does not price these credits on the households it taxes, which carry no federal credit to start from. It uses the working-family credits page’s estimates: each credit under both laws, for families built from the same Census survey, with the share of eligible filers who claim it matched to Department of Taxation counts ({pct(cr_src['takeup_eitc'] * 100)} percent for the earned income tax credit, {pct(cr_src['takeup_food'] * 100)} percent for the food/excise credit). The earned income tax credit’s cost moves in proportion to its share of the federal credit. Both credits are refundable and do not depend on the brackets, so their cost is added to the income tax change and is the same in all three scenarios. The household tables cover the income tax only; the working-family credits page shows who the credits reach. The household calculator includes both: the food/excise table, and the state’s share of the household’s own federal earned income tax credit, with every dependent counted as a qualifying child.</p>
+""", "credits")
+
     s2 = section("How the Simulator Works", f"""
 {lead("The simulator scores your plan", f"on the population behind the Act 24 estimates: about {meta['n_units']:,} Hawaiʻi tax units built from Census Bureau survey data, calibrated to Department of Taxation statistics, with filers above $1 million added from IRS and state tax statistics and every unit projected to tax years {Y0} to {Y1}.")}
 <p>The projection is done once, when the model is run. The page then taxes each unit under current law and under your plan, in your browser, with the same arithmetic as the Python model. Automated tests check that the page gives the model’s answers: every revenue and distribution figure for {n_test_plans} test plans, including Act 24 itself, to within one part in a million, and the tax on a sample of units to a fraction of a cent.{notes.ref(T_code)} Nothing you enter leaves your browser; a shared link carries the plan in the address itself.{notes.ref(T_scope)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
-<li><a href="../data/{TAX_SIMULATOR.slug}/population.json"><code>population.json</code></a>: current law, the options above, the scenario assumptions and an index of the model data</li>
+<li><a href="../data/{TAX_SIMULATOR.slug}/population.json"><code>population.json</code></a>: current law, the options above, the scenario assumptions, the credits’ costs and an index of the model data</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/population.bin.gz"><code>population.bin.gz</code></a>: the projected tax units the page scores (binary, described in <code>population.json</code>)</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/presets_results.json"><code>presets_results.json</code></a>: the model’s results for the options above, by year and scenario</li>
 <li><a href="../data/{TAX_SIMULATOR.slug}/cg_page_comparison.json"><code>cg_page_comparison.json</code></a>: the capital gains page’s two options scored the simulator’s way, next to that page’s figures</li>
@@ -1529,7 +1554,7 @@ def build_tax_simulator() -> tuple[str, dict]:
 """, "method")
 
     endnotes = section("Endnotes", notes.html(), "endnotes")
-    body = hero + app + s1 + s_cg + s2 + endnotes
+    body = hero + app + s1 + s_cg + s_cr + s2 + endnotes
     extra_head = ('\n<link rel="stylesheet" href="../assets/simulator/simulator.css">'
                   '\n<script type="module" src="../assets/simulator/app.js"></script>')
     card = {
@@ -1537,7 +1562,7 @@ def build_tax_simulator() -> tuple[str, dict]:
         "category": "tools",
         "eyebrow": "Income tax",
         "title": "Tax Simulator",
-        "text": "Change the brackets, rates, deductions and tax on capital gains, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
+        "text": "Change the brackets, rates, deductions, tax on capital gains and working-family credits, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
         "stat": millions(top14_first),
         "stat_label": f"a year from a 14 percent top rate, for example (tax year {Y0})",
         "date": long_date(run),

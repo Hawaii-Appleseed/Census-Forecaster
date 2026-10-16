@@ -38,6 +38,16 @@ long-term capital gains, in percent (current law: 7.25), from ``first_year``
 on; ``ordinary`` taxes gains at the bracket rates (no alternative tax). Every
 spec is scored with the statutory alternative tax, on both sides
 (:func:`current_law_system`).
+
+An optional ``credits`` block changes the two refundable working-family
+credits Act 163 (SLH 2023) expanded for TY2023-2027, from ``first_year`` on::
+
+    credits:
+      eitc_percent: 40            # state EITC, % of the federal credit (current law: 40 through 2027, 20 after)
+      food_excise: act163         # or pre_act163, or current_law (Act 163's table through 2027, the earlier one after)
+
+Credits are not scored on the simulator's population: their cost comes from
+the working-family credits run (:mod:`tax_modeler.simulator.credits`).
 """
 from __future__ import annotations
 
@@ -62,12 +72,15 @@ BEHAVIORS = ("static", "low", "mid", "high")
 MAX_BRACKETS = 30
 MAX_FLOOR = 1e10     # $10 billion: no bracket floor is meaningful above it
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-_TOP_KEYS = {"name", "label", "first_year", "income_tax", "behavior", "baseline",
+_TOP_KEYS = {"name", "label", "first_year", "income_tax", "credits", "behavior", "baseline",
              "model_version", "metadata"}
 _INCOME_TAX_KEYS = {"brackets", "bracket_vintages", "standard_deduction", "personal_exemption",
                     "capital_gains_rate"}
 #: ``income_tax.capital_gains_rate`` value that repeals the alternative tax.
 CG_ORDINARY = "ordinary"
+_CREDITS_KEYS = {"eitc_percent", "food_excise"}
+#: ``credits.food_excise`` tables: Act 163's (TY2023-2027) and the one before it.
+FOOD_EXCISE_TABLES = ("act163", "pre_act163")
 
 
 def current_law_system(year: int) -> TaxSystemConfig:
@@ -201,6 +214,35 @@ def _resolve_cg_rate(raw: Any) -> float | str | None:
     return _number(raw, "income_tax.capital_gains_rate", hi=100.0, hi_open=True)
 
 
+def _resolve_credits(raw: Any) -> tuple[float | None, str | None]:
+    """``credits``: (EITC percent of federal or None, food/excise table or
+    None), None meaning current law. A present null is rejected."""
+    if not isinstance(raw, Mapping):
+        raise ConfigError("spec.credits: expected a mapping")
+    unknown = set(raw) - _CREDITS_KEYS
+    if unknown:
+        # no ``available=`` hint: the page shows this text word for word
+        raise ConfigError(f"spec.credits: unknown keys {sorted(unknown)}; expected "
+                          f"{sorted(_CREDITS_KEYS)}")
+    raw_e = raw.get("eitc_percent", "current_law")
+    if isinstance(raw_e, str):
+        if raw_e != "current_law":
+            raise ConfigError("credits.eitc_percent: 'current_law' or a percent of the federal "
+                              f"credit, got {raw_e!r}")
+        eitc = None
+    else:
+        eitc = _number(raw_e, "credits.eitc_percent", hi=100.0)
+    raw_f = raw.get("food_excise", "current_law")
+    if isinstance(raw_f, str) and raw_f == "current_law":
+        food = None
+    elif isinstance(raw_f, str) and raw_f in FOOD_EXCISE_TABLES:
+        food = raw_f
+    else:
+        raise ConfigError("credits.food_excise: 'current_law', 'act163' or 'pre_act163', "
+                          f"got {raw_f!r}")
+    return eitc, food
+
+
 @dataclass(frozen=True)
 class IncomeTaxSpec:
     """A validated user-defined change to Hawaiʻi's income tax.
@@ -209,7 +251,8 @@ class IncomeTaxSpec:
     ``capital_gains_rate`` are ``None`` where the spec keeps current law.
     ``brackets`` is a tuple of vintages ``(from_year, {status: schedule})``,
     the first from ``first_year``. ``capital_gains_rate`` is a percent or
-    ``CG_ORDINARY``. Build with :meth:`from_dict`.
+    ``CG_ORDINARY``. ``eitc_percent`` / ``food_excise`` are the ``credits``
+    block (None: current law). Build with :meth:`from_dict`.
     """
 
     name: str
@@ -219,6 +262,8 @@ class IncomeTaxSpec:
     standard_deduction: dict[str, float] | None = None
     personal_exemption: float | None = None
     capital_gains_rate: float | str | None = None
+    eitc_percent: float | None = None
+    food_excise: str | None = None
     behavior: tuple[str, ...] = BEHAVIORS
     model_version: str | None = None
     metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
@@ -264,6 +309,7 @@ class IncomeTaxSpec:
         pe = None if raw_pe == "current_law" else _number(
             raw_pe, "income_tax.personal_exemption", hi=1e6)
         cg = _resolve_cg_rate(it.get("capital_gains_rate", "current_law"))
+        eitc, food = _resolve_credits(data.get("credits", {}))
         behavior = data.get("behavior", list(BEHAVIORS))
         if (not isinstance(behavior, (list, tuple)) or not behavior
                 or not all(isinstance(b, str) for b in behavior)
@@ -279,6 +325,7 @@ class IncomeTaxSpec:
             raise ConfigError("spec.metadata: a mapping")
         return cls(name=name, first_year=fy, label=label, brackets=brackets,
                    standard_deduction=sd, personal_exemption=pe, capital_gains_rate=cg,
+                   eitc_percent=eitc, food_excise=food,
                    behavior=tuple(b for b in BEHAVIORS if b in behavior),
                    model_version=mv, metadata=dict(meta))
 
@@ -306,6 +353,10 @@ class IncomeTaxSpec:
         out: dict[str, Any] = {"name": self.name, "label": self.label,
                                "first_year": self.first_year, "baseline": "act24",
                                "income_tax": it, "behavior": list(self.behavior)}
+        if self.changes_credits:
+            out["credits"] = {
+                "eitc_percent": "current_law" if self.eitc_percent is None else self.eitc_percent,
+                "food_excise": "current_law" if self.food_excise is None else self.food_excise}
         if self.model_version is not None:
             out["model_version"] = self.model_version
         if self.metadata:
@@ -313,7 +364,13 @@ class IncomeTaxSpec:
         return out
 
     @property
+    def changes_credits(self) -> bool:
+        return not (self.eitc_percent is None and self.food_excise is None)
+
+    @property
     def changes_anything(self) -> bool:
+        """Does the spec change the income tax? (Credits aside: see
+        :attr:`changes_credits`.)"""
         return not (self.brackets is None and self.standard_deduction is None
                     and self.personal_exemption is None and self.capital_gains_rate is None)
 

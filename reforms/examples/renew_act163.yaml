@@ -1,0 +1,10 @@
+# Renew Act 163's credit expansions after they expire: the state EITC at 40%
+# of the federal credit and Act 163's food/excise table, from TY2028 (current
+# law already has both through TY2027). Income tax unchanged. The simulator's
+# "Renew Act 163's EITC and food/excise credit" preset.
+name: renew_act163
+label: "Renew Act 163's EITC and food/excise credit"
+first_year: 2028
+credits:
+  eitc_percent: 40
+  food_excise: act163

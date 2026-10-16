@@ -1,6 +1,6 @@
 {
  "web_format_version": 3,
- "model_version": "2026-10-09+87cabf47d0",
+ "model_version": "2026-10-09+ac1abaf196",
  "years": [
   2027,
   2028,
@@ -2272,6 +2272,16 @@
    "income_tax": {
     "capital_gains_rate": "ordinary"
    }
+  },
+  {
+   "name": "renew_act163",
+   "label": "Renew Act 163's EITC and food/excise credit",
+   "first_year": 2028,
+   "income_tax": {},
+   "credits": {
+    "eitc_percent": 40.0,
+    "food_excise": "act163"
+   }
   }
  ],
  "food_excise": {
@@ -2554,6 +2564,229 @@
    ],
    "amount_pct": 1.0,
    "income_threshold_factor": 1.0
+  }
+ },
+ "credits": {
+  "federal_eitc": {
+   "2027": {
+    "investment_income_limit": 12450.0,
+    "by_children": [
+     {
+      "max_credit": 680.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11090.0,
+      "phaseout_start_joint": 18520.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4520.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7470.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8400.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2028": {
+    "investment_income_limit": 12700.0,
+    "by_children": [
+     {
+      "max_credit": 690.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11320.0,
+      "phaseout_start_joint": 18910.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4610.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7630.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8580.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2029": {
+    "investment_income_limit": 13000.0,
+    "by_children": [
+     {
+      "max_credit": 710.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11560.0,
+      "phaseout_start_joint": 19310.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4710.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7790.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8760.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2030": {
+    "investment_income_limit": 13250.0,
+    "by_children": [
+     {
+      "max_credit": 720.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11800.0,
+      "phaseout_start_joint": 19710.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4810.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7950.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8940.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2031": {
+    "investment_income_limit": 13550.0,
+    "by_children": [
+     {
+      "max_credit": 740.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 12050.0,
+      "phaseout_start_joint": 20130.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4910.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 8120.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 9130.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   }
+  },
+  "years": [
+   2027,
+   2028,
+   2029,
+   2030,
+   2031
+  ],
+  "current_law": {
+   "eitc_percent": {
+    "2027": 40.0,
+    "2028": 20.0,
+    "2029": 20.0,
+    "2030": 20.0,
+    "2031": 20.0
+   },
+   "food_excise": {
+    "2027": "act163",
+    "2028": "pre_act163",
+    "2029": "pre_act163",
+    "2030": "pre_act163",
+    "2031": "pre_act163"
+   }
+  },
+  "eitc_per_point_$M": {
+   "2027": 2.0941748358480643,
+   "2028": 2.1395917293235196,
+   "2029": 2.1738324667710693,
+   "2030": 2.242382822132713,
+   "2031": 2.3696875661782983
+  },
+  "food_excise_$M": {
+   "act163": {
+    "2027": 54.60296145473809,
+    "2028": 52.989737741397946,
+    "2029": 50.86394882081164,
+    "2030": 49.32400584073961,
+    "2031": 48.22812562025971
+   },
+   "pre_act163": {
+    "2027": 19.821649226503283,
+    "2028": 19.31575772881417,
+    "2029": 18.633983167839343,
+    "2030": 17.720429505743947,
+    "2031": 17.43472786763228
+   }
+  },
+  "source": {
+   "run": "working_family_credits",
+   "created_at": "2026-10-09T09:36:34+00:00",
+   "git_sha": "493ef76",
+   "params_fingerprint": "ba444def670dd6ff",
+   "takeup_eitc": 0.9809,
+   "takeup_food": 0.7455
   }
  },
  "provenance": {

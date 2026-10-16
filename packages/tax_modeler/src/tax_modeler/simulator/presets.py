@@ -18,6 +18,9 @@ Each is an ``IncomeTaxSpec`` dict scored against current law (Act 24):
 * ``cg_9`` / ``cg_ordinary`` — the capital-gains page's two options: the
   alternative tax rate on net long-term capital gains raised from 7.25% to
   9%, or repealed so gains are taxed as ordinary income.
+* ``renew_act163`` — Act 163's credit expansions kept after TY2027 (from
+  TY2028): the EITC at 40% of the federal credit and Act 163's food/excise
+  table (the working-family credits page's renewal). Income tax unchanged.
 """
 from __future__ import annotations
 
@@ -64,4 +67,8 @@ def presets(calc: TaxCalculator | None = None) -> list[dict]:
          "income_tax": {"capital_gains_rate": 9.0}},
         {"name": "cg_ordinary", "label": "Capital gains taxed as ordinary income",
          "first_year": FIRST_YEAR, "income_tax": {"capital_gains_rate": CG_ORDINARY}},
+        # from TY2028: current law already has Act 163's credits in TY2027
+        {"name": "renew_act163", "label": "Renew Act 163's EITC and food/excise credit",
+         "first_year": FIRST_YEAR + 1, "income_tax": {},
+         "credits": {"eitc_percent": 40.0, "food_excise": "act163"}},
     ]

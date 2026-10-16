@@ -25,6 +25,12 @@ run recorded, then the reproduction above, then that a capital-gains-only
 plan reproduces the capital-gains page's method and lands near its numbers
 (check_cg_page_parity, writing cg_page_comparison.json).
 
+The EITC and food/excise credit options are priced from the working-family
+credits run (runs/working_family_credits/, forecast_working_family_credits.py),
+which must exist: its cost table goes into the web metadata (and so the
+model version), runs/tax_simulator/credits.json and the golden credit cases.
+After that run changes, rebuild with --from-saved.
+
 --from-saved skips the ~10-minute projection and rewrites the web files,
 golden fixtures and preset results with the current scoring code (after a
 change to the kernel or the behavioral response, say). The manifest then
@@ -41,6 +47,7 @@ and commit the data and pages on top.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -334,7 +341,8 @@ def check_cg_page_parity(pop, out_dir: Path) -> list[str]:
 def write_preset_results(golden_path: Path, out: Path) -> None:
     """The presets' results, as the model computed them, for the page's
     first render and its no-JavaScript table (from the golden fixtures, which
-    score every preset with the real pipeline)."""
+    score every preset with the real pipeline). ``credits``: the change from
+    the preset's credits by year, in every scenario (zero for most)."""
     import gzip
     import json
 
@@ -342,8 +350,10 @@ def write_preset_results(golden_path: Path, out: Path) -> None:
 
     golden = json.loads(gzip.decompress(golden_path.read_bytes()))
     by_name = {c["name"]: c for c in golden["cases"]}
+    credits = {c["spec"]["name"]: c["expected"] for c in golden["credit_cases"]}
     out.write_text(json.dumps({p["name"]: {"label": p["label"], "first_year": p["first_year"],
-                                           **by_name[p["name"]]["expected"]}
+                                           **by_name[p["name"]]["expected"],
+                                           "credits": credits[p["name"]]}
                                for p in presets()}) + "\n")
 
 
@@ -418,13 +428,23 @@ def main() -> int:
     if args.check_only:
         return 0
 
+    from tax_modeler.simulator.credits import load_credit_table
     from tax_modeler.simulator.web import write_web_files
     from tax_modeler.simulator.golden import write_golden
 
+    wfc = RUNS_DIR / "working_family_credits"
+    if not (wfc / "revenue_by_year.csv").exists():
+        print(f"ERROR: {wfc} missing; run forecast_working_family_credits.py first (the "
+              f"simulator's EITC and food/excise options are priced from it).")
+        return 1
+    credit_table = load_credit_table(wfc, pop.years)
+    (OUT / "credits.json").write_text(json.dumps(credit_table, indent=1) + "\n")
+    print(f"  credits priced from {wfc.relative_to(REPO)} (git_sha {credit_table['source']['git_sha']})",
+          flush=True)
     kernel = (REPO / "site/assets/simulator/kernel.js").read_bytes()
-    web = write_web_files(pop, OUT / "web", kernel_source=kernel)
+    web = write_web_files(pop, OUT / "web", kernel_source=kernel, credits=credit_table)
     print(f"  web files: {', '.join(f'{p.name} {p.stat().st_size / 1e6:.2f} MB' for p in web)}", flush=True)
-    golden = write_golden(pop, OUT / "golden.json.gz")
+    golden = write_golden(pop, OUT / "golden.json.gz", credit_table=credit_table)
     print(f"  golden fixtures: {golden}", flush=True)
     write_preset_results(OUT / "golden.json.gz", OUT / "web" / "presets_results.json")
 
@@ -432,7 +452,7 @@ def main() -> int:
         OUT, script="scripts/build_simulator_population.py",
         params={"years": pop.meta["years"], "scenarios": pop.meta["scenarios"]},
         inputs={"calibrated_base": pop.meta["calibrated_base"], "tax_units_cache": cache_provenance(),
-                "population": pop.meta.get("built")},
+                "population": pop.meta.get("built"), "credits": credit_table["source"]},
         git_sha=code_sha,
     )
     print(f"Done in {time.perf_counter() - t0:.0f}s -> {OUT}", flush=True)
