@@ -1,6 +1,6 @@
 // Tax simulator worker: holds the population and scores specs off the main
 // thread, so the page stays responsive while the kernel runs.
-import { decodePopulation, parseSpec, resolveSpec, score } from "./kernel.js";
+import { creditChanges, decodePopulation, parseSpec, resolveSpec, score } from "./kernel.js";
 import { systemsWithoutGainsRate } from "./plan.js";
 
 let pop = null;
@@ -44,9 +44,11 @@ self.onmessage = async (event) => {
       // scenario, for the "of which, capital gains rate" row.
       const rest = systemsWithoutGainsRate(parsed, pop.meta);
       const withoutGains = rest ? score(pop, rest, { scenarios: ["mid"] }).revenue : null;
+      // the EITC and food/excise credit: the same change in every scenario
+      const credits = creditChanges(parsed, pop.meta);
       // the spec and year go back with the result, so the page's downloads
       // pair these numbers with the plan that produced them
-      self.postMessage({ type: "result", id: m.id, result, systems, withoutGains, spec: m.spec, distYear: m.distYear,
+      self.postMessage({ type: "result", id: m.id, result, systems, withoutGains, credits, spec: m.spec, distYear: m.distYear,
         ms: performance.now() - t0 });
     } catch (err) {
       self.postMessage({ type: "invalid", id: m.id, message: String(err.message || err) });

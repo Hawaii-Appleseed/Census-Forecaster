@@ -338,3 +338,21 @@ test("a rate that falls back below the capital gains rate says how the cap is re
   assert.ok(text.includes("first bracket whose rate reaches the gains rate"));
   assert.ok(!/%|!/.test(text));
 });
+
+test("credits survive the editor, and plans without them keep their spec", () => {
+  const base = meta.presets[0];
+  const plain = specFromState(stateFromSpec(base, meta), meta);
+  assert.equal("credits" in plain, false);
+  for (const credits of [{ eitc_percent: 40 }, { eitc_percent: 27.5, food_excise: "pre_act163" }, { food_excise: "act163" }]) {
+    const spec = { ...base, name: "my_plan", credits };
+    const s = stateFromSpec(spec, meta);
+    assert.deepEqual(specFromState(s, meta).credits, credits);
+    assert.equal(s.eitcOwn, credits.eitc_percent !== undefined && credits.eitc_percent !== 40);
+    parseSpec(specFromState(s, meta), meta);
+  }
+  const renew = meta.presets.find((p) => p.name === "renew_act163");
+  assert.deepEqual(specFromState(stateFromSpec(renew, meta), meta).credits, renew.credits);
+  // a share link carries the credits
+  const s = stateFromSpec({ ...base, credits: { eitc_percent: 35 } }, meta);
+  assert.deepEqual(decodeSpec("#" + encodeSpec(specFromState(s, meta))).credits, { eitc_percent: 35 });
+});

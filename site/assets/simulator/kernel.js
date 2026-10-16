@@ -471,8 +471,10 @@ export function score(pop, systemsByYear, { scenarios = ["low", "mid", "high"],
 // ---------------------------------------------------------------------------
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-const TOP_KEYS = new Set(["name", "label", "first_year", "income_tax", "behavior", "baseline",
+const TOP_KEYS = new Set(["name", "label", "first_year", "income_tax", "credits", "behavior", "baseline",
   "model_version", "metadata"]);
+const CREDIT_KEYS = ["eitc_percent", "food_excise"];
+export const FOOD_EXCISE_TABLES = ["act163", "pre_act163"];
 const IT_KEYS = new Set(["brackets", "bracket_vintages", "standard_deduction", "personal_exemption",
   "capital_gains_rate"]);
 const BEHAVIORS = ["static", "low", "mid", "high"];
@@ -509,6 +511,49 @@ function cgRate(raw) {
   if (typeof raw !== "number") throw new SpecError(`${where}: expected a number, got ${pyRepr(raw)}`);
   if (!Number.isFinite(raw) || raw < 0 || raw >= 100) throw new SpecError(`${where}: ${pyRepr(raw)} is outside [0, 100)`);
   return raw;
+}
+
+/** The spec's credits block (income_tax_spec._resolve_credits): { eitc,
+ * food }, null meaning current law. The error texts are the model's. */
+function creditsBlock(raw) {
+  if (!isMap(raw)) throw new SpecError("spec.credits: expected a mapping");
+  const unknown = Object.keys(raw).filter((k) => !CREDIT_KEYS.includes(k)).sort();
+  if (unknown.length) throw new SpecError(`spec.credits: unknown keys ${pyRepr(unknown)}; expected ${pyRepr([...CREDIT_KEYS].sort())}`);
+  const has = (k) => Object.prototype.hasOwnProperty.call(raw, k);
+  const e = has("eitc_percent") ? raw.eitc_percent : "current_law";
+  let eitc = null;
+  if (typeof e === "string") {
+    if (e !== "current_law") throw new SpecError(`credits.eitc_percent: 'current_law' or a percent of the federal credit, got ${pyRepr(e)}`);
+  } else {
+    if (typeof e !== "number") throw new SpecError(`credits.eitc_percent: expected a number, got ${pyRepr(e)}`);
+    if (!Number.isFinite(e) || e < 0 || e > 100) throw new SpecError(`credits.eitc_percent: ${pyRepr(e)} is outside [0, 100]`);
+    eitc = e;
+  }
+  const f = has("food_excise") ? raw.food_excise : "current_law";
+  let food = null;
+  if (f !== "current_law") {
+    if (!FOOD_EXCISE_TABLES.includes(f)) throw new SpecError(`credits.food_excise: 'current_law', 'act163' or 'pre_act163', got ${pyRepr(f)}`);
+    food = f;
+  }
+  return { eitc, food };
+}
+
+/** Change in revenue ($M; negative: the state pays out more) by tax year from
+ * a parsed spec's credits, against current law (simulator/credits.py
+ * credit_changes, the same arithmetic in the same order). The same in every
+ * scenario; not part of score()'s revenue. */
+export function creditChanges(parsed, meta) {
+  const t = meta.credits, cl = t.current_law;
+  const perPoint = t["eitc_per_point_$M"], food = t["food_excise_$M"];
+  return t.years.map((y) => {
+    const k = String(y);
+    let eitc = 0, fe = 0;
+    if (y >= parsed.first_year) {
+      if (parsed.eitc !== null) eitc = -(parsed.eitc - cl.eitc_percent[k]) * perPoint[k];
+      if (parsed.food !== null) fe = -(food[parsed.food][k] - food[cl.food_excise[k]][k]);
+    }
+    return { tax_year: y, "eitc_$M": eitc, "food_excise_$M": fe, "total_$M": eitc + fe };
+  });
 }
 
 function schedule(rows, where, maxBrackets, maxFloor) {
@@ -605,11 +650,12 @@ export function parseSpec(data, meta) {
     pe = rawPe;
   }
   const cg = cgRate(get(it, "capital_gains_rate", "current_law"));
+  const { eitc, food } = creditsBlock(get(data, "credits", {}));
   const behavior = get(data, "behavior", BEHAVIORS);
   if (!Array.isArray(behavior) || !behavior.length || behavior.some((b) => !BEHAVIORS.includes(b))) {
     throw new SpecError(`spec.behavior: a non-empty subset of ${BEHAVIORS.join(", ")}`);
   }
-  return { name: data.name, label: get(data, "label", ""), first_year: fy, vintages, sd, pe, cg,
+  return { name: data.name, label: get(data, "label", ""), first_year: fy, vintages, sd, pe, cg, eitc, food,
     behavior: BEHAVIORS.filter((b) => behavior.includes(b)) };
 }
 

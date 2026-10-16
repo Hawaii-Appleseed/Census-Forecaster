@@ -30,6 +30,7 @@ from tax_modeler.errors import ConfigError
 from tax_modeler.reform.income_tax_spec import CG_ORDINARY, IncomeTaxSpec, current_law_system
 from tax_modeler.scenarios.behavioral_response import score_with_response, top_rate_path
 
+from .credits import spec_credit_changes
 from .population import Population, frame_for
 from .presets import current_law_vintages, presets
 from .scenarios import SCENARIOS
@@ -245,6 +246,7 @@ def invalid_specs() -> list[dict]:
         spec(brackets={**ok, "single": [[0, 1.0], [1e308, 5.0]]}),        # x2 overflows
         spec(brackets={**ok, "single": [[0, 1.0], [6e9, 5.0]]}),          # x2 above MAX_FLOOR
         *invalid_cg_specs(),
+        *invalid_credit_specs(),
     ]
 
 
@@ -253,6 +255,37 @@ def invalid_cg_specs() -> list[dict]:
     shows the model's own error text for these (``cg_invalid_messages``)."""
     return [{"name": "bad", "first_year": 2027, "income_tax": {"capital_gains_rate": v}}
             for v in (-1, 100, "9", True, None, "repeal", "Ordinary", {"rate": 9}, [9])]
+
+
+def credit_specs() -> list[dict]:
+    """Plans that change the EITC or the food/excise credit, for the
+    ``credit_cases`` (the kernel's creditChanges against the model's)."""
+    def spec(name, fy, credits, it=None):
+        return {"name": name, "first_year": fy, "income_tax": it or {}, "credits": credits}
+    return [
+        spec("eitc40", 2027, {"eitc_percent": 40}),
+        spec("eitc30-2029", 2029, {"eitc_percent": 30}),
+        spec("eitc0", 2027, {"eitc_percent": 0}),
+        spec("eitc100-2031", 2031, {"eitc_percent": 100.0}),
+        spec("eitc-frac", 2028, {"eitc_percent": 27.35, "food_excise": "current_law"}),
+        spec("food163", 2027, {"food_excise": "act163"}),
+        spec("food163-2030", 2030, {"food_excise": "act163"}),
+        spec("food-pre", 2027, {"food_excise": "pre_act163"}),
+        spec("both-2028", 2028, {"eitc_percent": 40, "food_excise": "act163"}),
+        spec("both-cl", 2027, {"eitc_percent": "current_law", "food_excise": "current_law"}),
+        spec("both-cg9", 2027, {"eitc_percent": 35, "food_excise": "act163"},
+             {"capital_gains_rate": 9.0}),
+    ]
+
+
+def invalid_credit_specs() -> list[dict]:
+    """``credits`` blocks IncomeTaxSpec.from_dict must reject; the page shows
+    the model's own error text for these (``credit_invalid_messages``)."""
+    bad = [None, [], "renew", {"eitc": 40}, {"eitc_percent": -1}, {"eitc_percent": 100.5},
+           {"eitc_percent": "40"}, {"eitc_percent": True}, {"eitc_percent": None},
+           {"eitc_percent": [40]}, {"food_excise": "Act163"}, {"food_excise": None},
+           {"food_excise": True}, {"food_excise": ["act163"]}, {"food_excise": 2027}]
+    return [{"name": "bad", "first_year": 2027, "credits": c} for c in bad]
 
 
 def valid_edge_specs() -> list[dict]:
@@ -272,6 +305,9 @@ def valid_edge_specs() -> list[dict]:
             "married_filing_jointly": {"scale": "single", "factor": 2}}}},   # 1e10 exactly
         *({"name": f"edge-cg-{i}", "first_year": 2027, "income_tax": {"capital_gains_rate": v}}
           for i, v in enumerate((0, 99.99, 9.0, CG_ORDINARY, "current_law"))),
+        *({"name": f"edge-cr-{i}", "first_year": 2027, "credits": c}
+          for i, c in enumerate(({}, {"eitc_percent": 0}, {"eitc_percent": 100},
+                                 {"eitc_percent": "current_law"}, {"food_excise": "pre_act163"}))),
     ]
 
 
@@ -356,7 +392,10 @@ def _households(calc: TaxCalculator) -> list[dict]:
     return out, {k: system_to_json(v, calc) for k, v in systems.items()}
 
 
-def write_golden(pop: Population, path, *, n_random: int = 12, n_random_cg: int = 4) -> str:
+def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 12,
+                 n_random_cg: int = 4) -> str:
+    """``credit_table``: the credits' cost table, as the page's metadata
+    carries it (:func:`.credits.load_credit_table`)."""
     calc = TaxCalculator()
     spec_dicts = presets(calc) + edge_specs() + random_specs(n_random) + random_cg_specs(n_random_cg)
     specs = [IncomeTaxSpec.from_dict(d) for d in spec_dicts]
@@ -389,11 +428,23 @@ def write_golden(pop: Population, path, *, n_random: int = 12, n_random_cg: int 
             IncomeTaxSpec.from_dict(d)
         except ConfigError as e:
             cg_messages.append({"spec": d, "message": str(e)})
+    credit_messages = []
+    for d in invalid_credit_specs():
+        try:
+            IncomeTaxSpec.from_dict(d)
+        except ConfigError as e:
+            credit_messages.append({"spec": d, "message": str(e)})
+            continue
+        raise AssertionError(f"IncomeTaxSpec accepted an invalid credits block: {d}")
     for d in valid_edge_specs():
         IncomeTaxSpec.from_dict(d)
+    credit_cases = [{"spec": d, "expected": spec_credit_changes(IncomeTaxSpec.from_dict(d), credit_table)}
+                    for d in presets(calc) + credit_specs()]
     out = {"population_meta": {k: pop.meta[k] for k in ("years", "n_units", "n_households")},
            "invalid_specs": invalid,
            "cg_invalid_messages": cg_messages,
+           "credit_invalid_messages": credit_messages,
+           "credit_cases": credit_cases,
            "valid_edge_specs": valid_edge_specs(),
            "cases": cases, "unit_sample": _unit_sample(pop, calc, raw_cases),
            "households": households, "household_systems": household_systems,

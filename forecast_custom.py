@@ -16,8 +16,13 @@ page's and the Act 24 page's), taxed with the statutory alternative tax
 (HRS §235-51(f)) on both sides, so a spec that restates Act 46's brackets
 reproduces the Act 24 page's static figures with the sign reversed.
 
-Outputs runs/custom/<spec name>/: revenue.csv, quintile_<year>.csv,
-income_class_<year>.csv, spec.json, manifest.json.
+A spec's ``credits`` block (the state EITC and food/excise credit) is priced
+from the working-family credits run, as the page prices it
+(tax_modeler.simulator.credits; the population directory's credits.json),
+the same in every scenario: credits.csv, and a row in the printed table.
+
+Outputs runs/custom/<spec name>/: revenue.csv (income tax), credits.csv,
+quintile_<year>.csv, income_class_<year>.csv, spec.json, manifest.json.
 """
 from __future__ import annotations
 
@@ -70,12 +75,20 @@ def main(argv=None) -> int:
     if bad:
         print(f"ERROR: --distribution-year {bad}: the population covers {list(pop.years)}", file=sys.stderr)
         return 2
-    res = score_spec(pop, spec, distribution_years=dist_years)
+    credits_path = pop_dir / "credits.json"
+    credit_table = json.loads(credits_path.read_text()) if credits_path.exists() else None
+    if spec.changes_credits and credit_table is None:
+        print(f"ERROR: the spec changes credits, but {credits_path} is missing; rebuild with "
+              f"scripts/build_simulator_population.py --from-saved", file=sys.stderr)
+        return 1
+    res = score_spec(pop, spec, distribution_years=dist_years, credit_table=credit_table)
 
     out = Path(args.out) if args.out else RUNS_DIR / "custom" / spec.name
     out.mkdir(parents=True, exist_ok=True)
     rev = pd.DataFrame(res["revenue"])
     rev.to_csv(out / "revenue.csv", index=False)
+    cred = pd.DataFrame(res.get("credits", []), columns=["tax_year", "eitc_$M", "food_excise_$M", "total_$M"])
+    cred.to_csv(out / "credits.csv", index=False)
     for y, tables in res["distribution"].items():
         pd.DataFrame(tables["quintile"]).to_csv(out / f"quintile_{y}.csv", index=False)
         pd.DataFrame(tables["income_class"]).to_csv(out / f"income_class_{y}.csv", index=False)
@@ -83,7 +96,8 @@ def main(argv=None) -> int:
     write_run_manifest(out, script=f"forecast_custom.py --spec {args.spec}",
                        params={"spec": spec.to_dict(), "distribution_years": dist_years},
                        inputs={"population": json.loads((pop_dir / "manifest.json").read_text())
-                               if (pop_dir / "manifest.json").exists() else str(pop_dir)})
+                               if (pop_dir / "manifest.json").exists() else str(pop_dir),
+                               "credits": credit_table["source"] if credit_table else None})
 
     print(f"{spec.label or spec.name} — change vs current law (Act 24), $M")
     piv = rev.pivot(index="tax_year", columns="scenario", values="behavioral_$M")
@@ -93,6 +107,17 @@ def main(argv=None) -> int:
     # behavior list can leave it out).
     if (rev.scenario == "mid").any():
         table.insert(0, "MID static", rev[rev.scenario == "mid"].set_index("tax_year")["static_$M"])
+    if spec.changes_credits:
+        # the same in every scenario; added to each column below
+        c = cred.set_index("tax_year")["total_$M"]
+        print("Income tax:")
+        it = table.copy()
+        it.loc["5-year"] = it.sum(min_count=1)
+        print(it.to_string(float_format=lambda v: f"{v:+,.1f}"))
+        print("\nCredits (EITC + food/excise), every scenario:")
+        print(cred.set_index("tax_year").to_string(float_format=lambda v: f"{v:+,.1f}"))
+        print("\nTotal:")
+        table = table.add(c, axis=0)
     table.loc["5-year"] = table.sum(min_count=1)
     print(table.to_string(float_format=lambda v: f"{v:+,.1f}"))
     print(f"\nSaved {out} ({time.perf_counter() - t0:.1f}s)")

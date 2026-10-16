@@ -896,3 +896,125 @@ class TestPopulationScoring:
                          "--out", str(tmp_path / "out")]) == 0
         printed = capsys.readouterr().out
         assert "MID static" not in printed and "nan" not in printed.lower()
+
+
+# ---------------------------------------------------------------------------
+# credits: the state EITC and the food/excise credit
+# ---------------------------------------------------------------------------
+
+def _wfc_run(directory: Path) -> Path:
+    """A small working-family credits run: the EITC at 40% is twice 20%."""
+    directory.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for i, y in enumerate(YEARS):
+        rows.append({"tax_year": y, "eitc_expanded_$M": 2 * (40.0 + i), "eitc_reverted_$M": 40.0 + i,
+                     "food_expanded_$M": 55.0 - i, "food_reverted_$M": 20.0 - i / 2})
+    pd.DataFrame(rows).to_csv(directory / "revenue_by_year.csv", index=False)
+    (directory / "manifest.json").write_text(json.dumps({
+        "created_at": "2026-10-09T00:00:00+00:00", "git_sha": "abc1234", "params_fingerprint": "f",
+        "params": {"eitc_rates": [0.4, 0.2], "takeup_eitc": 0.98, "takeup_food": 0.75}}))
+    return directory
+
+
+class TestCredits:
+
+    @pytest.fixture
+    def table(self, tmp_path):
+        from tax_modeler.simulator.credits import load_credit_table
+        return load_credit_table(_wfc_run(tmp_path / "wfc"), YEARS)
+
+    @pytest.mark.parametrize("credits, eitc, food", [
+        ({}, None, None),
+        ({"eitc_percent": 40}, 40.0, None),
+        ({"eitc_percent": 0, "food_excise": "pre_act163"}, 0.0, "pre_act163"),
+        ({"eitc_percent": "current_law", "food_excise": "act163"}, None, "act163"),
+        ({"food_excise": "current_law"}, None, None),
+    ])
+    def test_parse_and_round_trip(self, credits, eitc, food):
+        s = spec(credits=credits)
+        assert (s.eitc_percent, s.food_excise) == (eitc, food)
+        assert s.changes_credits == (eitc is not None or food is not None)
+        assert not s.changes_anything          # the income tax is unchanged
+        assert IncomeTaxSpec.from_dict(s.to_dict()) == s
+        assert ("credits" in s.to_dict()) == s.changes_credits
+
+    def test_invalid_credits_are_in_the_kernel_lists(self):
+        from tax_modeler.simulator.golden import invalid_credit_specs
+        assert all(d in invalid_specs() for d in invalid_credit_specs())
+        for d in invalid_credit_specs():
+            with pytest.raises(ConfigError, match=r"credits"):
+                IncomeTaxSpec.from_dict(d)
+
+    def test_current_law(self):
+        from tax_modeler.simulator.credits import current_law_eitc_percent, current_law_food_excise
+        assert [current_law_eitc_percent(y) for y in (2027, 2028)] == [40.0, 20.0]
+        assert [current_law_food_excise(y) for y in (2027, 2028)] == ["act163", "pre_act163"]
+
+    def test_costs(self, table):
+        from tax_modeler.simulator.credits import credit_changes
+        assert table["eitc_per_point_$M"]["2028"] == pytest.approx(41.0 / 20)
+        # current law, spelled out, costs nothing
+        assert all(r["total_$M"] == 0 for r in credit_changes(None, None, 2027, table))
+        renew = {r["tax_year"]: r for r in credit_changes(40.0, "act163", 2027, table)}
+        assert renew[2027]["total_$M"] == 0                       # Act 163 is still law in 2027
+        assert renew[2028]["eitc_$M"] == pytest.approx(-41.0)     # 40% - 20% = the 20% credit again
+        assert renew[2028]["food_excise_$M"] == pytest.approx(-(54.0 - 19.5))
+        assert renew[2029]["total_$M"] == pytest.approx(renew[2029]["eitc_$M"] + renew[2029]["food_excise_$M"])
+        # the EITC is linear in its share; nothing before the first year
+        half = {r["tax_year"]: r for r in credit_changes(30.0, None, 2030, table)}
+        assert half[2029]["total_$M"] == 0 and half[2030]["eitc_$M"] == pytest.approx(-43.0 / 2)
+        # the earlier food/excise table in 2027 raises revenue
+        early = credit_changes(None, "pre_act163", 2027, table)
+        assert early[0]["food_excise_$M"] == pytest.approx(55.0 - 20.0) and early[1]["total_$M"] == 0
+
+    def test_table_checks(self, tmp_path):
+        from tax_modeler.simulator.credits import load_credit_table
+        d = _wfc_run(tmp_path / "wfc")
+        with pytest.raises(ValueError, match="no tax years"):
+            load_credit_table(d, (2027, 2032))
+        df = pd.read_csv(d / "revenue_by_year.csv")
+        df.loc[0, "eitc_expanded_$M"] += 1
+        df.to_csv(d / "revenue_by_year.csv", index=False)
+        with pytest.raises(ValueError, match="twice"):
+            load_credit_table(d, YEARS)
+
+    def test_score_spec_needs_the_table(self, table):
+        pop = _synthetic_population(years=YEARS)
+        s = spec(credits={"eitc_percent": 40})
+        with pytest.raises(ValueError, match="credit_table"):
+            score_spec(pop, s)
+        res = score_spec(pop, s, credit_table=table)
+        assert all(r["static_$M"] == 0 for r in res["revenue"])   # income tax untouched
+        assert [r["tax_year"] for r in res["credits"]] == list(YEARS)
+
+    def test_web_meta_carries_the_table(self, tmp_path, table):
+        pop = _synthetic_population(years=YEARS)
+        write_web_files(pop, tmp_path / "a", kernel_source=b"k", credits=table)
+        write_web_files(pop, tmp_path / "b", kernel_source=b"k")
+        a, b = (json.loads((tmp_path / n / "population.json").read_text()) for n in "ab")
+        assert a["credits"] == table and b["credits"] is None
+        assert a["model_version"] != b["model_version"]     # a new credit table changes the version
+
+    def test_preset_and_example(self, table):
+        d = next(d for d in presets() if d["name"] == "renew_act163")
+        s = IncomeTaxSpec.from_dict(d)
+        assert load_spec(REPO / "reforms/examples/renew_act163.yaml") == s
+        assert (s.first_year, s.eitc_percent, s.food_excise, s.changes_anything) == (2028, 40.0, "act163", False)
+
+    def test_custom_cli(self, tmp_path, monkeypatch, capsys, table):
+        pop = _synthetic_population(years=YEARS)
+        pop.save(tmp_path / "pop")
+        (tmp_path / "s.json").write_text(json.dumps({"name": "cr", "first_year": 2028,
+                                                     "credits": {"eitc_percent": 40, "food_excise": "act163"}}))
+        monkeypatch.syspath_prepend(str(REPO))
+        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "forecast_custom.py")
+        mod = importlib.util.module_from_spec(spec_)
+        spec_.loader.exec_module(mod)
+        argv = ["--spec", str(tmp_path / "s.json"), "--population", str(tmp_path / "pop"),
+                "--out", str(tmp_path / "out")]
+        assert mod.main(argv) == 1                       # no credits.json next to the population
+        (tmp_path / "pop" / "credits.json").write_text(json.dumps(table))
+        assert mod.main(argv) == 0
+        cred = pd.read_csv(tmp_path / "out" / "credits.csv")
+        assert cred.loc[cred.tax_year == 2028, "eitc_$M"].item() == pytest.approx(-41.0)
+        assert "Credits (EITC + food/excise)" in capsys.readouterr().out

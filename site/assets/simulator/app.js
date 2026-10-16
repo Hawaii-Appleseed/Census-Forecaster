@@ -5,7 +5,7 @@
 // income_tax_spec's format), and renders what the worker sends back.
 import { CG_ORDINARY, parseSpec, householdTax } from "./kernel.js";
 import {
-  STATUS_KEYS, LINK, clone, stateFromSpec, activeVintages, specFromState, syncLinked, setTopRate,
+  STATUS_KEYS, LINK, EITC_RENEW, clone, stateFromSpec, activeVintages, specFromState, syncLinked, setTopRate,
   setTopFloor, editorRows, editableRows, addBracket, removeBracket, warnings, encodeSpec, decodeSpec,
 } from "./plan.js";
 
@@ -41,6 +41,10 @@ const pct = (v) => `${nf0.format(v)}`;
 const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const pctText = (v) => nf2.format(v);     // a rate as written: 7.25, 9
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// current law's credits (meta.credits, from the working-family credits run)
+const clEitc = (y) => meta.credits.current_law.eitc_percent[String(y)];
+const lastAct163 = () => Math.max(...meta.credits.years.filter((y) => meta.credits.current_law.food_excise[String(y)] === "act163"));
 
 // ---------------------------------------------------------------------------
 // rendering: controls
@@ -127,6 +131,24 @@ function drawControls() {
     <input id="sim-cg-rate" type="number" inputmode="decimal" min="0" max="99.99" step="0.25" value="${s.cg}"></div></div>` : ""}
   <label class="ha-sim__check"><input type="radio" name="sim-cg" value="ordinary"${s.cg === CG_ORDINARY ? " checked" : ""}> Tax as ordinary income, at the bracket rates</label>
   <p class="ha-sim__hint">Net long-term capital gains are taxed at the bracket rates, but no higher than this rate. Your choice applies from ${s.firstYear}.</p>
+</fieldset>
+
+<fieldset class="ha-sim__group">
+  <legend>Earned income tax credit</legend>
+  <label class="ha-sim__check"><input type="radio" name="sim-eitc" value="law"${s.eitc === null ? " checked" : ""}> Current law: ${pctText(clEitc(2027))} percent of the federal credit through ${lastAct163()}, ${pctText(clEitc(lastAct163() + 1))} percent after</label>
+  <label class="ha-sim__check"><input type="radio" name="sim-eitc" value="renew"${s.eitc !== null && !s.eitcOwn ? " checked" : ""}> Keep ${EITC_RENEW} percent (renew Act 163)</label>
+  <label class="ha-sim__check"><input type="radio" name="sim-eitc" value="own"${s.eitcOwn ? " checked" : ""}> A different share</label>
+  ${s.eitcOwn ? `<div class="ha-sim__row2"><div class="ha-sim__field"><label for="sim-eitc-pct">Percent of the federal credit</label>
+    <input id="sim-eitc-pct" type="number" inputmode="decimal" min="0" max="100" step="5" value="${s.eitc}"></div></div>` : ""}
+  <p class="ha-sim__hint">Refundable. Your choice applies from ${s.firstYear}.</p>
+</fieldset>
+
+<fieldset class="ha-sim__group">
+  <legend>Food/excise tax credit</legend>
+  <label class="ha-sim__check"><input type="radio" name="sim-food" value="law"${s.food === null ? " checked" : ""}> Current law: Act 163’s amounts (up to $220 a person) through ${lastAct163()}, the earlier ones (up to $110) after</label>
+  <label class="ha-sim__check"><input type="radio" name="sim-food" value="act163"${s.food === "act163" ? " checked" : ""}> Keep Act 163’s amounts</label>
+  <label class="ha-sim__check"><input type="radio" name="sim-food" value="pre_act163"${s.food === "pre_act163" ? " checked" : ""}> The earlier amounts</label>
+  <p class="ha-sim__hint">Refundable, per exemption, for lower-income filers. Your choice applies from ${s.firstYear}.</p>
 </fieldset>
 
 <fieldset class="ha-sim__group">
@@ -257,7 +279,13 @@ function renderResults() {
   const { result, systems } = latest;
   const s = state;
   const years = meta.years;
-  const rev = (scen, y) => result.revenue.find((r) => r.scenario === scen && r.tax_year === y);
+  // Income tax by scenario plus the credits, which are the same in every scenario.
+  const cr = (y) => latest.credits.find((r) => r.tax_year === y);
+  const rev = (scen, y) => {
+    const r = result.revenue.find((x) => x.scenario === scen && x.tax_year === y), c = cr(y)["total_$M"];
+    return { "static_$M": r["static_$M"] + c, "behavioral_$M": r["behavioral_$M"] + c };
+  };
+  const creditsChanged = latest.credits.some((r) => r["total_$M"] !== 0);
   const mid = years.map((y) => rev("mid", y)["behavioral_$M"]);
   const total = (scen) => years.reduce((a, y) => a + rev(scen, y)["behavioral_$M"], 0);
   const midStatic = years.map((y) => rev("mid", y)["static_$M"]);
@@ -293,13 +321,19 @@ function renderResults() {
     revRows.push(["Of which, capital gains rate", m1(cgPart.reduce((a, r) => a + r["static_$M"], 0)),
       m1(cgPart.reduce((a, r) => a + r["behavioral_$M"], 0)), "—", "—"]);
   }
+  for (const [key, label] of [["eitc_$M", "Of which, earned income tax credit"], ["food_excise_$M", "Of which, food/excise tax credit"]]) {
+    const v = latest.credits.reduce((a, r) => a + r[key], 0);
+    if (latest.credits.some((r) => r[key] !== 0)) revRows.push([label, m1(v), m1(v), m1(v), m1(v)]);
+  }
   $("#sim-revenue").innerHTML = `
-<figure class="ha-est__figure"><p class="ha-est__figcap">Figure 1. Change in Income Tax Revenue Under Your Plan, Compared With Current Law (Tax Years ${years[0]} to ${years[years.length - 1]})</p>
+<figure class="ha-est__figure"><p class="ha-est__figcap">Figure 1. Change in ${creditsChanged ? "Revenue" : "Income Tax Revenue"} Under Your Plan, Compared With Current Law (Tax Years ${years[0]} to ${years[years.length - 1]})</p>
 ${columnChart(years.map(String), mid, "Change in revenue by tax year, middle scenario: " + years.map((y, i) => `${y} ${m1(mid[i])} million`).join(", ") + ".")}
 <p class="ha-est__source">Millions of dollars, middle scenario, after the behavioral response. Positive numbers are more revenue for the state.</p></figure>
 ${table(["Tax year", "Static", "With response", "Low scenario", "High scenario"], revRows, "Table 1. Change in Revenue Compared With Current Law ($ Millions)", totalRow)}
 <p class="ha-est__source">Static: before any change in behavior. With response: after filers whose rates rise report less income, filers whose rate on capital gains rises sell fewer investments and, when the top rate rises, a few of the highest earners move away, each taking all of their income tax with them. Rate cuts get no response. The low and high scenarios vary that response, how fast top incomes grow, and the number of filers above $1 million.${cgPart
     ? " Of which, capital gains rate: your plan compared with the same plan at current law’s rate on capital gains, middle scenario only."
+    : ""}${creditsChanged
+    ? ` The credits’ cost is the working-family credits page’s estimate, with take-up matched to what filers claim, and is the same in every scenario: it does not change with the behavioral response. A negative number is credit paid out.`
     : ""}</p>`;
 
   const cats = q.map((g) => FIFTH[g.group] || g.group);
@@ -308,7 +342,7 @@ ${table(["Tax year", "Static", "With response", "Low scenario", "High scenario"]
 <div class="ha-sim__field ha-sim__inline"><label for="sim-dist-year">Tax year</label><select id="sim-dist-year">${yearOptions(s.distYear)}</select></div>
 <figure class="ha-est__figure"><p class="ha-est__figcap">Figure 2. Average Change in Income Tax per Household Under Your Plan (Tax Year ${s.distYear})</p>
 ${divergingBars(cats, q.map((g) => g.avg_per_hh_bracket_change), `Average change per household in ${s.distYear}: ` + q.map((g, i) => `${cats[i]} ${signedDollars(g.avg_per_hh_bracket_change)}`).join("; ") + ".")}
-<p class="ha-est__source">Households ranked by income; each group holds one fifth of households. Static, before the behavioral response. Negative numbers mean households pay less.</p></figure>
+<p class="ha-est__source">Households ranked by income; each group holds one fifth of households. Static, before the behavioral response. Negative numbers mean households pay less.${creditsChanged ? " These tables cover the income tax only: they leave out your changes to the earned income tax credit and the food/excise tax credit. The working-family credits page shows who those credits reach." : ""}</p></figure>
 ${table(["Household income", "Households", "Average change", "Total ($M)", "Percent paying less", "Percent paying more"],
   q.map((g, i) => [cats[i], nf0.format(g.household_count), signedDollars(g.avg_per_hh_bracket_change), m1(g["total_bracket_$M"]), pct(g.pct_pay_less), pct(g.pct_pay_more)]),
   `Table 2. Change in Income Tax by Fifth of Households, Tax Year ${s.distYear}`)}
@@ -348,12 +382,18 @@ function renderHousehold() {
   const cgShare = h.agi > 0 ? Math.min(1, h.gains / h.agi) : 0;
   const args = { fs: h.fs, agi: h.agi, dependents: h.dependents, itemized: h.itemized, cgShare };
   const a = householdTax(sys.baseline, meta.food_excise, args);
-  const b = householdTax(sys.reform, meta.food_excise, args);
+  // The plan's food/excise table, from its first year (the kernel picks the
+  // table by credit year: TY2027's is Act 163's, TY2028's the earlier one).
+  const food = y >= state.firstYear ? state.food : null;
+  const reform = food === null ? sys.reform
+    : { ...sys.reform, credit_year: food === "act163" ? lastAct163() : lastAct163() + 1 };
+  const b = householdTax(reform, meta.food_excise, args);
+  const eitcChanged = y >= state.firstYear && state.eitc !== null && state.eitc !== clEitc(y);
   $("#sim-household-out").innerHTML = `<table><tbody>
 <tr><th scope="row">Current law, ${y}</th><td>${dollars(a.net)}</td></tr>
 <tr><th scope="row">Your plan, ${y}</th><td>${dollars(b.net)}</td></tr>
 <tr class="ha-est__row-em"><th scope="row">Change</th><td>${signedDollars(b.net - a.net)}</td></tr></tbody></table>
-<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund. Capital gains are net long-term gains and are part of the income above${h.gains > h.agi ? "; gains above the income are counted as all of it" : ""}.</p>`;
+<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund.${eitcChanged ? " It leaves out the earned income tax credit, which depends on earnings and the federal credit: your change to it is not in these figures." : ""} Capital gains are net long-term gains and are part of the income above${h.gains > h.agi ? "; gains above the income are counted as all of it" : ""}.</p>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +442,8 @@ function humanize(msg) {
     .replace(/income_tax\.personal_exemption/g, "Personal exemption")
     .replace(/income_tax\.capital_gains_rate: \S+ is outside \[0, 100\)/g, "Capital gains rate: must be at least 0 and below 100")
     .replace(/income_tax\.capital_gains_rate/g, "Capital gains rate")
+    .replace(/credits\.eitc_percent: \S+ is outside \[0, 100\]/g, "Earned income tax credit: must be from 0 to 100 percent of the federal credit")
+    .replace(/credits\.eitc_percent/g, "Earned income tax credit")
     .replace(/\[(\d+)\]/g, (_, i) => ` (row ${Number(i) + 1})`);
 }
 
@@ -457,6 +499,10 @@ function onInput(e) {
       if (!Number.isFinite(num)) return;
       state.cg = num;
       markCustom(); request(); return;
+    case "sim-eitc-pct":
+      if (!Number.isFinite(num)) return;
+      state.eitc = num;
+      markCustom(); request(); return;
     case "sim-hh-agi": state.household.agi = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
     case "sim-hh-cg": state.household.gains = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
     case "sim-hh-deps": state.household.dependents = Number.isFinite(num) ? Math.max(0, Math.min(20, Math.round(num))) : 0; renderHousehold(); return;
@@ -507,6 +553,16 @@ function onChange(e) {
       state.sdLinked = true;
     } else state.sd = null;
     markCustom(); renderControls(); request();
+  }
+  if (t.name === "sim-eitc") {
+    // "A different share" starts from Act 163's 40 percent
+    state.eitc = t.value === "law" ? null : EITC_RENEW;
+    state.eitcOwn = t.value === "own";
+    markCustom(); renderControls(); request();
+  }
+  if (t.name === "sim-food") {
+    state.food = t.value === "law" ? null : t.value;
+    markCustom(); renderControls(); request(); renderHousehold();
   }
   if (t.name === "sim-cg") {
     // "A different rate" starts from current law's, as the deduction does
@@ -578,6 +634,11 @@ function resultsCsv() {
     lines.push("", "# of which, capital gains rate: the plan less the same plan at current law's capital gains rate, $M",
       "scenario,tax_year,static_M,with_response_M");
     for (const r of cgPart) lines.push([r.scenario, r.tax_year, r["static_$M"].toFixed(3), r["behavioral_$M"].toFixed(3)].join(","));
+  }
+  if (latest.credits.some((r) => r["total_$M"] !== 0)) {
+    lines.push("", "# credits: the earned income tax credit and food/excise tax credit, the same in every scenario and not in the rows above, $M",
+      "tax_year,eitc_M,food_excise_M,total_M");
+    for (const r of latest.credits) lines.push([r.tax_year, r["eitc_$M"].toFixed(3), r["food_excise_$M"].toFixed(3), r["total_$M"].toFixed(3)].join(","));
   }
   lines.push("", `# distribution, tax year ${latest.distYear}, static`, "group,households_or_returns,avg_change,total_change_M,pct_pay_less,pct_pay_more");
   const d = latest.result.distribution[latest.distYear];
