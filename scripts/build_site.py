@@ -1562,7 +1562,7 @@ def build_tax_simulator() -> tuple[str, dict]:
         "category": "tools",
         "eyebrow": "Income tax",
         "title": "Tax Simulator",
-        "text": "Change the brackets, rates, deductions and tax on capital gains, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
+        "text": "Change the brackets, rates, deductions, tax on capital gains and working-family credits, and see what your version of Hawaiʻi’s income tax would raise and who would pay.",
         "stat": millions(top14_first),
         "stat_label": f"a year from a 14 percent top rate, for example (tax year {Y0})",
         "date": long_date(run),

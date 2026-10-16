@@ -1,7 +1,8 @@
 # Tax Simulator (user-defined changes, income tax first) — Scope
 
-**Status (2026-09-27): v1 (Phases 0–5) built and published (PR #28); v2,
-the capital gains rate, built and published (PR #29).** The simulator is
+**Status (2026-10-15): v1 (Phases 0–5) built and published (PR #28); v2,
+the capital gains rate, built and published (PR #29); v3, the state EITC
+and the food/excise credit, built ([v3](#v3-eitc-and-food-excise-credit-october-15-2026)).** The simulator is
 live at `site/tax-simulator/`. See [As built](#as-built-september-26-2026)
 for what shipped, where it departs from this scope, and the decisions
 taken, and [v2](#v2-capital-gains-september-27-2026) for the capital gains
@@ -437,6 +438,43 @@ percent larger. Combining plans: the 14% top rate with a 9% gains rate
 raises $538.6M static and $442.4M after response over five years in the
 middle scenario, of which the gains rate is $308.0M and $251.3M.
 
+### v3: EITC and food/excise credit (October 15, 2026)
+
+Act 163 (SLH 2023) doubled the state EITC (20% → 40% of federal) and
+raised the refundable food/excise table for TY2023–2027; it is repealed
+after TY2027. The simulator now lets a plan renew either expansion, set
+the EITC's share of federal (0–100%), or switch to the earlier
+food/excise table, from the plan's first year.
+
+- **Spec.** A top-level `credits` block: `eitc_percent` (`current_law` or a
+  percent) and `food_excise` (`current_law`, `act163`, `pre_act163`).
+  `IncomeTaxSpec` and `kernel.js` parse it with the same error texts
+  (golden `credit_invalid_messages`). Plans without credits keep their
+  spec, so earlier share links are unchanged.
+- **Pricing: decision (cost lines, not the population).** The simulator
+  population has no federal EITC and no take-up, so credits are priced
+  from the working-family credits run (`forecast_working_family_credits.py`,
+  the "Expiring Relief" page): each credit under both laws, take-up matched
+  to DOTAX. `tax_modeler/simulator/credits.py` turns it into a table
+  (`$M` per EITC point, each food/excise table's `$M`, by year) that
+  `build_simulator_population.py` puts in `population.json` (`credits`, so
+  it is in the model version) and `runs/tax_simulator/credits.json`. The
+  EITC's cost is linear in its share (take-up held fixed, as on that
+  page). The change is the same in every scenario, is added to the income
+  tax change in the page's totals, and has its own "of which" rows.
+- **Not in the distribution tables** (income tax only; the page says so)
+  and the household calculator includes the food/excise table swap but not
+  the EITC.
+- **Preset:** "Renew Act 163's EITC and food/excise credit", from TY2028
+  (`reforms/examples/renew_act163.yaml`).
+- **Parity:** `credit_cases` in the golden fixtures (the presets plus
+  eleven credit plans), exact; `forecast_custom.py` writes `credits.csv`.
+- **Rebuild order:** the credits table comes from
+  `runs/working_family_credits/`, so run `forecast_working_family_credits.py`
+  before `build_simulator_population.py` (or rerun the latter with
+  `--from-saved` after it). `build_site.py` warns when the two pages' runs
+  differ.
+
 ## What users can change, and what they get
 
 | Control | When | Notes |
@@ -447,7 +485,7 @@ middle scenario, of which the gains rate is $308.0M and $251.3M.
 | First tax year | v1 | 2027–2031. The user's schedule replaces current law from that year on, including Act 24's scheduled 2029 step |
 | Behavioral assumptions | v1 | Static, or the Act 24 page's low, middle and high scenarios. They pair taxable-income elasticity (ETI) 0.60 / 0.40 / 0.15 and migration elasticity 0.01 / 0.0025 / 0.001 (0.15 / 0.10 / 0.05 when this was scoped; see decision 8) with that page's top-tail and top-income-growth assumptions. v2 adds a capital-gains realization response, β 2.6 / 2.0 / 1.6 |
 | Capital gains alternative rate (7.25%) | v2, built | Current law, a different rate, or taxed as ordinary income. Uses the capital-gains page's DOTAX-anchored gains base and the statutory alternative tax (HRS §235-51(f)); see [v2](#v2-capital-gains-september-27-2026) |
-| Credits (food/excise, EITC share of federal, dependent care) | v3 | Needs the working-family credits machinery (take-up calibrated to DOTAX claims) |
+| Credits (food/excise, EITC share of federal, dependent care) | v3: EITC and food/excise built | Priced from the working-family credits run (take-up calibrated to DOTAX claims); see [v3](#v3-eitc-and-food-excise-credit-october-15-2026). Dependent care not yet |
 
 Outputs are all measured **against current law (Act 24)**, and every number
 says so. The Act 24 page scores against Act 46, a different baseline (see
