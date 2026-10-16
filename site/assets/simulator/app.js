@@ -393,6 +393,7 @@ function renderHousehold() {
   // counted as investment income for the federal credit's limit.
   const gains = Math.min(h.gains, h.agi);
   const earned = h.earned === null ? Math.max(0, h.agi - gains) : Math.min(h.earned, h.agi);
+  const fedLimit = meta.credits.federal_eitc[String(y)].investment_income_limit;
   const fed = federalEitc(meta.credits.federal_eitc[String(y)],
     { fs: h.fs, earned, agi: h.agi, investment: Math.max(0, h.agi - earned), children: h.dependents });
   const pctLaw = clEitc(y), pctPlan = y >= state.firstYear && state.eitc !== null ? state.eitc : pctLaw;
@@ -400,7 +401,10 @@ function renderHousehold() {
   const netLaw = a.net - eLaw, netPlan = b.net - ePlan;
   const eitcLine = fed > 0
     ? ` Both include the state earned income tax credit: ${pctText(pctLaw)} percent of this household’s federal credit of ${dollars(fed)} under current law (${dollars(eLaw)})${pctPlan === pctLaw ? "" : ` and ${pctText(pctPlan)} percent under your plan (${dollars(ePlan)})`}. It assumes every dependent is a child who qualifies for the credit${h.dependents ? "" : " and, with no children, a filer aged 25 to 64"}.`
-    : (h.fs === "married_filing_separately" ? " Married couples filing separately cannot claim the earned income tax credit." : "");
+    : h.fs === "married_filing_separately" ? " Married couples filing separately cannot claim the earned income tax credit."
+      : earned > 0 && h.agi - earned > fedLimit
+        ? ` It gets no earned income tax credit: the calculator counts income other than earnings (${dollars(h.agi - earned)}) as investment income, which is above the federal credit’s limit of ${dollars(fedLimit)}.`
+        : "";
   $("#sim-household-out").innerHTML = `<table><tbody>
 <tr><th scope="row">Current law, ${y}</th><td>${dollars(netLaw)}</td></tr>
 <tr><th scope="row">Your plan, ${y}</th><td>${dollars(netPlan)}</td></tr>
