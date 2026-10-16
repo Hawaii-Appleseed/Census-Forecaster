@@ -114,7 +114,8 @@ CONVEYANCE = Estimate(
         "simulation_summary.csv",
         "market_cycle.csv",
         "manifest.json",
-    )},
+    )} | {"bill_comparison.csv": "conveyance_sb3028_bills/bill_comparison.csv",
+          "bill_comparison_manifest.json": "conveyance_sb3028_bills/manifest.json"},
     stamp=("manifest.json",),
 )
 TAX_SIMULATOR = Estimate(
@@ -1036,6 +1037,12 @@ def _price(v: float) -> str:
 COUNTY_LABEL = {"Honolulu": "Oʻahu", "Hawaii": "Hawaiʻi Island", "Kauai": "Kauaʻi", "Maui": "Maui County"}
 
 
+# SB 3028 HD2 §247-7: (fund, share, cap $M), as forecast_conveyance_sb3028.DISPOSITION_HD2
+CONVEYANCE_DISPOSITION_HD2 = [("Land conservation fund", .05, 10.0), ("Rental housing revolving fund", .20, 40.0),
+                              ("Hawaiian home lands infrastructure and housing fund", .30, 60.0),
+                              ("Transit-oriented development infrastructure (dwelling unit revolving fund)", .20, 40.0)]
+
+
 def build_conveyance() -> tuple[str, dict]:
     d = DATA / CONVEYANCE.slug
     rev = {(int(r["fy"]), r["case"]): r for r in read_csv(d / "revenue_by_year.csv")}
@@ -1363,13 +1370,60 @@ def build_conveyance() -> tuple[str, dict]:
     central = next(x for x in sens if x["variant"] == "Central estimate")
     dr = ck["dotax_residual"]
     short = (1 - dr["maui_nonresidential_share"]) / (1 - dr["implied_nonresidential_share"]) - 1
+    # --- 6b: the House's rates (HB 2049 HD3), year by year
+    bcmp = read_csv(d / "bill_comparison.csv")
+    BC = {(int(r["fy"]), r["bill"], r["case"]): r for r in bcmp}
+    H, D = "HB2049 HD3", "SB3028 HD2"
+    # The comparison's HD2 rows must be the page's own estimate: otherwise it
+    # was run on another model version (rerun bill_comparison.py after
+    # forecast_conveyance_sb3028.py).
+    stale = [(y, k) for y in years for k in ("static", "behavioral")
+             if abs(BC[(y, D, k)]["state_change_$M"] - rev[(y, k)]["state_change_$M"]) > 1e-6]
+    if stale:
+        raise SystemExit(f"bill_comparison.csv's SB 3028 HD2 rows differ from revenue_by_year.csv at {stale[:3]}; "
+                         f"rerun scripts/conveyance/bill_comparison.py and --import-runs conveyance-tax")
+    T_hb2049 = ('Hawaiʻi State Legislature, “HB 2049 HD3,” 2026 regular session, §247-2. '
+                '<a href="https://data.capitol.hawaii.gov/sessions/session2026/bills/HB2049_HD3_.HTM">data.capitol.hawaii.gov</a>')
+    T_hd1 = ('Hawaiʻi State Legislature, “SB 3028 SD2 HD1” and House Standing Committee Report 1310-26, 2026 regular session. '
+             '<a href="https://data.capitol.hawaii.gov/sessions/session2026/bills/SB3028_HD1_.HTM">data.capitol.hawaii.gov</a>')
+    RATE_BANDS = [("Under $600,000", 0), ("$600,000 to $1 million", 600e3), ("$1 million to $2 million", 1e6),
+                  ("$2 million to $3 million", 2e6), ("$3 million to $4 million", 3e6), ("$4 million to $6 million", 4e6),
+                  ("$6 million to $10 million", 6e6), ("$10 million and up", 10e6)]
+
+    def _rate(sched, x):
+        return [r for lo, r in sched.brackets if lo <= x][-1] * 100
+
+    from tax_modeler import conveyance as cv
+    rate_rows = [[lab, f"{_rate(cv.HD2_OWNER, x):g} / {_rate(cv.HD2_NONOWNER, x):g}",
+                  f"{_rate(cv.HB2049_HD3_OWNER, x):g} / {_rate(cv.HB2049_HD3_NONOWNER, x):g}"]
+                 for lab, x in RATE_BANDS]
+    hrows = [[str(y), m1(BC[(y, D, "static")]["state_change_$M"]), m1(BC[(y, D, "behavioral")]["state_change_$M"]),
+              m1(BC[(y, H, "static")]["state_change_$M"]), m1(BC[(y, H, "behavioral")]["state_change_$M"]),
+              m1(BC[(y, H, "behavioral")]["total_$M"]), m1(BC[(y, H, "behavioral")]["General fund"])]
+             for y in years]
+    h_y, h_y0 = BC[(Y, H, "behavioral")], BC[(Y, H, "static")]
+    d_y, d_y0 = BC[(Y, D, "behavioral")], BC[(Y, D, "static")]
+    resp_cut = 1 - h_y["state_change_$M"] / h_y0["state_change_$M"]
+    h_fill = all(h_y[name] >= cap - 1e-9 for name, _, cap in CONVEYANCE_DISPOSITION_HD2)
+    s6b = section("The House’s Steeper Rates", f"""
+{lead("The House’s own version of the bill left its rates blank.", f"SB 3028 HD1 restructured the tax and split it among new funds but printed no rates or shares; its committee report pointed to HB 2049 HD3, which the House had passed in March, as substantially similar.{notes.ref(T_hd1)} HB 2049 HD3 has the draft’s form with steeper rates from $600,000, especially from $2 million to $3 million (Table 9).{notes.ref(T_hb2049)}")}
+{table(["Slice of the sale price", "SB 3028 HD2: owner-occupant / other buyer", "HB 2049 HD3: owner-occupant / other buyer"],
+       rate_rows, caption="Table 9. Rates on Each Slice of a Home’s Price, SB 3028 HD2 and HB 2049 HD3 (Percent)", em_rows={3})}
+<p class="ha-est__source">Both cap the tax at 4 percent of the price for owner-occupants and 6 percent for other buyers, and index the brackets to prices from 2027.</p>
+<p>Scored the same way as the draft, with HD2’s split among the funds, HB 2049 HD3’s rates would raise {millions(h_y["state_change_$M"])} more than current law in fiscal year {Y} after fewer sales, against {millions(d_y["state_change_$M"])} for the draft, and {millions(h_y0["state_change_$M"])} before any change in sales, against {millions(d_y0["state_change_$M"])}. Total collections would be {millions(h_y["total_$M"])}, {"enough to fill all four funds" if h_fill else "not enough to fill all four funds"}, leaving {millions(h_y["General fund"])} for the general fund, {millions(abs(h_y["General fund"] - gf["current_law_$M"]))} {"more" if h_y["General fund"] >= gf["current_law_$M"] else "less"} than under current law (Table 10).</p>
+{table(["Fiscal year", "SB 3028 HD2, static", "SB 3028 HD2, fewer sales", "HB 2049 HD3, static", "HB 2049 HD3, fewer sales", "HB 2049 HD3, total collections", "HB 2049 HD3, general fund"],
+       hrows, caption="Table 10. Revenue Increase Under Each Bill’s Rates, and HB 2049 HD3’s Totals ($ Millions)", em_rows={0})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates. Increases are over current law; totals and the general fund are with fewer sales, split by SB 3028 HD2’s fund shares.</p>
+<p>Estimates for these rates that run well above these figures usually leave out the response of sales. The steeper the rates, the more the response matters: for HB 2049 HD3 it takes {pct(100 * resp_cut)} percent off the increase in fiscal year {Y}. They also differ in the starting point, since the tax raised {millions(min(p["dotax_collections_m"][str(y)] for y in fy_base))} to {millions(max(p["dotax_collections_m"][str(y)] for y in fy_base))} a year in fiscal years {min(fy_base)} to {max(fy_base)} and this estimate grows that with prices to {millions(now)} in fiscal year {Y}, and in how fast the top of the market grows: before any change in sales, the increase here grows about {pct(100 * ((BC[(last, H, "static")]["state_change_$M"] / h_y0["state_change_$M"]) ** (1 / (last - Y)) - 1))} percent a year, with home prices and the inflation-indexed brackets.</p>
+""", "house-rates")
+
     s7 = section("How These Estimates Are Made", f"""
 {lead("Because today’s two schedules differ,", f"the tax recorded on a Maui sale shows which one applied, and so whether the buyer could claim a homeowner exemption. Of sales with a price and tax in fiscal years {min(p['maui_base_fy'])} to {max(p['maui_base_fy'])}, {pct(100 * s['maui_share_schedule_matched'])} percent match one schedule’s tax to within 2 percent; the rest are treated as nonresidential, whose tax the draft leaves alone. The county’s land-use codes separate owner-occupied homes from nonresidential property on the owner-occupant schedule, and land with no home on it, which the draft keeps on today’s schedule, from homes. A deed that covers several parcels counts once. Applied to the sorted home sales, current law reproduces the tax Maui recorded on them to within a few hundred dollars a year. The model uses about {round(sales_per_year, -1):,.0f} sales a year in all.{notes.ref(T_maui)}")}
 <p>No other county publishes a file of its sales with prices (their property search sites show sales a parcel at a time, under terms that bar collecting them in bulk), so the other three are built from their own records with Maui’s as the template. Joining every Maui sale to the county’s assessment listing shows how often homes of each assessed value sell, split by whether their owners live in them, which kind of buyer bought them, and at what price relative to the assessment. Oʻahu, Hawaiʻi Island and Kauaʻi publish the same kind of records home by home: the City’s assessment tables, which list every parcel and condominium unit with its value and exemptions;{notes.ref(T_hnl)} Hawaiʻi County’s parcel records, whose condominium projects are split into units and whose homeowners’ values, which the county caps, are restored to market;{notes.ref(T_gis)} and Kauaʻi County’s property tax records, which give each parcel’s market value.{notes.ref(T_kauai)} Applying Maui’s rates to those homes gives each county’s sales by price, spread around each home’s assessed value as prices are on Maui.</p>
 <p>From $1 million up, those sales are then matched, price band by price band, to each county’s own sales: its house and condominium sales in the multiple listing service, times the ratio of all recorded home sales to listed ones on Maui, where both are known, with an allowance on Oʻahu for condominium towers whose first sales are not listed.{notes.ref(T_mls)} That brings in, in Maui’s proportions, the sales Maui’s rates leave out, such as vacant lots and transfers at nominal prices. On Hawaiʻi Island, the match calls for {min(rel):.1f} to {max(rel):.1f} times as many sales from $1 million to $10 million as Maui’s rates give its homes. Applied to Maui’s own homes, the same steps recover {pct(100 / calib)} percent of Maui’s increase, and the other counties are scaled by the difference. Buildings of five or more units are left out of the rates and the counts, as are records worth $20 million or more that are not condominium units or known single homes, since most are apartment or resort properties.</p>
-<p>Three checks. Oʻahu’s owner records, compared between December 2023 and September 2026, show its homes assessed at $4 million or more changing hands {turn:.1f} times as often as Maui’s rates imply,{notes.ref(T_owner)} but its listed sales show about as many sales at those prices as Maui’s rates give ({implied:.2f} times): its most expensive homes appear to sell for less, relative to their assessments, than Maui’s. Using Oʻahu’s turnover with Maui’s prices instead would add {millions(own["behavioral"] - central["behavioral"])} (Table 9). Second, today’s tax on the modeled home sales in the three counties comes to {millions(dr["model_homes_current_law_$M"])} a year at {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])} prices, leaving {pct(100 * dr["implied_nonresidential_share"])} percent of their collections to commercial and other property, against {pct(100 * dr["maui_nonresidential_share"])} percent on Maui.{notes.ref(T_dotax)} If the share were the same, the modeled home sales would be about {pct(100 * short)} percent short. Third, the House’s and the Department of Taxation’s figures run above this estimate (above). All three suggest the estimate is more likely low than high. Table 9 shows the statewide estimate under the choices that matter most.</p>
+<p>Three checks. Oʻahu’s owner records, compared between December 2023 and September 2026, show its homes assessed at $4 million or more changing hands {turn:.1f} times as often as Maui’s rates imply,{notes.ref(T_owner)} but its listed sales show about as many sales at those prices as Maui’s rates give ({implied:.2f} times): its most expensive homes appear to sell for less, relative to their assessments, than Maui’s. Using Oʻahu’s turnover with Maui’s prices instead would add {millions(own["behavioral"] - central["behavioral"])} (Table 11). Second, today’s tax on the modeled home sales in the three counties comes to {millions(dr["model_homes_current_law_$M"])} a year at {min(p["maui_base_fy"])} to {max(p["maui_base_fy"])} prices, leaving {pct(100 * dr["implied_nonresidential_share"])} percent of their collections to commercial and other property, against {pct(100 * dr["maui_nonresidential_share"])} percent on Maui.{notes.ref(T_dotax)} If the share were the same, the modeled home sales would be about {pct(100 * short)} percent short. Third, the House’s and the Department of Taxation’s figures run above this estimate (above). All three suggest the estimate is more likely low than high. Table 11 shows the statewide estimate under the choices that matter most.</p>
 {table(["Variant", "Increase, static ($M)", "Increase with fewer sales ($M)"], srows,
-       caption=f"Table 9. Statewide Revenue Increase Under Alternative Choices, Fiscal Year {Y}", em_rows={0})}
+       caption=f"Table 11. Statewide Revenue Increase Under Alternative Choices, Fiscal Year {Y}", em_rows={0})}
 <p>Sales of apartment buildings with five or more units are scored under the draft’s rule that sets the rate by the price per unit, which lowers their tax; on Maui there were {mf_n} such sales in four years. Left out: long-term leases; the draft’s rule taxing former vacation rentals at the higher rates whoever buys them; Maui homes on agricultural or other nonresidential land, which the draft would newly treat as residential (on Hawaiʻi Island and Kauaʻi they are counted as homes). The full method and every parameter are in the source code.{notes.ref(T_code)}</p>
 <p>This page was revised four times in September 2026. The first version scaled Maui’s results up by the conveyance tax each county group paid and gave $69 million to $118 million after fewer sales; the first revision, scaling by each county’s value above $2 million on its tax roll, gave $67 million; the second, building Oʻahu and Hawaiʻi Island from their homes at Maui’s sale rates, gave $70 million; the third, matching each county to its own sales by price, building Kauaʻi from its parcel values and counting once the Maui deeds that cover several parcels, gave $79 million with a single response of sales. This version models that response channel by channel, simulates its uncertainty, and scores the draft on past markets.</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
@@ -1377,9 +1431,10 @@ def build_conveyance() -> tuple[str, dict]:
 <li><a href="../data/conveyance-tax/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: revenue by fiscal year, statewide and by county, current law and SB 3028, static and with fewer sales</li>
 <li><a href="../data/conveyance-tax/by_county.csv"><code>by_county.csv</code></a>: each county’s method, homes, home sales and increase</li>
 <li><a href="../data/conveyance-tax/county_bands.csv"><code>county_bands.csv</code></a>: home sales a year and tax by price band and buyer type, by county</li>
-<li><a href="../data/conveyance-tax/sensitivity.csv"><code>sensitivity.csv</code></a>: the alternatives in Table 9</li>
+<li><a href="../data/conveyance-tax/sensitivity.csv"><code>sensitivity.csv</code></a>: the alternatives in Table 11</li>
 <li><a href="../data/conveyance-tax/simulation_summary.csv"><code>simulation_summary.csv</code></a>: the spread of the {sim["draws"]:,} simulations by fiscal year</li>
 <li><a href="../data/conveyance-tax/market_cycle.csv"><code>market_cycle.csv</code></a>: the draft scored on each past market, fiscal years 2016 to 2026 (Table 7)</li>
+<li><a href="../data/conveyance-tax/bill_comparison.csv"><code>bill_comparison.csv</code></a>: SB 3028 HD2 and HB 2049 HD3’s rates by fiscal year, static and with fewer sales, with each fund’s share (Table 10)</li>
 <li><a href="../data/conveyance-tax/band_calibration.csv"><code>band_calibration.csv</code></a>: each county’s home sales a year by price band before and after matching its listed sales</li>
 <li><a href="../data/conveyance-tax/maui_by_band.csv"><code>maui_by_band.csv</code></a>: Maui sales and tax by price band and buyer type</li>
 <li><a href="../data/conveyance-tax/examples.csv"><code>examples.csv</code></a>: tax on example sale prices under both laws</li>
@@ -1390,7 +1445,7 @@ def build_conveyance() -> tuple[str, dict]:
 """, "method")
 
     endnotes = section("Endnotes", notes.html(), "endnotes")
-    body = hero + s1 + s2 + s3 + s4 + s5 + s5b + s6 + s7 + endnotes
+    body = hero + s1 + s2 + s3 + s4 + s5 + s5b + s6 + s6b + s7 + endnotes
     desc = (f"Taxing home sales above about $2 million on a sliding scale, as the last draft of SB 3028 would have, would raise "
             f"about {millions(c)} a year statewide from fiscal year {Y}, most of it from buyers who will not live in the home.")
     card = {
