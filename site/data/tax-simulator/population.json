@@ -1,6 +1,6 @@
 {
  "web_format_version": 3,
- "model_version": "2026-10-09+8e0659087a",
+ "model_version": "2026-10-09+ac1abaf196",
  "years": [
   2027,
   2028,
@@ -2567,6 +2567,173 @@
   }
  },
  "credits": {
+  "federal_eitc": {
+   "2027": {
+    "investment_income_limit": 12450.0,
+    "by_children": [
+     {
+      "max_credit": 680.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11090.0,
+      "phaseout_start_joint": 18520.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4520.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7470.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8400.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 24390.0,
+      "phaseout_start_joint": 31810.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2028": {
+    "investment_income_limit": 12700.0,
+    "by_children": [
+     {
+      "max_credit": 690.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11320.0,
+      "phaseout_start_joint": 18910.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4610.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7630.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8580.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 24900.0,
+      "phaseout_start_joint": 32480.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2029": {
+    "investment_income_limit": 13000.0,
+    "by_children": [
+     {
+      "max_credit": 710.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11560.0,
+      "phaseout_start_joint": 19310.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4710.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7790.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8760.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 25430.0,
+      "phaseout_start_joint": 33160.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2030": {
+    "investment_income_limit": 13250.0,
+    "by_children": [
+     {
+      "max_credit": 720.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 11800.0,
+      "phaseout_start_joint": 19710.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4810.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 7950.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 8940.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 25960.0,
+      "phaseout_start_joint": 33860.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   },
+   "2031": {
+    "investment_income_limit": 13550.0,
+    "by_children": [
+     {
+      "max_credit": 740.0,
+      "phase_in_rate": 0.0765,
+      "phaseout_start_single": 12050.0,
+      "phaseout_start_joint": 20130.0,
+      "phaseout_rate": 0.0765
+     },
+     {
+      "max_credit": 4910.0,
+      "phase_in_rate": 0.34,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.1598
+     },
+     {
+      "max_credit": 8120.0,
+      "phase_in_rate": 0.4,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.2106
+     },
+     {
+      "max_credit": 9130.0,
+      "phase_in_rate": 0.45,
+      "phaseout_start_single": 26510.0,
+      "phaseout_start_joint": 34570.0,
+      "phaseout_rate": 0.2106
+     }
+    ]
+   }
+  },
   "years": [
    2027,
    2028,
