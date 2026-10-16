@@ -77,7 +77,8 @@ export function stateFromSpec(spec, meta) {
     eitcOwn: eitc !== null && eitc !== EITC_RENEW,
     activeVintage: 0, activeStatus: "single",
     distYear: spec.first_year,
-    household: { fs: "married_filing_jointly", agi: 120000, gains: 0, dependents: 2, itemized: 0 },
+    // earned: null means income less capital gains
+    household: { fs: "married_filing_jointly", agi: 120000, earned: null, gains: 0, dependents: 2, itemized: 0 },
   };
 }
 

@@ -682,6 +682,27 @@ export function resolveSpec(parsed, meta) {
   return out;
 }
 
+/** One household's federal EITC (tax_modeler.credits.eitc.calculate_eitc,
+ * before its rounding to cents), from the year's parameters
+ * (meta.credits.federal_eitc[year]). `fs`: a status name or code; `children`:
+ * qualifying children (3 or more count as 3); `investment`: investment
+ * income, which above the limit disqualifies the household. A childless
+ * filer is assumed to be 25 to 64, as the model assumes when it has no age.
+ * The state credit is a share of this. */
+export function federalEitc(fed, { fs, earned, agi, investment = 0, children = 0 }) {
+  const code = typeof fs === "number" ? fs : STATUSES.indexOf(fs);
+  if (STATUSES[code] === "married_filing_separately") return 0;      // categorically ineligible
+  if (!(earned > 0)) return 0;
+  if (investment > fed.investment_income_limit) return 0;
+  const c = fed.by_children[Math.min(Math.max(Math.trunc(children), 0), 3)];
+  const start = code === MFJ ? c.phaseout_start_joint : c.phaseout_start_single;
+  const phaseIn = Math.min(earned * c.phase_in_rate, c.max_credit);
+  // the phase-out runs on the greater of earnings and AGI
+  const po = Math.max(earned, agi);
+  const reduction = po <= start ? 0 : (po - start) * c.phaseout_rate;
+  return Math.max(0, phaseIn - reduction);
+}
+
 /** Tax on one household under a plain system (the page's household
  * calculator). `cgShare`: net long-term capital gains as a share of `agi`
  * (0 to 1), as the population stores them. */

@@ -3,7 +3,7 @@
 // The model runs in worker.js (kernel.js on the Act 24 population); this file
 // owns the page state, turns it into a spec (tax_modeler.reform.
 // income_tax_spec's format), and renders what the worker sends back.
-import { CG_ORDINARY, parseSpec, householdTax } from "./kernel.js";
+import { CG_ORDINARY, parseSpec, householdTax, federalEitc } from "./kernel.js";
 import {
   STATUS_KEYS, LINK, EITC_RENEW, clone, stateFromSpec, activeVintages, specFromState, syncLinked, setTopRate,
   setTopFloor, editorRows, editableRows, addBracket, removeBracket, warnings, encodeSpec, decodeSpec,
@@ -388,12 +388,24 @@ function renderHousehold() {
   const reform = food === null ? sys.reform
     : { ...sys.reform, credit_year: food === "act163" ? lastAct163() : lastAct163() + 1 };
   const b = householdTax(reform, meta.food_excise, args);
-  const eitcChanged = y >= state.firstYear && state.eitc !== null && state.eitc !== clEitc(y);
+  // The state EITC: a share of the household's federal credit (refundable).
+  // Earnings default to income less capital gains; the rest of income is
+  // counted as investment income for the federal credit's limit.
+  const gains = Math.min(h.gains, h.agi);
+  const earned = h.earned === null ? Math.max(0, h.agi - gains) : Math.min(h.earned, h.agi);
+  const fed = federalEitc(meta.credits.federal_eitc[String(y)],
+    { fs: h.fs, earned, agi: h.agi, investment: Math.max(0, h.agi - earned), children: h.dependents });
+  const pctLaw = clEitc(y), pctPlan = y >= state.firstYear && state.eitc !== null ? state.eitc : pctLaw;
+  const eLaw = fed * pctLaw / 100, ePlan = fed * pctPlan / 100;
+  const netLaw = a.net - eLaw, netPlan = b.net - ePlan;
+  const eitcLine = fed > 0
+    ? ` Both include the state earned income tax credit: ${pctText(pctLaw)} percent of this household’s federal credit of ${dollars(fed)} under current law (${dollars(eLaw)})${pctPlan === pctLaw ? "" : ` and ${pctText(pctPlan)} percent under your plan (${dollars(ePlan)})`}. It assumes every dependent is a child who qualifies for the credit${h.dependents ? "" : " and, with no children, a filer aged 25 to 64"}.`
+    : (h.fs === "married_filing_separately" ? " Married couples filing separately cannot claim the earned income tax credit." : "");
   $("#sim-household-out").innerHTML = `<table><tbody>
-<tr><th scope="row">Current law, ${y}</th><td>${dollars(a.net)}</td></tr>
-<tr><th scope="row">Your plan, ${y}</th><td>${dollars(b.net)}</td></tr>
-<tr class="ha-est__row-em"><th scope="row">Change</th><td>${signedDollars(b.net - a.net)}</td></tr></tbody></table>
-<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund.${eitcChanged ? " It leaves out the earned income tax credit, which depends on earnings and the federal credit: your change to it is not in these figures." : ""} Capital gains are net long-term gains and are part of the income above${h.gains > h.agi ? "; gains above the income are counted as all of it" : ""}.</p>`;
+<tr><th scope="row">Current law, ${y}</th><td>${dollars(netLaw)}</td></tr>
+<tr><th scope="row">Your plan, ${y}</th><td>${dollars(netPlan)}</td></tr>
+<tr class="ha-est__row-em"><th scope="row">Change</th><td>${signedDollars(netPlan - netLaw)}</td></tr></tbody></table>
+<p class="ha-est__source">Hawaiʻi income tax after the credits the model includes: the earned income tax credit, food/excise, dependent care (assuming the most eligible expenses), and the renters and renewable energy credits, which are averages over similar filers rather than what this household would claim. Negative means a refund.${eitcLine} Capital gains are net long-term gains and are part of the income above${h.gains > h.agi ? "; gains above the income are counted as all of it" : ""}.</p>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +516,7 @@ function onInput(e) {
       state.eitc = num;
       markCustom(); request(); return;
     case "sim-hh-agi": state.household.agi = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
+    case "sim-hh-earn": state.household.earned = t.value === "" ? null : (Number.isFinite(num) ? Math.max(0, num) : null); renderHousehold(); return;
     case "sim-hh-cg": state.household.gains = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
     case "sim-hh-deps": state.household.dependents = Number.isFinite(num) ? Math.max(0, Math.min(20, Math.round(num))) : 0; renderHousehold(); return;
     case "sim-hh-item": state.household.itemized = Number.isFinite(num) ? Math.max(0, num) : 0; renderHousehold(); return;
@@ -678,6 +691,7 @@ function layout() {
         <option value="single">Single</option><option value="married_filing_jointly" selected>Married, filing jointly</option>
         <option value="head_of_household">Head of household</option><option value="married_filing_separately">Married, filing separately</option></select></div>
       <div class="ha-sim__field"><label for="sim-hh-agi">Income (adjusted gross income)</label><input id="sim-hh-agi" type="number" inputmode="numeric" min="0" step="1000" value="120000"></div>
+      <div class="ha-sim__field"><label for="sim-hh-earn">Earnings from work, part of that income</label><input id="sim-hh-earn" type="number" inputmode="numeric" min="0" step="1000" placeholder="Income less capital gains"></div>
       <div class="ha-sim__field"><label for="sim-hh-cg">Long-term capital gains, part of that income</label><input id="sim-hh-cg" type="number" inputmode="numeric" min="0" step="1000" value="0"></div>
       <div class="ha-sim__field"><label for="sim-hh-deps">Dependents</label><input id="sim-hh-deps" type="number" inputmode="numeric" min="0" max="20" step="1" value="2"></div>
       <div class="ha-sim__field"><label for="sim-hh-item">Itemized deductions, if any</label><input id="sim-hh-item" type="number" inputmode="numeric" min="0" step="1000" value="0"></div>

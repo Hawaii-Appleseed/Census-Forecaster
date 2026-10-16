@@ -967,6 +967,13 @@ class TestCredits:
         early = credit_changes(None, "pre_act163", 2027, table)
         assert early[0]["food_excise_$M"] == pytest.approx(55.0 - 20.0) and early[1]["total_$M"] == 0
 
+    def test_federal_eitc_parameters(self, table):
+        from tax_modeler.credits.eitc import eitc_parameters_for_year
+        for y in YEARS:
+            p, got = eitc_parameters_for_year(y, extrapolate=True), table["federal_eitc"][str(y)]
+            assert got["investment_income_limit"] == p.investment_income_limit
+            assert [c["max_credit"] for c in got["by_children"]] == [p.by_children[n].max_credit for n in range(4)]
+
     def test_table_checks(self, tmp_path):
         from tax_modeler.simulator.credits import load_credit_table
         d = _wfc_run(tmp_path / "wfc")

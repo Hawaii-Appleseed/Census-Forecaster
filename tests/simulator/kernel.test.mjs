@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   decodePopulation, score, householdTax, parseSpec, resolveSpec, unitArrays,
-  prepareSystem, unitTax, behave, topRateChanges, SpecError, WEB_FORMAT_VERSION, creditChanges,
+  prepareSystem, unitTax, behave, topRateChanges, SpecError, WEB_FORMAT_VERSION, creditChanges, federalEitc,
 } from "../../site/assets/simulator/kernel.js";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -275,4 +275,15 @@ test("credits do not touch the income tax", () => {
   const spec = { name: "cr", first_year: 2027, credits: { eitc_percent: 40, food_excise: "act163" } };
   const systems = resolveSpec(parseSpec(spec, meta), meta);
   for (const y of meta.years) assert.deepEqual(systems[y].reform, meta.current_law[y]);
+});
+
+test("the household calculator's federal EITC is the model's", () => {
+  const cases = golden.eitc_households;
+  assert.ok(cases.length >= 200 && cases.some((c) => c.federal_eitc > 0) && cases.some((c) => c.federal_eitc === 0));
+  for (const c of cases) {
+    const got = federalEitc(meta.credits.federal_eitc[String(c.year)],
+      { fs: c.filing_status, earned: c.earned, agi: c.agi, investment: c.investment, children: c.children });
+    // the model rounds the credit to cents
+    assert.ok(Math.abs(got - c.federal_eitc) <= 0.005 + 1e-9, `${JSON.stringify(c)}: kernel ${got}`);
+  }
 });

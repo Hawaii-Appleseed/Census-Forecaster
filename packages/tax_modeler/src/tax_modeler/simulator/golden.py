@@ -392,6 +392,33 @@ def _households(calc: TaxCalculator) -> list[dict]:
     return out, {k: system_to_json(v, calc) for k, v in systems.items()}
 
 
+def _eitc_households() -> list[dict]:
+    """The federal EITC for single households, as the model computes it
+    (``calculate_eitc``), for the page's household calculator: every
+    dependent a qualifying child, a childless filer aged 40."""
+    from tax_modeler.credits.eitc import calculate_eitc
+    from tax_modeler.units.relshipp_codes import OWN_CHILD
+
+    child = {"age": 6, "relationship": min(OWN_CHILD), "citizenship": 1}
+    rng = random.Random(23)
+    statuses = ["single", "married_filing_jointly", "head_of_household", "married_filing_separately"]
+    out = []
+    for i in range(240):
+        fs = statuses[i % 4]
+        year = (2027, 2028, 2031)[i % 3]
+        agi = float(rng.choice([0, 1, 5_000, 9_999.5, 12_345, 18_000, 25_000, 31_160, 40_000,
+                                52_000, 60_000, 75_000]) + rng.choice([0, 0, 250.75]))
+        earned = float(rng.choice([agi, agi, agi * 0.8, agi * 0.5, 0.0]))
+        kids = rng.choice([0, 1, 2, 3, 4])
+        unit = {"filing_status": fs, "income": agi, "earned_income": earned,
+                "investment_income": agi - earned, "primary_agep": 40,
+                "dependents_details": [dict(child) for _ in range(kids)], "num_dependents": kids}
+        out.append({"year": year, "filing_status": fs, "agi": agi, "earned": earned,
+                    "investment": agi - earned, "children": kids,
+                    "federal_eitc": calculate_eitc(unit, tax_year=year, extrapolate=True)["eitc_amount"]})
+    return out
+
+
 def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 12,
                  n_random_cg: int = 4) -> str:
     """``credit_table``: the credits' cost table, as the page's metadata
@@ -445,6 +472,7 @@ def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 1
            "cg_invalid_messages": cg_messages,
            "credit_invalid_messages": credit_messages,
            "credit_cases": credit_cases,
+           "eitc_households": _eitc_households(),
            "valid_edge_specs": valid_edge_specs(),
            "cases": cases, "unit_sample": _unit_sample(pop, calc, raw_cases),
            "households": households, "household_systems": household_systems,

@@ -18,6 +18,12 @@ scenario and is added to the income tax change, not scored with it.
 
 The browser kernel (``site/assets/simulator/kernel.js``, ``creditChanges``)
 does the same arithmetic in the same order; the golden fixtures check it.
+
+The table also carries the federal EITC's parameters for each year
+(``tax_modeler.credits.eitc``, CPI-extrapolated past the last Rev. Proc., as
+the working-family credits run uses them), so the page's household
+calculator can show one household's state EITC: the state's share of its
+federal credit, with no take-up.
 """
 from __future__ import annotations
 
@@ -63,6 +69,7 @@ def load_credit_table(run_dir, years) -> dict:
         food["pre_act163"][str(y)] = float(r["food_reverted_$M"])
     p = manifest["params"]
     return {
+        "federal_eitc": {str(y): federal_eitc_json(y) for y in years},
         "years": [int(y) for y in years],
         "current_law": {"eitc_percent": {str(y): current_law_eitc_percent(y) for y in years},
                         "food_excise": {str(y): current_law_food_excise(y) for y in years}},
@@ -75,6 +82,20 @@ def load_credit_table(run_dir, years) -> dict:
                    "params_fingerprint": manifest.get("params_fingerprint"),
                    "takeup_eitc": p.get("takeup_eitc"), "takeup_food": p.get("takeup_food")},
     }
+
+
+def federal_eitc_json(year: int) -> dict:
+    """The federal EITC's parameters for ``year``, by number of qualifying
+    children (0-3, 3 meaning three or more)."""
+    from tax_modeler.credits.eitc import eitc_parameters_for_year
+
+    p = eitc_parameters_for_year(year, extrapolate=True)
+    return {"investment_income_limit": p.investment_income_limit,
+            "by_children": [{"max_credit": c.max_credit, "phase_in_rate": c.phase_in_rate,
+                             "phaseout_start_single": c.phaseout_start_single,
+                             "phaseout_start_joint": c.phaseout_start_joint,
+                             "phaseout_rate": c.phaseout_rate}
+                            for c in (p.by_children[n] for n in range(4))]}
 
 
 def credit_changes(eitc_percent: float | None, food_excise: str | None, first_year: int,

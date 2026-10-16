@@ -462,9 +462,15 @@ food/excise table, from the plan's first year.
   EITC's cost is linear in its share (take-up held fixed, as on that
   page). The change is the same in every scenario, is added to the income
   tax change in the page's totals, and has its own "of which" rows.
-- **Not in the distribution tables** (income tax only; the page says so)
-  and the household calculator includes the food/excise table swap but not
-  the EITC.
+- **Not in the distribution tables** (income tax only; the page says so).
+  The household calculator includes both: the food/excise table, and the
+  state share of the household's federal EITC (`kernel.js` `federalEitc`,
+  the model's `calculate_eitc` with the year's CPI-extrapolated parameters,
+  which `population.json` carries as `credits.federal_eitc`). It has an
+  earnings field (blank: income less capital gains; the rest of income
+  counts as investment income), counts every dependent as a qualifying
+  child and a childless filer as 25-64. Golden `eitc_households` (240)
+  checks it against the model to the cent.
 - **Preset:** "Renew Act 163's EITC and food/excise credit", from TY2028
   (`reforms/examples/renew_act163.yaml`).
 - **Parity:** `credit_cases` in the golden fixtures (the presets plus
