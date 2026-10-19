@@ -919,7 +919,7 @@ def build_working_families() -> tuple[str, dict]:
         "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model. Millions of dollars.", s2_series)}
 {table(["Tax year", "EITC, renewed", "EITC, expired", "Food/excise, renewed", "Food/excise, expired", "Lost"], rrows,
        caption="Table 2. State Credits Paid With the Expansions Renewed and Expired ($ Millions)")}
-<p>The table above gives both totals. This one splits each credit into the part that survives and the part Act 163 added, which is the part that ends, for tax year {Y}.</p>
+<p>Table 2 gives both totals. Table 2a splits each credit into the part that remains after the expansion ends and the part that Act 163 added, for tax year {Y}.</p>
 {table(["Credit", "With the expansion", "Without it", "Added by the expansion", "Share of the credit"], share_rows,
        caption=f"Table 2a. How Much of Each Credit Is the Expansion, Tax Year {Y} ($ Millions)")}
 """, "revenue")
@@ -977,7 +977,7 @@ def build_working_families() -> tuple[str, dict]:
     oos_off = 100 * abs(oos['model'] / oos['dotax'] - 1)
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
-<p>These estimates answer one question: how much less would families get if the expansions end? To find out, the model figures each credit twice for the same families, once under the expanded rules and once under the old rules that return in {Y}. The difference is the loss, and it is the part of each credit that Act 163 added (Table 2a). The estimates do not predict how many families will apply, and they leave out any other change a family might face.</p>
+<p>These estimates answer one question: how much less would working families receive if the expansions end? To find out, the model calculates each credit twice for the same households, once under the expanded rules and once under the earlier rules that return in {Y}. The difference is the loss, which is the part of each credit that Act 163 added (Table 2a). The estimates do not predict how many families will claim the credits, and they leave out any other change a household might face.</p>
 <p>Not every eligible household claims a credit. The model sets each credit’s claim rate so that the latest year the Department of Taxation reports it matches what the Department actually paid, then holds that rate fixed: 2024 for the earned income tax credit, the new credit claimed for that year,{notes.ref(T_eitc_report)} and 2023 for the food/excise credit.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
 {table(["Measure", "Department of Taxation", "Model", ""], vrows, caption="Table 5. Model Against Department of Taxation Records")}
 <p>The Department’s earned income tax credit report also breaks 2024 claims down by income and filing status, which checks who the model says receives the credit, not only how much. In each of the four income ranges under $55,000 the model’s dollars are within {pct(100 * within_55)} percent of the Department’s; at $55,000 and above it has ${m1(rng[4]['model_$M'])} million against ${m1(rng[4]['dotax_$M'])} million. By filing status it gives heads of household {pct(100 * hoh['model_$M_share'], 1)} percent of the dollars against the Department’s {pct(100 * hoh['dotax_$M_share'], 1)} percent, but more to married couples, {pct(100 * joint['model_$M_share'], 1)} percent against {pct(100 * joint['dotax_$M_share'], 1)} percent, and less to single filers, {pct(100 * single['model_$M_share'], 1)} percent against {pct(100 * single['dotax_$M_share'], 1)} percent. The total is fitted, so these differences move losses between family types, not the statewide figure.</p>
@@ -1667,22 +1667,15 @@ def _card(c: dict) -> str:
 
 
 HOW_WE_ESTIMATE = """
-<section class="ha-est__section" id="how"><div class="ha-est__section-inner"><h2>How We Make These Estimates</h2><hr class="ha-est__h2-rule">
-<p>Every estimate here comes from the same approach: build a model of Hawaiʻi’s taxpayers, tax them under the current law and under the change, and report the difference. Each page ends with its own detailed method and the data to check it.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">1. A stand-in for Hawaiʻi’s taxpayers</h3>
-<p>No one publishes every Hawaiʻi tax return, so we build a stand-in: about 40,000 households and individuals drawn from the Census Bureau’s American Community Survey, which records income, family type, age and where people live. We adjust it until its totals match what the Department of Taxation reports for the state.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">2. Adding the highest earners</h3>
-<p>Surveys miss most people with incomes above $1 million. We add them from IRS and Department of Taxation statistics, since they pay much of the income tax and make the estimates most sensitive.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">3. Looking ahead</h3>
-<p>We grow each household’s income year by year with Congressional Budget Office projections, out to tax years 2027 through 2031.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">4. Taxing everyone twice</h3>
-<p>The model computes each household’s tax under current law and again under the proposal, using the statute’s own rates, brackets, deductions and credit schedules. The estimate is the difference, added up across the state and by income group, so you can see who pays more or less as well as the total.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">5. People respond</h3>
-<p>Not everyone who qualifies for a credit claims it, so we set each credit’s claim rate to match what the Department actually paid out, then hold it fixed. When tax rates rise, high earners tend to report less taxable income and a few move away. We build that in, and a household that leaves costs the state all of its tax, not just the increase.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">6. Checking against the record</h3>
-<p>We test the model against Department of Taxation figures it was not fitted to. For example, the credits model, run on 2022 before the credits were expanded, lands within 2 percent of what the Department paid that year. Each page shows its own checks.</p>
-<h3 style="font-size:18px;margin:28px 0 10px">What to keep in mind</h3>
-<p>These are estimates, not predictions. They depend on assumptions, and the ones that move the results most, such as how much high earners cut reported income when rates rise, are stated on each page, with ranges where they matter. The conveyance tax estimate works differently, from county records of home sales, and its page explains how. The code, data and every setting behind each figure are public, and every page lets you download the numbers.</p>
+<section class="ha-est__section" id="how"><div class="ha-est__section-inner"><h2>How These Estimates Are Made</h2><hr class="ha-est__h2-rule">
+<p>Every estimate on this site comes from the same approach: a model of Hawaiʻi’s taxpayers is taxed under current law and again under the proposed change, and the difference between the two is the estimate. Each estimate’s page ends with its own detailed method and the data needed to check it.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Building the Model</h3>
+<p>No one publishes every Hawaiʻi tax return, so the model uses a stand-in of about 40,000 households and individuals drawn from the Census Bureau’s American Community Survey, which records income, family type, age and where people live, and adjusted until its totals match what the Department of Taxation reports for the state. Because surveys miss most people with incomes above $1 million, who pay a large share of the income tax, those filers are added from IRS and Department of Taxation statistics, and each household’s income is then grown year by year with Congressional Budget Office projections, out to tax years 2027 through 2031.</p>
+<p>The model then computes each household’s tax under current law and again under the proposal, using the statute’s own rates, brackets, deductions and credit schedules. The estimate is the difference, added up across the state and by income group, which shows who would pay more or less as well as the total.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Behavior and Checks</h3>
+<p>People also respond to changes in the tax code. Not everyone who qualifies for a credit claims it, so the model sets each credit’s claim rate to match what the Department of Taxation actually paid out and holds that rate fixed. When tax rates rise, high earners tend to report less taxable income and a few move away, which the model builds in. A household that leaves costs the state all of the tax it would have paid, which is more than the increase alone.</p>
+<p>The model is also tested against Department of Taxation figures that it was not fitted to. In 2022, before the credits were expanded, the credits model comes within 2 percent of what the Department paid.</p>
+<p>These are estimates, not predictions. They depend on assumptions, and the ones that move the results most, such as how much high earners cut their reported income when rates rise, are stated on each page, with ranges where they matter. The conveyance tax estimate works differently, from county records of home sales, and its page explains how. The code, data and every setting behind each figure are public, and each page lets readers download the numbers.</p>
 </div></section>"""
 
 
