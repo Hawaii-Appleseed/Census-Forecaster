@@ -930,7 +930,7 @@ def build_working_families() -> tuple[str, dict]:
     fam_series = [("Average loss", C_PRIMARY, [g["avg_loss_per_losing_household"] for g in fam])]
     labels = {"Lowest 20%": "Lowest 20 percent", "Second 20%": "Second 20 percent", "Middle 20%": "Middle 20 percent",
               "Fourth 20%": "Fourth 20 percent", "Top 20%": "Top 20 percent"}
-    s3 = section("Who Loses", f"""
+    s3 = section("Who Will Be Affected", f"""
 {lead("The loss falls hardest on families with children", f"and the lowest incomes. In {Y}, {pct(bottom['pct_households_losing'])} percent of households in the lowest-income fifth lose part of a credit, an average of {dollars(bottom['avg_loss_per_losing_household'])} each, and that fifth bears {pct(100 * bottom['total_loss_$M'] / r['total_loss_$M'])} percent of the total. Single-parent households that lose give up {dollars(single_parent['avg_loss_per_losing_household'])} on average, as Figure 2 shows.")}
 {figure(2, f"Average Loss per Household That Loses a Credit, by Family Type, Hawaiʻi (Tax Year {Y})",
         hbar_chart([g["group"] for g in fam], fam_series, fmt=lambda v: f"${v:,.0f}",
