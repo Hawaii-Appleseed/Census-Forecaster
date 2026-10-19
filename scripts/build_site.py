@@ -27,6 +27,7 @@ import csv
 import gzip
 import html
 import json
+import math
 import shutil
 import sys
 from dataclasses import dataclass
@@ -94,6 +95,7 @@ WORKING_FAMILIES = Estimate(
         "distribution_ty2028.csv",
         "by_family_type_ty2028.csv",
         "poverty_ty2028.csv",
+        "sampling_error_ty2028.csv",
         "manifest.json",
     )},
     stamp=("manifest.json",),
@@ -830,6 +832,7 @@ def build_working_families() -> tuple[str, dict]:
     dist = read_csv(d / "distribution_ty2028.csv")
     fam = read_csv(d / "by_family_type_ty2028.csv")
     pov = read_csv(d / "poverty_ty2028.csv")[0]
+    samp = {r["measure"]: r for r in read_csv(d / "sampling_error_ty2028.csv")}
     manifest = json.loads((d / "manifest.json").read_text())
     notes = Notes()
 
@@ -876,10 +879,10 @@ def build_working_families() -> tuple[str, dict]:
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
 </div></section>
 <div class="ha-est__stats">
-<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y}, which is also what renewing them would cost the state.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y} (give or take about {millions(samp["Total loss, $ millions"]["margin_90"])}), which is also what renewing them would cost the state.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">households would <strong>receive less</strong> in credits in {Y}.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">is the average loss for a <strong>single-parent household</strong> that receives less.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">more people would fall into <strong>poverty</strong> in {Y}, about {about(kids)} of them children.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">more people would fall into <strong>poverty</strong> in {Y} (give or take about {about(1.645 * pov["persons_into_poverty_se"])}), about {about(kids)} of them children.</div></div>
 </div>"""
 
     food_rows = [
@@ -912,7 +915,7 @@ def build_working_families() -> tuple[str, dict]:
                    _r["eitc_reverted_$M"] + _r["food_reverted_$M"]),
     ]
     s2 = section("What Families Lose", f"""
-{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}: {millions(r['eitc_loss_$M'])} from the earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)}")}
+{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}: {millions(r['eitc_loss_$M'])} from the earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp["Total loss, $ millions"]["margin_90"])} either way (Table 8).")}
 <p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The earned income tax credit follows the federal credit, which is indexed.</p>
 {figure(1, f"Credit Dollars Working Families Lose Each Year, Hawaiʻi ({Y} to {last})",
         stacked_column_chart([str(y) for y in years], s2_series, label=fig1_label),
@@ -946,7 +949,7 @@ def build_working_families() -> tuple[str, dict]:
     hoh_r, hoh_e = pov["poverty_rate_renewed_head_of_household"], pov["poverty_rate_expired_head_of_household"]
     s4 = section("More Families in Poverty", f"""
 {lead("Losing the expansions pushes", f"an estimated {about(persons)} more people below the poverty line in {Y}, about {about(kids)} of them children, and deepens poverty for families already below it by {millions(pov['poverty_gap_increase_$M'])}. The state poverty rate rises from {pct(100 * pov['poverty_rate_renewed'], 1)} percent to {pct(100 * pov['poverty_rate_expired'], 1)} percent. For single parents and their children it rises from {pct(100 * hoh_r, 1)} percent to {pct(100 * hoh_e, 1)} percent.")}
-<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred. The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
+<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred and carry a wide margin of error: the 90 percent range is {about(max(0, persons - 1.645 * pov["persons_into_poverty_se"]))} to {about(persons + 1.645 * pov["persons_into_poverty_se"])} people, and {about(max(0, kids - 1.645 * pov["children_into_poverty_se"]))} to {about(kids + 1.645 * pov["children_into_poverty_se"])} children (Table 8). The estimate is static: it does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
 """, "poverty")
 
     def vrow(label, key, kind, money, tag):
@@ -975,6 +978,18 @@ def build_working_families() -> tuple[str, dict]:
     within_55 = max(abs(g["model_$M"] / g["dotax_$M"] - 1) for g in rng[:4])
     oos = cal['TY2022 food/excise $M, prior table (out of sample)']
     oos_off = 100 * abs(oos['model'] / oos['dotax'] - 1)
+    def moe_row(label, v, se, fmt):
+        m = 1.645 * se
+        return [label, fmt(v), "±" + fmt(m), f"{fmt(max(0, v - m))} to {fmt(v + m)}"]
+    moe_rows = [
+        moe_row("Total loss, $ millions", samp["Total loss, $ millions"]["estimate"], samp["Total loss, $ millions"]["standard_error"], m1),
+        moe_row("Earned income tax credit loss, $ millions", samp["Earned income tax credit loss, $ millions"]["estimate"], samp["Earned income tax credit loss, $ millions"]["standard_error"], m1),
+        moe_row("Food/excise credit loss, $ millions", samp["Food/excise credit loss, $ millions"]["estimate"], samp["Food/excise credit loss, $ millions"]["standard_error"], m1),
+        moe_row("Households that receive less", samp["Households that receive less"]["estimate"], samp["Households that receive less"]["standard_error"], about),
+        moe_row("More people in poverty", persons, pov["persons_into_poverty_se"], about),
+        moe_row("More children in poverty", kids, pov["children_into_poverty_se"], about),
+        moe_row("Poverty gap increase, $ millions", pov["poverty_gap_increase_$M"], pov["poverty_gap_increase_se_$M"], m1),
+    ]
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
 <p>These estimates answer one question: how much less would working families receive if the expansions end? To find out, the model calculates each credit twice for the same households, once under the expanded rules and once under the earlier rules that return in {Y}. The difference is the loss, which is the part of each credit that Act 163 added (Table 2a). The estimates do not predict how many families will claim the credits, and they leave out any other change a household might face.</p>
@@ -984,8 +999,12 @@ def build_working_families() -> tuple[str, dict]:
 {table(["Federal AGI", "Claims, Department", "Claims, model", "Dollars, Department ($M)", "Dollars, model ($M)"], rng_rows, caption="Table 6. State EITC by Income Range, 2024")}
 {table(["Filing status", "Share of claims, Department", "Share of claims, model", "Share of dollars, Department", "Share of dollars, model"], stat_rows, caption="Table 7. State EITC by Filing Status, 2024")}
 <p class="ha-est__source">The Department’s filing-status table reports the credit applied, which includes older nonrefundable credits carried forward, so it is compared in shares. The model counts Hawaiʻi residents; they are 94.6 percent of the Department’s claims and 97.3 percent of its dollars.</p>
+<p>Two kinds of error limit how closely these estimates can be read. The first is sampling error: the model starts from a survey of fewer than 6,000 Hawaiʻi households, and a different sample would give somewhat different figures. Table 8 measures it with the 80 replicate weights that the Census Bureau publishes for this purpose, and each range would contain the true figure about nine times in ten if sampling were the only source of error. The dollar figures have narrow ranges because the model is fitted to what the Department of Taxation actually paid, so the survey affects only how that total divides between the expanded and the earlier rules. The poverty figures have wide ranges because they count a few thousand people near the poverty line in a small sample.</p>
+{table([f"Estimate, tax year {Y}", "Estimate", "Margin of error", "90 percent range"], moe_rows, caption=f"Table 8. Sampling Error of the Tax Year {Y} Estimates (90 Percent Confidence)")}
+<p>The second is error in the model itself, which a survey sample cannot measure and which Table 5 checks against the Department’s records instead. Run on years it was not fitted to, the model came within {math.ceil(max(abs(cal["TY2023 EITC $M (out of sample)"]["model"] / cal["TY2023 EITC $M (out of sample)"]["dotax"] - 1), abs(oos["model"] / oos["dotax"] - 1)) * 100)} percent of the credit dollars the Department reported. Neither kind of error includes the chance that incomes grow differently than the Congressional Budget Office projects, or that families respond to the change in ways the model does not capture.</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
+<li><a href="../data/working-family-credits/sampling_error_ty2028.csv"><code>sampling_error_ty2028.csv</code></a>: standard errors and 90 percent ranges for the loss and household figures (Table 8)</li>
 <li><a href="../data/working-family-credits/revenue_by_year.csv"><code>revenue_by_year.csv</code></a>: both credits by tax year, renewed and expired, with claimants</li>
 <li><a href="../data/working-family-credits/distribution_ty2028.csv"><code>distribution_ty2028.csv</code></a>: loss by fifth of households</li>
 <li><a href="../data/working-family-credits/by_family_type_ty2028.csv"><code>by_family_type_ty2028.csv</code></a>: loss by family type</li>

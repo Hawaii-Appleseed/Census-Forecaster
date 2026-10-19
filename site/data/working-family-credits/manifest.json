@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-09T09:36:34+00:00",
-  "git_sha": "493ef76",
+  "created_at": "2026-10-19T21:40:12+00:00",
+  "git_sha": "2cba8d0",
   "script": "forecast_working_family_credits.py",
   "params": {
     "years": [
@@ -49,7 +49,8 @@
     "distribution_ty2028.csv",
     "eitc_check_ty2024.csv",
     "poverty_ty2028.csv",
-    "revenue_by_year.csv"
+    "revenue_by_year.csv",
+    "sampling_error_ty2028.csv"
   ],
-  "published_at": "2026-10-09T09:46:04+00:00"
+  "published_at": "2026-10-19T21:40:26+00:00"
 }
