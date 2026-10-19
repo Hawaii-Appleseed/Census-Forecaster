@@ -876,10 +876,10 @@ def build_working_families() -> tuple[str, dict]:
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
 </div></section>
 <div class="ha-est__stats">
-<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label"><strong>Less for working families</strong> in tax year {Y}, and what renewal would cost the state.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">Households that <strong>lose part of a credit</strong> in {Y}.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">Average loss for a <strong>single-parent household</strong> that loses.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">More people in <strong>poverty</strong>, including about {about(kids)} children.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y}, which is also what renewing them would cost the state.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">households would <strong>receive less</strong> in credits in {Y}.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">is the average loss for a <strong>single-parent household</strong> that receives less.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">more people would fall into <strong>poverty</strong> in {Y}, about {about(kids)} of them children.</div></div>
 </div>"""
 
     food_rows = [
