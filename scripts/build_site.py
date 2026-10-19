@@ -873,7 +873,7 @@ def build_working_families() -> tuple[str, dict]:
     hero = f"""
 <section class="ha-est__hero"><div class="ha-est__hero-inner">
 <p class="ha-est__eyebrow">Current policy · Tax credits</p>
-<h1>Expiring Relief</h1>
+<h1>Saving the Working Families Tax Credit Expansions</h1>
 <hr class="ha-est__hero-rule">
 <p class="ha-est__deck">What Hawaiʻi’s working families lose when the 2023 expansions of the earned income tax credit and the food/excise tax credit expire after 2027, and what renewing them would cost.</p>
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
@@ -1023,14 +1023,14 @@ def build_working_families() -> tuple[str, dict]:
         "slug": WORKING_FAMILIES.slug,
         "category": "current",
         "eyebrow": "Tax credits",
-        "title": "Expiring Relief",
+        "title": "Saving the Working Families Tax Credit Expansions",
         "text": "The 2023 expansions of the earned income and food/excise tax credits end after 2027. What families lose, and what renewal would cost.",
         "stat": millions(r["total_loss_$M"]),
         "stat_label": f"less for working families in tax year {Y}",
         "date": long_date(manifest["created_at"]),
         "year": datetime.fromisoformat(manifest["created_at"]).year,
     }
-    html_out = page(title="Expiring Relief: Working Family Tax Credits | Hawaiʻi Appleseed Estimates",
+    html_out = page(title="Saving the Working Families Tax Credit Expansions | Hawaiʻi Appleseed Estimates",
                     description=desc, body=body, depth=1,
                     year=datetime.fromisoformat(manifest["created_at"]).year)
     return html_out, card
@@ -1579,7 +1579,7 @@ def build_tax_simulator() -> tuple[str, dict]:
     renew_years = [y for y in years if y >= renew_fy]
     renew_total = sum(renew[y]["total_$M"] for y in renew_years)
     eitc_pt = cr["eitc_per_point_$M"][str(renew_fy)]
-    T_wf_page = ('Hawaiʻi Appleseed, “Expiring Relief: Working Family Tax Credits,” '
+    T_wf_page = ('Hawaiʻi Appleseed, “Saving the Working Families Tax Credit Expansions,” '
                  'Hawaiʻi Appleseed Estimates. <a href="../working-family-credits/">On this site</a>')
     if cr_src["git_sha"] != json.loads((DATA / WORKING_FAMILIES.slug / "manifest.json").read_text())["git_sha"]:
         print(f"WARNING: the simulator's credit costs come from the working-family credits run at "
