@@ -1653,6 +1653,26 @@ def _card(c: dict) -> str:
 </a>"""
 
 
+HOW_WE_ESTIMATE = """
+<section class="ha-est__section" id="how"><div class="ha-est__section-inner"><h2>How We Make These Estimates</h2><hr class="ha-est__h2-rule">
+<p>Every estimate here comes from the same approach: build a model of Hawaiʻi’s taxpayers, tax them under the current law and under the change, and report the difference. Each page ends with its own detailed method and the data to check it.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">1. A stand-in for Hawaiʻi’s taxpayers</h3>
+<p>No one publishes every Hawaiʻi tax return, so we build a stand-in: about 40,000 households and individuals drawn from the Census Bureau’s American Community Survey, which records income, family type, age and where people live. We adjust it until its totals match what the Department of Taxation reports for the state.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">2. Adding the highest earners</h3>
+<p>Surveys miss most people with incomes above $1 million. We add them from IRS and Department of Taxation statistics, since they pay much of the income tax and make the estimates most sensitive.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">3. Looking ahead</h3>
+<p>We grow each household’s income year by year with Congressional Budget Office projections, out to tax years 2027 through 2031.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">4. Taxing everyone twice</h3>
+<p>The model computes each household’s tax under current law and again under the proposal, using the statute’s own rates, brackets, deductions and credit schedules. The estimate is the difference, added up across the state and by income group, so you can see who pays more or less as well as the total.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">5. People respond</h3>
+<p>Not everyone who qualifies for a credit claims it, so we set each credit’s claim rate to match what the Department actually paid out, then hold it fixed. When tax rates rise, high earners tend to report less taxable income and a few move away. We build that in, and a household that leaves costs the state all of its tax, not just the increase.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">6. Checking against the record</h3>
+<p>We test the model against Department of Taxation figures it was not fitted to. For example, the credits model, run on 2022 before the credits were expanded, lands within 2 percent of what the Department paid that year. Each page shows its own checks.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">What to keep in mind</h3>
+<p>These are estimates, not predictions. They depend on assumptions, and the ones that move the results most, such as how much high earners cut reported income when rates rise, are stated on each page, with ranges where they matter. The conveyance tax estimate works differently, from county records of home sales, and its page explains how. The code, data and every setting behind each figure are public, and every page lets you download the numbers.</p>
+</div></section>"""
+
+
 def build_index(cards: list[dict]) -> str:
     groups = []
     for key, heading, blurb in CATEGORIES:
@@ -1670,7 +1690,7 @@ def build_index(cards: list[dict]) -> str:
 <h1>Estimates</h1>
 <hr class="ha-est__hero-rule">
 <p class="ha-est__deck">Revenue and distributional estimates for Hawaiʻi tax and budget policy, from Hawaiʻi Appleseed’s open-source models. Every figure links to the data and code that produced it.</p>
-</div></section>{"".join(groups)}"""
+</div></section>{"".join(groups)}{HOW_WE_ESTIMATE}"""
     return page(title="Estimates | Hawaiʻi Appleseed", body=body, depth=0, year=max(c["year"] for c in cards),
                 description="Revenue and distributional estimates for Hawaiʻi tax and budget policy from Hawaiʻi Appleseed.")
 
