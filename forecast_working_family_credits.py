@@ -107,7 +107,7 @@ def load_population():
     import poverty_impact_report as pir
     from tax_modeler.pipeline import enrich_with_spm_unit_id
 
-    units, persons = pir._load_units(PUMS_DIR, False)
+    units, persons = pir._load_units(PUMS_DIR, False, with_replicate_weights=True)
     units, persons = enrich_with_spm_unit_id(units, persons)
     return units, persons
 
@@ -230,6 +230,8 @@ def run() -> None:
     distribution(u).to_csv(OUT_DIR / f"distribution_ty{POVERTY_YEAR}.csv", index=False)
     by_family_type(u).to_csv(OUT_DIR / f"by_family_type_ty{POVERTY_YEAR}.csv", index=False)
     poverty(u, persons).to_csv(OUT_DIR / f"poverty_ty{POVERTY_YEAR}.csv", index=False)
+    sampling_error(frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"]).to_csv(
+        OUT_DIR / f"sampling_error_ty{POVERTY_YEAR}.csv", index=False)
 
     from tax_modeler.runs import write_run_manifest
     write_run_manifest(
@@ -349,6 +351,79 @@ def _summarize(hh: pd.DataFrame, col: str, order: list[str]) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def _replicate_ratios(u: pd.DataFrame, households: pd.DataFrame) -> np.ndarray:
+    """(R, n_units) ratios WGTP_r / WGTP for each tax unit's household.
+
+    Every adjustment the model makes to a unit's weight (calibration, the EITC
+    by-children reweight, the dollar take-up scale) is multiplicative in the
+    household weight, so scaling a unit's final weight by its household's
+    replicate ratio is the replicate of that weight.
+    """
+    cols = [f"WGTP{i}" for i in range(1, 81)]
+    h = households.drop_duplicates("SERIALNO").set_index("SERIALNO")
+    keys = u["hh_id"].astype(str)
+    base = h["WGTP"].reindex(keys).to_numpy(dtype=float)
+    if np.isnan(base).mean() > 0.01:
+        raise SystemExit("hh_id does not match PUMS SERIALNO; cannot build replicate ratios")
+    reps = h[cols].reindex(keys).to_numpy(dtype=float).T
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.where(base > 0, reps / base, 1.0)
+    return np.nan_to_num(ratio, nan=1.0)
+
+
+def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, p_food: float,
+                   eitc_target_m: float) -> pd.DataFrame:
+    """Sampling error of the TY2028 loss figures, from the 80 ACS replicate weights.
+
+    Each replicate re-fits the earned income tax credit and food/excise take-up
+    to the Department of Taxation's dollars (as the headline does), so the error
+    shown is for the loss given what the Department paid, not for the level.
+    90 percent margin = 1.645 standard errors, as the Census Bureau publishes.
+    """
+    households = pd.read_parquet(PUMS_DIR / "psam_h15.parquet", columns=["SERIALNO", "WGTP", *[f"WGTP{i}" for i in range(1, 81)]])
+    uE, cE = frames[EITC_CAL_YEAR]
+    uF, cF = frames[CAL_YEAR]
+    rE, rF, r28 = (_replicate_ratios(x, households) for x in (uE, uF, u28))
+    wE, wF, w28 = (x["weight"].to_numpy(dtype=float) for x in (uE, uF, u28))
+    eitc_exp, food_exp = cE["eitc_expanded"].to_numpy(float), cF["food_expanded"].to_numpy(float)
+    dE = (c28["eitc_expanded"] - c28["eitc_reverted"]).to_numpy(float)
+    dF = (c28["food_expanded"] - c28["food_reverted"]).to_numpy(float)
+    eitc_target = eitc_target_m * 1e6
+    food_target = DOTAX[CAL_YEAR]["food_$M"] * 1e6
+    hh = u28["hh_id"].to_numpy()
+    hhw = (u28["hh_weight"] if "hh_weight" in u28.columns else u28["weight"]).to_numpy(float)
+    q_e = np.where(c28["eitc_expanded"] > 0, 1.0, 0.0)
+    q_f = np.where(c28["food_expanded"] > c28["food_reverted"], 1.0, 0.0)
+
+    def estimate(rE_, rF_, r28_):
+        pe = eitc_target / float((eitc_exp * wE * rE_).sum())
+        pf = food_target / float((food_exp * wF * rF_).sum())
+        w = w28 * r28_
+        eitc_loss = float((dE * pe * w).sum()) / 1e6
+        food_loss = float((dF * pf * w).sum()) / 1e6
+        qe, qf = q_e * min(pe, 1.0), q_f * min(pf, 1.0)
+        claim = 1 - (1 - qe) * (1 - qf)
+        # A household loses if any of its units claims; one unit per household is the
+        # headline's own simplification here (the household frame uses the same rule).
+        log_keep = pd.Series(np.log1p(-np.clip(claim, 0, 1 - 1e-12))).groupby(hh).sum()
+        hw = pd.Series(hhw * (r28_)).groupby(hh).first()
+        hh_losing = float((hw * (1 - np.exp(log_keep.reindex(hw.index)))).sum())
+        return {"Total loss, $ millions": eitc_loss + food_loss,
+                "Earned income tax credit loss, $ millions": eitc_loss,
+                "Food/excise credit loss, $ millions": food_loss,
+                "Households that receive less": hh_losing}
+
+    head = estimate(np.ones_like(wE), np.ones_like(wF), np.ones_like(w28))
+    reps = [estimate(rE[i], rF[i], r28[i]) for i in range(80)]
+    rows = []
+    for k, v in head.items():
+        th = np.array([r[k] for r in reps])
+        se = float(np.sqrt(4 / 80 * ((th - v) ** 2).sum()))
+        rows.append({"measure": k, "estimate": v, "standard_error": se, "margin_90": 1.645 * se,
+                     "low": v - 1.645 * se, "high": v + 1.645 * se})
+    return pd.DataFrame(rows)
+
+
 def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     """SPM poverty in POVERTY_YEAR, expansions renewed (baseline) vs expired."""
     import poverty_impact_report as pir
@@ -357,7 +432,7 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     from tax_modeler.benefits.school_lunch import compute_school_lunch_for_units
     from tax_modeler.benefits.work_expense import compute_work_expense_for_units
     from tax_modeler.liability.federal import compute_federal_income_tax_for_units
-    from tax_modeler.poverty.impact import compute_poverty_impact
+    from tax_modeler.poverty.impact import compute_poverty_impact_with_se
     from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
 
     yr = POVERTY_YEAR
@@ -387,8 +462,8 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     u = compute_childcare_expense_for_units(u)
     u = compute_work_expense_for_units(u)
     frame = aggregate_to_spm_units(u, persons)
-    res = compute_poverty_impact(frame, tax_year=yr, scenarios=("act163_sunset",),
-                                 extrapolate_thresholds=True)
+    res = compute_poverty_impact_with_se(frame, tax_year=yr, scenarios=("act163_sunset",),
+                                         extrapolate_thresholds=True)
     s = res.by_state.iloc[0]
     hoh = res.by_household_type
     row = {
@@ -397,6 +472,9 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
         "poverty_rate_expired": float(s["poverty_rate_act163_sunset"]),
         "persons_into_poverty": float(s["persons_lifted_act163_sunset"]),
         "poverty_gap_increase_$M": float(s["gap_closed_act163_sunset_$"]) / 1e6,
+        # Sampling standard errors from the 80 ACS replicate weights (SDR).
+        "persons_into_poverty_se": float(s["persons_lifted_act163_sunset_se"]),
+        "poverty_gap_increase_se_$M": float(s["gap_closed_act163_sunset_$_se"]) / 1e6,
     }
     # Children newly below the threshold (SPM-unit child counts).
     f = res.units
@@ -405,6 +483,9 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
              & ~(f["spm_resources"].to_numpy(dtype=float) < thr))
     kids = f["n_children"].fillna(0).to_numpy(dtype=float)
     row["children_into_poverty"] = float((kids * f["weight"].to_numpy(dtype=float))[newly].sum())
+    rep_cols = [c for c in f.columns if c.startswith("weight_r") and c[8:].isdigit()]
+    child_r = np.array([(kids * f[c].to_numpy(dtype=float))[newly].sum() for c in rep_cols])
+    row["children_into_poverty_se"] = float(np.sqrt(4 / len(rep_cols) * ((child_r - row["children_into_poverty"]) ** 2).sum()))
     # SPM household types: head_of_household = one adult with children.
     for _, r in hoh.iterrows():
         row[f"persons_into_poverty_{r['filing_status']}"] = float(r["persons_lifted_act163_sunset"])
