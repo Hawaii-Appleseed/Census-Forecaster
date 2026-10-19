@@ -902,6 +902,15 @@ def build_working_families() -> tuple[str, dict]:
     fig1_label = "Credit dollars lost each year: " + ", ".join(f"{y} {m1(rev[y]['total_loss_$M'])} million" for y in years) + "."
     rrows = [[str(y), m1(rev[y]["eitc_expanded_$M"]), m1(rev[y]["eitc_reverted_$M"]),
               m1(rev[y]["food_expanded_$M"]), m1(rev[y]["food_reverted_$M"]), m1(rev[y]["total_loss_$M"])] for y in years]
+    def _share_row(name, full, base):
+        return [name, m1(full), m1(base), m1(full - base), f"{100 * (full - base) / full:.0f}%"]
+    _r = rev[Y]
+    share_rows = [
+        _share_row("Earned income tax credit", _r["eitc_expanded_$M"], _r["eitc_reverted_$M"]),
+        _share_row("Food/excise tax credit", _r["food_expanded_$M"], _r["food_reverted_$M"]),
+        _share_row("Both credits", _r["eitc_expanded_$M"] + _r["food_expanded_$M"],
+                   _r["eitc_reverted_$M"] + _r["food_reverted_$M"]),
+    ]
     s2 = section("What Families Lose", f"""
 {lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}: {millions(r['eitc_loss_$M'])} from the earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)}")}
 <p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The earned income tax credit follows the federal credit, which is indexed.</p>
@@ -910,6 +919,9 @@ def build_working_families() -> tuple[str, dict]:
         "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model. Millions of dollars.", s2_series)}
 {table(["Tax year", "EITC, renewed", "EITC, expired", "Food/excise, renewed", "Food/excise, expired", "Lost"], rrows,
        caption="Table 2. State Credits Paid With the Expansions Renewed and Expired ($ Millions)")}
+<p>The table above gives both totals. This one splits each credit into the part that survives and the part Act 163 added, which is the part that ends, for tax year {Y}.</p>
+{table(["Credit", "With the expansion", "Without it", "Added by the expansion", "Share of the credit"], share_rows,
+       caption=f"Table 2a. How Much of Each Credit Is the Expansion, Tax Year {Y} ($ Millions)")}
 """, "revenue")
 
     def drow(g, label=None):
