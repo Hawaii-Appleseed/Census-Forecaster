@@ -915,7 +915,7 @@ def build_working_families() -> tuple[str, dict]:
     ]
     s2 = section("What Families Lose", f"""
 {lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}, with {millions(r['eitc_loss_$M'])} coming from the state earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp["Total loss, $ millions"]["margin_90"])} either way (Table 8).")}
-<p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The state earned income tax credit follows the federal credit, which is indexed.</p>
+<p>The food/excise credit’s amounts and income limits are not adjusted for inflation. As wages rise, fewer households qualify for the credit, and its value decreases. At its current level of expansion, the credit would provide {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The state earned income tax credit follows the federal credit, which does increase with inflation.</p>
 {figure(1, f"Credit Dollars Working Families Lose Each Year, Hawaiʻi ({Y} to {last})",
         stacked_column_chart([str(y) for y in years], s2_series, label=fig1_label),
         "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model. Millions of dollars.", s2_series)}
