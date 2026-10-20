@@ -881,8 +881,7 @@ def build_working_families() -> tuple[str, dict]:
 <div class="ha-est__stats">
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y} (give or take about {millions(samp["Total loss, $ millions"]["margin_90"])}), which is also what renewing them would cost the state.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">households would <strong>receive less</strong> in credits in {Y}.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">is the average loss for a <strong>single-parent household</strong> that receives less.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{about(persons)}</div><div class="ha-est__stat-label">more people would fall into <strong>poverty</strong> in {Y} (give or take about {about(1.645 * pov["persons_into_poverty_se"])}), about {about(kids)} of them children.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">is the average loss for a <strong>single-parent household</strong>.</div></div>
 </div>"""
 
     food_rows = [
