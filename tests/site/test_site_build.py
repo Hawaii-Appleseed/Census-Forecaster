@@ -48,7 +48,7 @@ def test_every_estimate_is_on_the_home_page():
 def test_endnotes_numbered_in_reading_order(page):
     text = page.read_text()
     first_seen = []
-    for n in re.findall(r'href="#note-(\d+)"', text):
+    for n in re.findall(r'href="#en(\d+)"', text):
         if n not in first_seen:
             first_seen.append(n)
     assert first_seen == [str(i) for i in range(1, len(first_seen) + 1)]

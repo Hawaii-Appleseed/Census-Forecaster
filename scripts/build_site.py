@@ -390,13 +390,13 @@ class Notes:
     def ref(self, text: str) -> str:
         if text in self.items:          # repeat cite: same number, no second anchor id
             n = self.items.index(text) + 1
-            return f'<sup><a href="#note-{n}">{n}</a></sup>'
+            return f'<sup><a href="#en{n}">{n}</a></sup>'
         self.items.append(text)
         n = len(self.items)
-        return f'<sup><a href="#note-{n}" id="ref-{n}">{n}</a></sup>'
+        return f'<sup><a href="#en{n}" id="ref-{n}">{n}</a></sup>'
 
     def html(self) -> str:
-        lis = "".join(f'<li id="note-{i}">{t}</li>' for i, t in enumerate(self.items, 1))
+        lis = "".join(f'<li id="en{i}">{t}</li>' for i, t in enumerate(self.items, 1))
         return f'<ol class="ha-est__endnotes">{lis}</ol>'
 
 
