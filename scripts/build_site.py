@@ -1719,6 +1719,21 @@ def build_index(cards: list[dict]) -> str:
                 description="Revenue and distributional estimates for Hawaiʻi tax and budget policy from Hawaiʻi Appleseed.")
 
 
+def cider_managed() -> set[str]:
+    """Slugs of pages that are edited in Cider and published from there.
+
+    site/cider-managed.txt lists them, one per line. A page on the list is not
+    written by this script: Cider writes it when its editor saves, and a rebuild
+    here would overwrite those edits with the model's own prose. The data and
+    the index card still come from site/data/, so the downloads and the index
+    stay current; refreshing a managed page's numbers is done in Cider.
+    """
+    f = SITE / "cider-managed.txt"
+    if not f.exists():
+        return set()
+    return {ln.strip() for ln in f.read_text().splitlines() if ln.strip() and not ln.lstrip().startswith("#")}
+
+
 def build(out: Path = SITE) -> list[Path]:
     """Render every page from site/data into `out`. Returns the files written."""
     cg_html, cg_card = build_capital_gains()
@@ -1735,6 +1750,8 @@ def build(out: Path = SITE) -> list[Path]:
         out / "index.html": build_index([a24_card, wf_card, cg_card, cv_card, ts_card]),
         out / ".nojekyll": "",
     }
+    for slug in cider_managed():
+        written.pop(out / slug / "index.html", None)
     for path, text in written.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
