@@ -875,7 +875,7 @@ def build_working_families() -> tuple[str, dict]:
 <p class="ha-est__eyebrow">Current policy · Tax credits</p>
 <h1>Saving the Working Families Tax Credit Expansions</h1>
 <hr class="ha-est__hero-rule">
-<p class="ha-est__deck">What Hawaiʻi’s working families lose when the 2023 expansions of the earned income tax credit and the food/excise tax credit expire after 2027, and what renewing them would cost.</p>
+<p class="ha-est__deck">What Hawaiʻi’s working families lose when the 2023 expansions of the state earned income tax credit and the food/excise tax credit expire after 2027, and what renewing them would cost.</p>
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
 </div></section>
 <div class="ha-est__stats">
@@ -893,13 +893,13 @@ def build_working_families() -> tuple[str, dict]:
     ]
     s1 = section("What Act 163 Did", f"""
 {lead("In 2023 the Legislature doubled", f"Hawaiʻi’s two main tax credits for working families.{notes.ref(T_act163)} Act 163 raised the state earned income tax credit from 20 percent to 40 percent of the federal credit, which already went only to people who work.{notes.ref(T_eitc)} It also more than doubled the refundable food/excise tax credit, which offsets the general excise tax low-income households pay on groceries and other necessities, and extended it $10,000 further up the income scale.{notes.ref(T_food)}")}
-<p>Both expansions were temporary. Act 163 is repealed on December 31, 2027, and both credits return to their earlier form for tax year {Y}. A 2026 bill to extend them was not enacted.{notes.ref(T_2026)} The earned income tax credit stays refundable, but at 20 percent of the federal credit.</p>
+<p>Both expansions were temporary. Act 163 is repealed on December 31, 2027, and both credits return to their earlier form for tax year {Y}. A 2026 bill to extend them was not enacted.{notes.ref(T_2026)} The state earned income tax credit stays refundable, but at 20 percent of the federal credit.</p>
 {table(["Income (AGI)", "Before and after 2027", "2023 to 2027"], food_rows,
        caption="Table 1. Food/Excise Tax Credit per Exemption")}
 <p class="ha-est__source">Amounts per exemption (the filer, a spouse and each dependent). * Heads of household and married couples only; single filers’ credit ends at $30,000 before and after 2027, and at $40,000 from 2023 to 2027.</p>
 """, "act-163")
 
-    s2_series = [("Earned income tax credit", C_PRIMARY, [rev[y]["eitc_loss_$M"] for y in years]),
+    s2_series = [("State earned income tax credit", C_PRIMARY, [rev[y]["eitc_loss_$M"] for y in years]),
                  ("Food/excise tax credit", C_SECOND, [rev[y]["food_loss_$M"] for y in years])]
     fig1_label = "Credit dollars lost each year: " + ", ".join(f"{y} {m1(rev[y]['total_loss_$M'])} million" for y in years) + "."
     rrows = [[str(y), m1(rev[y]["eitc_expanded_$M"]), m1(rev[y]["eitc_reverted_$M"]),
@@ -908,18 +908,18 @@ def build_working_families() -> tuple[str, dict]:
         return [name, m1(full), m1(base), m1(full - base), f"{100 * (full - base) / full:.0f}%"]
     _r = rev[Y]
     share_rows = [
-        _share_row("Earned income tax credit", _r["eitc_expanded_$M"], _r["eitc_reverted_$M"]),
+        _share_row("State earned income tax credit", _r["eitc_expanded_$M"], _r["eitc_reverted_$M"]),
         _share_row("Food/excise tax credit", _r["food_expanded_$M"], _r["food_reverted_$M"]),
         _share_row("Both credits", _r["eitc_expanded_$M"] + _r["food_expanded_$M"],
                    _r["eitc_reverted_$M"] + _r["food_reverted_$M"]),
     ]
     s2 = section("What Families Lose", f"""
-{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}, with {millions(r['eitc_loss_$M'])} coming from the earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp["Total loss, $ millions"]["margin_90"])} either way (Table 8).")}
-<p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The earned income tax credit follows the federal credit, which is indexed.</p>
+{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}, with {millions(r['eitc_loss_$M'])} coming from the state earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp["Total loss, $ millions"]["margin_90"])} either way (Table 8).")}
+<p>The food/excise credit’s dollar amounts and income limits are not adjusted for inflation, so as wages rise, fewer households qualify and each credit buys less. Under the expanded table the credit would pay {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The state earned income tax credit follows the federal credit, which is indexed.</p>
 {figure(1, f"Credit Dollars Working Families Lose Each Year, Hawaiʻi ({Y} to {last})",
         stacked_column_chart([str(y) for y in years], s2_series, label=fig1_label),
         "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model. Millions of dollars.", s2_series)}
-{table(["Tax year", "EITC, renewed", "EITC, expired", "Food/excise, renewed", "Food/excise, expired", "Lost"], rrows,
+{table(["Tax year", "State EITC, renewed", "State EITC, expired", "Food/excise, renewed", "Food/excise, expired", "Lost"], rrows,
        caption="Table 2. State Credits Paid With the Expansions Renewed and Expired ($ Millions)")}
 <p>Table 2 gives both totals. Table 2a splits each credit into the part that remains after the expansion ends and the part that Act 163 added, for tax year {Y}.</p>
 {table(["Credit", "With the expansion", "Without it", "Added by the expansion", "Share of the credit"], share_rows,
@@ -948,7 +948,7 @@ def build_working_families() -> tuple[str, dict]:
     hoh_r, hoh_e = pov["poverty_rate_renewed_head_of_household"], pov["poverty_rate_expired_head_of_household"]
     s4 = section("More Families in Poverty", f"""
 {lead("Losing the expansions pushes", f"an estimated {about(persons)} more people below the poverty line in {Y}, about {about(kids)} of them children, and deepens poverty for families already below it by {millions(pov['poverty_gap_increase_$M'])}. The state poverty rate rises from {pct(100 * pov['poverty_rate_renewed'], 1)} percent to {pct(100 * pov['poverty_rate_expired'], 1)} percent. For single parents and their children it rises from {pct(100 * hoh_r, 1)} percent to {pct(100 * hoh_e, 1)} percent.")}
-<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred and carry a wide margin of error, with a 90 percent range of {about(max(0, persons - 1.645 * pov["persons_into_poverty_se"]))} to {about(persons + 1.645 * pov["persons_into_poverty_se"])} people and {about(max(0, kids - 1.645 * pov["children_into_poverty_se"]))} to {about(kids + 1.645 * pov["children_into_poverty_se"])} children (Table 8). The estimate is static and does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the earned income tax credit finds would add to the total.</p>
+<p>These figures use the Census Bureau’s Supplemental Poverty Measure, which counts tax credits and public benefits as income and adjusts for Hawaiʻi’s cost of living. Because the counts come from a survey sample, they are rounded to the nearest hundred and carry a wide margin of error, with a 90 percent range of {about(max(0, persons - 1.645 * pov["persons_into_poverty_se"]))} to {about(persons + 1.645 * pov["persons_into_poverty_se"])} people and {about(max(0, kids - 1.645 * pov["children_into_poverty_se"]))} to {about(kids + 1.645 * pov["children_into_poverty_se"])} children (Table 8). The estimate is static and does not count parents who leave work when the credit shrinks, which the model’s separate analysis of the state earned income tax credit finds would add to the total.</p>
 """, "poverty")
 
     def vrow(label, key, kind, money, tag):
@@ -982,7 +982,7 @@ def build_working_families() -> tuple[str, dict]:
         return [label, fmt(v), "±" + fmt(m), f"{fmt(max(0, v - m))} to {fmt(v + m)}"]
     moe_rows = [
         moe_row("Total loss, $ millions", samp["Total loss, $ millions"]["estimate"], samp["Total loss, $ millions"]["standard_error"], m1),
-        moe_row("Earned income tax credit loss, $ millions", samp["Earned income tax credit loss, $ millions"]["estimate"], samp["Earned income tax credit loss, $ millions"]["standard_error"], m1),
+        moe_row("State earned income tax credit loss, $ millions", samp["Earned income tax credit loss, $ millions"]["estimate"], samp["Earned income tax credit loss, $ millions"]["standard_error"], m1),
         moe_row("Food/excise credit loss, $ millions", samp["Food/excise credit loss, $ millions"]["estimate"], samp["Food/excise credit loss, $ millions"]["standard_error"], m1),
         moe_row("Households that receive less", samp["Households that receive less"]["estimate"], samp["Households that receive less"]["standard_error"], about),
         moe_row("More people in poverty", persons, pov["persons_into_poverty_se"], about),
@@ -992,9 +992,9 @@ def build_working_families() -> tuple[str, dict]:
     s5 = section("How These Estimates Are Made", f"""
 {lead("The model builds", "Hawaiʻi tax households from the Census Bureau’s 2024 American Community Survey microdata, with each dependent’s age and relationship, projects their incomes forward with Congressional Budget Office growth rates, and computes the federal earned income tax credit, matched to IRS counts of Hawaiʻi claimants. Each state credit is then computed under both laws from the statute’s own schedules.")}
 <p>These estimates answer a single question, which is how much less working families would receive if the expansions end. To find out, the model calculates each credit twice for the same households, once under the expanded rules and once under the earlier rules that return in {Y}. The difference is the loss, which is the part of each credit that Act 163 added (Table 2a). The estimates hold the share of eligible families who claim each credit where it is today, and they leave out any other change a household might face.</p>
-<p>Because not every eligible household claims a credit, the model sets each credit’s claim rate so that the latest year the Department of Taxation reports it matches what the Department actually paid, then holds that rate fixed: 2024 for the earned income tax credit, the new credit claimed for that year,{notes.ref(T_eitc_report)} and 2023 for the food/excise credit.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
+<p>Because not every eligible household claims a credit, the model sets each credit’s claim rate so that the latest year the Department of Taxation reports it matches what the Department actually paid, then holds that rate fixed: 2024 for the state earned income tax credit, the new credit claimed for that year,{notes.ref(T_eitc_report)} and 2023 for the food/excise credit.{notes.ref(T_dotax)} As a test, the same rate applied to 2022, before the expansion, comes within {pct(oos_off)} percent of that year’s food/excise credit under the old table (Table 5).</p>
 {table(["Measure", "Department of Taxation", "Model", ""], vrows, caption="Table 5. Model Against Department of Taxation Records")}
-<p>The Department’s earned income tax credit report also breaks 2024 claims down by income and filing status, which checks who the model says receives the credit, not only how much. In each of the four income ranges under $55,000 the model’s dollars are within {pct(100 * within_55)} percent of the Department’s; at $55,000 and above it has ${m1(rng[4]['model_$M'])} million against ${m1(rng[4]['dotax_$M'])} million. By filing status it gives heads of household {pct(100 * hoh['model_$M_share'], 1)} percent of the dollars against the Department’s {pct(100 * hoh['dotax_$M_share'], 1)} percent, but more to married couples, {pct(100 * joint['model_$M_share'], 1)} percent against {pct(100 * joint['dotax_$M_share'], 1)} percent, and less to single filers, {pct(100 * single['model_$M_share'], 1)} percent against {pct(100 * single['dotax_$M_share'], 1)} percent. The total is fitted, so these differences move losses between family types, not the statewide figure.</p>
+<p>The Department’s report on the state earned income tax credit also breaks 2024 claims down by income and filing status, which checks who the model says receives the credit, not only how much. In each of the four income ranges under $55,000 the model’s dollars are within {pct(100 * within_55)} percent of the Department’s; at $55,000 and above it has ${m1(rng[4]['model_$M'])} million against ${m1(rng[4]['dotax_$M'])} million. By filing status it gives heads of household {pct(100 * hoh['model_$M_share'], 1)} percent of the dollars against the Department’s {pct(100 * hoh['dotax_$M_share'], 1)} percent, but more to married couples, {pct(100 * joint['model_$M_share'], 1)} percent against {pct(100 * joint['dotax_$M_share'], 1)} percent, and less to single filers, {pct(100 * single['model_$M_share'], 1)} percent against {pct(100 * single['dotax_$M_share'], 1)} percent. The total is fitted, so these differences move losses between family types, not the statewide figure.</p>
 {table(["Federal AGI", "Claims, Department", "Claims, model", "Dollars, Department ($M)", "Dollars, model ($M)"], rng_rows, caption="Table 6. State EITC by Income Range, 2024")}
 {table(["Filing status", "Share of claims, Department", "Share of claims, model", "Share of dollars, Department", "Share of dollars, model"], stat_rows, caption="Table 7. State EITC by Filing Status, 2024")}
 <p class="ha-est__source">The Department’s filing-status table reports the credit applied, which includes older nonrefundable credits carried forward, so it is compared in shares. The model counts Hawaiʻi residents; they are 94.6 percent of the Department’s claims and 97.3 percent of its dollars.</p>
@@ -1009,7 +1009,7 @@ def build_working_families() -> tuple[str, dict]:
 <li><a href="../data/working-family-credits/by_family_type_ty2028.csv"><code>by_family_type_ty2028.csv</code></a>: loss by family type</li>
 <li><a href="../data/working-family-credits/poverty_ty2028.csv"><code>poverty_ty2028.csv</code></a>: poverty with the expansions renewed and expired</li>
 <li><a href="../data/working-family-credits/calibration.csv"><code>calibration.csv</code></a>: claim rates and the checks in Table 5</li>
-<li><a href="../data/working-family-credits/eitc_check_ty2024.csv"><code>eitc_check_ty2024.csv</code></a>: the earned income tax credit by income range and filing status, model and Department (Tables 6 and 7)</li>
+<li><a href="../data/working-family-credits/eitc_check_ty2024.csv"><code>eitc_check_ty2024.csv</code></a>: the state earned income tax credit by income range and filing status, model and Department (Tables 6 and 7)</li>
 <li><a href="../data/working-family-credits/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
 </ul>
 """, "method")
@@ -1023,7 +1023,7 @@ def build_working_families() -> tuple[str, dict]:
         "category": "current",
         "eyebrow": "Tax credits",
         "title": "Saving the Working Families Tax Credit Expansions",
-        "text": "The 2023 expansions of the earned income and food/excise tax credits end after 2027. What families lose, and what renewal would cost.",
+        "text": "The 2023 expansions of the state earned income and food/excise tax credits end after 2027. What families lose, and what renewal would cost.",
         "stat": millions(r["total_loss_$M"]),
         "stat_label": f"less for working families in tax year {Y}",
         "date": long_date(manifest["created_at"]),
