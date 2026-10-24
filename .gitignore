@@ -68,3 +68,15 @@ reports/**/spm_units.parquet
 # API keys — never commit (keys live in ~/.eia_api_key, ~/.census_api_key)
 *_api_key
 .*_api_key
+
+# credentials — never commit these (added 2026-10-23)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+token.json
+credentials.json
+client_secret*.json
+service-account*.json
+*_api_key
