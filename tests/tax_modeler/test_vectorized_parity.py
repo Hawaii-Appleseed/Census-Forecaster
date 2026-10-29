@@ -474,3 +474,31 @@ def test_group_sums_match_series_sum_per_group():
     for g in range(n_groups + 5):
         want = pd.Series(values[codes == g], dtype=float).sum()
         assert np.float64(want).tobytes() == got[g].tobytes(), g
+
+
+def test_bracket_schedules_are_built_once_and_stay_unchanged():
+    """TaxCalculator.brackets_for / _bracket_schedule cache each schedule:
+    the cached schedule equals a fresh build for registry, inline and
+    scenario-tagged systems, a caller's edits to the frame it gets do not
+    reach the cache, and the schedule arrays are read-only."""
+    from dataclasses import replace
+
+    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+
+    calc = TaxCalculator()
+    inline = replace(TaxSystemRegistry.get_act46_system(2028), name="inline",
+                     brackets={fs: ((0.0, 1.0), (50_000.0, 6.5), (400_000.0, 12.0))
+                               for fs in ("Single_Married_Separate", "Head_of_Household",
+                                          "Joint_Surviving_Spouse")})
+    configs = [TaxSystemRegistry.get_act46_system(2027), TaxSystemRegistry.get_sb3125_cd2_system(2029),
+               TaxSystemRegistry.get_hb2306_orig_system(2028), inline]
+    for cfg in configs:
+        for fs in ("single", "married_filing_jointly", "head_of_household", "married_filing_separately"):
+            want = calc._build_brackets(cfg, fs)
+            got = calc.brackets_for(cfg, fs)
+            pd.testing.assert_frame_equal(got, want, check_exact=True)
+            got["rate_decimal"] = 9.9                       # a caller's own copy
+            pd.testing.assert_frame_equal(calc.brackets_for(cfg, fs), want, check_exact=True)
+            floors, rates, cum = calc._bracket_schedule(cfg, fs)
+            for a, b in zip((floors, rates, cum), calc._build_schedule(cfg, fs), strict=True):
+                assert a.tobytes() == b.tobytes() and not a.flags.writeable

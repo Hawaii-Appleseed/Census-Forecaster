@@ -427,6 +427,14 @@ def itemized_deductions(tax_units: pd.DataFrame) -> np.ndarray | None:
     return itemized
 
 
+def _schedule_key(config: TaxSystemConfig, filing_status: str) -> tuple:
+    """Everything :meth:`TaxCalculator.brackets_for` reads from ``config``:
+    its inline schedules, CSV vintage and scenario, and adjustments (their
+    reprs, which are exact for the floats and strings they hold)."""
+    return (repr(config.brackets), config.bracket_year, config.bracket_scenario,
+            repr(config.bracket_adjustments), filing_status)
+
+
 class TaxCalculator:
     """Centralized tax calculation engine."""
     
@@ -510,7 +518,18 @@ class TaxCalculator:
         ``rate`` (percent, as in the CSV) and ``rate_decimal``. Every scorer
         reads ``rate_decimal``: the old "rate > 1 means percent" guess would
         read a user's 0.5% bracket as 50%.
+
+        Built once per schedule (the config fields it reads and the status)
+        and returned as a copy: a scorer asks for the same few schedules
+        thousands of times.
         """
+        key = _schedule_key(config, filing_status)
+        cache = self.__dict__.setdefault("_brackets_cache", {})
+        if key not in cache:
+            cache[key] = self._build_brackets(config, filing_status)
+        return cache[key].copy()
+
+    def _build_brackets(self, config: TaxSystemConfig, filing_status: str) -> pd.DataFrame:
         if config.brackets is not None:
             sched = config.brackets[canonical_status(filing_status)]
             floors = [float(f) for f, _ in sched]
@@ -702,7 +721,21 @@ class TaxCalculator:
             tax(t) = cum_tax_at_floor[i] + (t - floors[i]) * rates[i]
         Brackets are assumed contiguous (each ``income_min`` equals the prior
         bracket's ``income_max``), which is true for the Hawaii master schedule.
+        Built once per schedule, like :meth:`brackets_for`; the arrays are
+        read-only.
         """
+        key = _schedule_key(config, filing_status)
+        cache = self.__dict__.setdefault("_schedule_cache", {})
+        if key not in cache:
+            arrays = self._build_schedule(config, filing_status)
+            for a in arrays:
+                a.flags.writeable = False
+            cache[key] = arrays
+        return cache[key]
+
+    def _build_schedule(
+        self, config: TaxSystemConfig, filing_status: str,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         brackets = self.brackets_for(config, filing_status)
         floors = brackets['income_min'].to_numpy(dtype=float)
         rates = brackets['rate_decimal'].to_numpy(dtype=float)
