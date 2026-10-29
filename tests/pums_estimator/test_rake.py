@@ -130,3 +130,34 @@ class TestRake:
         assert w_by_cat["0"] == pytest.approx(5.0, rel=1e-3)
         assert w_by_cat["1"] == pytest.approx(10.0, rel=1e-3)
         assert w_by_cat["2+"] == pytest.approx(15.0, rel=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# rake_arrays: rake over arrays, bit for bit
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_rake_arrays_returns_rakes_weights_bit_for_bit(seed):
+    """Two margins (one with an "X+" category and values outside every
+    category, one with a zero and a negative target), uneven weights, a
+    category with no records: the same weights as rake on one record per unit."""
+    import numpy as np
+    from pums_estimator.estimation.rake import rake_arrays
+
+    rng = np.random.default_rng(seed)
+    n = 3000
+    weights = rng.lognormal(3, 1, n)
+    veh = rng.integers(-1, 7, n).astype(float)
+    fs = rng.integers(0, 4, n).astype(float)
+    margins = {
+        "VEH": {"0": 900.0, "1": 2_000.0, "2": 1_800.0, "3+": 1_500.0, "9": 50.0},
+        "FS": {"0": 3_000, "1": 2_500, "2": 0, "3": -5},
+    }
+    records = [PumsRecord(serial="X", puma="1500100", weight=float(weights[i]),
+                          variables={"VEH": float(veh[i]), "FS": float(fs[i])}) for i in range(n)]
+    for max_iter, tol in [(100, 1e-4), (3, 1e-12), (100, 1e-14)]:
+        want = np.array(rake(records, CountyControls(geoid="15003", population=0, margins=margins),
+                             max_iter=max_iter, tol=tol))
+        got = rake_arrays(weights, {"VEH": veh, "FS": fs}, margins, max_iter=max_iter, tol=tol)
+        assert got.tobytes() == want.tobytes()
+    assert weights.tobytes() == np.array([r.weight for r in records]).tobytes()   # input untouched

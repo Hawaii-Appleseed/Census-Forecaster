@@ -362,9 +362,10 @@ def _recalculate_ctc(
     """
     Recalculate CTC on scaled incomes using the requested year's parameters.
 
-    Calls calculate_ctc() per row and merges results directly (unit.update
-    pattern), producing ctc_total / ctc_refundable / ctc_nonrefundable columns
-    as RevenueEstimator expects.  The DataFrame-level calculate_ctc_for_tax_units
+    Runs calculate_ctc() on every row (``ctc_for_units``, which computes them
+    all at once) and merges the results directly (unit.update pattern),
+    producing ctc_total / ctc_refundable / ctc_nonrefundable columns as
+    RevenueEstimator expects.  The DataFrame-level calculate_ctc_for_tax_units
     adds a redundant 'ctc_' prefix (producing ctc_ctc_total), so we bypass it.
 
     ``tax_year`` selects the max credit ($2,000 through TY 2024, $2,200 from
@@ -374,12 +375,10 @@ def _recalculate_ctc(
     computed once, vectorized, so the credit is split between its
     nonrefundable and refundable parts in statutory order.
     """
-    from tax_modeler.credits.ctc import calculate_ctc, with_federal_tax_before_credits
+    from tax_modeler.credits.ctc import ctc_for_units, with_federal_tax_before_credits
 
     df = with_federal_tax_before_credits(df, tax_year=tax_year, extrapolate=extrapolate)
-    from tax_modeler.per_unit import apply_per_unit
-    return apply_per_unit(
-        df, lambda unit: calculate_ctc(unit, tax_year=tax_year, extrapolate=extrapolate))
+    return ctc_for_units(df, tax_year=tax_year, extrapolate=extrapolate)
 
 
 # ---------------------------------------------------------------------------

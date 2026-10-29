@@ -388,7 +388,7 @@ class IPFCalibrationOrchestrator:
             achievable than DOTAX tax (PUMS records have AGI directly),
             so a tighter cap is appropriate. Default 2.0x.
         """
-        from pums_estimator.estimation.rake import rake as _rake  # lazy cross-package import
+        from pums_estimator.estimation.rake import rake_arrays  # lazy cross-package import
 
         result = df.copy()
         margins: Dict[str, Dict[str, float]] = {}
@@ -474,37 +474,22 @@ class IPFCalibrationOrchestrator:
                 )
 
         # --- inner-loop helpers ------------------------------------------
-        class _TaxRecord:
-            __slots__ = ("weight", "variables")
-            def __init__(self, w: float, v: Dict) -> None:
-                self.weight = w
-                self.variables = v
-
-        class _Controls:
-            __slots__ = ("margins",)
-            def __init__(self, m: Dict) -> None:
-                self.margins = m
-
         margin_cols = list(margins)
         var_arrays = (
-            {col: result[col].to_numpy() for col in margin_cols}
+            {col: result[col].to_numpy(dtype=float) for col in margin_cols}
             if margin_cols else {}
         )
 
         def _run_count_rake(weights_in: np.ndarray) -> np.ndarray:
+            # pums_estimator's rake over the weights and margin columns as
+            # arrays (rake_arrays returns what rake does on one record per
+            # unit, bit for bit).
             if not margin_cols:
                 return weights_in
-            records = [
-                _TaxRecord(
-                    float(weights_in[i]),
-                    {col: float(var_arrays[col][i]) for col in margin_cols},
-                )
-                for i in range(len(weights_in))
-            ]
-            return np.asarray(_rake(
-                records, _Controls(margins),
+            return rake_arrays(
+                weights_in, var_arrays, margins,
                 max_iter=self.max_iterations, tol=self.tolerance,
-            ), dtype=float)
+            )
 
         def _max_dev_count(d: pd.DataFrame) -> float:
             if not calibrate_filer_counts:

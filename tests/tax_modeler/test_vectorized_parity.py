@@ -10,6 +10,12 @@
 * ``PUMA0100Imputer.impute_counties`` vs ``assign_county`` per row, including
   where numpy's global generator is left.
 * ``parallel.fork_map`` vs a list comprehension.
+* The array versions of ``calculate_hawaii_tax_for_units``, the CTC
+  (``ctc_for_units``) and ``calculate_eitc_for_tax_units`` vs running the
+  scalar calculator on each unit: the same frame, dtypes and every float's
+  bits, across bracket, phaseout and tier edges, missing values, every filing
+  status, published and extrapolated years and each deduction-params choice;
+  and ``per_unit.py_round`` vs ``round``.
 """
 from __future__ import annotations
 
@@ -173,3 +179,258 @@ def test_groups_by_value_match_np_unique(values):
     assert [g[0] for g in got] == [w[0] for w in want]
     for (_, a), (_, b) in zip(got, want, strict=True):
         assert np.array_equal(a, b)
+
+
+# ---------------------------------------------------------------------------
+# Array versions of the Hawaiʻi tax, CTC and EITC vs the scalar calculators
+# ---------------------------------------------------------------------------
+
+def _assert_same_bits(got: pd.DataFrame, want: pd.DataFrame) -> None:
+    """Same columns in the same order, index, dtypes, and values: every float
+    bit for bit (signed zeros included; any NaN matches any NaN)."""
+    assert list(got.columns) == list(want.columns)
+    assert got.index.equals(want.index)
+    for c in want.columns:
+        a, b = got[c], want[c]
+        assert a.dtype == b.dtype, (c, a.dtype, b.dtype)
+        if b.dtype.kind == "f":
+            x, y = a.to_numpy(), b.to_numpy()
+            same = (x.view(np.int64) == y.view(np.int64)) | (np.isnan(x) & np.isnan(y))
+            assert same.all(), (c, x[~same][:5], y[~same][:5])
+        else:
+            assert a.equals(b), c
+
+
+INCOME_EDGES = [
+    float("nan"), -1e4, -0.0, 0.0, 0.01, 1.0, 2_200, 3_212, 4_400, 7_840, 9_799.99, 9_800,
+    11_750, 17_640, 21_560, 28_120, 29_999.99, 30_000, 48_000, 50_000, 63_398, 75_000,
+    83_400, 83_400.01, 96_000, 100_000, 150_000, 166_800, 166_800.01, 175_000, 199_999.5,
+    200_000, 200_000.01, 200_999.99, 201_000.5, 225_000, 300_000, 325_000, 350_000,
+    399_999, 400_000, 400_000.5, 401_000, 650_000, 1e6, 1e7, 3e7,
+]
+TAX_STATUSES = ["single", "married_filing_jointly", "married_filing_separately",
+                "head_of_household", "qualifying_widow", "other"]
+
+
+def _dependent(rng) -> dict:
+    return {
+        "age": int(rng.choice([0, 5, 16, 17, 18, 19, 22, 23, 24, 30, 70])),
+        "relationship": rng.choice([25, 26, 27, 28, 30, 35, 20, 33, 36, "25", "x", None, 25.0],
+                                   p=[.3, .05, .05, .05, .05, .05, .1, .1, .05, .05, .05, .05, .05]),
+        "citizenship": rng.choice([1, 2, 4, 5, "1", "US", "5", 1.0]),
+        "school_level": int(rng.choice([0, 15, 16, 20])),
+        "disabled": bool(rng.random() < 0.1),
+        "months_in_home": 12,
+    }
+
+
+def _tax_unit_frame(seed: int = 0, n_random: int = 4000) -> pd.DataFrame:
+    """Units on every edge above for every status, plus random ones, with the
+    columns the three calculators read (missing values included)."""
+    rng = np.random.default_rng(seed)
+    grid = [(a, s) for a in INCOME_EDGES for s in TAX_STATUSES]
+    income = np.array([g[0] for g in grid]
+                      + list(rng.lognormal(10.8, 1.2, n_random) * rng.choice([1, 1, 1, -0.1], n_random)))
+    n = len(income)
+    status = [g[1] for g in grid] + list(rng.choice(TAX_STATUSES, n_random))
+    num_deps = rng.integers(0, 5, n)
+    deps = [[_dependent(rng) for _ in range(k)] for k in num_deps]
+
+    def holes(values, share=0.1):
+        values = np.asarray(values, dtype=float)
+        return np.where(rng.random(n) < share, np.nan, values)
+
+    earned = income * rng.choice([0.0, 0.5, 1.0, 1.2], n)
+    return pd.DataFrame({
+        "income": income,
+        "filing_status": status,
+        "num_dependents": num_deps,
+        "dependents": deps,
+        "dependents_details": deps,
+        "earned_income": holes(earned),
+        "federal_earned_income": holes(earned * 0.97, 0.3),
+        "federal_agi": holes(income * 0.98, 0.3),
+        "investment_income": holes(rng.choice([0.0, -0.0, 50.0, 11_000, 11_950, 1e5], n)),
+        "federal_tax_before_credits": holes(rng.uniform(0, 3e4, n), 0.05),
+        "primary_agep": rng.choice([0, 18, 24, 25, 40, 64, 64.9, 65, 80], n).astype(float),
+        "filer_has_ssn": rng.choice([True, False, np.nan], n, p=[0.8, 0.1, 0.1]),
+        "synthetic_cg_share": holes(rng.choice([0.0, -0.0, 0.25, 0.9, 1.0, 1.5], n), 0.3),
+        "weight": rng.uniform(1, 50, n),
+    }, index=rng.permutation(n) + 7)
+
+
+def _per_unit_hawaii(df, tax_year, deduction_params):
+    from tax_modeler.liability.hawaii import (
+        _calculate_hawaii_tax_per_unit,
+        _normalize_deduction_params,
+    )
+    return _calculate_hawaii_tax_per_unit(
+        df, tax_year, _normalize_deduction_params(deduction_params, tax_year, "test"))
+
+
+def _deduction_choice(name, year):
+    from tax_modeler.artifacts import load_canonical_deduction_params
+    from tax_modeler.liability.hawaii import NO_ITEMIZING
+
+    if name == "none":
+        return None
+    if name == "no_itemizing":
+        return NO_ITEMIZING
+    if name == "canonical":
+        return load_canonical_deduction_params()
+    from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
+    return scale_deduction_params_for_target_year(year)
+
+
+@pytest.mark.parametrize("year,deductions", [
+    (2022, "none"), (2023, "none"), (2023, "canonical"), (2023, "no_itemizing"),
+    (2024, "canonical"), (2025, "scaled"), (2026, "no_itemizing"), (2027, "scaled"),
+    (2028, "canonical"), (2029, "scaled"), (2031, "scaled"),
+])
+def test_hawaii_tax_arrays_match_the_per_unit_calculator(year, deductions):
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    from tax_modeler.liability.hawaii import _hawaii_tax_frame, _normalize_deduction_params
+
+    df = _tax_unit_frame()
+    params = _deduction_choice(deductions, year)
+    assert _hawaii_tax_frame(df, year, _normalize_deduction_params(params, year, "test")) is not None
+    _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=year, deduction_params=params),
+                      _per_unit_hawaii(df, year, params))
+
+
+@pytest.mark.parametrize("year,extrapolate", [
+    (2022, False), (2023, False), (2024, False), (2025, False), (2026, False),
+    (2027, True), (2029, True), (2031, True),
+])
+def test_ctc_arrays_match_calculate_ctc(year, extrapolate):
+    from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
+
+    from tax_modeler.credits.ctc import _ctc_arrays
+
+    df = _tax_unit_frame(1)
+    assert _ctc_arrays(df, year, extrapolate) is not None
+    want = apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=year, extrapolate=extrapolate))
+    _assert_same_bits(ctc_for_units(df, tax_year=year, extrapolate=extrapolate), want)
+    # Without the federal tax column, each unit's is computed from its income.
+    df = df.drop(columns=["federal_tax_before_credits", "filer_has_ssn"])
+    want = apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=year, extrapolate=extrapolate))
+    _assert_same_bits(ctc_for_units(df, tax_year=year, extrapolate=extrapolate), want)
+
+
+@pytest.mark.parametrize("year,extrapolate", [
+    (2022, False), (2023, False), (2024, False), (2025, False), (2026, False),
+    (2027, True), (2029, True), (2031, True),
+])
+def test_eitc_arrays_match_calculate_eitc(year, extrapolate):
+    from tax_modeler.credits.eitc import calculate_eitc, calculate_eitc_for_tax_units
+
+    from tax_modeler.credits.eitc import _eitc_arrays
+
+    df = _tax_unit_frame(2)
+    assert _eitc_arrays(df, year, extrapolate) is not None
+    want = apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=year, extrapolate=extrapolate))
+    _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=year, extrapolate=extrapolate), want)
+
+
+def test_int_valued_columns_keep_the_dtype_the_per_unit_frame_infers():
+    """Where every unit's value is a Python int (TY2023's standard deduction
+    and exemptions with no itemizing; a CTC every unit gets in full against
+    ample tax), the per-unit frame stores int64, and so must the arrays."""
+    from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    df = pd.DataFrame({
+        "income": [30_000.0, 80_000.0, 150_000.0],
+        "filing_status": ["single", "married_filing_jointly", "head_of_household"],
+        "num_dependents": [1, 2, 3],
+        "dependents": [[{"age": 3, "relationship": 25, "citizenship": 1}]] * 3,
+        "federal_tax_before_credits": [9e3, 9e3, 9e3],
+    })
+    got = calculate_hawaii_tax_for_units(df, tax_year=2023)
+    _assert_same_bits(got, _per_unit_hawaii(df, 2023, None))
+    assert got["hi_standard_deduction"].dtype == np.int64
+    assert got["hi_personal_exemptions"].dtype == np.int64
+    got = ctc_for_units(df, tax_year=2024)
+    _assert_same_bits(got, apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=2024)))
+    assert got["ctc_total"].dtype == np.int64
+
+
+@pytest.mark.parametrize("change", ["empty", "object_income", "nan_dependents"])
+def test_frames_the_arrays_skip_take_the_per_unit_path(change):
+    """The array versions hand these frames to the scalar calculators, which
+    then convert (or reject) each unit exactly as before."""
+    from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
+    from tax_modeler.credits.eitc import calculate_eitc, calculate_eitc_for_tax_units
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    df = _tax_unit_frame(3, n_random=50)
+    if change == "empty":
+        df = df.iloc[:0]
+    elif change == "object_income":
+        df["income"] = pd.Series([None if i % 5 == 0 else v for i, v in enumerate(df["income"])],
+                                 index=df.index, dtype=object)
+    else:
+        df["num_dependents"] = df["num_dependents"].astype(float)
+        df.iloc[3, df.columns.get_loc("num_dependents")] = np.nan
+        with pytest.raises(ValueError):          # int(NaN), in the scalar calculator
+            calculate_hawaii_tax_for_units(df, tax_year=2023)
+        return
+    _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=2023),
+                      _per_unit_hawaii(df, 2023, None))
+    _assert_same_bits(ctc_for_units(df, tax_year=2025),
+                      apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=2025)))
+    _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=2025),
+                      apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=2025)))
+
+
+def test_py_round_matches_round():
+    from tax_modeler.per_unit import py_round
+
+    rng = np.random.default_rng(4)
+    cents = rng.integers(-10**9, 10**9, 20_000)
+    x = np.concatenate([
+        rng.uniform(-1e5, 1e5, 20_000),
+        rng.lognormal(5, 4, 20_000),
+        (cents + 0.5) / 100,                     # ties on the half cent
+        cents / 100 + rng.choice([-1, 1], 20_000) * np.spacing(cents / 100),
+        [0.125, 0.375, 2.675, 1.005, -0.0, 0.0, -0.001, 1e300, -1e300, 4.5e13 + 0.005,
+         float("nan"), float("inf"), float("-inf"), 5e-324],
+    ])
+    got = py_round(x, 2)
+    want = np.array([round(float(v), 2) for v in x])
+    same = (got.view(np.int64) == want.view(np.int64)) | (np.isnan(got) & np.isnan(want))
+    assert same.all(), (x[~same][:5], got[~same][:5], want[~same][:5])
+
+
+def _calibrated_base():
+    from pathlib import Path
+
+    pkl = Path(__file__).resolve().parents[2] / "data" / "artifacts" / "sb3125_calibrated_base.pkl"
+    if not pkl.exists():
+        pytest.skip("needs data/artifacts/sb3125_calibrated_base.pkl (run the model chain)")
+    from tax_modeler.artifacts import load_calibrated_base
+    return load_calibrated_base(pkl)
+
+
+def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
+    """The MID population and one projected year, with the array versions and
+    with every unit through the scalar calculators: the same frame, bit for bit."""
+    import tax_modeler.credits.ctc as ctc
+    import tax_modeler.credits.eitc as eitc
+    import tax_modeler.liability.hawaii as hawaii
+    from tax_modeler.scenarios.act24_population import build_units, project_units
+
+    base, ded, _ = _calibrated_base()
+
+    def population():
+        units, _ = build_units(base, alpha=1.5, top_premium=0.010, ded_params=ded, cal_tax_year=2023)
+        return units, project_units(units, year=2029, top_premium=0.013, macro_shock="moderate")
+
+    fast = population()
+    monkeypatch.setattr(hawaii, "_hawaii_tax_frame", lambda *a, **k: None)
+    monkeypatch.setattr(ctc, "_ctc_arrays", lambda *a, **k: None)
+    monkeypatch.setattr(eitc, "_eitc_arrays", lambda *a, **k: None)
+    slow = population()
+    for got, want in zip(fast, slow, strict=True):
+        _assert_same_bits(got, want)
