@@ -502,8 +502,7 @@ def calculate_eitc_for_tax_units(
         DataFrame with EITC columns added.
     """
     results = []
-    for _, row in tax_units_df.iterrows():
-        unit = row.to_dict()
+    for unit in tax_units_df.to_dict("records"):
         eitc = calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate)
         unit.update(eitc)
         results.append(unit)
