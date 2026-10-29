@@ -47,17 +47,22 @@ and commit the data and pages on top.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import sys
 import time
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from _forecast_common import CALIBRATED_PKL, RUNS_DIR, cache_provenance  # noqa: E402
+from _forecast_common import ARTIFACT_DIR, CALIBRATED_PKL, RUNS_DIR, cache_provenance, fingerprint  # noqa: E402
+
+if TYPE_CHECKING:
+    from tax_modeler.simulator.population import Population
 
 OUT = RUNS_DIR / "tax_simulator"
 ENHANCED = RUNS_DIR / "sb3125_cd2_enhanced"
@@ -357,6 +362,28 @@ def write_preset_results(golden_path: Path, out: Path) -> None:
                                for p in presets()}) + "\n")
 
 
+def golden_key(pop: Population, credit_table: dict) -> str:
+    """The golden fixtures' inputs, hashed (:func:`_forecast_common.fingerprint`).
+
+    Scoring them is ~75 s of CPU, nearly all of --from-saved, yet they change
+    only with the model code, the population or the credits' cost table. The
+    population's build stamp, its calibrated base's commit and time, and the
+    cost table's source commit and time are left out: they move on every run,
+    and the fixtures do not contain them.
+    """
+    import numpy as np
+
+    arrays = b"".join(f"{k}|{v.dtype.str}|{v.shape}|".encode() + np.ascontiguousarray(v).tobytes()
+                      for k, v in sorted(pop.arrays.items()))
+    stamps = ("created_at", "git_sha")
+    meta = {k: v for k, v in pop.meta.items() if k != "built"}
+    meta["calibrated_base"] = {k: v for k, v in meta.get("calibrated_base", {}).items()
+                               if k not in stamps}
+    credits = {**credit_table, "source": {k: v for k, v in credit_table["source"].items()
+                                          if k not in stamps}}
+    return fingerprint(arrays, meta, credits, Path(__file__))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = ap.add_mutually_exclusive_group()
@@ -368,6 +395,8 @@ def main() -> int:
                       help="build and save the population, then stop (it needs only the calibrated "
                            "base, so rerun_models.py runs it beside the other models and then "
                            "--from-saved)")
+    ap.add_argument("--rebuild-golden", action="store_true",
+                    help="rewrite the golden fixtures even when their inputs are unchanged")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
     logging.disable(logging.WARNING)
@@ -450,8 +479,22 @@ def main() -> int:
     kernel = (REPO / "site/assets/simulator/kernel.js").read_bytes()
     web = write_web_files(pop, OUT / "web", kernel_source=kernel, credits=credit_table)
     print(f"  web files: {', '.join(f'{p.name} {p.stat().st_size / 1e6:.2f} MB' for p in web)}", flush=True)
-    golden = write_golden(pop, OUT / "golden.json.gz", credit_table=credit_table)
-    print(f"  golden fixtures: {golden}", flush=True)
+    # The key lives outside OUT so the run manifest does not list it; it
+    # records the fixtures' own hash too, so a replaced golden.json.gz misses.
+    golden_path, key_path = OUT / "golden.json.gz", ARTIFACT_DIR / "tax_simulator_golden.key"
+    key = golden_key(pop, credit_table)
+
+    def saved() -> str:
+        return f"{key} {hashlib.sha256(golden_path.read_bytes()).hexdigest()}"
+
+    if (not args.rebuild_golden and golden_path.exists() and key_path.exists()
+            and key_path.read_text().strip() == saved()):
+        print("  golden fixtures: inputs unchanged, kept golden.json.gz", flush=True)
+    else:
+        key_path.unlink(missing_ok=True)
+        golden = write_golden(pop, golden_path, credit_table=credit_table)
+        key_path.write_text(saved() + "\n")
+        print(f"  golden fixtures: {golden}", flush=True)
     write_preset_results(OUT / "golden.json.gz", OUT / "web" / "presets_results.json")
 
     write_run_manifest(

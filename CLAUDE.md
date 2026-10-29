@@ -17,6 +17,7 @@
 2. Change the code, run the full suite, **commit**.
 3. `python scripts/publish.py` — refuses on uncommitted code (manifests stamp HEAD), reruns the chain, imports the runs, rebuilds the simulator against the newly imported capital-gains figures, builds every page.
 4. If a result moved, update `SB3125_CD1_FORECAST.md` and commit it; then commit `site/` and `tests/simulator/`.
+   Two steps reuse cached work when their inputs are unchanged, keyed by `_forecast_common.fingerprint` (all of `packages/tax_modeler/src`, the Python/numpy/pandas versions, the step's own inputs): the working-family tax units (`data/artifacts/working_family_units.pkl`) and the simulator's golden fixtures (`--rebuild-golden` forces them). Deleting the `.key` files in `data/artifacts/` forces both.
 5. Open the PR; `python scripts/land_pr.py <number>` waits for checks, merges, waits for Pages, compares the live files with the merge commit, removes the worktree and local branch.
 
 ## Companion sync
