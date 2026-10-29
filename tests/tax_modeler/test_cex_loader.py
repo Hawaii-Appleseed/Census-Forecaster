@@ -32,6 +32,9 @@ def test_cex_loader(requires_irs_external):
 
     # Initialize the loader against the monorepo-resolved path
     data_dir = requires_irs_external / "cex"
+    # external/ can hold the IRS files (or just a placeholder) without the CEX extract
+    if not any(data_dir.glob("intrvw*/fmli*")):
+        pytest.skip(f"CEX interview files not present under {data_dir}")
     loader = CEXLoader(data_dir=data_dir)
     
     # Test loading family data
