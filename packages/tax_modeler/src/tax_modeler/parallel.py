@@ -9,6 +9,8 @@ Where the platform cannot fork, or there is only one item, it runs serially.
 
 ``CF_MAX_WORKERS`` caps the workers per call, so a runner that starts several
 steps at once (``scripts/rerun_models.py``) can share the cores between them.
+A caller that runs several fork_maps at once (one per scenario, say) gives
+each a share of that cap as ``cap``.
 """
 from __future__ import annotations
 
@@ -25,17 +27,20 @@ def _call(item: Any) -> Any:
     return _FORK_FN[-1](item)
 
 
-def max_workers(n_items: int) -> int:
-    cap = os.cpu_count() or 1
+def max_workers(n_items: int, cap: int | None = None) -> int:
+    limit = os.cpu_count() or 1
     env = os.environ.get("CF_MAX_WORKERS")
     if env:
-        cap = min(cap, max(1, int(env)))
-    return max(1, min(n_items, cap))
+        limit = min(limit, max(1, int(env)))
+    if cap is not None:
+        limit = min(limit, max(1, cap))
+    return max(1, min(n_items, limit))
 
 
-def fork_map(fn: Callable[[Any], Any], items: Iterable[Any]) -> list[Any]:
+def fork_map(fn: Callable[[Any], Any], items: Iterable[Any], *,
+             cap: int | None = None) -> list[Any]:
     items = list(items)
-    workers = max_workers(len(items))
+    workers = max_workers(len(items), cap)
     if workers == 1 or "fork" not in mp.get_all_start_methods():
         return [fn(x) for x in items]
     _FORK_FN.append(fn)

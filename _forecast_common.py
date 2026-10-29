@@ -52,11 +52,14 @@ def cache_provenance() -> dict | None:
 
 
 def fingerprint(*parts) -> str:
-    """A sha256 key for a cached step output: every file under
-    ``packages/tax_modeler/src``, the Python, numpy and pandas versions, and
-    *parts* — Paths (a file's bytes, a directory's files), bytes, or anything
-    ``json.dumps`` takes. Hashing the whole package, not the modules a step
-    imports, means any model change misses every cache: slower, never stale.
+    """A sha256 key for a cached step output: every file under each workspace
+    package's ``src`` (``tax_modeler`` and the ``census_forecaster``,
+    ``pums_estimator`` and ``common`` code it calls), the Python, numpy and
+    pandas versions, and *parts* — Paths (a file's bytes, a directory's
+    files), bytes, or anything ``json.dumps`` takes. Hashing whole packages,
+    not the modules a step imports, means any model change misses every
+    cache: slower, never stale. (Until 2026-10-29 only ``tax_modeler`` was
+    hashed, so a change in the packages it imports kept a stale cache.)
     """
     import hashlib
     import json
@@ -73,7 +76,8 @@ def fingerprint(*parts) -> str:
             h.update(str(f.relative_to(REPO) if f.is_relative_to(REPO) else f).encode())
             h.update(f.read_bytes())
 
-    add_path(REPO / "packages" / "tax_modeler" / "src")
+    for src in sorted((REPO / "packages").glob("*/src")):
+        add_path(src)
     h.update(f"{sys.version}|numpy {np.__version__}|pandas {pd.__version__}".encode())
     for part in parts:
         if isinstance(part, Path):

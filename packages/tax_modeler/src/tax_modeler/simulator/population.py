@@ -27,6 +27,7 @@ simulator and the Act 24 page score on the DOTAX-anchored base instead
 from __future__ import annotations
 
 import json
+import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -122,7 +123,9 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
 
     keys = list(SCENARIOS)
-    with ProcessPoolExecutor(max_workers=max_workers or len(keys)) as pool:
+    # Forked, not spawned: the workers start with this process's imports.
+    with ProcessPoolExecutor(max_workers=max_workers or len(keys),
+                             mp_context=mp.get_context("fork")) as pool:
         futures = {k: pool.submit(_scenario_worker, str(calibrated_path), k, tuple(years))
                    for k in keys}
         built = {k: f.result() for k, f in futures.items()}

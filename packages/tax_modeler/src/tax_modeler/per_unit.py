@@ -211,11 +211,37 @@ def first_present(df: pd.DataFrame, keys, default: float) -> np.ndarray | None:
 
 
 def numeric_column(df: pd.DataFrame, key) -> np.ndarray | None:
-    """Column ``key`` as float64 if its dtype is float, int or bool (whose
-    values convert exactly), else None."""
-    if str(df[key].dtype) not in ("float64", "int64", "bool", "float32", "int32"):
+    """Column ``key`` as float64 if it holds a numpy float, int or bool dtype
+    (whose values convert exactly, as ``tolist`` converts them for the scalar
+    code), else None: pandas' nullable dtypes hold ``pd.NA``, which the scalar
+    code treats differently from NaN."""
+    dtype = df[key].dtype
+    if not isinstance(dtype, np.dtype) or dtype.kind not in "iufb":
         return None
     return df[key].to_numpy(dtype=float)
+
+
+def group_sums(values: np.ndarray, codes: np.ndarray, n_groups: int) -> np.ndarray:
+    """``[pd.Series(values[codes == g]).sum() for g in range(n_groups)]``,
+    bit for bit, without a Python call per group.
+
+    ``Series.sum`` replaces NaN with 0 and sums with numpy's pairwise sum, so a
+    group's total depends on its values' order and count (``np.add.reduceat``,
+    which adds in sequence, differs in the last bits). Groups of the same size
+    are gathered, in their original order, into the rows of one contiguous
+    matrix, whose row sums run that same summation. Empty groups sum to 0.0.
+    """
+    values = np.where(np.isnan(values), 0.0, np.asarray(values, dtype=float))
+    codes = np.asarray(codes)
+    order = np.argsort(codes, kind="stable")
+    sizes = np.bincount(codes, minlength=n_groups)
+    starts = np.concatenate(([0], np.cumsum(sizes)[:-1]))
+    grouped = values[order]
+    out = np.zeros(n_groups)
+    for k in np.unique(sizes[sizes > 0]):
+        groups = np.flatnonzero(sizes == k)
+        out[groups] = grouped[starts[groups][:, None] + np.arange(k)].sum(axis=1)
+    return out
 
 
 def groups_by_value(values) -> list[tuple[Any, np.ndarray]]:

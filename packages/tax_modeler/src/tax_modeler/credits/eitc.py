@@ -528,7 +528,14 @@ def calculate_eitc_for_tax_units(
 def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
     """:func:`calculate_eitc`'s result keys for every unit, or None where the
     per-unit path is needed."""
-    from tax_modeler.per_unit import first_present, numeric_column, or_zero, py_max, py_min, py_round
+    from tax_modeler.per_unit import (
+        first_present,
+        numeric_column,
+        or_zero,
+        py_max,
+        py_min,
+        py_round,
+    )
 
     n = len(df)
     if n == 0 or not df.columns.is_unique:
@@ -566,7 +573,7 @@ def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional
             if raw is None or not np.isfinite(raw[childless]).all():
                 return None
             age = np.where(raw == 0, 40.0, np.trunc(raw))
-        alive &= ~(childless & ~((25 <= age) & (age <= 64)))
+        alive &= ~(childless & ~((age >= 25) & (age <= 64)))
 
     key = np.minimum(n_qualifying, 3)
 

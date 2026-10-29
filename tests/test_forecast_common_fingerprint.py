@@ -32,3 +32,22 @@ def test_a_directory_hashes_its_files(tmp_path):
     before = fingerprint(tmp_path)
     (tmp_path / "b.txt").write_text("b")
     assert fingerprint(tmp_path) != before
+
+
+def test_every_workspace_package_is_hashed(monkeypatch):
+    """A change in any package the model imports (not only tax_modeler)
+    changes the key."""
+    import _forecast_common
+
+    seen = []
+    real = Path.rglob
+
+    def spy(self, pattern):
+        seen.append(self)
+        return real(self, pattern)
+
+    monkeypatch.setattr(Path, "rglob", spy)
+    _forecast_common.fingerprint(b"x")
+    hashed = {p.relative_to(REPO).as_posix() for p in seen}
+    for src in (REPO / "packages").glob("*/src"):
+        assert src.relative_to(REPO).as_posix() in hashed

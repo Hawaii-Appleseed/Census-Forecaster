@@ -288,9 +288,11 @@ def _deduction_choice(name, year):
     (2028, "canonical"), (2029, "scaled"), (2031, "scaled"),
 ])
 def test_hawaii_tax_arrays_match_the_per_unit_calculator(year, deductions):
-    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
-
-    from tax_modeler.liability.hawaii import _hawaii_tax_frame, _normalize_deduction_params
+    from tax_modeler.liability.hawaii import (
+        _hawaii_tax_frame,
+        _normalize_deduction_params,
+        calculate_hawaii_tax_for_units,
+    )
 
     df = _tax_unit_frame()
     params = _deduction_choice(deductions, year)
@@ -304,9 +306,7 @@ def test_hawaii_tax_arrays_match_the_per_unit_calculator(year, deductions):
     (2027, True), (2029, True), (2031, True),
 ])
 def test_ctc_arrays_match_calculate_ctc(year, extrapolate):
-    from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
-
-    from tax_modeler.credits.ctc import _ctc_arrays
+    from tax_modeler.credits.ctc import _ctc_arrays, calculate_ctc, ctc_for_units
 
     df = _tax_unit_frame(1)
     assert _ctc_arrays(df, year, extrapolate) is not None
@@ -323,14 +323,37 @@ def test_ctc_arrays_match_calculate_ctc(year, extrapolate):
     (2027, True), (2029, True), (2031, True),
 ])
 def test_eitc_arrays_match_calculate_eitc(year, extrapolate):
-    from tax_modeler.credits.eitc import calculate_eitc, calculate_eitc_for_tax_units
-
-    from tax_modeler.credits.eitc import _eitc_arrays
+    from tax_modeler.credits.eitc import _eitc_arrays, calculate_eitc, calculate_eitc_for_tax_units
 
     df = _tax_unit_frame(2)
     assert _eitc_arrays(df, year, extrapolate) is not None
     want = apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=year, extrapolate=extrapolate))
     _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=year, extrapolate=extrapolate), want)
+
+
+@pytest.mark.parametrize("year", [2023, 2028])
+def test_arrays_read_narrow_and_categorical_columns_like_the_scalar_code(year):
+    """The poverty pipeline's frames carry int8 dependents and a categorical
+    filing status; float32 and unsigned columns convert exactly too."""
+    from tax_modeler.artifacts import load_canonical_deduction_params
+    from tax_modeler.credits.ctc import _ctc_arrays, calculate_ctc, ctc_for_units
+    from tax_modeler.credits.eitc import _eitc_arrays, calculate_eitc, calculate_eitc_for_tax_units
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    df = _tax_unit_frame(5, n_random=1500)
+    df["num_dependents"] = df["num_dependents"].astype(np.int8)
+    df["filing_status"] = df["filing_status"].astype("category")
+    df["primary_agep"] = df["primary_agep"].astype(np.float32)
+    df["investment_income"] = df["investment_income"].astype(np.float32)
+    df["federal_tax_before_credits"] = df["federal_tax_before_credits"].fillna(0).astype(np.uint32)
+    params = load_canonical_deduction_params()
+    _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=year, deduction_params=params),
+                      _per_unit_hawaii(df, year, params))
+    assert _ctc_arrays(df, year, True) is not None and _eitc_arrays(df, year, True) is not None
+    _assert_same_bits(ctc_for_units(df, tax_year=year, extrapolate=True),
+                      apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=year, extrapolate=True)))
+    _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=year, extrapolate=True),
+                      apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=year, extrapolate=True)))
 
 
 def test_int_valued_columns_keep_the_dtype_the_per_unit_frame_infers():
@@ -434,3 +457,20 @@ def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
     slow = population()
     for got, want in zip(fast, slow, strict=True):
         _assert_same_bits(got, want)
+
+
+def test_group_sums_match_series_sum_per_group():
+    """Each group's total is Series.sum's on that group, bit for bit: NaNs
+    skipped, signed zeros kept, sizes 1-40 and empty groups."""
+    from tax_modeler.per_unit import group_sums
+
+    rng = np.random.default_rng(6)
+    n_groups = 3000
+    codes = rng.integers(0, n_groups, 40_000)
+    codes = np.concatenate([codes, np.repeat(7, 40)])        # one group of 40+
+    values = -rng.exponential(0.4, len(codes)) * rng.choice([1, 1, 1, 0, -0.0], len(codes))
+    values[rng.random(len(codes)) < 0.02] = np.nan
+    got = group_sums(values, codes, n_groups + 5)            # the last 5 groups are empty
+    for g in range(n_groups + 5):
+        want = pd.Series(values[codes == g], dtype=float).sum()
+        assert np.float64(want).tobytes() == got[g].tobytes(), g

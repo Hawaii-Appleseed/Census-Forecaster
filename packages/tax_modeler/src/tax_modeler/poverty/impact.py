@@ -326,6 +326,16 @@ def _scenario_resources(
     raise ValueError(f"unknown scenario: {scenario!r}")
 
 
+def _group_positions(units: pd.DataFrame, group_col: Optional[str]) -> list[tuple[object, np.ndarray]]:
+    """Each group's key and row positions, in the order :func:`_aggregate`
+    reports them: the whole frame for ``group_col=None``, else
+    ``units.groupby(group_col)`` (missing keys kept), rows in frame order."""
+    if group_col is None:
+        return [("__state__", units.index.get_indexer(units.index))]
+    return [(k, units.index.get_indexer(g.index))
+            for k, g in units.groupby(group_col, observed=True, dropna=False)]
+
+
 def _aggregate(
     units: pd.DataFrame,
     *,
@@ -334,20 +344,25 @@ def _aggregate(
     person_weight: np.ndarray,
     filer_weight: np.ndarray,
     scenarios: Sequence[str],
+    groups: Optional[list[tuple[object, np.ndarray]]] = None,
 ) -> pd.DataFrame:
-    """Per-geography aggregation for baseline + every scenario."""
-    if group_col is None:
-        groups: list[tuple[object, pd.Index]] = [("__state__", units.index)]
-    else:
-        groups = [(k, g.index) for k, g in units.groupby(group_col, observed=True, dropna=False)]
+    """Per-geography aggregation for baseline + every scenario.
+
+    ``groups`` is :func:`_group_positions` of ``units`` and ``group_col``,
+    for a caller that aggregates the same frame many times (the replicate
+    weights); None computes it here.
+    """
+    if groups is None:
+        groups = _group_positions(units, group_col)
+    resources = units["spm_resources"].to_numpy(dtype=float)
+    scn_resources = {scn: units[f"spm_resources_{scn}"].to_numpy(dtype=float) for scn in scenarios}
 
     rows = []
-    for key, idx in groups:
-        pos = units.index.get_indexer(idx)
+    for key, pos in groups:
         pw = person_weight[pos]
         fw = filer_weight[pos]
         thr = threshold[pos]
-        baseline_r = units.loc[idx, "spm_resources"].to_numpy(dtype=float)
+        baseline_r = resources[pos]
 
         # Persons in poverty baseline (using person weights).
         poor_baseline = baseline_r < thr
@@ -370,7 +385,7 @@ def _aggregate(
             row[group_col] = key
 
         for scn in scenarios:
-            scn_r = units.loc[idx, f"spm_resources_{scn}"].to_numpy(dtype=float)
+            scn_r = scn_resources[scn][pos]
             poor_scn = scn_r < thr
             persons_in_poverty_scn = float(pw[poor_scn].sum())
             pov_rate_scn = (
@@ -851,6 +866,8 @@ def compute_poverty_impact_with_se(
         ("by_household_type", "filing_status", headline.by_household_type),
     ]
     rep_frames: dict[str, list[pd.DataFrame]] = {name: [] for name, _, _ in geo_axes}
+    # Every replicate aggregates the same frame: group it once per axis.
+    axis_groups = {name: _group_positions(df, group_col) for name, group_col, _ in geo_axes}
 
     for r_idx, rcol in enumerate(rep_cols):
         filer_w = df[rcol].astype(float).to_numpy()
@@ -864,6 +881,7 @@ def compute_poverty_impact_with_se(
                     person_weight=person_w,
                     filer_weight=filer_w,
                     scenarios=scenarios,
+                    groups=axis_groups[name],
                 )
             )
         if (r_idx + 1) % 20 == 0:

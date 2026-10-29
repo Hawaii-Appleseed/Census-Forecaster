@@ -201,7 +201,8 @@ CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors
                       "scenario), statutory alternative tax (HRS §235-51(f))")
 
 
-def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None):
+def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None,
+                     year_workers=None):
     """Top-level worker (must be picklable) for ProcessPoolExecutor.
 
     Each worker is a fresh Python process — package imports rely on
@@ -213,13 +214,13 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains
     return run_one_scenario(
         base, scenario=scenario_dict, target_years=target_years, cd=cd,
         ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
-        gains_factors=gains_factors,
+        gains_factors=gains_factors, year_workers=year_workers,
     )
 
 
 def run_one_scenario(
     base_calibrated, *, scenario, target_years, cd="1",
-    ded_params=None, cal_tax_year=2023, gains_factors=None,
+    ded_params=None, cal_tax_year=2023, gains_factors=None, year_workers=None,
 ):
     """Run a single scenario across all target years and return per-year rows.
 
@@ -235,6 +236,9 @@ def run_one_scenario(
     on the DOTAX-anchored base; both laws are scored with the statutory
     alternative tax. None (tests, diagnostics) keeps the model's own gains
     base and the stacked shortcut.
+
+    The years are scored in forked workers, at most ``year_workers`` at once
+    (None: up to ``CF_MAX_WORKERS`` or the cores).
     """
     if ded_params is None:
         from tax_modeler.artifacts import load_canonical_deduction_params
@@ -318,8 +322,9 @@ def run_one_scenario(
     # effect: migration phases each change in from the year it starts.
     path = top_rate_path(TaxSystemRegistry.get_act46_system, get_scenario_system,
                          range(2027, max(target_years) + 1), calc)
-    rows = []
-    for year in target_years:
+    # Each year scores its own projection of the same units, so the years
+    # run in forked workers and come back in target_years order.
+    def one_year(year):
         t0 = time.perf_counter()
         # 1-2) County B19013 projection with per-filer effective deductions,
         #      the top-income growth premium, the recession shock (RECESSION
@@ -421,14 +426,16 @@ def run_one_scenario(
                 "reec_ind_refundable_share":      credit.get("reec_ind_refundable_share"),
                 "reec_interpretation":            credit.get("reec_interpretation"),
             })
-        rows.append(row)
         print(f"  TY {year}: static={diff_static:+.1f}M  "
               f"ETI={diff_behav-diff_static:+.1f}M  "
               f"PTE={-pte_shift:+.1f}M  "
               f"-> bracket={bracket_delta_after_response:+.1f}M  "
               f"credit={credit_total:+.1f}M  "
               f"TOTAL={total:+.1f}M  ({time.perf_counter()-t0:.1f}s)", flush=True)
-    return rows
+        return row
+
+    from tax_modeler.parallel import fork_map
+    return fork_map(one_year, target_years, cap=year_workers)
 
 
 if __name__ == "__main__":
@@ -528,21 +535,28 @@ if __name__ == "__main__":
             calibrated_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
             ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS)
 
-        # Parallel: run all four scenarios concurrently. Each worker imports
-        # its own modules and reads the calibrated parquet. With the
-        # vectorized compare_systems, each scenario takes ~30-60s on its
-        # own; in parallel the wall-clock collapses to one scenario's worth.
+        # Parallel: run all four scenarios concurrently, each reading the
+        # calibrated pickle and scoring its years in forked workers of its own.
+        # The scenario workers are forked too (not spawned), so they start
+        # with this process's imports instead of importing everything again.
+        import multiprocessing as mp
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
         all_rows = []
         n_workers = min(len(SCENARIOS), 4)
-        print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
+        # The scenarios and the MID quintile analysis below each score their
+        # years in forked workers; they share the usual cap (CF_MAX_WORKERS or
+        # the cores) between them rather than each taking all of it.
+        from tax_modeler.parallel import max_workers
+        year_workers = max(1, max_workers(len(TARGET_YEARS) * (n_workers + 1)) // (n_workers + 1))
+        print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label}), "
+              f"{year_workers} year worker(s) each...", flush=True)
         # The MID quintile analysis below needs only GAINS_FACTORS, so it runs
         # here while the workers score the scenarios, not after them.
-        pool = ProcessPoolExecutor(max_workers=n_workers)
+        pool = ProcessPoolExecutor(max_workers=n_workers, mp_context=mp.get_context("fork"))
         futures = {
             pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                        GAINS_FACTORS): sc["label"]
+                        GAINS_FACTORS, year_workers): sc["label"]
             for sc in SCENARIOS
         }
 
@@ -579,10 +593,10 @@ if __name__ == "__main__":
               f"${base_2026_breaks[0]:,.0f} / ${base_2026_breaks[1]:,.0f} / "
               f"${base_2026_breaks[2]:,.0f} / ${base_2026_breaks[3]:,.0f}", flush=True)
 
-        quintile_frames = []
-        bracket_frames  = []
-
-        for yr in TARGET_YEARS:
+        # Each year's report reads only its own projection, so the years run
+        # in forked workers (alongside the scenario workers) and come back in
+        # TARGET_YEARS order.
+        def one_quintile_year(yr):
             projected_q = apply_anchor_factors(
                 project_units(q_units, year=yr, top_premium=mid_sc["top_premium"]),
                 GAINS_FACTORS[yr])
@@ -632,10 +646,12 @@ if __name__ == "__main__":
             )
             q_df.insert(0, "tax_year", yr)
             b_df.insert(0, "tax_year", yr)
-            quintile_frames.append(q_df)
-            bracket_frames.append(b_df)
             print(f"  TY {yr} quintile done", flush=True)
+            return q_df, b_df
 
+        from tax_modeler.parallel import fork_map
+        quintile_frames, bracket_frames = zip(
+            *fork_map(one_quintile_year, TARGET_YEARS, cap=year_workers), strict=True)
         all_quintiles = pd.concat(quintile_frames, ignore_index=True)
         all_brackets  = pd.concat(bracket_frames,  ignore_index=True)
 

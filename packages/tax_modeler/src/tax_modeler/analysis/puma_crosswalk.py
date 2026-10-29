@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from functools import lru_cache
+from functools import cache, lru_cache
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -105,11 +105,13 @@ def _puma_district_options() -> Dict[int, List[Tuple[int, int]]]:
 # Deterministic district picker
 # ---------------------------------------------------------------------------
 
+@cache
 def _pick_district(puma: int, row_key: str) -> Tuple[int, int]:
     """Return a reproducible (house_district, senate_district) pair for a row.
 
     Uses MD5 of ``"puma_{puma}_{row_key}"`` to index into the sorted list of
-    valid pairs for that PUMA, giving stable assignments across runs.
+    valid pairs for that PUMA, giving stable assignments across runs. Cached:
+    every projection assigns the same units again.
     """
     options = _puma_district_options().get(puma, [])
     if not options:

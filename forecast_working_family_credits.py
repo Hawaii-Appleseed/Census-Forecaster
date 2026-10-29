@@ -333,17 +333,26 @@ def _household_frame(u: pd.DataFrame) -> pd.DataFrame:
     own filer weight (they differ within a household), so group totals are
     the revenue table's; ``hh_weight`` (WGTP) counts households.
     """
+    from tax_modeler.per_unit import group_sums
+
     income_col = "total_cash_income" if "total_cash_income" in u.columns else "income"
     g = u.groupby("hh_id", observed=True)
+    income = g[income_col].sum()
+    # A household loses if any of its tax units claims: q = 1 - prod(1 - q_unit),
+    # each household's log sum as Series.sum adds it (group_sums).
+    q = u["_claim_prob"].to_numpy(dtype=float)
+    log_miss = np.log1p(-np.where(q > 1 - 1e-12, 1 - 1e-12, q))
+    codes = g.ngroup().to_numpy(dtype=float)
+    kept = ~np.isnan(codes)                  # groupby drops units with no hh_id
     hh = pd.DataFrame({
-        "income": g[income_col].sum(),
+        "income": income,
         "loss": g["act163_sunset_loss"].sum(),
         "loss_w": (u["act163_sunset_loss"] * u["weight"]).groupby(u["hh_id"], observed=True).sum(),
         "hh_weight": g["hh_weight"].first() if "hh_weight" in u.columns else g["weight"].first(),
         "children": g["num_dependents"].sum(),
-        "joint": g["filing_status"].agg(lambda s: (s == "married_filing_jointly").any()),
-        # A household loses if any of its tax units claims: q = 1 - prod(1 - q_unit).
-        "claim_prob": 1 - np.exp(g["_claim_prob"].apply(lambda s: np.log1p(-s.clip(upper=1 - 1e-12)).sum())),
+        "joint": (u["filing_status"] == "married_filing_jointly").groupby(u["hh_id"], observed=True).any(),
+        "claim_prob": 1 - np.exp(pd.Series(
+            group_sums(log_miss[kept], codes[kept].astype(np.int64), g.ngroups), index=income.index)),
     })
     return hh
 

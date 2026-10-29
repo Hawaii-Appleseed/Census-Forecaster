@@ -255,7 +255,9 @@ def _scale_credit_income_inputs(
     if "county" in df.columns:
         county = df["county"].astype(object).to_numpy()
         med = pd.Series(unit_ratio).groupby(county).median()
-        fill = np.array([med.get(c, overall) for c in county], dtype=float)
+        # Each unit's county median (NaN for a missing county), then the
+        # overall median wherever that is NaN.
+        fill = pd.Series(county, dtype=object).map(med).to_numpy(dtype=float)
         fill = np.where(np.isnan(fill), overall, fill)
     unit_ratio = np.where(np.isnan(unit_ratio), fill, unit_ratio)
 
