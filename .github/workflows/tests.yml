@@ -15,6 +15,11 @@ on:
   pull_request:
     branches: [main]
 
+# A new push to a PR cancels that PR's run still in progress.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Fast smoke job: synthetic-fixture-only, runs on every push, < 30s.
   # Failures here block the slow suite below.
@@ -33,6 +38,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+          enable-cache: true
 
       - name: Install workspace (dev only, smoke fixture has no external deps)
         run: uv sync --all-packages --extra dev
@@ -76,16 +82,22 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+          enable-cache: true
 
       - name: Install workspace (all packages + dev + ml)
         run: uv sync --all-packages --extra dev --extra ml
 
+      # One run per version. 3.12 runs it under coverage rather than running
+      # the suite a second time for the summary (that doubled its job to ~11 min).
       - name: Run full test suite
+        if: matrix.python-version != '3.12'
         run: uv run pytest tests/ -v --tb=short
+
+      - name: Run full test suite (with coverage)
+        if: matrix.python-version == '3.12'
+        run: uv run coverage run --source=packages -m pytest tests/ -v --tb=short
 
       - name: Show coverage summary
         if: matrix.python-version == '3.12'
         continue-on-error: true
-        run: |
-          uv run coverage run --source=packages -m pytest tests/
-          uv run coverage report -m
+        run: uv run coverage report -m
