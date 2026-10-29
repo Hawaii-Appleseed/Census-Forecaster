@@ -845,18 +845,23 @@ class TaxCalculator:
         # row whose exemption was NaN (loop's int(NaN) → ValueError → except).
         liabilities[nan_exemp] = 0.0
 
-        # Credits — per-filer Python loop (HawaiiTaxCredits is not vectorized).
-        # Profile shows credits are ~10-15% of original runtime; bracket math
-        # was the dominant cost. Skip vectorization here for now. Skip rows
-        # whose exemptions or dependents were NaN to match the loop version's
+        # Credits, every unit at once (HawaiiTaxCredits.total_credits_arrays,
+        # the per-unit method's arithmetic). The per-unit loop this replaced
+        # was most of the simulator build. Rows with a non-finite income or
+        # tax go through the per-unit method, as before. Skip rows whose
+        # exemptions or dependents were NaN to match the loop version's
         # silent-drop behavior.
         credit_calc = HawaiiTaxCredits(year=config.year)
         total_credits = np.zeros(n, dtype=float)
         total_cdcc = np.zeros(n, dtype=float)
         skip = nan_exemp | nan_dep
-        for i in range(n):
-            if skip[i]:
-                continue
+        fast = ~skip & np.isfinite(incomes) & np.isfinite(liabilities)
+        if fast.any():
+            total_credits[fast], total_cdcc[fast] = credit_calc.total_credits_arrays(
+                incomes[fast], statuses[fast], num_dependents[fast], liabilities[fast],
+                credit_scenario=config.credit_scenario,
+            )
+        for i in np.flatnonzero(~skip & ~fast):
             try:
                 cr = credit_calc.calculate_total_credits(
                     agi=float(incomes[i]),

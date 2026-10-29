@@ -419,6 +419,37 @@ def _eitc_households() -> list[dict]:
     return out
 
 
+# The cases' system factories are closures, which cannot be pickled to a
+# spawned worker; forked workers inherit them, and this, from the parent.
+_FORK_STATE: dict = {}
+
+
+def _score_case(i: int) -> dict:
+    pop, raw_cases, dists, calc = (_FORK_STATE[k] for k in ("pop", "raw_cases", "dists", "calc"))
+    c = raw_cases[i]
+    return _case_from_systems(pop, c["name"], c["baseline_for"], c["system_for"],
+                              c["first_year"], calc, dists[i])
+
+
+def _score_cases(pop: Population, raw_cases: list[dict], dists: list, calc: TaxCalculator) -> list[dict]:
+    """``_case_from_systems`` for every case, in order. Cases are independent
+    and each is a few seconds of scoring, so they run in forked workers (one
+    per core) where the platform can fork, and in this process otherwise."""
+    import multiprocessing as mp
+    import os
+    from concurrent.futures import ProcessPoolExecutor
+
+    _FORK_STATE.update(pop=pop, raw_cases=raw_cases, dists=dists, calc=calc)
+    try:
+        if "fork" not in mp.get_all_start_methods():
+            return [_score_case(i) for i in range(len(raw_cases))]
+        workers = min(len(raw_cases), os.cpu_count() or 1)
+        with ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("fork")) as pool:
+            return list(pool.map(_score_case, range(len(raw_cases))))
+    finally:
+        _FORK_STATE.clear()
+
+
 def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 12,
                  n_random_cg: int = 4) -> str:
     """``credit_table``: the credits' cost table, as the page's metadata
@@ -432,12 +463,10 @@ def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 1
                   "system_for": _statute(TaxSystemRegistry.get_sb3125_cd2_system)}]
     raw_cases += [{"name": s.name, "first_year": s.first_year, "baseline_for": s.baseline_for,
                    "system_for": s.system_for} for s in specs]
-    cases = []
-    for c in raw_cases:
-        # Full distribution for the anchor case and presets; one year for the rest.
-        dist = pop.years if c["name"] == "act24_vs_act46" or c["name"] in preset_names else (2029,)
-        cases.append(_case_from_systems(pop, c["name"], c["baseline_for"], c["system_for"],
-                                        c["first_year"], calc, dist))
+    # Full distribution for the anchor case and presets; one year for the rest.
+    dists = [pop.years if c["name"] == "act24_vs_act46" or c["name"] in preset_names else (2029,)
+             for c in raw_cases]
+    cases = _score_cases(pop, raw_cases, dists, calc)
     households, household_systems = _households(calc)
     spec_resolution = [{"spec": d, "systems": {str(y): system_to_json(s.system_for(y), calc)
                                                for y in pop.years}}

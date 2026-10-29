@@ -222,6 +222,92 @@ class HawaiiTaxCredits:
 
         return credits
 
+    def total_credits_arrays(self, agi: np.ndarray, filing_status: np.ndarray,
+                             num_dependents: np.ndarray, tax_before_credits: np.ndarray,
+                             credit_scenario: Optional[str] = None,
+                             ) -> tuple[np.ndarray, np.ndarray]:
+        """:meth:`calculate_total_credits` for arrays of units: ``(total, child_care)``.
+
+        The same arithmetic in the same order, so each unit's floats equal the
+        scalar method's. Python's ``max(a, b)``/``min(a, b)`` keep ``a`` unless
+        ``b`` is strictly greater/smaller, which differs from ``np.maximum``/
+        ``np.minimum`` on signed zeros and NaN; ``_pymax``/``_pymin`` keep that.
+        Callers must pass finite ``agi`` and ``tax_before_credits`` (the scalar
+        method covers the rest; see ``TaxCalculator.unit_liabilities``).
+        """
+        from tax_modeler.credits.hi_food_excise import (
+            _JOINT_TABLE_STATUSES,
+            _per_exemption,
+            hawaii_food_excise_parameters,
+        )
+
+        def _pymax(a, b):
+            return np.where(b > a, b, a)
+
+        def _pymin(a, b):
+            return np.where(b < a, b, a)
+
+        agi = np.asarray(agi, dtype=float)
+        status = np.asarray(filing_status, dtype=object)
+        deps = np.asarray(num_dependents, dtype=np.int64)
+        tax = np.asarray(tax_before_credits, dtype=float)
+        joint = status == 'married_filing_jointly'
+
+        # Food/excise (hi_food_excise.food_excise_credit)
+        p = hawaii_food_excise_parameters(self.year)
+        n_ex = 1 + deps + joint.astype(np.int64)
+        clipped = _pymax(agi, 0.0)
+        per_ex = np.zeros(len(agi), dtype=float)
+        joint_table = np.isin(status, list(_JOINT_TABLE_STATUSES))
+        for table, m in ((p.joint, joint_table), (p.single, ~joint_table)):
+            if m.any():
+                per_ex[m] = _per_exemption(clipped[m], table, p.income_threshold_factor)
+        food = per_ex * _pymax(n_ex, 0) * p.amount_pct
+
+        # Renewable energy
+        renewable = np.where((agi < 50000) | (agi > 300000), 0.0,
+                             np.where(agi < 100000, 0.02 * 1500,
+                                      np.where(agi < 200000, 0.02 * 2500, 0.02 * 3500)))
+
+        # Child and dependent care
+        if credit_scenario == 'hb2306_hd1':
+            cap = np.where(deps == 1, 10_000, 20_000)
+            pct = np.select(
+                [agi <= 80_000, agi <= 90_000, agi <= 100_000, agi <= 110_000, agi <= 120_000,
+                 agi <= 130_000, agi <= 140_000, agi <= 150_000, agi <= 160_000],
+                [0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10], 0.05)
+            phased_out = np.zeros(len(agi), dtype=bool)
+        elif credit_scenario == 'sb3125_sd1':
+            cap = np.where(deps == 1, 10_000, 20_000)
+            steps = np.ceil(_pymax(0, agi - 43_000) / 3_000)
+            pct = _pymax(0.15, 0.35 - 0.01 * steps)
+            phased_out = np.zeros(len(agi), dtype=bool)
+        else:
+            cap = np.where(deps == 1, 3_000, 6_000)
+            pct = np.where(agi <= 25_000, 0.25,
+                           np.where(agi <= 43_000, 0.25 - 0.05 * (agi - 25_000) / 18_000, 0.20))
+            phased_out = agi > 100_000
+        expenses = _pymin(12_000 * deps, cap)
+        child_care = np.where((deps == 0) | phased_out, 0.0, expenses * pct)
+
+        # Low-income renters
+        threshold = np.full(len(agi), 30000.0)
+        for fs, t in (('single', 30000), ('married_filing_jointly', 40000),
+                      ('head_of_household', 35000), ('married_filing_separately', 20000)):
+            threshold[status == fs] = t
+        renters = np.where(agi > threshold, 0.0,
+                           np.where(agi < 15000, 0.30 * 150,
+                                    np.where(agi < 25000, 0.30 * 100, 0.30 * 50)))
+
+        if credit_scenario in ('hb2306_hd1', 'sb3125_sd1'):
+            refundable = food + renters + child_care
+            nonrefundable = renewable
+        else:
+            refundable = food + renters
+            nonrefundable = renewable + child_care
+        nonrefundable = _pymin(nonrefundable, tax)
+        return refundable + nonrefundable, child_care
+
 
 def calculate_hawaii_credits(agi: float, filing_status: str,
                              num_dependents: int = 0,

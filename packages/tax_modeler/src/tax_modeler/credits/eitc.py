@@ -501,12 +501,9 @@ def calculate_eitc_for_tax_units(
     Returns:
         DataFrame with EITC columns added.
     """
-    results = []
-    for unit in tax_units_df.to_dict("records"):
-        eitc = calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate)
-        unit.update(eitc)
-        results.append(unit)
-    return pd.DataFrame(results)
+    from tax_modeler.per_unit import apply_per_unit
+    return apply_per_unit(
+        tax_units_df, lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
 
 
 def get_eitc_summary_stats(tax_units_df: pd.DataFrame) -> Dict[str, float]:
