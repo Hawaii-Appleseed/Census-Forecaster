@@ -51,6 +51,40 @@ def cache_provenance() -> dict | None:
         return json.load(f)
 
 
+def fingerprint(*parts) -> str:
+    """A sha256 key for a cached step output: every file under
+    ``packages/tax_modeler/src``, the Python, numpy and pandas versions, and
+    *parts* — Paths (a file's bytes, a directory's files), bytes, or anything
+    ``json.dumps`` takes. Hashing the whole package, not the modules a step
+    imports, means any model change misses every cache: slower, never stale.
+    """
+    import hashlib
+    import json
+
+    import numpy as np
+    import pandas as pd
+
+    h = hashlib.sha256()
+
+    def add_path(p: Path) -> None:
+        files = sorted(f for f in p.rglob("*") if f.is_file() and "__pycache__" not in f.parts) \
+            if p.is_dir() else [p]
+        for f in files:
+            h.update(str(f.relative_to(REPO) if f.is_relative_to(REPO) else f).encode())
+            h.update(f.read_bytes())
+
+    add_path(REPO / "packages" / "tax_modeler" / "src")
+    h.update(f"{sys.version}|numpy {np.__version__}|pandas {pd.__version__}".encode())
+    for part in parts:
+        if isinstance(part, Path):
+            add_path(part)
+        elif isinstance(part, bytes):
+            h.update(part)
+        else:
+            h.update(json.dumps(part, sort_keys=True, default=str).encode())
+    return h.hexdigest()
+
+
 def silence_noise() -> None:
     """Suppress library warnings/log spam in analytical script output."""
     warnings.filterwarnings("ignore")

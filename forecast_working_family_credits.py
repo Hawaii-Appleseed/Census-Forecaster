@@ -104,11 +104,43 @@ EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
 
 
 def load_population():
+    """The tax units and persons, from a cache when its inputs are unchanged.
+
+    Building them from PUMS is ~40 s of CPU, most of this script, and the
+    result moves only with PUMS, the model code or this script. A cache hit
+    restores numpy's global generator to where the build leaves it: the PUMA
+    0100 county imputation reseeds it per unit, so that state is the same on
+    every build whatever it was on entry, and later draws depend on it.
+    (Python's ``random`` is not reseeded on this path; its state after a
+    build differs run to run, cached or not.)
+    """
+    import pickle
+
+    from _forecast_common import ARTIFACT_DIR, fingerprint
+
+    cache = ARTIFACT_DIR / "working_family_units.pkl"
+    key_path = cache.with_suffix(".key")
+    key = fingerprint(PUMS_DIR, REPO / "scripts" / "poverty_impact_report.py", Path(__file__))
+    if cache.exists() and key_path.exists() and key_path.read_text().strip() == key:
+        with open(cache, "rb") as f:
+            units, persons, np_state = pickle.load(f)
+        np.random.set_state(np_state)
+        print(f"  tax units from {cache.relative_to(REPO)} (inputs unchanged)", flush=True)
+        return units, persons
+
     import poverty_impact_report as pir
     from tax_modeler.pipeline import enrich_with_spm_unit_id
 
     units, persons = pir._load_units(PUMS_DIR, False, with_replicate_weights=True)
     units, persons = enrich_with_spm_unit_id(units, persons)
+    key_path.unlink(missing_ok=True)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache.with_suffix(".tmp")
+    with open(tmp, "wb") as f:
+        pickle.dump((units, persons, np.random.get_state()), f,
+                    protocol=pickle.HIGHEST_PROTOCOL)
+    tmp.replace(cache)
+    key_path.write_text(key + "\n")
     return units, persons
 
 
