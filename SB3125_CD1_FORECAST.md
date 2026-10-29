@@ -3369,7 +3369,7 @@ columns.
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `forecast_act24_vs_pre_act46.py` | Act 24 vs **pre-Act-46 (2017) law** — the frame comparable to ITEP's ~$1.4B/yr Act 46 figure. Decomposes into Act 46 banked ≤2026 / Act 46 remaining / Act 24 increment, and carries a tie-out column (`tieout_act24_page`) checking that column C equals the Act 24 page's static bracket change. | `runs/act24_vs_pre_act46/decomposition.csv` |
+| `forecast_act24_vs_pre_act46.py` | Act 24 vs **pre-Act-46 (2017) law** — the frame comparable to ITEP's ~$1.4B/yr Act 46 figure. Decomposes into Act 46 banked ≤2026 / Act 46 remaining / Act 24 increment, and carries a tie-out column (`tieout_act24_page`) checking that column C equals the Act 24 page's static bracket change. The copy published 2026-10-09 carried a stale tie-out (TY2027 $22.69M against the page's $50.71M; the decomposition columns were right); republished 2026-10-29, where it ties out every year. | `runs/act24_vs_pre_act46/decomposition.csv` |
 
 ### Key Package Files
 
