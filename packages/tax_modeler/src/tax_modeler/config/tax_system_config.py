@@ -14,6 +14,7 @@ import numpy as np
 import logging
 
 from tax_modeler.liability.cg_alternative import alternative_tax
+from tax_modeler.per_unit import groups_by_value
 
 logger = logging.getLogger(__name__)
 
@@ -723,9 +724,8 @@ class TaxCalculator:
     ) -> np.ndarray:
         """Vectorized bracket tax over an array of taxable incomes and statuses."""
         out = np.zeros(len(taxable_income), dtype=float)
-        for fs in np.unique(statuses):
+        for fs, mask in groups_by_value(statuses):
             floors, rates, cum = self._bracket_schedule(config, fs)
-            mask = statuses == fs
             ti = taxable_income[mask]
             # searchsorted side='right' → idx s.t. floors[idx-1] <= ti < floors[idx]
             idx = np.searchsorted(floors, ti, side='right') - 1
@@ -799,8 +799,8 @@ class TaxCalculator:
         # Column-name override was removed — always use the standard logic so callers
         # cannot silently pass a wrong column.
         sd_per_filer = np.empty(n, dtype=float)
-        for fs in np.unique(statuses):
-            sd_per_filer[statuses == fs] = self.standard_deduction_for(config, fs)
+        for fs, mask in groups_by_value(statuses):
+            sd_per_filer[mask] = self.standard_deduction_for(config, fs)
         itemized = itemized_deductions(tax_units)
         deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
@@ -824,9 +824,8 @@ class TaxCalculator:
             # HRS §235-51(f), per filing status (liability.cg_alternative);
             # with no gains it is exactly the bracket tax.
             liabilities = np.zeros(n, dtype=float)
-            for fs in np.unique(statuses):
+            for fs, m in groups_by_value(statuses):
                 floors, rates, cum = self._bracket_schedule(config, fs)
-                m = statuses == fs
                 liabilities[m] = alternative_tax(taxable_full[m], cg_income[m], floors, rates,
                                                  cum, config.cg_alt_rate)
         else:
@@ -986,8 +985,8 @@ class TaxCalculator:
         _n = len(tax_units)
         _statuses = tax_units[filing_status_col].to_numpy()
         _sd = np.empty(_n, dtype=float)
-        for _fs in np.unique(_statuses):
-            _sd[_statuses == _fs] = self.standard_deduction_for(config, _fs)
+        for _fs, _mask in groups_by_value(_statuses):
+            _sd[_mask] = self.standard_deduction_for(config, _fs)
         _itemized = itemized_deductions(tax_units)
         deductions = _sd if _itemized is None else np.maximum(_sd, _itemized)
 

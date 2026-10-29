@@ -325,9 +325,10 @@ def federal_tax_before_credits(
     )
     taxable = np.maximum(np.nan_to_num(income) - sd, 0.0)
     tax = np.zeros(income.size, dtype=float)
-    for s in np.unique(status):
+    from tax_modeler.per_unit import groups_by_value
+
+    for s, mask in groups_by_value(status):
         key = s if s in brackets_by_status else "single"
-        mask = status == s
         tax[mask] = _tax_from_brackets(taxable[mask], brackets_by_status[key])
     return tax
 

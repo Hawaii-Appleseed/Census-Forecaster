@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 # Columns of these dtypes come back from a dict round trip unchanged, so they
@@ -117,3 +118,20 @@ def apply_per_unit(df: pd.DataFrame, fn: Callable[[Mapping], Mapping]) -> pd.Dat
         if k not in out:
             out[k] = computed[k]
     return pd.DataFrame(out, index=index)
+
+
+def groups_by_value(values) -> list[tuple[Any, np.ndarray]]:
+    """``[(v, values == v) for v in np.unique(values)]``: each distinct value,
+    in sorted order, with the mask of the rows that hold it.
+
+    Built by hashing (``pd.factorize``) rather than ``np.unique``, which sorts
+    the whole array: for an array of filing-status strings that sort was most
+    of the scoring kernel's time. Arrays with missing values take the
+    ``np.unique`` path, so they behave exactly as before.
+    """
+    values = np.asarray(values)
+    codes, uniques = pd.factorize(values)
+    if (codes < 0).any():
+        return [(v, values == v) for v in np.unique(values)]
+    order = sorted(range(len(uniques)), key=lambda k: uniques[k])
+    return [(uniques[k], codes == k) for k in order]
