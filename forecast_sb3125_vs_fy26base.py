@@ -176,11 +176,11 @@ def main(cd: str) -> None:
         flush=True,
     )
 
-    rows = []
-    quintile_frames, bracket_frames = [], []
-    wedge_by_year = {}
-
-    for yr in TARGET_YEARS:
+    # Each year projects and scores the same base on its own, so the years
+    # run in forked workers and come back in TARGET_YEARS order.
+    def one_year(yr):
+        rows = []
+        fwd_kept = None
         print(f"  TY {yr}...", flush=True)
 
         projected, fwd = project_and_recalibrate(
@@ -197,7 +197,7 @@ def main(cd: str) -> None:
             method="ensemble",
         )
         if fwd is not None and fwd.statute_vs_cor_wedge is not None:
-            wedge_by_year[yr] = fwd
+            fwd_kept = fwd
             print(
                 f"    statute-vs-COR wedge: statutory ${fwd.statutory_tax_M:,.0f}M "
                 f"vs COR ${fwd.aggregate_tax_M:,.0f}M (ratio {fwd.statute_vs_cor_wedge:.3f})",
@@ -235,8 +235,18 @@ def main(cd: str) -> None:
         )
         q_df.insert(0, "tax_year", yr)
         b_df.insert(0, "tax_year", yr)
+        return rows, q_df, b_df, fwd_kept
+
+    from tax_modeler.parallel import fork_map
+    rows = []
+    quintile_frames, bracket_frames = [], []
+    wedge_by_year = {}
+    for yr, (yr_rows, q_df, b_df, fwd) in zip(TARGET_YEARS, fork_map(one_year, TARGET_YEARS), strict=True):
+        rows += yr_rows
         quintile_frames.append(q_df)
         bracket_frames.append(b_df)
+        if fwd is not None:
+            wedge_by_year[yr] = fwd
 
     df_summary = pd.DataFrame(rows)
     all_quintiles = pd.concat(quintile_frames, ignore_index=True)

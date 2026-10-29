@@ -11,9 +11,11 @@ The order the steps depend on:
    own ``runs/`` directory): ``forecast_act24_vs_pre_act46.py``,
    ``forecast_sb3125_vs_fy26base.py --cd 2``, ``forecast_cg_rate_options.py``
    and ``forecast_working_family_credits.py``.
-3. ``scripts/build_simulator_population.py``, which prices its credit options
-   from the working-family-credits run and checks itself against the Act 24
-   and capital-gains runs.
+   ``scripts/build_simulator_population.py --population-only`` builds the
+   simulator's population beside them, since it too needs only step 1.
+3. ``scripts/build_simulator_population.py --from-saved``, which prices its
+   credit options from the working-family-credits run and checks itself
+   against the Act 24 and capital-gains runs.
 
 Each step's output goes to ``runs/chain_logs/<step>.log``. A failed step stops
 the chain before the next stage. Importing the runs into the site is left to
@@ -35,13 +37,14 @@ STAGES: list[list[list[str]]] = [
     [["forecast_act24_vs_pre_act46.py"],
      ["forecast_sb3125_vs_fy26base.py", "--cd", "2"],
      ["forecast_cg_rate_options.py"],
-     ["forecast_working_family_credits.py"]],
-    [["scripts/build_simulator_population.py"]],
+     ["forecast_working_family_credits.py"],
+     ["scripts/build_simulator_population.py", "--population-only"]],
+    [["scripts/build_simulator_population.py", "--from-saved"]],
 ]
 
 
 def _name(cmd: list[str]) -> str:
-    return Path(cmd[0]).stem
+    return "_".join([Path(cmd[0]).stem, *(a.lstrip("-") for a in cmd[1:])])
 
 
 def main() -> int:

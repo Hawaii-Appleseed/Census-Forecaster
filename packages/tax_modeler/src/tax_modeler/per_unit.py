@@ -8,7 +8,8 @@ frame for a fraction of the cost.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -24,13 +25,74 @@ def unit_dicts(df: pd.DataFrame) -> list[dict]:
     return [dict(zip(cols, row, strict=True)) for row in zip(*(df[c].tolist() for c in cols), strict=True)]
 
 
-def apply_per_unit(df: pd.DataFrame, fn: Callable[[dict], Mapping]) -> pd.DataFrame:
+class _Columns:
+    """A frame's columns as Python lists, each built the first time a row reads it."""
+
+    __slots__ = ("df", "names", "lists")
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        self.names = list(df.columns)
+        self.lists: dict[Any, list] = {}
+
+    def column(self, key: Any) -> list:
+        try:
+            return self.lists[key]
+        except KeyError:
+            if key not in self.df.columns:
+                raise
+            values = self.lists[key] = self.df[key].tolist()
+            return values
+
+
+class UnitRow(Mapping):
+    """One row of a frame as a read-only mapping: the same keys and values as
+    its ``to_dict("records")`` dict, but a column is only built into Python
+    values when some row reads it. The calculators read a few of a unit's
+    100-odd columns, so this skips building the rest."""
+
+    __slots__ = ("_cols", "_i")
+
+    def __init__(self, cols: _Columns, i: int):
+        self._cols = cols
+        self._i = i
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._cols.column(key)[self._i]
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        try:
+            return self._cols.column(key)[self._i]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._cols.lists or key in self._cols.df.columns
+
+    def __iter__(self) -> Iterator:
+        return iter(self._cols.names)
+
+    def __len__(self) -> int:
+        return len(self._cols.names)
+
+
+def unit_rows(df: pd.DataFrame) -> list[Mapping]:
+    """The rows of ``df`` as :class:`UnitRow` mappings (plain dicts from
+    :func:`unit_dicts` if its column names repeat, where a mapping cannot say
+    which one a key means)."""
+    if not df.columns.is_unique:
+        return unit_dicts(df)
+    cols = _Columns(df)
+    return [UnitRow(cols, i) for i in range(len(df))]
+
+
+def apply_per_unit(df: pd.DataFrame, fn: Callable[[Mapping], Mapping]) -> pd.DataFrame:
     """``pd.DataFrame([{**u, **fn(u)} for u in df.to_dict("records")])``.
 
     Same columns in the same order, values and dtypes, and a fresh RangeIndex.
-    ``fn`` must not modify the dict it is given.
+    ``fn`` is given each unit as a read-only mapping (:func:`unit_rows`).
     """
-    units = unit_dicts(df)
+    units = unit_rows(df)
     results = [fn(u) for u in units]
     keys = list(dict.fromkeys(k for r in results for k in r))
     cols = list(df.columns)

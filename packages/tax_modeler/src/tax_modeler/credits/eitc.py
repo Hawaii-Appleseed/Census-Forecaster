@@ -24,6 +24,7 @@ Key rules:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cache
 from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
@@ -254,6 +255,14 @@ def eitc_parameters_for_year(tax_year: int, *, extrapolate: bool = False) -> EIT
     )
 
 
+@cache
+def _cached_eitc_parameters(tax_year: int, extrapolate: bool) -> EITCParameters:
+    """:func:`eitc_parameters_for_year`, built once per year for the per-unit
+    calculator, which only reads it. Callers that might change their copy
+    keep using :func:`eitc_parameters_for_year`."""
+    return eitc_parameters_for_year(tax_year, extrapolate=extrapolate)
+
+
 def classify_eitc_region(
     earned_income,
     num_qualifying_children,
@@ -336,7 +345,7 @@ def calculate_eitc(
             - eitc_qualifying_children: Number of qualifying children for EITC
             - eitc_eligible: Whether the unit is eligible for EITC at all
     """
-    params = eitc_parameters_for_year(tax_year, extrapolate=extrapolate)
+    params = _cached_eitc_parameters(tax_year, extrapolate)
 
     result = {
         'eitc_amount': 0.0,

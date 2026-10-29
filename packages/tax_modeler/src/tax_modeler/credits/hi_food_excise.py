@@ -33,7 +33,9 @@ Reform DSL (``Reform.benefit_overrides["hi_food_excise"]``):
 """
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import dataclass, replace
+from functools import cache
 from typing import Mapping, Optional
 
 import numpy as np
@@ -82,6 +84,13 @@ def hawaii_food_excise_parameters(tax_year: Optional[int] = None) -> HawaiiFoodE
     With ``tax_year`` omitted, returns the Act 163 schedule (law in effect
     when this was written, 2026).
     """
+    return _food_excise_parameters(tax_year)
+
+
+@cache
+def _food_excise_parameters(tax_year: int | None) -> HawaiiFoodExciseParameters:
+    # Cached: the parameters are frozen, and the scalar credit asks for them
+    # once per tax unit.
     if tax_year is None or ACT163_FIRST_YEAR <= tax_year <= ACT163_LAST_YEAR:
         return HawaiiFoodExciseParameters()
     return HawaiiFoodExciseParameters(single=PRIOR_SINGLE, joint=PRIOR_JOINT)
@@ -120,8 +129,16 @@ def food_excise_credit(
     legacy credit paths). ``n_exemptions`` = filer + spouse + dependents."""
     p = params or hawaii_food_excise_parameters(tax_year)
     table = p.joint if filing_status in _JOINT_TABLE_STATUSES else p.single
-    per_ex = _per_exemption(np.array([max(float(agi), 0.0)]), table, p.income_threshold_factor)[0]
+    ceilings, amounts = _schedule_lists(table, p.income_threshold_factor)
+    # _per_exemption for one value: the same float comparisons and products.
+    per_ex = amounts[bisect_right(ceilings, max(float(agi), 0.0))]
     return float(per_ex * max(int(n_exemptions), 0) * p.amount_pct)
+
+
+@cache
+def _schedule_lists(schedule: Schedule, factor: float) -> tuple[list[float], list[float]]:
+    """``_per_exemption``'s ceilings and amounts as Python floats."""
+    return ([float(c) * factor for c, _ in schedule], [float(a) for _, a in schedule] + [0.0])
 
 
 def compute_hi_food_excise_for_units(

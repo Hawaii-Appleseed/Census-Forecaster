@@ -364,6 +364,10 @@ def main() -> int:
                       help="load the saved population and re-run the checks; write only their reports")
     mode.add_argument("--from-saved", action="store_true",
                       help="load the saved population; rewrite web files, golden fixtures and preset results")
+    mode.add_argument("--population-only", action="store_true",
+                      help="build and save the population, then stop (it needs only the calibrated "
+                           "base, so rerun_models.py runs it beside the other models and then "
+                           "--from-saved)")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
     logging.disable(logging.WARNING)
@@ -395,6 +399,8 @@ def main() -> int:
         pop.save(OUT)
         print(f"  {pop.n_units:,} units, {pop.meta['n_households']:,} households "
               f"({time.perf_counter() - t0:.0f}s)", flush=True)
+        if args.population_only:
+            return 0
 
     from tax_modeler.simulator.gains import ensure_gains_anchor
 

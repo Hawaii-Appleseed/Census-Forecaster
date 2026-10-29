@@ -10,6 +10,7 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 import hashlib
+from collections.abc import Mapping
 from typing import Dict, List, Tuple
 import logging
 
@@ -153,6 +154,12 @@ class PUMA0100Imputer:
         
         return {'Maui': maui_prob, 'Kauai': kauai_prob}
     
+    @staticmethod
+    def _unit_seed(tax_unit: Mapping) -> int:
+        tax_unit_id = tax_unit.get('filer_id', tax_unit.get('SERIALNO', ''))
+        seed_string = f"puma0100_{tax_unit_id}_county_assignment"
+        return int(hashlib.md5(seed_string.encode()).hexdigest()[:8], 16)
+
     def assign_county(self, tax_unit: Dict, use_deterministic: bool = True) -> str:
         """
         Assign a county to a tax unit from PUMA 0100.
@@ -168,10 +175,7 @@ class PUMA0100Imputer:
         
         if use_deterministic:
             # Use deterministic randomization based on tax unit ID for consistency
-            tax_unit_id = tax_unit.get('filer_id', tax_unit.get('SERIALNO', ''))
-            seed_string = f"puma0100_{tax_unit_id}_county_assignment"
-            seed = int(hashlib.md5(seed_string.encode()).hexdigest()[:8], 16)
-            np.random.seed(seed)
+            np.random.seed(self._unit_seed(tax_unit))
         
         # Assign based on probabilities
         random_value = np.random.random()
@@ -202,12 +206,23 @@ class PUMA0100Imputer:
         
         logger.info(f"Imputing county assignments for {puma_0100_count:,} PUMA 0100 tax units")
         
-        # Apply imputation to PUMA 0100 tax units
+        # Apply imputation to PUMA 0100 tax units: assign_county for each,
+        # reading only the columns it uses (per_unit.unit_rows) and drawing
+        # from a generator seeded the way assign_county seeds the global one.
+        from tax_modeler.per_unit import unit_rows
+
         imputed_counties = []
-        for _, row in df[puma_0100_mask].iterrows():
-            tax_unit = row.to_dict()
-            county = self.assign_county(tax_unit)
-            imputed_counties.append(county)
+        seed = None
+        for tax_unit in unit_rows(df[puma_0100_mask]):
+            probabilities = self.calculate_county_probability(tax_unit)
+            seed = self._unit_seed(tax_unit)
+            draw = np.random.RandomState(seed).random_sample()
+            imputed_counties.append('Maui' if draw < probabilities['Maui'] else 'Kauai')
+        if seed is not None:
+            # Leave numpy's global generator as assign_county's reseeding did:
+            # later draws in the same process depend on it.
+            np.random.seed(seed)
+            np.random.random()
         
         # Update the county column for PUMA 0100 tax units
         df.loc[puma_0100_mask, 'county'] = imputed_counties

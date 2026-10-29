@@ -12,7 +12,6 @@ import logging
 import time
 import os
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple, Union, Any, Generator, Set
 import pandas as pd
 import numpy as np
@@ -295,24 +294,12 @@ class TaxUnitConstructor:
         
         # Process batches
         if parallel and self.num_processes > 1:
-            # Process batches in parallel
-            with ProcessPoolExecutor(max_workers=self.num_processes) as executor:
-                # Submit all batches
-                future_to_batch = {
-                    executor.submit(self._process_household_batch, batch): i 
-                    for i, batch in enumerate(batches)
-                }
-                
-                # Process results as they complete
-                for future in (tqdm(as_completed(future_to_batch), 
-                                 total=len(batches),
-                                 desc="Processing households",
-                                 disable=not self.progress_bar) 
-                             if self.progress_bar else as_completed(future_to_batch)):
-                    
-                    batch_units, batch_issues = future.result()
-                    tax_units.extend(batch_units)
-                    validation_issues.extend(batch_issues)
+            # Batches run in forked workers and come back in batch order, so
+            # the units are in the same order as a sequential build.
+            from tax_modeler.parallel import fork_map
+            for batch_units, batch_issues in fork_map(self._process_household_batch, batches):
+                tax_units.extend(batch_units)
+                validation_issues.extend(batch_issues)
         else:
             # Process batches sequentially
             for batch in (tqdm(batches, desc="Processing households", disable=not self.progress_bar) 

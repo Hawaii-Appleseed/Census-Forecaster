@@ -128,8 +128,13 @@ def mid_gains_factors(
     Every scenario's gains are rescaled with these, so DOTAX anchors MID and
     the other scenarios' gains move with their own top incomes."""
     from tax_modeler.calibration.cg_anchor import anchor_factors
+    from tax_modeler.parallel import fork_map
 
     units, _ = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
                            ded_params=ded_params, cal_tax_year=cal_tax_year)
-    return {int(y): anchor_factors(project_units(units, year=y, top_premium=top_premium), y)
-            for y in years}
+    years = [int(y) for y in years]
+    # Each year projects the same units on its own, so the years run in
+    # forked workers.
+    factors = fork_map(
+        lambda y: anchor_factors(project_units(units, year=y, top_premium=top_premium), y), years)
+    return dict(zip(years, factors, strict=True))
