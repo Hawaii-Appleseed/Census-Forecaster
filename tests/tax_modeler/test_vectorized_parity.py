@@ -156,3 +156,20 @@ def test_fork_map_returns_results_in_order():
     big = pd.DataFrame({"x": np.arange(1000.0)})
     assert fork_map(lambda i: float(big["x"].iloc[i] * 2), range(12)) == [2.0 * i for i in range(12)]
     assert fork_map(lambda i: i, []) == []
+
+
+@pytest.mark.parametrize("values", [
+    np.array(STATUSES * 50, dtype=object)[np.random.default_rng(3).permutation(300)],
+    np.array(["single"] * 7),                       # numpy unicode, one value
+    pd.array(STATUSES * 3, dtype="string[pyarrow]").to_numpy(),
+    np.array([3, 1, 2, 3, 1]),
+    np.array([], dtype=object),
+])
+def test_groups_by_value_match_np_unique(values):
+    from tax_modeler.per_unit import groups_by_value
+
+    got = groups_by_value(values)
+    want = [(v, values == v) for v in np.unique(values)]
+    assert [g[0] for g in got] == [w[0] for w in want]
+    for (_, a), (_, b) in zip(got, want, strict=True):
+        assert np.array_equal(a, b)

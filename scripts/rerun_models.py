@@ -17,6 +17,11 @@ The order the steps depend on:
    credit options from the working-family-credits run and checks itself
    against the Act 24 and capital-gains runs.
 
+The steps run with Python's bytecode cache on, kept under
+``runs/.pycache`` (``PYTHONPYCACHEPREFIX``), even where the shell turns it
+off (``PYTHONDONTWRITEBYTECODE``): otherwise every step recompiles pandas,
+numpy, scipy and the model from source, about a second per process.
+
 Each step's output goes to ``runs/chain_logs/<step>.log``. A failed step stops
 the chain before the next stage. Importing the runs into the site is left to
 ``scripts/build_site.py --import-runs`` (see its docstring), so publishing
@@ -24,6 +29,7 @@ stays a separate, reviewed step.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -47,8 +53,15 @@ def _name(cmd: list[str]) -> str:
     return "_".join([Path(cmd[0]).stem, *(a.lstrip("-") for a in cmd[1:])])
 
 
+def _env() -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
+    env.setdefault("PYTHONPYCACHEPREFIX", str(REPO / "runs" / ".pycache"))
+    return env
+
+
 def main() -> int:
     LOGS.mkdir(parents=True, exist_ok=True)
+    env = _env()
     t_all = time.perf_counter()
     for stage in STAGES:
         procs = []
@@ -56,7 +69,7 @@ def main() -> int:
             log = open(LOGS / f"{_name(cmd)}.log", "w")  # noqa: SIM115 (open while the step runs)
             procs.append((cmd, log, time.perf_counter(),
                           subprocess.Popen([sys.executable, *cmd], cwd=REPO, stdout=log,
-                                           stderr=subprocess.STDOUT)))
+                                           stderr=subprocess.STDOUT, env=env)))
             print(f"started {' '.join(cmd)}", flush=True)
         failed = []
         for cmd, log, t0, proc in procs:

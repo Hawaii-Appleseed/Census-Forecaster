@@ -212,14 +212,15 @@ def _per_filer_marginal_rate(
     """
     from tax_modeler.config.tax_system_config import itemized_deductions
     from tax_modeler.liability.hawaii import exemption_counts
+    from tax_modeler.per_unit import groups_by_value
 
     incomes = df[income_col].to_numpy(dtype=float)
     statuses = df[fs_col].to_numpy()
     n = len(df)
 
     sd_per_filer = np.empty(n, dtype=float)
-    for fs in np.unique(statuses):
-        sd_per_filer[statuses == fs] = calculator.standard_deduction_for(config, fs)
+    for fs, mask in groups_by_value(statuses):
+        sd_per_filer[mask] = calculator.standard_deduction_for(config, fs)
     itemized = itemized_deductions(df)
     deductions = sd_per_filer if itemized is None else np.maximum(sd_per_filer, itemized)
 
@@ -232,11 +233,10 @@ def _per_filer_marginal_rate(
     taxable = np.maximum(0.0, incomes - deductions - exemption_amount)
 
     mtrs = np.zeros(n, dtype=float)
-    for fs in np.unique(statuses):
+    for fs, mask in groups_by_value(statuses):
         brackets = calculator.brackets_for(config, fs)
         boundaries = brackets["income_min"].to_numpy(dtype=float)
         rates = brackets["rate_decimal"].to_numpy(dtype=float)
-        mask = statuses == fs
         # searchsorted(side='right') returns idx with
         # boundaries[idx-1] <= taxable < boundaries[idx]; the bracket
         # the filer is in has rate rates[idx-1].

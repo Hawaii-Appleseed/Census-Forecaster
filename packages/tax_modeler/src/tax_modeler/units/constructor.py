@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 # Import modular components
 from .status import is_married_filing_jointly, is_married_filing_separately, is_head_of_household
-from .income import calculate_tax_unit_income, extract_person_income_components
+from .income import calculate_persons_income, extract_person_income_components
 from .dependencies import identify_dependents
 from .utils import setup_logging, validate_input_data, create_person_id
 from .fixes import apply_overcounting_fixes
@@ -291,6 +291,8 @@ class TaxUnitConstructor:
         
         # Create batches of households
         batches = self._create_batches(self.person_df)
+        if not self.hh_df.empty:
+            self._household_rows()  # built once here, so forked workers inherit it
         
         # Process batches
         if parallel and self.num_processes > 1:
@@ -531,6 +533,22 @@ class TaxUnitConstructor:
         for issue in (i for i in issues if get_severity(i) not in ['ERROR', 'WARNING']):
             logger.info(f"Validation info: {get_message(issue)}")
 
+    def _household_rows(self) -> dict:
+        rows = getattr(self, '_hh_rows', None)
+        if rows is None:
+            rows = self._hh_rows = {}
+            for pos, serial in enumerate(self.hh_df['SERIALNO'].tolist()):
+                rows.setdefault(serial, pos)
+        return rows
+
+    def _hh_row(self, hh_id) -> int:
+        """Position of the first ``hh_df`` row whose SERIALNO equals ``hh_id``
+        (``IndexError`` if none, as ``.iloc[0]`` of an empty match raises)."""
+        try:
+            return self._household_rows()[hh_id]
+        except KeyError:
+            raise IndexError(f"household {hh_id} not in hh_df") from None
+
     def _process_household(self, hh_group: pd.DataFrame) -> List[dict]:
         """
         Process a single household and return a list of tax units using vectorized operations.
@@ -569,8 +587,9 @@ class TaxUnitConstructor:
         hh_id = hh_group['SERIALNO'].iloc[0]
         logger.info(f"Processing household {hh_id} with {len(hh_group)} members")
         
-        # Use vectorized operation to get household data
-        hh_data = self.hh_df[self.hh_df['SERIALNO'] == hh_id].iloc[0] if not self.hh_df.empty else {}
+        # The household's record: its first row in hh_df, found through a
+        # SERIALNO -> row index instead of a scan of hh_df per household.
+        hh_data = self.hh_df.iloc[self._hh_row(hh_id)] if not self.hh_df.empty else {}
         
         # Skip households with zero weight (group quarters, invalid data)
         hh_weight = float(hh_data.get('WGTP', 0))
@@ -1209,9 +1228,8 @@ class TaxUnitConstructor:
         # above still includes dependents, so the unit's weight basis
         # (household-vs-person, used by _calculate_hybrid_weight /
         # _compute_replicate_weights) is unchanged; only the income sum drops them.
-        income_df = pd.DataFrame([adult1, adult2])
         # Disable 2026 growth projection for SOI 2022 comparison
-        income = calculate_tax_unit_income(income_df, apply_2026_growth=False)
+        income = calculate_persons_income([adult1, adult2], apply_2026_growth=False)
 
         # Calculate hybrid weight
         hh_weight = float(hh_data.get('WGTP', 1.0))
@@ -1565,9 +1583,8 @@ class TaxUnitConstructor:
         # so the unit's weight basis is unchanged; only the income sum drops them.
         try:
             adult_row = adult.to_dict() if hasattr(adult, 'to_dict') else adult
-            income_df = pd.DataFrame([adult_row])
             # Disable 2026 growth projection for SOI 2022 comparison
-            income = calculate_tax_unit_income(income_df, apply_2026_growth=False)
+            income = calculate_persons_income([adult_row], apply_2026_growth=False)
         except Exception as e:
             logger.error(f"Error calculating income for tax unit: {e}")
             income = 0.0

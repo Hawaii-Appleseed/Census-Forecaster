@@ -120,3 +120,19 @@ def calculate_tax_unit_income(
         lambda person: calculate_person_income(person, apply_2026_growth, is_resident),
         axis=1
     ).sum()
+
+
+def calculate_persons_income(
+    persons: List[Union[pd.Series, Dict]],
+    apply_2026_growth: bool = True,
+    is_resident: bool = True,
+) -> float:
+    """``calculate_tax_unit_income(pd.DataFrame(persons), ...)`` without
+    building the frame: the same per-person incomes, summed the way
+    ``Series.sum`` sums them (NaN counted as 0, numpy's addition order).
+    The tax-unit constructor calls this once or twice per household, where
+    building a one- or two-row frame cost more than the income itself."""
+    if not persons:
+        return 0.0
+    incomes = [calculate_person_income(p, apply_2026_growth, is_resident) for p in persons]
+    return np.add.reduce(np.array([0.0 if x != x else x for x in incomes], dtype=float))

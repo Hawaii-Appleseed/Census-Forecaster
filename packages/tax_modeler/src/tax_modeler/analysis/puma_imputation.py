@@ -213,10 +213,12 @@ class PUMA0100Imputer:
 
         imputed_counties = []
         seed = None
+        rng = np.random.RandomState()
         for tax_unit in unit_rows(df[puma_0100_mask]):
             probabilities = self.calculate_county_probability(tax_unit)
             seed = self._unit_seed(tax_unit)
-            draw = np.random.RandomState(seed).random_sample()
+            rng.seed(seed)
+            draw = rng.random_sample()
             imputed_counties.append('Maui' if draw < probabilities['Maui'] else 'Kauai')
         if seed is not None:
             # Leave numpy's global generator as assign_county's reseeding did:
