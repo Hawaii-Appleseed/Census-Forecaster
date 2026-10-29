@@ -879,7 +879,7 @@ def build_working_families() -> tuple[str, dict]:
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(manifest["created_at"]))} · Tax years {Y} to {last}</p>
 </div></section>
 <div class="ha-est__stats">
-<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y} (give or take about {millions(samp["Total loss, $ millions"]["margin_90"])}), which is also what renewing them would cost the state.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(r["total_loss_$M"])}</div><div class="ha-est__stat-label">in <strong>lost credits</strong> for working families in {Y} (give or take about {millions(samp['Total loss, $ millions']['margin_90'])}), which is also what renewing them would cost the state.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{losing_hh / 1000:,.0f},000</div><div class="ha-est__stat-label">households would <strong>receive less</strong> in credits in {Y}.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{dollars(single_parent["avg_loss_per_losing_household"])}</div><div class="ha-est__stat-label">is the average loss for a <strong>single-parent household</strong>.</div></div>
 </div>"""
@@ -914,7 +914,7 @@ def build_working_families() -> tuple[str, dict]:
                    _r["eitc_reverted_$M"] + _r["food_reverted_$M"]),
     ]
     s2 = section("What Families Lose", f"""
-{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}, with {millions(r['eitc_loss_$M'])} coming from the state earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp["Total loss, $ millions"]["margin_90"])} either way (Table 8).")}
+{lead("When the expansions expire,", f"working families will receive about {millions(r['total_loss_$M'])} less in tax year {Y}, with {millions(r['eitc_loss_$M'])} coming from the state earned income tax credit and {millions(r['food_loss_$M'])} from the food/excise tax credit. Renewing both would cost the state the same amount, about {millions(five_year)} over tax years {Y} to {last}.{notes.ref(T_code)} Sampling error puts the {Y} loss within about {millions(samp['Total loss, $ millions']['margin_90'])} either way (Table 8).")}
 <p>The food/excise credit’s amounts and income limits are not adjusted for inflation. As wages rise, fewer households qualify for the credit, and its value decreases. At its current level of expansion, the credit would provide {millions(rev[years[0]]['food_expanded_$M'])} in {Y} and {millions(rev[last]['food_expanded_$M'])} in {last}. The state earned income tax credit follows the federal credit, which does increase with inflation.</p>
 {figure(1, f"Credit Dollars Working Families Lose Each Year, Hawaiʻi ({Y} to {last})",
         stacked_column_chart([str(y) for y in years], s2_series, label=fig1_label),
