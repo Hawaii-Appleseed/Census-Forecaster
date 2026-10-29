@@ -299,6 +299,14 @@ export function systemsWithoutGainsRate(parsed, meta) {
 
 // ---- share links: #plan=<base64url JSON> ---------------------------------------
 
+/** Whether two model versions ("<date>+<content hash>") score plans the same.
+ *  The hash covers everything a plan's numbers depend on; the date is when
+ *  the calibrated base was built, which an identical rerun changes. */
+export function sameModelRun(a, b) {
+  const hash = (v) => String(v).slice(String(v).indexOf("+") + 1);
+  return hash(a) === hash(b);
+}
+
 export function encodeSpec(spec) {
   const bytes = new TextEncoder().encode(JSON.stringify(spec));
   let bin = "";

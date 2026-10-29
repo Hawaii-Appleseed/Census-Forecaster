@@ -7,6 +7,7 @@ import { CG_ORDINARY, parseSpec, householdTax, federalEitc } from "./kernel.js";
 import {
   STATUS_KEYS, LINK, EITC_RENEW, clone, stateFromSpec, activeVintages, specFromState, syncLinked, setTopRate,
   setTopFloor, editorRows, editableRows, addBracket, removeBracket, warnings, encodeSpec, decodeSpec,
+  sameModelRun,
 } from "./plan.js";
 
 const root = document.getElementById("sim-app");
@@ -736,7 +737,7 @@ function loadPlan(hash) {
   if (shared) {
     try {
       parseSpec(shared, meta); initial = shared;
-      if (shared.model_version && shared.model_version !== meta.model_version) {
+      if (shared.model_version && !sameModelRun(shared.model_version, meta.model_version)) {
         notice = "This link was made with an earlier model run; the numbers have been updated since.";
       }
     } catch { notice = "The plan in this link could not be read, so the page starts from current law."; }
