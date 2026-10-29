@@ -162,7 +162,7 @@ def _load_units(
         persons.copy(), households.copy(),
         use_soi_calibration=False, progress_bar=False,
     )
-    units = ctor.create_rule_based_units(parallel=False)
+    units = ctor.create_rule_based_units(parallel=True)
     units = enrich_for_credits(units)
     units = assign_geography(units)
     return units, persons

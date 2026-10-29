@@ -12,8 +12,6 @@ import numpy as np
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import logging
-import joblib
-from sklearn.ensemble import RandomForestClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +53,11 @@ class MLTaxUnitValidator:
         # Load model if path is provided
         if model_path and Path(model_path).exists():
             try:
+                # Imported here, not at module level: joblib and the
+                # scikit-learn model it unpickles take ~1.4 s to import, and
+                # the constructor imports this module whether or not it is
+                # given a model.
+                import joblib
                 self.model = joblib.load(model_path)
                 logger.info(f"Loaded ML model from {model_path}")
             except Exception as e:

@@ -206,6 +206,7 @@ def _project_one_indicator(
 # ---------------------------------------------------------------------------
 
 
+@functools.lru_cache(maxsize=256)
 def project_acs_supplement(
     target_year: int,
     geoid: str,
@@ -231,7 +232,10 @@ def project_acs_supplement(
     Returns
     -------
     AcsSupplement
-        Container of projected levels and nominal growth factors.
+        Container of projected levels and nominal growth factors. Cached per
+        process: the result is frozen and depends only on the bundled panel
+        and anchors, and the projector asks for the same county-years on
+        every projection.
     """
     lookup_geoid = _KALAWAO_PROXY if geoid == "15005" else geoid
 

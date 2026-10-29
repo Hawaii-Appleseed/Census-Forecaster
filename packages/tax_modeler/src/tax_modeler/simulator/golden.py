@@ -421,33 +421,17 @@ def _eitc_households() -> list[dict]:
 
 # The cases' system factories are closures, which cannot be pickled to a
 # spawned worker; forked workers inherit them, and this, from the parent.
-_FORK_STATE: dict = {}
-
-
-def _score_case(i: int) -> dict:
-    pop, raw_cases, dists, calc = (_FORK_STATE[k] for k in ("pop", "raw_cases", "dists", "calc"))
-    c = raw_cases[i]
-    return _case_from_systems(pop, c["name"], c["baseline_for"], c["system_for"],
-                              c["first_year"], calc, dists[i])
-
-
 def _score_cases(pop: Population, raw_cases: list[dict], dists: list, calc: TaxCalculator) -> list[dict]:
     """``_case_from_systems`` for every case, in order. Cases are independent
-    and each is a few seconds of scoring, so they run in forked workers (one
-    per core) where the platform can fork, and in this process otherwise."""
-    import multiprocessing as mp
-    import os
-    from concurrent.futures import ProcessPoolExecutor
+    and each is a few seconds of scoring, so they run in forked workers."""
+    from tax_modeler.parallel import fork_map
 
-    _FORK_STATE.update(pop=pop, raw_cases=raw_cases, dists=dists, calc=calc)
-    try:
-        if "fork" not in mp.get_all_start_methods():
-            return [_score_case(i) for i in range(len(raw_cases))]
-        workers = min(len(raw_cases), os.cpu_count() or 1)
-        with ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("fork")) as pool:
-            return list(pool.map(_score_case, range(len(raw_cases))))
-    finally:
-        _FORK_STATE.clear()
+    def one(i: int) -> dict:
+        c = raw_cases[i]
+        return _case_from_systems(pop, c["name"], c["baseline_for"], c["system_for"],
+                                  c["first_year"], calc, dists[i])
+
+    return fork_map(one, range(len(raw_cases)))
 
 
 def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 12,

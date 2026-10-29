@@ -124,9 +124,10 @@ def main() -> None:
               f"page; run forecast_sb3125_enhanced.py --cd 2.", flush=True)
 
     calc = TaxCalculator()
-    rows = []
 
-    for yr in TARGET_YEARS:
+    # Each year projects and scores the same base on its own, so the years
+    # run in forked workers and come back in TARGET_YEARS order.
+    def one_year(yr):
         print(f"  TY {yr}...", flush=True)
 
         # The Act 24 page's own population and projection (MID), then its
@@ -143,7 +144,7 @@ def main() -> None:
 
         M = lambda a: float((a * w).sum() / 1e6)  # noqa: E731
 
-        rows.append({
+        return {
             "tax_year": yr,
             "A_act46_banked_by_2026": M(tax_frozen - tax_2017),
             "B_act46_remaining_phaseins": M(tax_act46 - tax_frozen),
@@ -152,7 +153,10 @@ def main() -> None:
             "memo_vs_frozen_2026": M(tax_act24 - tax_frozen),
             "tieout_act24_page": (None if page is None else float(
                 page[(page.scenario == "MID") & (page.tax_year == yr)].iloc[0]["bracket_delta_static_$M"])),
-        })
+        }
+
+    from tax_modeler.parallel import fork_map
+    rows = fork_map(one_year, TARGET_YEARS)
 
     df = pd.DataFrame(rows)
 

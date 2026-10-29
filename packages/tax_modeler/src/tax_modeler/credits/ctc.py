@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
+from functools import cache
 
 
 @dataclass
@@ -114,6 +115,13 @@ def ctc_parameters_for_year(tax_year: int, *, extrapolate: bool = False) -> CTCP
     )
 
 
+@cache
+def _cached_ctc_parameters(tax_year: int, extrapolate: bool) -> CTCParameters:
+    """:func:`ctc_parameters_for_year`, built once per year for the per-unit
+    calculator, which only reads it."""
+    return ctc_parameters_for_year(tax_year, extrapolate=extrapolate)
+
+
 def calculate_ctc(
     tax_unit: Dict,
     tax_year: int = 2023,
@@ -144,7 +152,7 @@ def calculate_ctc(
             - ctc_refundable: Refundable portion (ACTC)
             - qualifying_children: Number of qualifying children
     """
-    params = ctc_parameters_for_year(tax_year, extrapolate=extrapolate)
+    params = _cached_ctc_parameters(tax_year, extrapolate)
 
     # Initialize result
     result = {

@@ -352,8 +352,10 @@ def run() -> None:
     units = build_base()
     calc = TaxCalculator()
 
-    rev_rows, anchor_rows, nr_rows, dists = [], [], [], {}
-    for yr in YEARS:
+    # Each year projects and scores the same base on its own, so the years
+    # run in forked workers and come back in YEARS order.
+    def one_year(yr):
+        rev_rows, anchor_rows, nr_rows, dists = [], [], [], {}
         t0 = time.perf_counter()
         print(f"  TY {yr}: projecting...", flush=True)
         df = project(units, yr)
@@ -388,7 +390,16 @@ def run() -> None:
                             dist_changes[f"{opt}_behavioral"] = beh
         if dist_changes:
             dists[(yr, headline)] = distribution(df, dist_changes)
-        print(f"    done in {time.perf_counter() - t0:.0f}s", flush=True)
+        print(f"    TY {yr} done in {time.perf_counter() - t0:.0f}s", flush=True)
+        return rev_rows, anchor_rows, nr_rows, dists
+
+    from tax_modeler.parallel import fork_map
+    rev_rows, anchor_rows, nr_rows, dists = [], [], [], {}
+    for yr_rev, yr_anchor, yr_nr, yr_dists in fork_map(one_year, YEARS):
+        rev_rows += yr_rev
+        anchor_rows += yr_anchor
+        nr_rows += yr_nr
+        dists.update(yr_dists)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     rev = pd.DataFrame(rev_rows)
