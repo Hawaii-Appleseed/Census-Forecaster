@@ -107,15 +107,30 @@ def pack(arrays: dict[str, tuple[str, np.ndarray]]) -> tuple[bytes, list[dict]]:
     return b"".join(chunks), index
 
 
+# When and from which commit a run was made: the metadata's provenance and the
+# credit table's source carry these, and no result depends on them.
+_STAMP_KEYS = frozenset({"created_at", "git_sha"})
+
+
+def _without_stamps(x):
+    if isinstance(x, dict):
+        return {k: _without_stamps(v) for k, v in x.items() if k not in _STAMP_KEYS}
+    if isinstance(x, list):
+        return [_without_stamps(v) for v in x]
+    return x
+
+
 def model_version(pop: Population, blob: bytes, meta: dict, kernel_source: bytes = b"") -> str:
     """``<calibrated-base date>+<content hash>``. The hash covers everything a
     plan's numbers depend on: the population arrays, the metadata (current
-    law, scenario parameters, credit tables) and the kernel's source. A
-    rebuild that could change any result changes the version, so a share
-    link made before it can say its numbers have moved; an identical rebuild
-    keeps it."""
+    law, scenario parameters, credit tables) and the kernel's source. It
+    leaves out the run stamps (``_STAMP_KEYS``), so an identical rebuild keeps
+    the hash, and a rebuild that could change any result changes it. Share
+    links carry the version; the page compares the hashes
+    (``plan.js``'s ``sameModelRun``) to say a link's numbers have moved. The
+    date, the calibrated base's, says which run a link came from."""
     h = hashlib.sha256(blob)
-    h.update(json.dumps({k: v for k, v in meta.items() if k != "model_version"},
+    h.update(json.dumps(_without_stamps({k: v for k, v in meta.items() if k != "model_version"}),
                         sort_keys=True).encode())
     h.update(kernel_source)
     base = pop.meta.get("calibrated_base", {})

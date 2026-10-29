@@ -12,6 +12,7 @@ import { parseSpec, resolveSpec } from "../../site/assets/simulator/kernel.js";
 import {
   stateFromSpec, specFromState, activeVintages, setTopRate, setTopFloor, addBracket,
   removeBracket, editorRows, warnings, encodeSpec, decodeSpec, isLinked, systemsWithoutGainsRate,
+  sameModelRun,
 } from "../../site/assets/simulator/plan.js";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -355,4 +356,12 @@ test("credits survive the editor, and plans without them keep their spec", () =>
   // a share link carries the credits
   const s = stateFromSpec({ ...base, credits: { eitc_percent: 35 } }, meta);
   assert.deepEqual(decodeSpec("#" + encodeSpec(specFromState(s, meta))).credits, { eitc_percent: 35 });
+});
+
+test("a link from an identical rerun is the same model run", () => {
+  // The date is when the calibrated base was built; only the content hash
+  // says whether a plan's numbers can have moved.
+  assert.equal(sameModelRun("2026-10-09+ac1abaf196", "2026-10-28+ac1abaf196"), true);
+  assert.equal(sameModelRun("2026-10-09+ac1abaf196", "2026-10-09+2bad095b28"), false);
+  assert.equal(sameModelRun("ac1abaf196", "2026-10-28+ac1abaf196"), true);
 });

@@ -1002,6 +1002,28 @@ class TestCredits:
         assert a["credits"] == table and b["credits"] is None
         assert a["model_version"] != b["model_version"]     # a new credit table changes the version
 
+    def test_an_identical_rebuild_keeps_the_version(self, tmp_path, table):
+        """A rerun stamps a new created_at and git_sha on the calibrated base
+        and the credit table without changing a result; the content hash, which
+        the page compares, stays."""
+        import copy
+        versions = []
+        for name, stamp in (("a", ("2026-10-09T09:34:13+00:00", "493ef76")),
+                            ("b", ("2026-10-28T03:14:03+00:00", "f66c329"))):
+            pop = _synthetic_population(years=YEARS)
+            pop.meta["calibrated_base"] = {"created_at": stamp[0], "git_sha": stamp[1],
+                                           "params_fingerprint": "ab6b63a25f3fa23b"}
+            t = copy.deepcopy(table)
+            t["source"].update(created_at=stamp[0], git_sha=stamp[1])
+            write_web_files(pop, tmp_path / name, kernel_source=b"k", credits=t)
+            versions.append(json.loads((tmp_path / name / "population.json").read_text())["model_version"])
+        (date_a, hash_a), (date_b, hash_b) = (v.split("+") for v in versions)
+        assert hash_a == hash_b and (date_a, date_b) == ("2026-10-09", "2026-10-28")
+        pop.meta["calibrated_base"]["params_fingerprint"] = "different"   # not a stamp
+        write_web_files(pop, tmp_path / "c", kernel_source=b"k", credits=t)
+        c = json.loads((tmp_path / "c" / "population.json").read_text())["model_version"]
+        assert c.split("+")[1] != hash_b
+
     def test_preset_and_example(self, table):
         d = next(d for d in presets() if d["name"] == "renew_act163")
         s = IncomeTaxSpec.from_dict(d)
