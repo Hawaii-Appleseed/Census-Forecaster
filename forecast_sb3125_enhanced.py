@@ -537,43 +537,14 @@ if __name__ == "__main__":
         all_rows = []
         n_workers = min(len(SCENARIOS), 4)
         print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
-        with ProcessPoolExecutor(max_workers=n_workers) as pool:
-            futures = {
-                pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                            GAINS_FACTORS): sc["label"]
-                for sc in SCENARIOS
-            }
-            for fut in as_completed(futures):
-                label = futures[fut]
-                rows = fut.result()
-                all_rows.extend(rows)
-                print(f"  ✓ {label} complete ({len(rows)} rows)", flush=True)
-
-        # Sort rows so the CSV stays in scenario × year order
-        scen_order = {s["label"]: i for i, s in enumerate(SCENARIOS)}
-        all_rows.sort(key=lambda r: (scen_order[r["scenario"]], r["tax_year"]))
-
-        df = pd.DataFrame(all_rows)
-        df.to_csv(OUT_CSV, index=False)
-
-        # ---- Manifested run output (canonical; /tmp copy kept above) --------
-        from tax_modeler.runs import tidy_long, write_run_manifest
-        from _forecast_common import RUNS_DIR, cache_provenance
-        RUN_DIR = RUNS_DIR / f"sb3125_cd{CD}_enhanced"
-        RUN_DIR.mkdir(parents=True, exist_ok=True)
-        df.to_csv(RUN_DIR / "enhanced.csv", index=False)
-        tidy_long(df, ["scenario", "tax_year"]).to_csv(
-            RUN_DIR / "fiscal_tidy.csv", index=False,
-        )
-        write_run_manifest(
-            RUN_DIR,
-            script=f"forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
-                    "capital_gains": CAPITAL_GAINS_NOTE,
-                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
-            inputs={"tax_units_cache": cache_provenance()},
-        )
-        print(f"Saved run: {RUN_DIR}", flush=True)
+        # The MID quintile analysis below needs only GAINS_FACTORS, so it runs
+        # here while the workers score the scenarios, not after them.
+        pool = ProcessPoolExecutor(max_workers=n_workers)
+        futures = {
+            pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
+                        GAINS_FACTORS): sc["label"]
+            for sc in SCENARIOS
+        }
 
         # ---- Distributional quintile analysis (MID scenario, all years) -----
         print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
@@ -667,6 +638,40 @@ if __name__ == "__main__":
 
         all_quintiles = pd.concat(quintile_frames, ignore_index=True)
         all_brackets  = pd.concat(bracket_frames,  ignore_index=True)
+
+        with pool:
+            for fut in as_completed(futures):
+                label = futures[fut]
+                rows = fut.result()
+                all_rows.extend(rows)
+                print(f"  ✓ {label} complete ({len(rows)} rows)", flush=True)
+
+        # Sort rows so the CSV stays in scenario × year order
+        scen_order = {s["label"]: i for i, s in enumerate(SCENARIOS)}
+        all_rows.sort(key=lambda r: (scen_order[r["scenario"]], r["tax_year"]))
+
+        df = pd.DataFrame(all_rows)
+        df.to_csv(OUT_CSV, index=False)
+
+        # ---- Manifested run output (canonical; /tmp copy kept above) --------
+        from tax_modeler.runs import tidy_long, write_run_manifest
+        from _forecast_common import RUNS_DIR, cache_provenance
+        RUN_DIR = RUNS_DIR / f"sb3125_cd{CD}_enhanced"
+        RUN_DIR.mkdir(parents=True, exist_ok=True)
+        df.to_csv(RUN_DIR / "enhanced.csv", index=False)
+        tidy_long(df, ["scenario", "tax_year"]).to_csv(
+            RUN_DIR / "fiscal_tidy.csv", index=False,
+        )
+        write_run_manifest(
+            RUN_DIR,
+            script=f"forecast_sb3125_enhanced.py --cd {CD}",
+            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                    "capital_gains": CAPITAL_GAINS_NOTE,
+                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
+            inputs={"tax_units_cache": cache_provenance()},
+        )
+        print(f"Saved run: {RUN_DIR}", flush=True)
+
 
         Q_CSV = Path(f"/tmp/sb3125_cd{CD}_quintile_mid_2027_2031.csv")
         B_CSV = Path(f"/tmp/sb3125_cd{CD}_bracket_mid_2027_2031.csv")
