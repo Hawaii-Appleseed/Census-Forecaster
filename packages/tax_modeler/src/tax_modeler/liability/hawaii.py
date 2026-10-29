@@ -615,12 +615,13 @@ def calculate_hawaii_tax_for_units(
     # base PUMS units don't have it, so they default to 0 (no cap applied).
     has_cg_share = "synthetic_cg_share" in tax_units_df.columns
     results = []
-    for _, row in tax_units_df.iterrows():
-        unit = row.to_dict()
+    # to_dict("records") yields the same dicts as iterrows() + row.to_dict()
+    # at a quarter of the cost; that conversion dominated scenario runtime.
+    for unit in tax_units_df.to_dict("records"):
         cg_income = 0.0
         if has_cg_share:
-            cg_share = float(row.get("synthetic_cg_share") or 0.0)
-            income = float(row.get("income", 0) or 0)
+            cg_share = float(unit.get("synthetic_cg_share") or 0.0)
+            income = float(unit.get("income", 0) or 0)
             cg_income = income * cg_share
         hi_tax = calculate_hawaii_tax(
             unit, tax_year=tax_year, deduction_params=inner_params,

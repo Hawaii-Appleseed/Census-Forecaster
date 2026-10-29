@@ -378,8 +378,7 @@ def _recalculate_ctc(
 
     df = with_federal_tax_before_credits(df, tax_year=tax_year, extrapolate=extrapolate)
     results = []
-    for _, row in df.iterrows():
-        unit = row.to_dict()
+    for unit in df.to_dict("records"):
         unit.update(calculate_ctc(unit, tax_year=tax_year, extrapolate=extrapolate))
         results.append(unit)
     return pd.DataFrame(results)
