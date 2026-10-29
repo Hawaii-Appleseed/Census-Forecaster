@@ -59,11 +59,11 @@ def _env() -> dict[str, str]:
     return env
 
 
-def main() -> int:
+def main(stages: list[list[list[str]]] = STAGES) -> int:
     LOGS.mkdir(parents=True, exist_ok=True)
     env = _env()
     t_all = time.perf_counter()
-    for stage in STAGES:
+    for stage in stages:
         procs = []
         for cmd in stage:
             log = open(LOGS / f"{_name(cmd)}.log", "w")  # noqa: SIM115 (open while the step runs)

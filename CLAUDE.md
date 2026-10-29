@@ -11,6 +11,14 @@
 - **Repo-relative paths only** in commits/prompts. Madison's workdir is `~/repos/Census-Forecaster/`.
 - **The full suite must pass before committing** — no regressions, no new skips. (The literal count drifts as tests are added; it was 1,955 passed / 3 skipped on 2026-08-07, having been written here as "185/185" long after that stopped being true. Compare against a run on the current HEAD, not a number in this file.) Honolulu County backtest baseline MAPE: 6.76%.
 
+## Shipping a change
+
+1. `python scripts/new_worktree.py <branch>` — never edit the shared main checkout. It copies `runs/` and the gitignored inputs over and builds the worktree's own venv (the main `.venv` imports main's code).
+2. Change the code, run the full suite, **commit**.
+3. `python scripts/publish.py` — refuses on uncommitted code (manifests stamp HEAD), reruns the chain, imports the runs, rebuilds the simulator against the newly imported capital-gains figures, builds every page.
+4. If a result moved, update `SB3125_CD1_FORECAST.md` and commit it; then commit `site/` and `tests/simulator/`.
+5. Open the PR; `python scripts/land_pr.py <number>` waits for checks, merges, waits for Pages, compares the live files with the merge commit, removes the worktree and local branch.
+
 ## Companion sync
 
 - **Cost-of-Living-Tracker** (`~/Cost-of-Living-Tracker`, formerly
