@@ -151,13 +151,21 @@ def load_population():
     return units, persons
 
 
+def _aged_and_reweighted(base: pd.DataFrame, year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The population aged to ``year``, and the same with the EITC by-children reweight."""
+    import poverty_impact_report as pir
+
+    aged = pir._build_units_for_tax_year(base, year, project=True, use_cbo_aging=True)
+    # As in poverty_impact_report's default path: lift the short 1-/2-child
+    # EITC buckets to IRS Hawaii counts.
+    return aged, pir._apply_eitc_reweight(aged)
+
+
 def units_for_year(base: pd.DataFrame, year: int) -> pd.DataFrame:
     import poverty_impact_report as pir
 
-    u = pir._build_units_for_tax_year(base, year, project=True, use_cbo_aging=True)
-    # As in poverty_impact_report's default path: lift the short 1-/2-child
-    # EITC buckets to IRS Hawaii counts, then apply IRS-anchored take-up.
-    u = pir._apply_eitc_reweight(u)
+    _, u = _aged_and_reweighted(base, year)
+    # Then apply IRS-anchored take-up.
     return pir._apply_credit_takeup(u, tax_year=year)
 
 
@@ -199,11 +207,53 @@ def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dic
     }
 
 
+def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd.DataFrame | None:
+    """Print how this population differs from the revenue base on what both measure.
+
+    The revenue base is the pickle step 1 writes; without it there is nothing to
+    compare and the check says so. The population is compared as the credits are
+    scored on it: aged to the EITC calibration year, with the EITC by-children
+    reweight, before take-up. It reads both frames and changes neither, so
+    no figure this step publishes depends on it. A failure here is reported and
+    does not stop the run.
+    """
+    from _forecast_common import CALIBRATED_PKL
+
+    if not CALIBRATED_PKL.exists():
+        print(f"  population agreement skipped: {CALIBRATED_PKL.name} not found "
+              "(run chain/forecast_sb3125_enhanced.py --cd 2 first)", flush=True)
+        return None
+    try:
+        import numpy as np
+        from tax_modeler import agreement
+        from tax_modeler.artifacts import load_calibrated_base
+
+        revenue_base, _, _ = load_calibrated_base(CALIBRATED_PKL)
+        # The population as the credits are scored on it (before take-up), not as cached.
+        # Ageing and the reweight can draw random numbers; the draws that follow in this
+        # step must not move, so numpy's generator is put back.
+        state = np.random.get_state()
+        try:
+            aged, reweighted = _aged_and_reweighted(units, EITC_CAL_YEAR)
+        finally:
+            np.random.set_state(state)
+        as_used = agreement.carry_weight_changes(aged, reweighted)
+        table = agreement.compare_populations(revenue_base, as_used)
+    except Exception as exc:  # noqa: BLE001 - a diagnostic must not stop the chain
+        print(f"  population agreement check failed: {type(exc).__name__}: {exc}", flush=True)
+        return None
+    if out_dir is not None:
+        table.to_csv(out_dir / "population_agreement.csv", index=False)
+    print("\n" + agreement.summarize(table) + "\n", flush=True)
+    return table
+
+
 def run() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     print("Loading PUMS population...", flush=True)
     base, persons = load_population()
+    population_agreement(base, OUT_DIR)
 
     frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
     for yr in YEARS:
