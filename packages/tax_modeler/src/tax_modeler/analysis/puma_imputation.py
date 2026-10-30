@@ -11,10 +11,19 @@ import pandas as pd
 import numpy as np
 import hashlib
 from collections.abc import Mapping
+from functools import cache
 from typing import Dict, List, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@cache
+def _seed_of(seed_string: str) -> int:
+    """The county draw's seed for one unit: MD5 of its seed string. Cached,
+    since every projection imputes the same units again."""
+    return int(hashlib.md5(seed_string.encode()).hexdigest()[:8], 16)
+
 
 class PUMA0100Imputer:
     """
@@ -157,8 +166,7 @@ class PUMA0100Imputer:
     @staticmethod
     def _unit_seed(tax_unit: Mapping) -> int:
         tax_unit_id = tax_unit.get('filer_id', tax_unit.get('SERIALNO', ''))
-        seed_string = f"puma0100_{tax_unit_id}_county_assignment"
-        return int(hashlib.md5(seed_string.encode()).hexdigest()[:8], 16)
+        return _seed_of(f"puma0100_{tax_unit_id}_county_assignment")
 
     def assign_county(self, tax_unit: Dict, use_deterministic: bool = True) -> str:
         """

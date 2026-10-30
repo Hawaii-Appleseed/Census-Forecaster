@@ -27,7 +27,6 @@ simulator and the Act 24 page score on the DOTAX-anchored base instead
 from __future__ import annotations
 
 import json
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -121,10 +120,15 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     """Build the scoring population from the calibrated base (a few minutes)."""
     from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
 
+    from tax_modeler.parallel import forking, process_pool
+
     keys = list(SCENARIOS)
-    with ProcessPoolExecutor(max_workers=max_workers or len(keys)) as pool:
-        futures = {k: pool.submit(_scenario_worker, str(calibrated_path), k, tuple(years))
-                   for k in keys}
+    # Forked where the platform allows: the workers start with this
+    # process's imports (process_pool).
+    with process_pool(max_workers or len(keys)) as pool:
+        with forking():
+            futures = {k: pool.submit(_scenario_worker, str(calibrated_path), k, tuple(years))
+                       for k in keys}
         built = {k: f.result() for k, f in futures.items()}
 
     mid_units = built["mid"]["units"]

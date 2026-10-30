@@ -23,6 +23,10 @@ a Sampled Frequency Table When the Expected Marginal Totals are Known.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+
+import numpy as np
+
 from ..models import PumsRecord, CountyControls
 
 
@@ -100,6 +104,59 @@ def rake(
             break
 
     return weights
+
+
+def rake_arrays(
+    weights,
+    variables: Mapping[str, object],
+    margins: Mapping[str, Mapping[str, float]],
+    max_iter: int = 100,
+    tol: float = 1e-4,
+) -> np.ndarray:
+    """:func:`rake` for records held as arrays, every record carrying every
+    margin variable: record ``i`` has weight ``weights[i]`` and value
+    ``variables[name][i]`` for each name in ``margins``.
+
+    Returns the weights :func:`rake` returns, bit for bit. Each category's
+    weighted total is the same running sum in record order (``np.bincount``
+    adds its weights in input order), each record is scaled by the same
+    quotient, and iteration stops at the same point. Only the category of
+    each distinct value is looked up (:func:`_categorise`), once, instead of
+    for every record on every pass.
+    """
+    w = np.array(weights, dtype=float)
+    if len(w) == 0 or not margins or max_iter <= 0:
+        return w
+
+    plan = []
+    for var_name, targets in margins.items():
+        values = np.asarray(variables[var_name], dtype=float)
+        labels = list(targets)
+        distinct, which = np.unique(values, return_inverse=True)
+        cat_of = np.array([labels.index(c) if (c := _categorise(v, targets)) in targets else -1
+                           for v in distinct.tolist()], dtype=np.int64)
+        code = cat_of[which]
+        member = code >= 0
+        plan.append((member, code[member], np.array([targets[c] for c in labels], dtype=float)))
+
+    for _iteration in range(max_iter):
+        max_delta = 0.0
+        for member, code, target in plan:
+            current = np.bincount(code, weights=w[member], minlength=len(target))
+            ok = (current > 0) & (target >= 0)
+            scale = np.ones(len(target))
+            scale[ok] = target[ok] / current[ok]
+            scaled = ok[code]
+            idx = np.flatnonzero(member)[scaled]
+            w[idx] = w[idx] * scale[code[scaled]]
+            # rake's ``if delta > max_delta`` passes over a NaN delta.
+            deltas = np.abs(scale[ok] - 1.0)
+            deltas = deltas[~np.isnan(deltas)]
+            if deltas.size:
+                max_delta = max(max_delta, float(deltas.max()))
+        if max_delta < tol:
+            break
+    return w
 
 
 def _categorise(value: float, targets: dict[str, float]) -> str:

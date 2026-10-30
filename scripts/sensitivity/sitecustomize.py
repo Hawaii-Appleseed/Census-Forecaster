@@ -8,9 +8,10 @@ that reads the anchors (forward targets, the IPF calibration, the tail's
 synthesis target, the capital-gains class ranks) sees the override.
 
 Python imports ``sitecustomize`` at start-up in every interpreter that has this
-directory on ``PYTHONPATH``, including the scenario workers
-``forecast_sb3125_enhanced.py`` spawns, which a patch made in the parent would
-miss. ``DOTAX_SENS_TOP`` selects the $1M+ values:
+directory on ``PYTHONPATH``. The scenario workers ``forecast_sb3125_enhanced.py``
+starts are forked (where the platform can fork), so they inherit the parent's
+patch and its already-loaded DOTAX tables; where they are spawned instead, this
+module patches them itself. ``DOTAX_SENS_TOP`` selects the $1M+ values:
 
     avg     the average of TY2022 (1,824 returns, $663.0M) and TY2023 (1,704,
             $441M): 1,764 returns, $552.0M
@@ -28,9 +29,9 @@ set), so the override acts on the edition as printed; ``dotax_base`` otherwise a
 the $1M+ class on a TY2019-2023 window itself (its module doc), and for share-
 normalized windows that environment variable alone is enough, with no override.
 ``DOTAX_SENS_MARK`` is a path prefix; each process that
-applies the override writes ``<prefix>.<pid>``, so a run can confirm that its
-workers did: 7 files per variant across the three runs below (the enhanced run's
-parent and its 4 scenario workers, plus the frozen-baseline and pre-Act-46 runs).
+reads the DOTAX edition through the override writes ``<prefix>.<pid>``: 3 files
+per variant across the three runs below (one per run; forked workers inherit
+the tables their parent read and write none; with spawned workers it was 7).
 
 The forecast scripts write to fixed paths (``runs/``, the calibrated-base
 pickle), so run each variant in its own copy:
@@ -48,7 +49,7 @@ pickle), so run each variant in its own copy:
     # would read the repo's calibrated base and overwrite its runs/)
 
 The enhanced run's log confirms it: "Synthesis: 1,764 filers @ $1M+" for ``avg``,
-and the mark files number 7 (above).
+and the mark files number 3 (above).
 Under ``y2022`` the tail scale factors come out at 1.7743 / 1.4210 / 1.2343, the
 values the model recorded on the TY2022 base.
 

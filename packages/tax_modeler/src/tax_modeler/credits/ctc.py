@@ -33,6 +33,17 @@ import numpy as np
 from dataclasses import dataclass
 from functools import cache
 
+from tax_modeler.per_unit import (
+    apply_per_unit,
+    first_present,
+    is_py_int,
+    numeric_column,
+    py_max,
+    py_min,
+    status_column,
+    with_unit_columns,
+)
+
 
 @dataclass
 class CTCParameters:
@@ -458,3 +469,100 @@ def get_ctc_summary_stats(tax_units_df: pd.DataFrame) -> Dict[str, float]:
     }
 
     return stats
+
+
+def ctc_for_units(
+    tax_units_df: pd.DataFrame,
+    tax_year: int = 2023,
+    *,
+    extrapolate: bool = False,
+) -> pd.DataFrame:
+    """:func:`calculate_ctc` on every unit, merged into the frame as
+    ``per_unit.apply_per_unit`` merges it (``ctc_total``,
+    ``ctc_nonrefundable``, ``ctc_refundable``, ``qualifying_children``).
+
+    Every unit is computed at once (:func:`_ctc_arrays`), with the same float
+    operations in the same order, so each gets the same bits as the per-unit
+    call. Frames the array path does not handle (empty, repeated column
+    names, non-numeric income columns, a ``pd.NA`` filing status) are handed
+    to the per-unit call, which treats them as it always has.
+    """
+    columns = _ctc_arrays(tax_units_df, tax_year, extrapolate)
+    if columns is None:
+        return apply_per_unit(
+            tax_units_df, lambda unit: calculate_ctc(unit, tax_year=tax_year, extrapolate=extrapolate))
+    return with_unit_columns(tax_units_df, columns)
+
+
+def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
+    """:func:`calculate_ctc`'s result keys for every unit, each with the dtype
+    a frame of its dicts infers, or None where the per-unit path is needed."""
+    n = len(df)
+    if n == 0 or not df.columns.is_unique:
+        return None
+    params = _cached_ctc_parameters(tax_year, extrapolate)
+    income = first_present(df, ('federal_agi', 'income'), 0.0)
+    earned = first_present(df, ('federal_earned_income', 'earned_income', 'income'), 0.0)
+    tax_before = (numeric_column(df, 'federal_tax_before_credits')
+                  if 'federal_tax_before_credits' in df.columns else np.full(n, np.nan))
+    status = status_column(df)
+    if income is None or earned is None or tax_before is None or status is None:
+        return None
+
+    dependents = df['dependents'].tolist() if 'dependents' in df.columns else [[]] * n
+    n_children = np.fromiter((len(_get_qualifying_children(d, params)) for d in dependents),
+                             dtype=np.int64, count=n)
+    eligible = n_children > 0
+    if params.require_filer_ssn and 'filer_has_ssn' in df.columns:
+        # Read only where calculate_ctc reads it: units with a qualifying child.
+        flags = df['filer_has_ssn'].tolist()
+        for i in np.flatnonzero(eligible):
+            eligible[i] = _filer_has_ssn({'filer_has_ssn': flags[i]})
+
+    # Federal tax before credits, where the frame lacks it, one unit at a time
+    # as calculate_ctc computes it.
+    missing = eligible & np.isnan(tax_before)
+    if missing.any():
+        from tax_modeler.liability.federal import federal_tax_before_credits
+
+        tax_before = tax_before.copy()
+        for i in np.flatnonzero(missing):
+            tax_before[i] = float(federal_tax_before_credits(
+                float(income[i]) or 0.0, status[i], tax_year=tax_year, extrapolate=extrapolate,
+            )[0])
+
+    # _apply_income_phaseout
+    base_credit = n_children * params.max_credit_per_child
+    threshold = np.where(status == 'married_filing_jointly',
+                         params.phaseout_threshold_joint, params.phaseout_threshold_single)
+    in_full = income <= threshold
+    with np.errstate(invalid='ignore'):
+        reduced = base_credit - np.ceil((income - threshold) / 1000) * 50
+    phased = np.where(in_full, base_credit, py_max(0, reduced))
+
+    max_tax = py_max(0.0, tax_before)
+    nonrefundable = py_min(phased, max_tax)
+    earned_limit = py_max(0, earned - params.earned_income_threshold) * params.actc_earned_income_rate
+    cap = n_children * params.refundable_limit_per_child
+    left = phased - nonrefundable
+    first = py_min(left, earned_limit)
+    refundable = py_min(first, cap)
+    total = nonrefundable + refundable
+
+    # Which values the scalar code leaves as Python ints (the base credit, the
+    # phaseout's 0, the per-child cap): a column of nothing else is int64.
+    phased_int = np.where(in_full, is_py_int(params.max_credit_per_child), ~(reduced > 0))
+    nonref_int = phased_int & ~(max_tax < phased)
+    first_int = nonref_int & ~(earned_limit < left)
+    ref_int = np.where(cap < first, is_py_int(params.refundable_limit_per_child), first_int)
+
+    def column(values, is_int):
+        values = np.where(eligible, values, 0.0)
+        return values.astype(np.int64) if np.all(eligible & is_int) else values
+
+    return {
+        'ctc_total': column(total, nonref_int & ref_int),
+        'ctc_nonrefundable': column(nonrefundable, nonref_int),
+        'ctc_refundable': column(refundable, ref_int),
+        'qualifying_children': n_children,
+    }

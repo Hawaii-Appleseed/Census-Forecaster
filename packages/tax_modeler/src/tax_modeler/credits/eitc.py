@@ -29,6 +29,17 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from tax_modeler.per_unit import (
+    apply_per_unit,
+    first_present,
+    numeric_column,
+    or_zero,
+    py_max,
+    py_min,
+    py_round,
+    status_column,
+    with_unit_columns,
+)
 from tax_modeler.units.relshipp_codes import EITC_QUALIFYING_CHILD_RELS
 
 
@@ -509,10 +520,83 @@ def calculate_eitc_for_tax_units(
 
     Returns:
         DataFrame with EITC columns added.
+
+    Every unit is computed at once (:func:`_eitc_arrays`), with the same float
+    operations in the same order as :func:`calculate_eitc`, so each gets the
+    same bits. Frames the array path does not handle (empty, repeated column
+    names, non-numeric income columns, a ``pd.NA`` filing status, an age that
+    ``int()`` would reject) are handed to :func:`calculate_eitc` one unit at a
+    time, which treats them as it always has.
     """
-    from tax_modeler.per_unit import apply_per_unit
-    return apply_per_unit(
-        tax_units_df, lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
+    columns = _eitc_arrays(tax_units_df, tax_year, extrapolate)
+    if columns is None:
+        return apply_per_unit(
+            tax_units_df, lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
+    return with_unit_columns(tax_units_df, columns)
+
+
+def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
+    """:func:`calculate_eitc`'s result keys for every unit, or None where the
+    per-unit path is needed."""
+    n = len(df)
+    if n == 0 or not df.columns.is_unique:
+        return None
+    params = _cached_eitc_parameters(tax_year, extrapolate)
+    earned = first_present(df, ('federal_earned_income', 'earned_income'), 0.0)
+    agi = first_present(df, ('federal_agi', 'income'), 0.0)
+    investment = np.zeros(n)
+    if 'investment_income' in df.columns:
+        investment = numeric_column(df, 'investment_income')
+        if investment is None:
+            return None
+        investment = or_zero(investment)
+    status = status_column(df)
+    if earned is None or agi is None or status is None:
+        return None
+
+    alive = ((status != 'married_filing_separately') & ~(earned <= 0)
+             & ~(investment > params.investment_income_limit))
+    n_qualifying = np.zeros(n, dtype=np.int64)
+    if alive.any():
+        details = (df['dependents_details'].tolist() if 'dependents_details' in df.columns
+                   else [None] * n)
+        for i in np.flatnonzero(alive):
+            n_qualifying[i] = _count_qualifying_children_eitc(details[i] or [])
+
+    # IRC §32(c)(1)(A)(ii): childless filers must be aged 25-64
+    # (``int(primary_agep or 40)``).
+    childless = alive & (n_qualifying == 0)
+    if childless.any():
+        age = np.full(n, 40.0)
+        if 'primary_agep' in df.columns:
+            raw = numeric_column(df, 'primary_agep')
+            if raw is None or not np.isfinite(raw[childless]).all():
+                return None
+            age = np.where(raw == 0, 40.0, np.trunc(raw))
+        alive &= ~(childless & ~((age >= 25) & (age <= 64)))
+
+    key = np.minimum(n_qualifying, 3)
+
+    def by_key(attr):
+        return np.array([getattr(params.by_children[k], attr) for k in range(4)], dtype=float)[key]
+
+    phaseout_start = np.where(status == 'married_filing_jointly',
+                              by_key('phaseout_start_joint'), by_key('phaseout_start_single'))
+    phaseout_income = py_max(earned, agi)
+    # _compute_credit
+    phase_in_credit = py_min(earned * by_key('phase_in_rate'), by_key('max_credit'))
+    reduction = np.where(phaseout_income <= phaseout_start, 0.0,
+                         (phaseout_income - phaseout_start) * by_key('phaseout_rate'))
+    credit = py_max(0.0, phase_in_credit - reduction)
+
+    eligible = alive & (credit > 0)
+    amount = np.zeros(n)
+    amount[eligible] = py_round(credit[eligible], 2)
+    return {
+        'eitc_amount': amount,
+        'eitc_qualifying_children': n_qualifying,
+        'eitc_eligible': eligible,
+    }
 
 
 def get_eitc_summary_stats(tax_units_df: pd.DataFrame) -> Dict[str, float]:

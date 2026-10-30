@@ -31,6 +31,18 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from tax_modeler.per_unit import (
+    apply_per_unit,
+    is_py_int,
+    numeric_column,
+    or_zero,
+    py_max,
+    py_min,
+    py_round,
+    status_column,
+    with_unit_columns,
+)
+
 
 # ---------------------------------------------------------------------------
 # Itemizing-policy sentinel
@@ -606,6 +618,17 @@ def calculate_hawaii_tax_for_units(
     normalized = _normalize_deduction_params(
         deduction_params, tax_year, "calculate_hawaii_tax_for_units"
     )
+    fast = _hawaii_tax_frame(tax_units_df, tax_year, normalized)
+    if fast is not None:
+        return fast
+    return _calculate_hawaii_tax_per_unit(tax_units_df, tax_year, normalized)
+
+
+def _calculate_hawaii_tax_per_unit(
+    tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional[dict],
+) -> pd.DataFrame:
+    """:func:`calculate_hawaii_tax` on each unit: the reference the array
+    version (:func:`_hawaii_tax_frame`) reproduces, and its fallback."""
     # Forward NO_ITEMIZING (not None) into the per-unit call so the inner
     # validation accepts it for tax_year ≥ 2024 without a redundant error.
     inner_params: Any = normalized if normalized is not None else NO_ITEMIZING
@@ -626,5 +649,288 @@ def calculate_hawaii_tax_for_units(
             cg_income=cg_income,
         )
 
-    from tax_modeler.per_unit import apply_per_unit
     return apply_per_unit(tax_units_df, one)
+
+
+# ---------------------------------------------------------------------------
+# Array version of calculate_hawaii_tax_for_units
+# ---------------------------------------------------------------------------
+#
+# The per-unit loop above was most of the time of every projection and every
+# rescore of the calibrated base. The functions below compute the same columns
+# for every unit at once with the same float operations in the same order, so
+# each unit gets the same bits (tests/tax_modeler/test_vectorized_parity.py).
+# Frames they do not handle (empty, repeated column names, missing or
+# non-numeric inputs the scalar code converts or rejects one unit at a time, a
+# pd.NA filing status) are handed to the per-unit path, which treats them as
+# it always has.
+
+def _hawaii_tax_frame(
+    df: pd.DataFrame, tax_year: int, deduction_params: Optional[dict],
+) -> Optional[pd.DataFrame]:
+    """:func:`calculate_hawaii_tax_for_units` for every unit at once, or None
+    where the frame needs the per-unit path."""
+    n = len(df)
+    if n == 0 or not df.columns.is_unique:
+        return None
+    agi = np.zeros(n)
+    if "income" in df.columns:
+        income = numeric_column(df, "income")
+        if income is None:
+            return None
+        agi = or_zero(income)
+    deps = np.zeros(n, dtype=np.int64)
+    if "num_dependents" in df.columns:
+        raw = numeric_column(df, "num_dependents")
+        # int(NaN) raises per unit; past 2**31 the int64 exemption product
+        # could overflow where the scalar's Python ints do not.
+        if raw is None or not (np.abs(raw) < 2.0 ** 31).all():
+            return None
+        deps = np.trunc(raw).astype(np.int64)
+    cg_income = np.zeros(n)
+    if "synthetic_cg_share" in df.columns:
+        share = numeric_column(df, "synthetic_cg_share")
+        if share is None:
+            return None
+        cg_income = py_max(0.0, agi * or_zero(share))
+    status = status_column(df)
+    if status is None:
+        return None
+    return with_unit_columns(df, _hawaii_tax_arrays(agi, status, deps, cg_income, tax_year,
+                                                    deduction_params))
+
+
+def _hawaii_tax_arrays(
+    agi: np.ndarray,
+    status: np.ndarray,
+    num_dependents: np.ndarray,
+    cg_income: np.ndarray,
+    tax_year: int,
+    deduction_params: Optional[dict],
+    params: HawaiiTaxParameters = HAWAII_2023,
+) -> dict[str, np.ndarray]:
+    """:func:`calculate_hawaii_tax` over arrays: its result keys, in its
+    order, each with the dtype a frame of its dicts infers."""
+    n = len(agi)
+    num_exemptions = np.where(status == "married_filing_jointly", 2, 1) + num_dependents
+    per_exemption = (_personal_exemption_for_year(tax_year) if tax_year >= 2024
+                     else params.personal_exemption_per_unit)
+    exemption_amount = num_exemptions * per_exemption
+    itemized = np.zeros(n)
+    savings = np.zeros(n)
+    cg = cg_income > 0
+
+    if tax_year >= 2024:
+        from tax_modeler.projection.hawaii_tax_real import _deduction_for_year
+
+        real = np.full(n, "Single_Married_Separate", dtype=object)
+        for fs, real_fs in _FS_REAL_MAP.items():
+            real[status == fs] = real_fs
+        std = np.zeros(n)
+        for real_fs in dict.fromkeys(_FS_REAL_MAP.values()):
+            std[real == real_fs] = _deduction_for_year(tax_year, real_fs)
+        effective = std
+        if deduction_params is not None:
+            itemized = _expected_itemized_arrays(agi, status, deduction_params)
+            effective = py_max(std, itemized)
+        effective_is_int = False
+        taxable = py_max(0.0, agi - effective - exemption_amount)
+        tax_before = _hawaii_tax_real_arrays(
+            agi - exemption_amount - (effective - std), tax_year, real)
+        if cg.any():
+            ordinary_agi = py_max(0.0, agi[cg] - cg_income[cg])
+            ordinary_tax = _hawaii_tax_real_arrays(
+                ordinary_agi - exemption_amount[cg] - (effective[cg] - std[cg]), tax_year, real[cg])
+            uncapped = py_max(0.0, tax_before[cg] - ordinary_tax)
+            capped = py_min(uncapped, cg_income[cg] * HAWAII_CG_CAP_RATE)
+            savings[cg] = uncapped - capped
+            tax_before[cg] = ordinary_tax + capped
+    else:
+        default = params.standard_deduction['single']
+        std = np.full(n, float(default))
+        std_is_int = np.full(n, is_py_int(default))
+        bracket_of = np.zeros(n, dtype=np.int64)       # index into ``schedules``
+        schedules = [params.brackets['single']]
+        for fs, amount in params.standard_deduction.items():
+            std[status == fs] = amount
+            std_is_int[status == fs] = is_py_int(amount)
+        for fs, brackets in params.brackets.items():
+            schedules.append(brackets)
+            bracket_of[status == fs] = len(schedules) - 1
+        effective = std
+        effective_is_int = std_is_int
+        if deduction_params is not None:
+            itemized = _expected_itemized_arrays(agi, status, deduction_params)
+            wins = itemized > std
+            effective = np.where(wins, itemized, std)
+            effective_is_int = std_is_int & ~wins
+        taxable = py_max(0.0, agi - effective - exemption_amount)
+        tax_before = np.zeros(n)
+        ordinary_taxable = py_max(0.0, agi - cg_income - effective - exemption_amount)
+        ordinary_tax = np.zeros(n)
+        for k, brackets in enumerate(schedules):
+            m = bracket_of == k
+            if m.any():
+                tax_before[m] = _apply_brackets_arrays(taxable[m], brackets)
+                if (m & cg).any():
+                    ordinary_tax[m & cg] = _apply_brackets_arrays(ordinary_taxable[m & cg], brackets)
+        if cg.any():
+            uncapped = py_max(0.0, tax_before[cg] - ordinary_tax[cg])
+            capped = py_min(uncapped, cg_income[cg] * HAWAII_CG_CAP_RATE)
+            savings[cg] = uncapped - capped
+            tax_before[cg] = ordinary_tax[cg] + capped
+
+    credit = _food_excise_arrays(agi, status, num_exemptions, tax_year)
+    return {
+        'hi_agi': agi,
+        'hi_standard_deduction': (effective.astype(np.int64) if np.all(effective_is_int)
+                                  else effective),
+        'hi_itemized_deduction': itemized,
+        'hi_personal_exemptions': exemption_amount,
+        'hi_taxable_income': taxable,
+        'hi_tax_before_credits': tax_before,
+        'hi_low_income_credit': credit,
+        'hi_tax_liability': tax_before - credit,
+        'hi_cg_cap_savings': savings,
+    }
+
+
+def _expected_itemized_arrays(agi: np.ndarray, status: np.ndarray, deduction_params: dict) -> np.ndarray:
+    """:func:`_expected_itemized_deductions` for every unit. Like the scalar,
+    it reads only the homeownership configs of the statuses present and only
+    the tiers some unit reaches, so caller-supplied params missing the rest
+    still work."""
+    joint = (status == "married_filing_jointly") | (status == "qualifying_widow")
+    hoh = ~joint & (status == "head_of_household")
+    ho_cfg = deduction_params["homeownership"]
+    ho = {key: np.zeros(len(agi)) for key in ("cap", "base", "income_scale", "slope")}
+    for name, m in (("joint", joint), ("hoh", hoh), ("other", ~joint & ~hoh)):
+        if m.any():
+            for key in ho:
+                ho[key][m] = ho_cfg[name][key]
+
+    p_own = py_min(ho["cap"], ho["base"] + (agi / ho["income_scale"]) * ho["slope"])
+
+    mort = deduction_params["mortgage_interest_tiers"]
+    base_interest = _first_tier(agi, mort["tiers"], "base_interest", mort["default_base_interest"])
+    base_interest = np.where(joint, base_interest * mort.get("joint_multiplier", 1.0), base_interest)
+    expected_mortgage = p_own * base_interest
+
+    charit = deduction_params["charitable_giving"]
+    giving_rate = _first_tier(agi, charit["rates_by_agi"], "rate", charit["default_rate"])
+    expected_charitable = charit["claim_rate"] * agi * giving_rate
+
+    med = deduction_params["medical_expenses"]
+    threshold = agi * med["agi_threshold"]
+    expected_medical = med["claim_rate_other"] * py_max(0.0, agi * med["expense_pct_other"] - threshold)
+
+    re = deduction_params["real_estate_taxes"]
+    re_amount = _first_tier(agi, re["tiers"], "amount", re["default_amount"])
+
+    total = expected_mortgage + expected_charitable + expected_medical + re_amount
+
+    pease_threshold = np.where(status == "married_filing_separately", 83_400, 166_800)
+    reduction = 0.03 * (agi - pease_threshold)
+    total = np.where(agi > pease_threshold, total - py_min(reduction, 0.80 * total), total)
+    return py_max(0.0, total)
+
+
+def _first_tier(agi: np.ndarray, tiers: list, key: str, default) -> np.ndarray:
+    """The ``for tier in tiers: if agi < tier["max_agi"]: ...; break`` lookups:
+    the first matching tier's ``key``, else ``default``. A tier is read only
+    when some unit reaches it, as in the scalar loop."""
+    out = np.full(len(agi), default, dtype=float)
+    todo = np.ones(len(agi), dtype=bool)
+    for tier in tiers:
+        if not todo.any():
+            break
+        hit = todo & (agi < tier["max_agi"])
+        if hit.any():
+            out[hit] = tier[key]
+        todo &= ~hit
+    return out
+
+
+def _apply_brackets_arrays(taxable_income: np.ndarray, brackets: List[Tuple[float, float]]) -> np.ndarray:
+    """:func:`_apply_brackets` for every unit: the same running sum, bracket
+    by bracket, and the same ``round(total, 2)``."""
+    total = np.zeros(len(taxable_income))
+    taxed = ~(taxable_income <= 0)
+    active = taxed.copy()
+    prev_bound = 0.0
+    for upper_bound, rate in brackets:
+        active &= ~(taxable_income <= prev_bound)
+        if not active.any():
+            break
+        in_bracket = py_min(taxable_income[active], upper_bound) - prev_bound
+        total[active] = total[active] + in_bracket * rate
+        prev_bound = upper_bound
+    out = np.zeros(len(taxable_income))
+    out[taxed] = py_round(total[taxed], 2)
+    return out
+
+
+def _hawaii_tax_real_arrays(income: np.ndarray, tax_year: int, real_fs: np.ndarray) -> np.ndarray:
+    """``hawaii_tax_real(income, tax_year, real_fs)`` for every unit."""
+    from tax_modeler.projection.hawaii_tax_real import (
+        _bracket_year,
+        _deduction_for_year,
+        _load_brackets,
+    )
+
+    out = np.zeros(len(income))
+    live = ~(income <= 0)
+    byr = _bracket_year(tax_year)
+    for fs in dict.fromkeys(real_fs.tolist()):
+        m = live & (real_fs == fs)
+        if not m.any():
+            continue
+        brackets = _load_brackets().get((byr, fs))
+        if not brackets:
+            import logging
+            logging.getLogger("tax_modeler.projection.hawaii_tax_real").warning(
+                "No bracket schedule for (year=%d, filing_status=%s); returning 0", byr, fs)
+            continue
+        out[m] = _apply_schedule_arrays(income[m], brackets, _deduction_for_year(tax_year, fs))
+    return out
+
+
+def _apply_schedule_arrays(income: np.ndarray, brackets: list, deduction: float) -> np.ndarray:
+    """``hawaii_tax_real._apply_schedule`` for every unit, including its
+    top-bracket fallback (a unit below a bracket's floor, or past the last)."""
+    taxable = py_max(income - deduction, 0.0)
+    out = np.zeros(len(income))
+    active = ~(taxable <= 0.0)
+    top = np.zeros(len(income), dtype=bool)
+    for lo, hi, rate, base_tax, base_income in brackets:
+        below = active & (taxable <= lo)
+        top |= below
+        active &= ~below
+        hit = active & (taxable <= hi)
+        out[hit] = base_tax + (taxable[hit] - base_income) * rate
+        active &= ~hit
+    top |= active
+    lo, hi, rate, base_tax, base_income = brackets[-1]
+    out[top] = base_tax + (taxable[top] - base_income) * rate
+    return out
+
+
+def _food_excise_arrays(agi: np.ndarray, status: np.ndarray, num_exemptions: np.ndarray,
+                        tax_year: int) -> np.ndarray:
+    """``food_excise_credit(agi, status, num_exemptions, tax_year)`` for every
+    unit, through the vectorized table lookup the scalar is tested against
+    (``hi_food_excise._per_exemption``)."""
+    from tax_modeler.credits.hi_food_excise import (
+        _JOINT_TABLE_STATUSES,
+        _per_exemption,
+        hawaii_food_excise_parameters,
+    )
+
+    p = hawaii_food_excise_parameters(tax_year)
+    joint_table = np.zeros(len(agi), dtype=bool)
+    for s in _JOINT_TABLE_STATUSES:
+        joint_table |= status == s
+    x = py_max(agi, 0.0)
+    f = p.income_threshold_factor
+    per_ex = np.where(joint_table, _per_exemption(x, p.joint, f), _per_exemption(x, p.single, f))
+    return per_ex * py_max(num_exemptions, 0) * p.amount_pct

@@ -202,11 +202,14 @@ CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors
 
 
 def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None):
-    """Top-level worker (must be picklable) for ProcessPoolExecutor.
+    """Top-level worker (must be picklable) for the scenario process pool.
 
-    Each worker is a fresh Python process — package imports rely on
-    ``tax_modeler`` being installed in the spawned interpreter (it is
-    when launched under ``uv run`` or after ``uv pip install -e``).
+    The pool (``tax_modeler.parallel.process_pool``) forks its workers where
+    the platform can, so they start with the parent's imports; elsewhere
+    they are spawned, which relies on ``tax_modeler`` being installed in the
+    new interpreter (it is when launched under ``uv run`` or after
+    ``uv pip install -e``). Either way the worker reads the calibrated base
+    from the pickle.
     """
     from tax_modeler.artifacts import load_calibrated_base
     base, ded_params, meta = load_calibrated_base(calibrated_path)
@@ -445,7 +448,7 @@ if __name__ == "__main__":
 
         print(f"SB 3125 {cd_label} enhanced fiscal forecast", flush=True)
         print("Importing modules...", flush=True)
-        # The scenario workers import their own dependencies; the main process
+        # The scenario workers import what they score with; the main process
         # only needs the one-time calibration setup (enrich, base tax, rake).
         from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, _calibrate
         from tax_modeler.config.tax_system_config import TaxSystemRegistry
@@ -528,23 +531,26 @@ if __name__ == "__main__":
             calibrated_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
             ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS)
 
-        # Parallel: run all four scenarios concurrently. Each worker imports
-        # its own modules and reads the calibrated parquet. With the
-        # vectorized compare_systems, each scenario takes ~30-60s on its
-        # own; in parallel the wall-clock collapses to one scenario's worth.
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        # Parallel: run all four scenarios concurrently, each in a worker
+        # that reads the calibrated pickle. The workers are forked where the
+        # platform allows (tax_modeler.parallel.process_pool), so they start
+        # with this process's imports instead of importing everything again.
+        from concurrent.futures import as_completed
+
+        from tax_modeler.parallel import forking, process_pool
 
         all_rows = []
         n_workers = min(len(SCENARIOS), 4)
         print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
         # The MID quintile analysis below needs only GAINS_FACTORS, so it runs
         # here while the workers score the scenarios, not after them.
-        pool = ProcessPoolExecutor(max_workers=n_workers)
-        futures = {
-            pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                        GAINS_FACTORS): sc["label"]
-            for sc in SCENARIOS
-        }
+        pool = process_pool(n_workers)
+        with forking():
+            futures = {
+                pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
+                            GAINS_FACTORS): sc["label"]
+                for sc in SCENARIOS
+            }
 
         # ---- Distributional quintile analysis (MID scenario, all years) -----
         print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
