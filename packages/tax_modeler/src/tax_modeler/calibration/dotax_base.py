@@ -45,7 +45,7 @@ Derivations for 2023
   ``data/calibration/dotax_a8_top_class.json`` (``scripts/parse_dotax_top_class.py``).
   The class table, its total, the filer and status totals and the AGI split all follow.
   Set ``DOTAX_TOP_CLASS_WINDOW=none`` for the edition as printed, or ``YYYY-YYYY`` for
-  another window; the environment is how the spawned scenario workers see it.
+  another window; worker processes inherit the environment (and, when forked, the tables).
 * Filing status: Table 4's resident counts for single, joint, head of household
   and separate, scaled to the filer total with largest-remainder rounding.
   Qualifying widow(er)s (188) are left out of the scaling, as in 2022.

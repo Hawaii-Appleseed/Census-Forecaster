@@ -231,7 +231,8 @@ class HawaiiTaxCredits:
         The same arithmetic in the same order, so each unit's floats equal the
         scalar method's. Python's ``max(a, b)``/``min(a, b)`` keep ``a`` unless
         ``b`` is strictly greater/smaller, which differs from ``np.maximum``/
-        ``np.minimum`` on signed zeros and NaN; ``_pymax``/``_pymin`` keep that.
+        ``np.minimum`` on signed zeros and NaN; ``per_unit.py_max``/``py_min``
+        keep that.
         Callers must pass finite ``agi`` and ``tax_before_credits`` (the scalar
         method covers the rest; see ``TaxCalculator.unit_liabilities``).
         """
@@ -240,12 +241,8 @@ class HawaiiTaxCredits:
             _per_exemption,
             hawaii_food_excise_parameters,
         )
-
-        def _pymax(a, b):
-            return np.where(b > a, b, a)
-
-        def _pymin(a, b):
-            return np.where(b < a, b, a)
+        from tax_modeler.per_unit import py_max as _pymax
+        from tax_modeler.per_unit import py_min as _pymin
 
         agi = np.asarray(agi, dtype=float)
         status = np.asarray(filing_status, dtype=object)

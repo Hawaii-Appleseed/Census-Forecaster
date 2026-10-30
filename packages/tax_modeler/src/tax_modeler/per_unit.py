@@ -210,6 +210,26 @@ def first_present(df: pd.DataFrame, keys, default: float) -> np.ndarray | None:
     return out
 
 
+def status_column(df: pd.DataFrame, key: str = "filing_status",
+                  default: str = "single") -> np.ndarray | None:
+    """Column ``key`` as an object array (every unit ``default`` when the
+    frame has no such column), or None when it holds ``pd.NA``: comparing
+    that raises, and the scalar code compares it only on the units it
+    reaches, so those frames take the per-unit path."""
+    if key not in df.columns:
+        return np.full(len(df), default, dtype=object)
+    values = df[key].to_numpy(dtype=object)
+    if df[key].hasnans and any(v is pd.NA for v in values):
+        return None
+    return values
+
+
+def is_py_int(value) -> bool:
+    """A Python (or numpy) int but not a bool: what a frame built from the
+    scalar calculators' dicts stores as int64 when every unit has one."""
+    return isinstance(value, (int, np.integer)) and not isinstance(value, bool)
+
+
 def numeric_column(df: pd.DataFrame, key) -> np.ndarray | None:
     """Column ``key`` as float64 if it holds a numpy float, int or bool dtype
     (whose values convert exactly, as ``tolist`` converts them for the scalar

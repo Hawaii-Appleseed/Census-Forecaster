@@ -79,7 +79,7 @@ The series is `data/calibration/dotax_a8_top_class.json`, which
 `scripts/parse_dotax_top_class.py` writes from the five editions' Table A-8 (TY2019–2022
 from `indinc/archive/`), each checked against its printed totals.
 `DOTAX_TOP_CLASS_WINDOW=none` gives the edition as printed and `YYYY-YYYY` another
-window; the environment is how the spawned scenario workers see it.
+window; worker processes inherit the environment (and, when forked, the loaded tables).
 
 | Anchor (DOTAX, residents) | TY2022 | TY2023 |
 |---|---:|---:|
@@ -277,7 +277,9 @@ averages of the levels (returns and tax each); the window is what the tables abo
 
 `scripts/sensitivity/sitecustomize.py` rewrites that row as `dotax_base` reads it (the
 *level* variants and TY2022), in every process including the scenario workers (7
-processes per variant across the three runs, confirmed); its docstring has the
+processes per variant across the three runs, confirmed when the workers were spawned;
+since 2026-10-29 they are forked and inherit the parent's override, so 3 mark files);
+its docstring has the
 commands, one scratch copy of the scripts per variant because they write fixed paths.
 The window itself needs no override: `DOTAX_TOP_CLASS_WINDOW=2021-2023` is the
 share-normalized 3-year window. In the TY2022 variant the tail's scale factors come out

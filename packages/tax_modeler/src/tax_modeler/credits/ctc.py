@@ -33,6 +33,17 @@ import numpy as np
 from dataclasses import dataclass
 from functools import cache
 
+from tax_modeler.per_unit import (
+    apply_per_unit,
+    first_present,
+    is_py_int,
+    numeric_column,
+    py_max,
+    py_min,
+    status_column,
+    with_unit_columns,
+)
+
 
 @dataclass
 class CTCParameters:
@@ -472,11 +483,10 @@ def ctc_for_units(
 
     Every unit is computed at once (:func:`_ctc_arrays`), with the same float
     operations in the same order, so each gets the same bits as the per-unit
-    call. A frame the array path does not handle (empty, repeated column
-    names, non-numeric income columns) goes through the per-unit call.
+    call. Frames the array path does not handle (empty, repeated column
+    names, non-numeric income columns, a ``pd.NA`` filing status) are handed
+    to the per-unit call, which treats them as it always has.
     """
-    from tax_modeler.per_unit import apply_per_unit, with_unit_columns
-
     columns = _ctc_arrays(tax_units_df, tax_year, extrapolate)
     if columns is None:
         return apply_per_unit(
@@ -487,8 +497,6 @@ def ctc_for_units(
 def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
     """:func:`calculate_ctc`'s result keys for every unit, each with the dtype
     a frame of its dicts infers, or None where the per-unit path is needed."""
-    from tax_modeler.per_unit import first_present, numeric_column, py_max, py_min
-
     n = len(df)
     if n == 0 or not df.columns.is_unique:
         return None
@@ -497,18 +505,19 @@ def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[
     earned = first_present(df, ('federal_earned_income', 'earned_income', 'income'), 0.0)
     tax_before = (numeric_column(df, 'federal_tax_before_credits')
                   if 'federal_tax_before_credits' in df.columns else np.full(n, np.nan))
-    if income is None or earned is None or tax_before is None:
+    status = status_column(df)
+    if income is None or earned is None or tax_before is None or status is None:
         return None
-    status = (df['filing_status'].to_numpy(dtype=object) if 'filing_status' in df.columns
-              else np.full(n, 'single', dtype=object))
 
     dependents = df['dependents'].tolist() if 'dependents' in df.columns else [[]] * n
     n_children = np.fromiter((len(_get_qualifying_children(d, params)) for d in dependents),
                              dtype=np.int64, count=n)
     eligible = n_children > 0
     if params.require_filer_ssn and 'filer_has_ssn' in df.columns:
-        eligible &= np.fromiter((_filer_has_ssn({'filer_has_ssn': f}) for f in df['filer_has_ssn'].tolist()),
-                                dtype=bool, count=n)
+        # Read only where calculate_ctc reads it: units with a qualifying child.
+        flags = df['filer_has_ssn'].tolist()
+        for i in np.flatnonzero(eligible):
+            eligible[i] = _filer_has_ssn({'filer_has_ssn': flags[i]})
 
     # Federal tax before credits, where the frame lacks it, one unit at a time
     # as calculate_ctc computes it.
@@ -542,10 +551,10 @@ def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[
 
     # Which values the scalar code leaves as Python ints (the base credit, the
     # phaseout's 0, the per-child cap): a column of nothing else is int64.
-    phased_int = np.where(in_full, _int_param(params.max_credit_per_child), ~(reduced > 0))
+    phased_int = np.where(in_full, is_py_int(params.max_credit_per_child), ~(reduced > 0))
     nonref_int = phased_int & ~(max_tax < phased)
-    first_int = (phased_int & nonref_int) & ~(earned_limit < left)
-    ref_int = np.where(cap < first, _int_param(params.refundable_limit_per_child), first_int)
+    first_int = nonref_int & ~(earned_limit < left)
+    ref_int = np.where(cap < first, is_py_int(params.refundable_limit_per_child), first_int)
 
     def column(values, is_int):
         values = np.where(eligible, values, 0.0)
@@ -557,7 +566,3 @@ def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[
         'ctc_refundable': column(refundable, ref_int),
         'qualifying_children': n_children,
     }
-
-
-def _int_param(value) -> bool:
-    return isinstance(value, (int, np.integer)) and not isinstance(value, bool)

@@ -427,12 +427,31 @@ def itemized_deductions(tax_units: pd.DataFrame) -> np.ndarray | None:
     return itemized
 
 
-def _schedule_key(config: TaxSystemConfig, filing_status: str) -> tuple:
-    """Everything :meth:`TaxCalculator.brackets_for` reads from ``config``:
-    its inline schedules, CSV vintage and scenario, and adjustments (their
-    reprs, which are exact for the floats and strings they hold)."""
-    return (repr(config.brackets), config.bracket_year, config.bracket_scenario,
-            repr(config.bracket_adjustments), filing_status)
+def _frozen(value):
+    """``value`` as nested tuples of exact, hashable scalars (numpy arrays and
+    scalars included); TypeError for anything else."""
+    if isinstance(value, dict):
+        return ("dict", tuple((_frozen(k), _frozen(v)) for k, v in value.items()))
+    if isinstance(value, np.ndarray):
+        return ("array", str(value.dtype), value.shape, tuple(value.ravel().tolist()))
+    if isinstance(value, (list, tuple)):
+        return (type(value).__name__, tuple(_frozen(v) for v in value))
+    if isinstance(value, np.generic):
+        return value.item()
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    raise TypeError(f"no exact key for {type(value).__name__}")
+
+
+def _schedule_key(config: TaxSystemConfig, filing_status: str) -> Optional[tuple]:
+    """Everything :meth:`TaxCalculator.brackets_for` reads from ``config``
+    (inline schedules, CSV vintage and scenario, adjustments), exactly; None
+    when some field has no exact key, and the schedule is then not cached."""
+    try:
+        return (_frozen(config.brackets), config.bracket_year, config.bracket_scenario,
+                _frozen(config.bracket_adjustments), filing_status)
+    except TypeError:
+        return None
 
 
 class TaxCalculator:
@@ -524,6 +543,8 @@ class TaxCalculator:
         thousands of times.
         """
         key = _schedule_key(config, filing_status)
+        if key is None:
+            return self._build_brackets(config, filing_status)
         cache = self.__dict__.setdefault("_brackets_cache", {})
         if key not in cache:
             cache[key] = self._build_brackets(config, filing_status)
@@ -725,6 +746,8 @@ class TaxCalculator:
         read-only.
         """
         key = _schedule_key(config, filing_status)
+        if key is None:
+            return self._build_schedule(config, filing_status)
         cache = self.__dict__.setdefault("_schedule_cache", {})
         if key not in cache:
             arrays = self._build_schedule(config, filing_status)

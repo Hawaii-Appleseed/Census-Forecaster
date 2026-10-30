@@ -125,7 +125,7 @@ def rake_arrays(
     for every record on every pass.
     """
     w = np.array(weights, dtype=float)
-    if len(w) == 0 or not margins:
+    if len(w) == 0 or not margins or max_iter <= 0:
         return w
 
     plan = []
@@ -149,8 +149,11 @@ def rake_arrays(
             scaled = ok[code]
             idx = np.flatnonzero(member)[scaled]
             w[idx] = w[idx] * scale[code[scaled]]
-            if ok.any():
-                max_delta = max(max_delta, float(np.abs(scale[ok] - 1.0).max()))
+            # rake's ``if delta > max_delta`` passes over a NaN delta.
+            deltas = np.abs(scale[ok] - 1.0)
+            deltas = deltas[~np.isnan(deltas)]
+            if deltas.size:
+                max_delta = max(max_delta, float(deltas.max()))
         if max_delta < tol:
             break
     return w

@@ -161,3 +161,23 @@ def test_rake_arrays_returns_rakes_weights_bit_for_bit(seed):
         got = rake_arrays(weights, {"VEH": veh, "FS": fs}, margins, max_iter=max_iter, tol=tol)
         assert got.tobytes() == want.tobytes()
     assert weights.tobytes() == np.array([r.weight for r in records]).tobytes()   # input untouched
+
+
+def test_rake_arrays_matches_rake_where_rake_never_categorises_or_meets_nan():
+    """max_iter=0 returns the weights without reading any value; a NaN scale
+    (inf/inf) is passed over when deciding convergence, as rake's
+    ``delta > max_delta`` does."""
+    import numpy as np
+    from pums_estimator.estimation.rake import rake_arrays
+
+    assert rake_arrays([1.0], {"A": [float("nan")]}, {"A": {"0": 1.0}}, max_iter=0).tolist() == [1.0]
+    weights = [float("inf"), 1.0, 1.0]
+    values = {"A": [0.0, 1.0, 1.0]}
+    margins = {"A": {"0": float("inf"), "1": 10.0}}
+    records = [PumsRecord(serial="X", puma="1500100", weight=w, variables={"A": v})
+               for w, v in zip(weights, values["A"])]
+    for max_iter in (1, 3):
+        want = np.array(rake(records, CountyControls(geoid="15003", population=0, margins=margins),
+                             max_iter=max_iter, tol=1e-4))
+        got = rake_arrays(weights, values, margins, max_iter=max_iter, tol=1e-4)
+        assert np.array_equal(got, want, equal_nan=True)

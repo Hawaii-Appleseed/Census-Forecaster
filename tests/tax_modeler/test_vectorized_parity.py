@@ -19,6 +19,8 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -426,29 +428,31 @@ def test_py_round_matches_round():
     assert same.all(), (x[~same][:5], got[~same][:5], want[~same][:5])
 
 
-def _calibrated_base():
-    from pathlib import Path
-
-    pkl = Path(__file__).resolve().parents[2] / "data" / "artifacts" / "sb3125_calibrated_base.pkl"
-    if not pkl.exists():
-        pytest.skip("needs data/artifacts/sb3125_calibrated_base.pkl (run the model chain)")
-    from tax_modeler.artifacts import load_calibrated_base
-    return load_calibrated_base(pkl)
-
-
 def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
-    """The MID population and one projected year, with the array versions and
-    with every unit through the scalar calculators: the same frame, bit for bit."""
+    """The Act 24 population steps (base tax, the synthetic $1M+ tail, a
+    recession-year projection) on the 50-household synthetic PUMS, with the
+    array versions and with every unit through the scalar calculators: the
+    same frames, bit for bit. Runs everywhere (no gitignored data)."""
     import tax_modeler.credits.ctc as ctc
     import tax_modeler.credits.eitc as eitc
     import tax_modeler.liability.hawaii as hawaii
+    from tax_modeler.artifacts import load_canonical_deduction_params
+    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.act24_population import build_units, project_units
+    from tax_modeler.units.constructor import TaxUnitConstructor
 
-    base, ded, _ = _calibrated_base()
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    raw = TaxUnitConstructor(pd.read_parquet(fixtures / "synthetic_pums_persons.parquet"),
+                             pd.read_parquet(fixtures / "synthetic_pums_households.parquet"),
+                             use_soi_calibration=False, progress_bar=False
+                             ).create_rule_based_units(parallel=False)
+    enriched = enrich_for_credits(raw)
+    ded = load_canonical_deduction_params()
 
     def population():
+        base = compute_base_tax(enriched, deduction_params=ded, tax_year=2023)
         units, _ = build_units(base, alpha=1.5, top_premium=0.010, ded_params=ded, cal_tax_year=2023)
-        return units, project_units(units, year=2029, top_premium=0.013, macro_shock="moderate")
+        return base, units, project_units(units, year=2029, top_premium=0.013, macro_shock="moderate")
 
     fast = population()
     monkeypatch.setattr(hawaii, "_hawaii_tax_frame", lambda *a, **k: None)
@@ -457,6 +461,65 @@ def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
     slow = population()
     for got, want in zip(fast, slow, strict=True):
         _assert_same_bits(got, want)
+
+
+def test_array_paths_read_only_what_the_scalar_reads():
+    """Inputs the scalar code never touches on a unit cannot make the array
+    path fail: a pd.NA SSN flag or filing status on a childless unit (CTC),
+    a homeownership config or tier no unit reaches (itemized deductions)."""
+    from tax_modeler.artifacts import load_canonical_deduction_params
+    from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
+
+    child = [{"age": 4, "relationship": 25, "citizenship": 1}]
+    df = pd.DataFrame({"income": [5e4, 6e4], "filing_status": ["single", "single"],
+                       "dependents": [child, []], "federal_tax_before_credits": [3e3, 3e3],
+                       "filer_has_ssn": pd.array([True, pd.NA], dtype="boolean")})
+    _assert_same_bits(ctc_for_units(df, tax_year=2025),
+                      apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=2025)))
+    df["filing_status"] = pd.array(["single", pd.NA], dtype="string")
+    df["filer_has_ssn"] = True
+    _assert_same_bits(ctc_for_units(df, tax_year=2024),
+                      apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=2024)))
+
+    params = load_canonical_deduction_params()
+    params = {**params, "homeownership": {k: v for k, v in params["homeownership"].items() if k != "hoh"},
+              "real_estate_taxes": {**params["real_estate_taxes"],
+                                    "tiers": params["real_estate_taxes"]["tiers"] + [{"broken": 1}]}}
+    units = pd.DataFrame({"income": [4e4, 9e4], "num_dependents": [0, 2],
+                          "filing_status": ["single", "married_filing_jointly"]})
+    _assert_same_bits(calculate_hawaii_tax_for_units(units, tax_year=2028, deduction_params=params),
+                      _per_unit_hawaii(units, 2028, params))
+
+
+def test_absurd_dependent_counts_take_the_per_unit_path():
+    """Past 2**31 dependents the int64 exemption product could overflow, so
+    those frames go through the scalar's exact Python ints."""
+    from tax_modeler.liability.hawaii import _hawaii_tax_frame, calculate_hawaii_tax_for_units
+
+    df = pd.DataFrame({"income": [5e4, 6e4], "num_dependents": [8.1e15, 3.0],
+                       "filing_status": ["single", "single"]})
+    assert _hawaii_tax_frame(df, 2023, None) is None
+    _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=2023), _per_unit_hawaii(df, 2023, None))
+
+
+def test_bracket_cache_keys_are_exact_for_numpy_schedules():
+    """Two inline schedules that differ past repr's 8 digits get their own
+    cache entries."""
+    from dataclasses import replace
+
+    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+
+    calc = TaxCalculator()
+    base = TaxSystemRegistry.get_act46_system(2028)
+    tops = []
+    for top in (12.000000001, 12.000000002):
+        sched = np.array([[0.0, 1.0], [5e4, 6.5], [4e5, top]])
+        cfg = replace(base, brackets={fs: sched for fs in ("Single_Married_Separate", "Head_of_Household",
+                                                           "Joint_Surviving_Spouse")})
+        tops.append(calc.brackets_for(cfg, "single")["rate"].iloc[-1])
+        assert calc._bracket_schedule(cfg, "single")[1][-1] == top / 100
+    assert tops == [12.000000001, 12.000000002]
 
 
 def test_group_sums_match_series_sum_per_group():

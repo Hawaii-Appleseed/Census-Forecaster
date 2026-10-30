@@ -29,6 +29,17 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from tax_modeler.per_unit import (
+    apply_per_unit,
+    first_present,
+    numeric_column,
+    or_zero,
+    py_max,
+    py_min,
+    py_round,
+    status_column,
+    with_unit_columns,
+)
 from tax_modeler.units.relshipp_codes import EITC_QUALIFYING_CHILD_RELS
 
 
@@ -512,12 +523,11 @@ def calculate_eitc_for_tax_units(
 
     Every unit is computed at once (:func:`_eitc_arrays`), with the same float
     operations in the same order as :func:`calculate_eitc`, so each gets the
-    same bits. A frame the array path does not handle (empty, repeated column
-    names, non-numeric income columns, an age that ``int()`` would reject)
-    goes through :func:`calculate_eitc` one unit at a time.
+    same bits. Frames the array path does not handle (empty, repeated column
+    names, non-numeric income columns, a ``pd.NA`` filing status, an age that
+    ``int()`` would reject) are handed to :func:`calculate_eitc` one unit at a
+    time, which treats them as it always has.
     """
-    from tax_modeler.per_unit import apply_per_unit, with_unit_columns
-
     columns = _eitc_arrays(tax_units_df, tax_year, extrapolate)
     if columns is None:
         return apply_per_unit(
@@ -528,15 +538,6 @@ def calculate_eitc_for_tax_units(
 def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
     """:func:`calculate_eitc`'s result keys for every unit, or None where the
     per-unit path is needed."""
-    from tax_modeler.per_unit import (
-        first_present,
-        numeric_column,
-        or_zero,
-        py_max,
-        py_min,
-        py_round,
-    )
-
     n = len(df)
     if n == 0 or not df.columns.is_unique:
         return None
@@ -549,10 +550,9 @@ def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional
         if investment is None:
             return None
         investment = or_zero(investment)
-    if earned is None or agi is None:
+    status = status_column(df)
+    if earned is None or agi is None or status is None:
         return None
-    status = (df['filing_status'].to_numpy(dtype=object) if 'filing_status' in df.columns
-              else np.full(n, 'single', dtype=object))
 
     alive = ((status != 'married_filing_separately') & ~(earned <= 0)
              & ~(investment > params.investment_income_limit))
