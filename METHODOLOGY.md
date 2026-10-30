@@ -724,7 +724,7 @@ fit; the cache amortises that across many forecasts at the same cutoff.
 ### Reproducing the ablation
 
 ```bash
-python -m census_forecaster.scripts.compare_ml_ablation --output report.md
+python -m lab.scripts.compare_ml_ablation --output report.md
 ```
 
 Runs the v3 calibration twice (with `include_ml=True` and `False`),
@@ -1430,7 +1430,7 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
 
 ## Market signals (July 2026)
 
-The `census_forecaster.markets` subpackage tracks a pre-registered
+The `lab.markets` subpackage tracks a pre-registered
 universe of 12 exchange-traded securities and screens them as *leading
 indicators* for the Hawaii series the forecaster consumes. It is NOT
 part of the Housing-Affordability-Tracker cherry-pick.
@@ -2434,7 +2434,7 @@ screens run on revised LAUS/Zillow histories, so even these nulls are
 
 The markets subpackage now exposes a standalone multi-horizon stock
 forecaster (`forecast_board` / `python -m
-census_forecaster.markets.forecaster`): damped-drift point + calibrated
+lab.markets.forecaster`): damped-drift point + calibrated
 90% band per ticker × horizon, with diagnostics per row — 12-month
 momentum, a volatility-regime flag, and whether the ticker is itself a
 robust *forward*-screen survivor (the direction that works).

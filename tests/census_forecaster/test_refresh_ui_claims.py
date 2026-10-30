@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from census_forecaster.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
 from census_forecaster.scripts import refresh_ui_claims as ui
+from lab.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
 
 CSV_HEAD = '"st","rptdate","c1","c2","c3","c4","c5"\n'
 

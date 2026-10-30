@@ -26,7 +26,7 @@ Hawaiʻi tax microsimulation: loads PUMS households, constructs tax units, compu
 | `calibration/` | IPF weight calibration to DOTAX filer totals |
 | `projection/` | Forward-year tax-unit projection (CBO/SOI/ACS-forward targets) |
 | `scenarios/` | Per-bill credit overlay definitions (SB3125 CD1/CD2, HB2306) |
-| `loaders/` | PUMS data loader, CEX statistical matching, benefit imputation |
+| `loaders/` | PUMS data loader, CEX loader, benefit imputation |
 
 ## Critical architectural rule
 

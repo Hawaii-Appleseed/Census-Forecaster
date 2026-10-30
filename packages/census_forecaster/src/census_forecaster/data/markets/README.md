@@ -1,6 +1,6 @@
 # data/markets — bundled market time series
 
-Written by `python -m census_forecaster.scripts.refresh_market_panel`
+Written by `python -m lab.scripts.refresh_market_panel`
 (monthly via the `refresh-data` workflow; keyless except the BLS
 unemployment block).
 

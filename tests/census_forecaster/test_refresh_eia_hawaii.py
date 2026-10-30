@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from census_forecaster.markets.screen import MONTHLY_TARGETS
+from lab.markets.screen import MONTHLY_TARGETS
 from census_forecaster.scripts import refresh_eia_hawaii as eia
 
 

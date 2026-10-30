@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from census_forecaster.markets.screen import (
+from lab.markets.screen import (
     _drop_months,
     month_index,
     months_to_indices,
@@ -168,6 +168,6 @@ def test_drop_months_removes_only_the_listed_months():
 def test_default_screen_run_is_unchanged():
     """exclude_months is opt-in: the committed screen must not silently
     start dropping months because this control landed."""
-    from census_forecaster.markets.screen import run_screen
+    from lab.markets.screen import run_screen
     rep = run_screen({}, {}, pairs=())
     assert rep.excluded_months == 0

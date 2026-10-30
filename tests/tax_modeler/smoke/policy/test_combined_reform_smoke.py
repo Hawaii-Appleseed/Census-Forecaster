@@ -14,7 +14,7 @@ from tax_modeler import (
     compute_ssi_for_units,
     compute_ssi_hi_supplement_for_units,
 )
-from tax_modeler.validation import validate_against_admin_caseload
+from lab.validation import validate_against_admin_caseload
 
 
 pytestmark = pytest.mark.smoke

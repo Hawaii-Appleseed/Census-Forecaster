@@ -15,7 +15,7 @@ import json
 import openpyxl
 import pytest
 
-from census_forecaster.markets.screen import (
+from lab.markets.screen import (
     HAWAII_PREDICTORS,
     HYPOTHESIS_PAIRS,
     MONTHLY_TARGETS,

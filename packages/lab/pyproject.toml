@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "census-lab"
+version = "0.1.0"
+description = "Research, validation and ablation tooling for Census-Forecaster; not imported by the production chain."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Tom Katsumi", email = "dtomkatsu@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "census-forecaster",
+    "tax-modeler",
+]
+
+[project.optional-dependencies]
+# yfinance is an optional primary price source; the Stooq fallback in
+# markets/client.py is stdlib-only, so lab.markets works without this
+# extra (yfinance drags pandas).
+markets = ["yfinance>=0.2", "numpy>=1.21"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lab"]

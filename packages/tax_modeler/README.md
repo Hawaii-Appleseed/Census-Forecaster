@@ -92,17 +92,13 @@ All inherit from `TaxModelerError` and from the appropriate Python builtin
 (`FileNotFoundError`, `ValueError`, `RuntimeError`) so legacy `except`
 blocks keep catching them.
 
-## Two entry points each for PUMS and projection
+## PUMS and projection
 
-The simple "give me a DataFrame / scalar" use cases delegate to the
-monorepo's `pums_estimator` / `census_forecaster` packages via thin
-adapters.  The full-fat loaders are kept alongside for use cases the
-simple adapters don't cover:
-
-| Task                  | Simple adapter (preferred)                                                            | Full-fat loader (advanced)                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Load PUMS             | `tax_modeler.load_hawaii_pums(year)` (delegates to `pums_estimator.fetch_pums`)       | `tax_modeler.PUMSDataLoader().load_data(...)` — incremental batched loads, vintage column handling      |
-| Income growth factor  | `tax_modeler.project_income_growth(history, target_year)`                             | `tax_modeler.EnsembleProjector(...)` — BLS OES wage blending, occupation matching                       |
+`tax_modeler.PUMSDataLoader().load_data(...)` loads PUMS (incremental batched
+loads, vintage column handling); `tax_modeler.EnsembleProjector(...)` projects
+income growth (BLS OES wage blending, occupation matching). The old
+`load_hawaii_pums` / `project_income_growth` adapters were removed; use
+`pums_estimator.fetch_pums` for a one-off Census API load.
 
 ## Data files
 
@@ -176,7 +172,7 @@ tests still run in CI.
 To verify the full Phase 9 stack end-to-end:
 
 ```bash
-python -m tax_modeler.validation.phase9_validation
+python -m lab.validation.phase9_validation
 ```
 
 ## EITC / CTC by geography

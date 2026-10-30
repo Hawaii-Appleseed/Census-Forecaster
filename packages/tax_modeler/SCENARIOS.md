@@ -228,12 +228,12 @@ units = calibrate_benefits(units, caseload=caseload, year=2024)
 
 ### Validation
 
-`tax_modeler.validation.validate_against_admin_caseload` produces a
+`lab.validation.validate_against_admin_caseload` produces a
 typed report comparing simulated vs administrative aggregates for SNAP,
 SSI, and the HI SSI supplement:
 
 ```python
-from tax_modeler.validation import validate_against_admin_caseload
+from lab.validation import validate_against_admin_caseload
 
 report = validate_against_admin_caseload(units, caseload=caseload, year=2024)
 print(report.summary())
