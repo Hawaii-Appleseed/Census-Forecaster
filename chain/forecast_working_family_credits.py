@@ -70,6 +70,7 @@ Outputs (runs/working_family_credits/):
 """
 from __future__ import annotations
 
+import functools
 import logging
 import sys
 import time
@@ -92,14 +93,30 @@ POVERTY_YEAR = 2028
 CAL_YEAR = 2023         # food/excise: the year DOTAX's Credits Claimed report fits it to
 EITC_CAL_YEAR = 2024    # EITC: the latest year of DOTAX's Earned Income Tax Credit Report
 
-# DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 ($K) and A-2 (claims).
-# The EITC rows here are the out-of-sample check for TY2023: the EITC report puts that
-# year's credit applied at $75.6M, against Table A-1's $77.05M, so the two reports
-# differ by about 2% for the same year.
-DOTAX = {
-    2022: {"eitc_$M": 19.786, "eitc_claims": 60_903, "food_$M": 24.961, "food_claims": 208_786},
-    2023: {"eitc_$M": 77.054, "eitc_claims": 84_470, "food_$M": 63.957, "food_claims": 249_806},
-}
+@functools.cache
+def dotax() -> dict[int, dict[str, float]]:
+    """DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 ($K) and A-2 (claims).
+
+    Read from ``data/calibration/dotax_credits_claimed.json`` (``scripts/parse_dotax_credits_claimed.py``
+    writes it from the Department's workbooks), not typed here. A function and not a constant: this
+    file imports no model code until it runs, which is what lets ``scripts/check_code_closure.py``
+    tell what the cached population build imports. Dollars are rounded to three decimals
+    of $M, the figures this step has always used, so its outputs do not change; the Department prints
+    the 2023 food credit as 63,957.442 ($K) and the EITC as 77,054.16.
+
+    The EITC rows here are the out-of-sample check for TY2023: the EITC report puts that
+    year's credit applied at $75.6M, against Table A-1's $77.05M, so the two reports
+    differ by about 2% for the same year.
+    """
+    from tax_modeler.calibration import dotax_credits_claimed as claimed
+
+    return {
+        year: {"eitc_$M": round(claimed.dollars_M("eitc", year), 3), "eitc_claims": claimed.claims("eitc", year),
+               "food_$M": round(claimed.dollars_M("food_excise", year), 3),
+               "food_claims": claimed.claims("food_excise", year)}
+        for year in (2022, 2023)
+    }
+
 EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
 
 
@@ -274,7 +291,7 @@ def run() -> None:
     p_eitc = eitc_dotax["dollars_M"] * 1e6 / float((cE["eitc_expanded"] * wE).sum())
     uF, cF = frames[CAL_YEAR]
     wF = uF["weight"].to_numpy(dtype=float)
-    p_food = DOTAX[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
+    p_food = dotax()[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
     if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10):
         raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}")
 
@@ -295,12 +312,12 @@ def run() -> None:
         {"check": "take-up factor, food/excise", "model": p_food, "dotax": None},
         {"check": "TY2024 EITC $M (fit)", "model": r24["eitc_expanded_$M"], "dotax": eitc_dotax["dollars_M"]},
         {"check": "TY2024 EITC claims", "model": r24["eitc_claimants"], "dotax": eitc_dotax["claims"]},
-        {"check": "TY2023 EITC $M (out of sample)", "model": r23["eitc_expanded_$M"], "dotax": DOTAX[2023]["eitc_$M"]},
-        {"check": "TY2023 EITC claims (out of sample)", "model": r23["eitc_claimants"], "dotax": DOTAX[2023]["eitc_claims"]},
-        {"check": "TY2023 food/excise $M (fit)", "model": r23["food_expanded_$M"], "dotax": DOTAX[2023]["food_$M"]},
-        {"check": "TY2023 food/excise claims", "model": r23["food_claimants_expanded"], "dotax": DOTAX[2023]["food_claims"]},
-        {"check": "TY2022 food/excise $M, prior table (out of sample)", "model": r22["food_reverted_$M"], "dotax": DOTAX[2022]["food_$M"]},
-        {"check": "TY2022 food/excise claims, prior table", "model": r22["food_claimants_reverted"], "dotax": DOTAX[2022]["food_claims"]},
+        {"check": "TY2023 EITC $M (out of sample)", "model": r23["eitc_expanded_$M"], "dotax": dotax()[2023]["eitc_$M"]},
+        {"check": "TY2023 EITC claims (out of sample)", "model": r23["eitc_claimants"], "dotax": dotax()[2023]["eitc_claims"]},
+        {"check": "TY2023 food/excise $M (fit)", "model": r23["food_expanded_$M"], "dotax": dotax()[2023]["food_$M"]},
+        {"check": "TY2023 food/excise claims", "model": r23["food_claimants_expanded"], "dotax": dotax()[2023]["food_claims"]},
+        {"check": "TY2022 food/excise $M, prior table (out of sample)", "model": r22["food_reverted_$M"], "dotax": dotax()[2022]["food_$M"]},
+        {"check": "TY2022 food/excise claims, prior table", "model": r22["food_claimants_reverted"], "dotax": dotax()[2022]["food_claims"]},
     ])
     cal.to_csv(OUT_DIR / "calibration.csv", index=False)
     eitc_check(uE, cE, p_eitc, dotax_base.load_eitc_report(EITC_CAL_YEAR)).to_csv(
@@ -328,7 +345,7 @@ def run() -> None:
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
                 "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),
-                "takeup_food": round(p_food, 4), "dotax": DOTAX},
+                "takeup_food": round(p_food, 4), "dotax": dotax()},
         inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
                 "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2",
                 "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 "
@@ -487,7 +504,7 @@ def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, 
     dE = (c28["eitc_expanded"] - c28["eitc_reverted"]).to_numpy(float)
     dF = (c28["food_expanded"] - c28["food_reverted"]).to_numpy(float)
     eitc_target = eitc_target_m * 1e6
-    food_target = DOTAX[CAL_YEAR]["food_$M"] * 1e6
+    food_target = dotax()[CAL_YEAR]["food_$M"] * 1e6
     hh = u28["hh_id"].to_numpy()
     hhw = (u28["hh_weight"] if "hh_weight" in u28.columns else u28["weight"]).to_numpy(float)
     q_e = np.where(c28["eitc_expanded"] > 0, 1.0, 0.0)
