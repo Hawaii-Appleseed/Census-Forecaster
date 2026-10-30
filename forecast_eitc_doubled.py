@@ -58,10 +58,8 @@ def _load_baseline_units() -> pd.DataFrame:
     persons = pd.read_parquet(fixture_dir / "synthetic_pums_persons.parquet")
     households = pd.read_parquet(fixture_dir / "synthetic_pums_households.parquet")
 
-    from tax_modeler.units.constructor import TaxUnitConstructor
-    ctor = TaxUnitConstructor(persons.copy(), households.copy(),
-                              use_soi_calibration=False, progress_bar=False)
-    units = ctor.create_rule_based_units(parallel=False)
+    from tax_modeler.base import build_raw_units
+    units = build_raw_units(persons.copy(), households.copy())
     units = enrich_for_credits(units)
     units = compute_base_tax(units)
     units = compute_snap_for_units(units)

@@ -30,7 +30,7 @@ import json
 import math
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -59,6 +59,8 @@ class Estimate:
     # repo-relative destination -> source under runs/, copied on import too
     # (the simulator's golden fixtures, which must match its published data)
     extra: tuple[tuple[str, str], ...] = ()
+    # published name -> source under runs/, copied only if the run wrote it
+    optional: dict[str, str] = field(default_factory=dict)
 
 
 CAPITAL_GAINS = Estimate(
@@ -80,11 +82,13 @@ ACT24 = Estimate(
         "distribution_quintile.csv": "sb3125_cd2_enhanced/quintile.csv",
         "distribution_income_class.csv": "sb3125_cd2_enhanced/bracket.csv",
         "manifest.json": "sb3125_cd2_enhanced/manifest.json",
-        # forecast_act24_vs_pre_act46.py writes no manifest; its provenance is
-        # the script itself and SB3125_CD1_FORECAST.md's reconciliation section.
         "vs_pre_act46.csv": "act24_vs_pre_act46/decomposition.csv",
     },
     stamp=("manifest.json",),
+    # forecast_act24_vs_pre_act46.py writes its own manifest; runs made before
+    # it did have none, and then the script and SB3125_CD1_FORECAST.md's
+    # reconciliation section are its provenance.
+    optional={"vs_pre_act46_manifest.json": "act24_vs_pre_act46/manifest.json"},
 )
 WORKING_FAMILIES = Estimate(
     slug="working-family-credits",
@@ -147,6 +151,11 @@ def import_runs(est: Estimate) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for name, src in est.files.items():
         shutil.copy2(runs / src, dst / name)
+    for name, src in est.optional.items():
+        if (runs / src).exists():
+            shutil.copy2(runs / src, dst / name)
+        else:
+            (dst / name).unlink(missing_ok=True)   # not a stale copy from an older run
     for dest, src in est.extra:
         (REPO / dest).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(runs / src, REPO / dest)
@@ -786,6 +795,10 @@ def build_act24() -> tuple[str, dict]:
 """, "context")
 
     base = manifest["inputs"]["tax_units_cache"]
+    pre_manifest_li = (
+        '\n<li><a href="../data/act-24/vs_pre_act46_manifest.json"><code>vs_pre_act46_manifest.json</code></a>: '
+        'run parameters and code version for the pre-Act 46 comparison</li>'
+        if (d / "vs_pre_act46_manifest.json").exists() else "")
     s5 = section("How These Estimates Are Calculated", f"""
 {lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics. Each income class holds the capital gains the Department of Taxation reports for it, and those gains are taxed with the statute’s alternative tax, which caps their rate at 7.25 percent.{notes.ref(T_DOTAX_STATS)}{notes.ref(T_HRS_ALT_TAX)}")}
 <p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. Each filer who moves costs the state all of the income tax they would have paid, not just the increase. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income, and of the three scenarios the middle one is recommended. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
@@ -795,7 +808,7 @@ def build_act24() -> tuple[str, dict]:
 <li><a href="../data/act-24/distribution_quintile.csv"><code>distribution_quintile.csv</code></a>: change by fifth of households, {Y} to {last}, with shares paying more and less and credit claimants</li>
 <li><a href="../data/act-24/distribution_income_class.csv"><code>distribution_income_class.csv</code></a>: change by income class, {Y} to {last}</li>
 <li><a href="../data/act-24/vs_pre_act46.csv"><code>vs_pre_act46.csv</code></a>: Act 46 and Act 24 compared with pre-Act 46 law</li>
-<li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>
+<li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>{pre_manifest_li}
 </ul>
 """, "method")
 

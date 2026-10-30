@@ -93,7 +93,7 @@ def _load_units(
     onto persons so SDR sampling-variance can be computed downstream.
     """
     from tax_modeler.pipeline import enrich_for_credits
-    from tax_modeler.units.constructor import TaxUnitConstructor
+    from tax_modeler.base import build_raw_units
     from tax_modeler.analysis.puma_crosswalk import assign_geography
 
     if use_fixture or pums_data_dir is None:
@@ -158,11 +158,7 @@ def _load_units(
             any(c.startswith("WGTP") and c != "WGTP" for c in broadcast_cols),
         )
 
-    ctor = TaxUnitConstructor(
-        persons.copy(), households.copy(),
-        use_soi_calibration=False, progress_bar=False,
-    )
-    units = ctor.create_rule_based_units(parallel=True)
+    units = build_raw_units(persons.copy(), households.copy(), parallel=True)
     units = enrich_for_credits(units)
     units = assign_geography(units)
     return units, persons

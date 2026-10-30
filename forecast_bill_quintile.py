@@ -42,13 +42,8 @@ logging.disable(logging.WARNING)
 
 import pandas as pd
 
-from tax_modeler.pipeline import _compute_base_tax, _enrich_for_credits
-from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+from tax_modeler.base import build_tail_units
 from tax_modeler.config.tax_system_config import TaxCalculator
-from tax_modeler.scenarios.top_income_synthesis import (
-    synthesize_top_filers, calibrate_synthetic_tail_to_tax_target,
-    redistribute_mid_high_incomes,
-)
 from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
 from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
 from tax_modeler.scenarios.quintile_analysis import (
@@ -154,25 +149,15 @@ def main(bill: str = "sb3125_cd1") -> None:
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
 
     print(f"Synthesizing top filers (MID alpha={MID_ALPHA})...", flush=True)
-    # $500K-$1M income redistribution: rewrite each filer's income via
-    # truncated Pareto inverse-CDF mapped to weighted percentile. Preserves
-    # PUMS demographics (filing status mix stays ~62% MFJ / 26% MFS / 10%
-    # Single / 2.5% HoH) so the surcharge-relevant Single+MFS share isn't
-    # diluted. Capped just below $1M; no overlap with $1M+ synthesis.
-    units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
-    # $1M+ Pareto synthesis (existing flow, replaces $1M+ rows)
-    units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
-    units = _enrich_for_credits(units)              # adds total_cash_income for TCI quintile binning
-    units = impute_capital_gains_from_soi(units)    # Phase 3: CG rate cap for $100K-$1M filers
-    # Re-score on the SAME deduction basis the base was calibrated under —
-    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3). The
-    # tail is not aged to the PUMS dollar year (age_synthetic_tail):
-    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and
-    # replaces them with SOI tiers aged from TY2022, so its level is moot.
-    def score(u):
-        return _compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    # $500K-$1M income redistribution (truncated Pareto inverse-CDF mapped to
+    # weighted percentile; preserves PUMS demographics so the surcharge-relevant
+    # Single+MFS share isn't diluted), $1M+ Pareto synthesis, enrichment (adds
+    # total_cash_income for TCI quintile binning), capital-gains imputation, and
+    # the tail calibrated on the base's own deduction basis. Not aged:
+    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and replaces
+    # them with SOI tiers aged from TY2022, so its level is moot.
+    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
+                                     cal_tax_year=cal_tax_year)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()

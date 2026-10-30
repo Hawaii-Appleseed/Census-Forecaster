@@ -61,6 +61,7 @@ forecast_sb3125_enhanced.py --cd 2 first).
 
 Outputs:
   runs/act24_vs_pre_act46/decomposition.csv
+  runs/act24_vs_pre_act46/manifest.json
 """
 from __future__ import annotations
 
@@ -166,6 +167,17 @@ def main() -> None:
     out_dir = REPO / "runs" / "act24_vs_pre_act46"
     out_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_dir / "decomposition.csv", index=False)
+
+    from _forecast_common import cache_provenance
+    from tax_modeler.runs import write_run_manifest
+    write_run_manifest(
+        out_dir, script="forecast_act24_vs_pre_act46.py",
+        params={"cd": "2", "target_years": TARGET_YEARS, "alpha": MID_ALPHA,
+                "top_premium": MID_TOP_PREMIUM, "tail_k": tail_k, "cal_tax_year": cal_tax_year,
+                "tieout_checked": page is not None},
+        inputs={"tax_units_cache": cache_provenance(),
+                "act24_page": str(ENHANCED.relative_to(REPO)) if page is not None else None},
+    )
 
     pd.set_option("display.width", 200)
     pd.set_option("display.max_columns", 50)

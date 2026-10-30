@@ -50,13 +50,8 @@ import numpy as np
 import pandas as pd
 
 from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
-from tax_modeler.pipeline import enrich_for_credits as _enrich_for_credits
-from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
+from tax_modeler.base import build_tail_units
 from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
-from tax_modeler.scenarios.top_income_synthesis import (
-    synthesize_top_filers, calibrate_synthetic_tail_to_tax_target,
-    redistribute_mid_high_incomes,
-)
 from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
 from tax_modeler.scenarios.quintile_analysis import (
     generate_quintile_report, compute_quintile_breaks, per_unit_tax,
@@ -152,19 +147,10 @@ def main(cd: str) -> None:
     from tax_modeler.artifacts import load_calibrated_base
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
-    units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
-    units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
-    units = _enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)
-    # Re-score on the SAME deduction basis the base was calibrated under —
-    # bare _compute_base_tax (SD-only) made tail_k inconsistent (C3). The
-    # tail is not aged to the PUMS dollar year (age_synthetic_tail):
-    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and
-    # replaces them with SOI tiers aged from TY2022, so its level is moot.
-    def score(u):
-        return _compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    # The unaged tail: project_and_recalibrate's SOI anchor zeroes every $1M+
+    # unit and replaces them with SOI tiers aged from TY2022, so its level is moot.
+    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
+                                     cal_tax_year=cal_tax_year)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()

@@ -459,7 +459,7 @@ if __name__ == "__main__":
         print("Importing modules...", flush=True)
         # The scenario workers import what they score with; the main process
         # only needs the one-time calibration setup (enrich, base tax, rake).
-        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, _calibrate
+        from tax_modeler.base import build_calibrated_base, validate_calibrated_base
         from tax_modeler.config.tax_system_config import TaxSystemRegistry
 
         get_scenario_system = (
@@ -469,50 +469,25 @@ if __name__ == "__main__":
 
         wall_start = time.perf_counter()
 
-        from tax_modeler.artifacts import load_canonical_deduction_params
-        units = load_cached_units(CD)
+        units = load_cached_units(CD, built_by="forecast_sb3125_enhanced.py")
 
         print("Enriching + base tax + calibrating (one-time)...", flush=True)
-        units = _enrich_for_credits(units)
-
-        # Load the same itemized-deduction params used in projection so the
-        # calibration target and projected tax are computed on the same
-        # deduction basis. Avoids the standard-only-vs-itemized "double
+        # Calibrates on the same itemized-deduction params the projection uses
+        # (the canonical set), so the calibration target and projected tax share
+        # one deduction basis. Avoids the standard-only-vs-itemized "double
         # discount" at high incomes that previously made TY 2027 baseline
         # drop ~$349M below the calibration anchor.
-        CAL_DED_PARAMS = load_canonical_deduction_params()
-        print(f"  Loaded itemized-deduction params for calibration", flush=True)
-
-        units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        calibrated_base = _calibrate(units)
-        # Re-compute Hawaii tax post-calibration so hi_tax_liability reflects
-        # final calibrated weights with itemized deductions on.
-        calibrated_base = _compute_base_tax(
-            calibrated_base, deduction_params=CAL_DED_PARAMS, tax_year=2023,
-        )
+        calibrated_base, CAL_DED_PARAMS = build_calibrated_base(units, tax_year=2023)
 
         # Validate post-rake AND post-synthesis (top-tier filers added in
         # synthesis fill the $1M+ bin which the IPF rake can't reach via its
         # 1.5x bin-cap). Calibration target is met after synthesis. The tail
         # stays at the TY2023 level here (no aging), like the targets below.
-        from tax_modeler.pipeline import compute_base_tax as _score_base
-        from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers as _synth,
-            calibrate_synthetic_tail_to_tax_target as _calibrate_tail,
-        )
-        from tax_modeler.calibration import dotax_base as _dotax_base
-        # The target the calibration rakes to (the $1M+ class on its window), not the printed total.
-        _DOTAX_BEFORE_M = sum(_dotax_base.tax_targets_M().values())
-        _DOTAX_AFTER_M = _dotax_base.load_indinc(_dotax_base.BASE_YEAR)[
-            "table_a8_resident_liability"]["total"]["tax_after_M"]
-        _score = lambda u: _score_base(u, deduction_params=CAL_DED_PARAMS, tax_year=2023)  # noqa: E731
-        _vb, _ = _calibrate_tail(_score(_synth(calibrated_base, pareto_alpha=1.5)), score=_score)
-        _hi_tl = (_vb["hi_tax_liability"] * _vb["weight"]).sum() / 1e6
-        _hi_st = (_vb["hi_state_tax"]     * _vb["weight"]).sum() / 1e6
+        v = validate_calibrated_base(calibrated_base, CAL_DED_PARAMS, tax_year=2023)
         print(
             f"  CALIBRATION VALIDATION (post-rake + post-synthesis, itemized on):\n"
-            f"    hi_tax_liability:      ${_hi_tl:>7,.0f}M  (DOTAX Table A8 target: ${_DOTAX_BEFORE_M:,.0f}M)\n"
-            f"    hi_state_tax (net):    ${_hi_st:>7,.0f}M  (DOTAX TY{_dotax_base.BASE_YEAR} after credits: ${_DOTAX_AFTER_M:,.0f}M)",
+            f"    hi_tax_liability:      ${v['hi_tax_liability_M']:>7,.0f}M  (DOTAX Table A8 target: ${v['dotax_before_credits_M']:,.0f}M)\n"
+            f"    hi_state_tax (net):    ${v['hi_state_tax_M']:>7,.0f}M  (DOTAX TY{v['dotax_base_year']} after credits: ${v['dotax_after_credits_M']:,.0f}M)",
             flush=True,
         )
 

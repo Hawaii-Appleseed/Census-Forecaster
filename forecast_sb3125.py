@@ -23,7 +23,7 @@ import traceback
 from pathlib import Path
 
 from _forecast_common import (
-    CACHE_FILE, DATA_DIR, TARGET_YEARS, parse_cd_args, silence_noise,
+    TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
 
 if __name__ == "__main__":
@@ -39,9 +39,8 @@ if __name__ == "__main__":
 
         print(f"SB 3125 CD{CD} fiscal-impact forecast", flush=True)
         print("Importing modules...", flush=True)
-        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, _calibrate
-        from tax_modeler.loaders.pums_loader import PUMSDataLoader
-        from tax_modeler.units.constructor import TaxUnitConstructor
+        from tax_modeler.base import build_calibrated_base
+        from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
         from tax_modeler.config.tax_system_config import (
             TaxCalculator, TaxSystemRegistry, compare_systems,
@@ -50,55 +49,13 @@ if __name__ == "__main__":
 
         wall_start = time.perf_counter()
 
-        from tax_modeler.artifacts import (
-            check_cache_sidecar, load_canonical_deduction_params, write_cache_sidecar,
-        )
-
-        # ---- Build calibrated base-year units (cached) ---------------------
-        if CACHE_FILE.exists():
-            print(f"Loading cached units from {CACHE_FILE}...", flush=True)
-            check_cache_sidecar(CACHE_FILE)
-            units = pd.read_parquet(CACHE_FILE)
-            print(f"  {len(units):,} units loaded from cache", flush=True)
-        else:
-            t0 = time.perf_counter()
-            print("Loading PUMS...", flush=True)
-            loader = PUMSDataLoader(data_dir=DATA_DIR)
-            person_df, hh_df = loader.load_data(state="15", pums_type="5yr")
-            print(f"  {len(person_df):,} persons, {len(hh_df):,} households in {time.perf_counter()-t0:.1f}s", flush=True)
-
-            t0 = time.perf_counter()
-            print("Constructing tax units...", flush=True)
-            constructor = TaxUnitConstructor(
-                person_df, hh_df,
-                use_soi_calibration=False,
-                progress_bar=False,
-            )
-            units = constructor.create_rule_based_units(parallel=False)
-            print(f"  {len(units):,} units in {time.perf_counter()-t0:.1f}s", flush=True)
-
-            safe_units = units.copy()
-            for col in safe_units.columns:
-                if safe_units[col].dtype == object:
-                    safe_units[col] = safe_units[col].astype(str)
-            CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            safe_units.to_parquet(CACHE_FILE, index=False)
-            write_cache_sidecar(CACHE_FILE, extra={
-                "built_by": "forecast_sb3125.py",
-                "pums": "HI 5yr 2020-24",
-                "n_units": int(len(safe_units)),
-            })
-            print(f"  Units cached to {CACHE_FILE}", flush=True)
-            del safe_units
+        # ---- Build calibrated base-year units (raw units cached) -----------
+        units = load_cached_units(CD, built_by="forecast_sb3125.py")
 
         t0 = time.perf_counter()
         print("Enriching + base tax + calibrating...", flush=True)
-        # Score with the canonical itemized-deduction params — bare
-        # _compute_base_tax (SD-only) diverged from the calibrated basis (C3).
-        CAL_DED_PARAMS = load_canonical_deduction_params()
-        units = _enrich_for_credits(units)
-        units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        calibrated = _calibrate(units)
+        # Canonical itemized-deduction params, TY2023 (the production sequence).
+        calibrated, CAL_DED_PARAMS = build_calibrated_base(units)
         print(f"  Done in {time.perf_counter()-t0:.1f}s", flush=True)
 
         # ---- Top-income synthesis ------------------------------------------

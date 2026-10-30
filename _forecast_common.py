@@ -338,22 +338,19 @@ def parse_cd_args(description: str | None = None):
     return p.parse_args()
 
 
-def load_cached_units(cd: str = "1"):
-    """Load the tax-unit cache, exiting with guidance if it is missing.
+def load_cached_units(cd: str = "1", built_by: str = "_forecast_common.load_cached_units"):
+    """The raw tax-unit cache, built from PUMS if it is missing.
 
-    Returns the raw cached units DataFrame (sidecar-verified).
+    Thin wrapper over ``tax_modeler.base.load_or_build_raw_units``; exits with
+    guidance when the cache and the PUMS files are both missing.
     """
-    import pandas as pd
+    from tax_modeler.base import load_or_build_raw_units
+    from tax_modeler.errors import MissingDataError
 
-    from tax_modeler.artifacts import check_cache_sidecar
-
-    if not CACHE_FILE.exists():
-        print(f"ERROR: tax-unit cache not found at {CACHE_FILE}", flush=True)
-        print(f"Run forecast_sb3125.py --cd {cd} first to populate the cache.", flush=True)
+    try:
+        return load_or_build_raw_units(CACHE_FILE, DATA_DIR, built_by=built_by)
+    except MissingDataError as e:
+        print(f"ERROR: tax-unit cache not found at {CACHE_FILE} and PUMS is missing.", flush=True)
+        print(str(e), flush=True)
+        print(f"Place the PUMS files, or copy the cache over, then re-run (cd={cd}).", flush=True)
         sys.exit(1)
-
-    print(f"Loading cached units from {CACHE_FILE}...", flush=True)
-    check_cache_sidecar(CACHE_FILE)
-    units = pd.read_parquet(CACHE_FILE)
-    print(f"  {len(units):,} units loaded", flush=True)
-    return units

@@ -61,12 +61,10 @@ def _load_synthetic_fixture() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def _build_baseline_units(persons: pd.DataFrame, households: pd.DataFrame) -> pd.DataFrame:
     """Construct calibrated tax units from PUMS-style person + household frames."""
-    from tax_modeler.units.constructor import TaxUnitConstructor
+    from tax_modeler.base import build_raw_units
 
     print("Constructing tax units...", flush=True)
-    ctor = TaxUnitConstructor(persons.copy(), households.copy(),
-                              use_soi_calibration=False, progress_bar=False)
-    units = ctor.create_rule_based_units(parallel=False)
+    units = build_raw_units(persons.copy(), households.copy())
     units = enrich_for_credits(units)
     units = compute_base_tax(units)
     print(f"  {len(units):,} tax units; gross HI tax ${(units['hi_tax_liability']*units['weight']).sum()/1e6:.1f}M",

@@ -138,13 +138,7 @@ GRID = "#d4d4d4"
 def build_base() -> pd.DataFrame:
     """Calibrated base + $1M+ synthesis, identical to forecast_act24_vs_pre_act46.py."""
     from tax_modeler.artifacts import load_calibrated_base
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
-    from tax_modeler.scenarios.top_income_synthesis import (
-        calibrate_synthetic_tail_to_tax_target,
-        redistribute_mid_high_incomes,
-        synthesize_top_filers,
-    )
+    from tax_modeler.base import build_tail_units
 
     from _forecast_common import CALIBRATED_PKL
 
@@ -153,17 +147,10 @@ def build_base() -> pd.DataFrame:
         sys.exit(1)
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
-    units = redistribute_mid_high_incomes(base, pareto_alpha=MID_ALPHA)
-    units = synthesize_top_filers(units, pareto_alpha=MID_ALPHA)
-    units = enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)
-
-    def score(u):
-        return compute_base_tax(u, deduction_params=cal_ded_params, tax_year=cal_tax_year)
-
     # Not aged to the PUMS dollar year: project()'s SOI anchor replaces every
     # $1M+ unit with SOI tiers aged from TY2022, so the tail's level is moot.
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
+                                     cal_tax_year=cal_tax_year)
     print(f"  tail_k={tail_k:.4f}", flush=True)
     return units
 

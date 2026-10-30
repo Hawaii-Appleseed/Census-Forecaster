@@ -26,6 +26,9 @@ entry points:
 - :func:`run_pipeline` — end-to-end, returns :class:`PipelineResult`
 - :func:`enrich_for_credits` / :func:`compute_base_tax` / :func:`calibrate`
   — individual stages for advanced workflows
+- :func:`build_calibrated_base`, :func:`load_or_build_raw_units`,
+  :func:`build_tail_units` — the production population build
+  (:mod:`tax_modeler.base`) the forecast scripts share
 - :class:`TaxCalculator`, :class:`TaxSystemRegistry`, :func:`compare_systems`
   — bracket-comparison primitives
 - :class:`RevenueEstimator` — population-weighted aggregation
@@ -115,6 +118,12 @@ _LAZY = {
     "GeographicAnalyzer": ".analysis",
     "assign_geography": ".analysis",
     "load_crosswalk": ".analysis",
+    # --- Production population build (PUMS -> raw units -> calibrated base -> tail)
+    "build_calibrated_base": ".base",
+    "build_raw_units": ".base",
+    "build_tail_units": ".base",
+    "load_or_build_raw_units": ".base",
+    "validate_calibrated_base": ".base",
     # --- End-to-end pipeline -----------------------------------------------------
     "PipelineResult": ".pipeline",
     "calibrate": ".pipeline",
@@ -247,6 +256,12 @@ PUBLIC_API = (
     "enrich_with_spm_unit_id",
     "compute_base_tax",
     "calibrate",
+    # Production population build (tax_modeler.base)
+    "build_raw_units",
+    "load_or_build_raw_units",
+    "build_calibrated_base",
+    "validate_calibrated_base",
+    "build_tail_units",
     # Tax math primitives
     "TaxUnitConstructor",
     "TaxCalculator",

@@ -110,7 +110,8 @@ if __name__ == "__main__":
 
         print(f"SB 3125 CD{CD} sensitivity analysis", flush=True)
         print("Importing modules...", flush=True)
-        from tax_modeler.pipeline import _enrich_for_credits, _compute_base_tax, _calibrate
+        from tax_modeler.base import build_calibrated_base
+        from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
         from tax_modeler.config.tax_system_config import (
             TaxCalculator, TaxSystemRegistry, compare_systems,
@@ -119,19 +120,15 @@ if __name__ == "__main__":
         from tax_modeler.scenarios.top_income_synthesis import (
             synthesize_top_filers, validate_top_synthesis,
         )
-        from tax_modeler.artifacts import load_canonical_deduction_params
 
         wall_start = time.perf_counter()
 
-        units = load_cached_units(CD)
+        units = load_cached_units(CD, built_by="forecast_sb3125_sensitivity.py")
 
         print("Enriching + base tax + calibrating (one-time)...", flush=True)
         # Calibrate and re-score on the canonical itemized-deduction basis —
-        # bare _compute_base_tax (SD-only) diverged from downstream scoring (C3).
-        CAL_DED_PARAMS = load_canonical_deduction_params()
-        units = _enrich_for_credits(units)
-        units = _compute_base_tax(units, deduction_params=CAL_DED_PARAMS, tax_year=2023)
-        calibrated_base = _calibrate(units)
+        # bare SD-only scoring diverged from downstream scoring (C3).
+        calibrated_base, CAL_DED_PARAMS = build_calibrated_base(units)
 
         all_rows = []
         for label, alpha, reec in SCENARIOS:
