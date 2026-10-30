@@ -14,7 +14,7 @@
 ## Shipping a change
 
 1. `python scripts/new_worktree.py <branch>` — never edit the shared main checkout. It copies `runs/` and the gitignored inputs over and builds the worktree's own venv (the main `.venv` imports main's code).
-2. Change the code, run the full suite, **commit**.
+2. Change the code, run the full suite and `uv run ruff check .` (CI enforces it; `--fix` applies the safe fixes), **commit**.
 3. `python scripts/publish.py` — refuses on uncommitted code (manifests stamp HEAD), reruns the chain, imports the runs, rebuilds the simulator against the newly imported capital-gains figures, builds every page.
 4. `publish.py` has already regenerated the doc's results block; update its prose if methodology changed and commit it; then commit `site/` and `tests/simulator/`.
    Two steps reuse cached work when their inputs are unchanged, keyed by `common.fingerprint.fingerprint` (every workspace package's `src`, the Python/numpy/pandas versions, the step's own inputs): the working-family tax units (`data/artifacts/working_family_units.pkl`) and the simulator's golden fixtures (`--rebuild-golden` forces them). Deleting the `.key` files in `data/artifacts/` forces both. Within a run, the MID populations (built and projected by step 1, then again by the pre-Act-46 run and the simulator) are shared through `data/artifacts/populations/` (`tax_modeler.scenarios.population_store`), keyed by the same fingerprint of the code and the calibrated-base pickle, which step 1 rewrites every run; `scripts/rerun_models.py` gives each step of a stage `cores // steps` workers unless `CF_MAX_WORKERS` is set.
