@@ -1,6 +1,6 @@
 """The population the Act 24 estimates are scored on.
 
-``forecast_sb3125_enhanced.py`` (the Act 24 page) and the tax simulator's
+``chain/forecast_sb3125_enhanced.py`` (the Act 24 page) and the tax simulator's
 scoring population (``tax_modeler.simulator.population``) both build their
 tax units here, so the simulator scores exactly the population the published
 estimates use.

@@ -2,7 +2,7 @@
 
 Single source for the report previously copy-pasted across
 forecast_hb2306_quintile.py, forecast_sb3125_quintile.py and
-forecast_sb3125_static_quintile.py (and the deleted
+analyses/forecast_sb3125_static_quintile.py (and the deleted
 generate_quintile_pdf.py). Layout: one table page (three row-blocks x
 years), three horizontal-bar chart pages (first + last chart year), plus
 optional caller-supplied extra pages.

@@ -4,8 +4,8 @@ Runs three LOW/MID/HIGH parameter combinations varying top-income synthesis
 (Pareto alpha) and REEC demand scenario (post-OBBBA Section 25D impact).
 
 Usage:
-  python forecast_sb3125_sensitivity.py --cd 1   # SB 3125 CD1 (default)
-  python forecast_sb3125_sensitivity.py --cd 2   # SB 3125 CD2
+  python analyses/forecast_sb3125_sensitivity.py --cd 1   # SB 3125 CD1 (default)
+  python analyses/forecast_sb3125_sensitivity.py --cd 2   # SB 3125 CD2
 
 Replaces the two separate scripts:
   forecast_sb3125_cd1_sensitivity.py  (identical except TaxSystemRegistry call)
@@ -16,7 +16,7 @@ Combinations:
   MID    = (alpha=1.5, reec=obbba_mid)     -- recommended default
   HIGH   = (alpha=1.4, reec=pre_obbba)     -- aggressive for revenue
 
-Requires tax-unit cache at data/artifacts/tax_units_cache.parquet (run forecast_sb3125.py first).
+Requires tax-unit cache at data/artifacts/tax_units_cache.parquet (run analyses/forecast_sb3125.py first).
 
 Output:
   /tmp/sb3125_cd{N}_sensitivity_2027_2031.csv
@@ -27,7 +27,10 @@ import sys
 import traceback
 from pathlib import Path
 
-from _forecast_common import (
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
+
+from _forecast_common import (  # noqa: E402
     TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
 
@@ -123,7 +126,7 @@ if __name__ == "__main__":
 
         wall_start = time.perf_counter()
 
-        units = load_cached_units(CD, built_by="forecast_sb3125_sensitivity.py")
+        units = load_cached_units(CD, built_by="analyses/forecast_sb3125_sensitivity.py")
 
         print("Enriching + base tax + calibrating (one-time)...", flush=True)
         # Calibrate and re-score on the canonical itemized-deduction basis —

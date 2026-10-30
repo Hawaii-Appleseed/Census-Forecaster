@@ -1,7 +1,7 @@
 """Conveyance tax restructuring (SB 3028 SD2 HD2, 2026): revenue and who pays.
 
 Usage:
-  python forecast_conveyance_sb3028.py        # writes runs/conveyance_sb3028/
+  python analyses/forecast_conveyance_sb3028.py        # writes runs/conveyance_sb3028/
 
 Question
 --------
@@ -142,7 +142,7 @@ from tax_modeler.conveyance import (
     value_above,
 )
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "packages" / "tax_modeler" / "src" / "tax_modeler" / "data" / "raw" / "conveyance"
 OUT_DIR = REPO / "runs" / "conveyance_sb3028"
 
@@ -1160,7 +1160,7 @@ def run() -> None:
     (OUT_DIR / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
     from tax_modeler.runs import write_run_manifest
-    write_run_manifest(OUT_DIR, script="forecast_conveyance_sb3028.py",
+    write_run_manifest(OUT_DIR, script="analyses/forecast_conveyance_sb3028.py",
                        params={"target_years": TARGET_YEARS, "maui_base_fy": MAUI_BASE_FY,
                                "state_base_fy": STATE_BASE_FY, "tg_years": TG_YEARS, "tail_at": TAIL_AT,
                                "price_growth": PRICE_GROWTH, "cpi_growth": CPI_GROWTH,

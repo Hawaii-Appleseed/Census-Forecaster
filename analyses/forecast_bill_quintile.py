@@ -1,9 +1,9 @@
 """Bill-vs-Act-46 quintile distributional analysis (MID scenario, TY 2027-2031).
 
 Usage:
-  python forecast_bill_quintile.py --bill sb3125_cd1   # SB 3125 CD1 (default)
-  python forecast_bill_quintile.py --bill sb3125_sd1   # SB 3125 SD1
-  python forecast_bill_quintile.py --bill hb2306_hd1   # HB 2306 HD1
+  python analyses/forecast_bill_quintile.py --bill sb3125_cd1   # SB 3125 CD1 (default)
+  python analyses/forecast_bill_quintile.py --bill sb3125_sd1   # SB 3125 SD1
+  python analyses/forecast_bill_quintile.py --bill hb2306_hd1   # HB 2306 HD1
 
 Replaces (identical pipeline, differed only in tax system + credit overlay
 + report labels):
@@ -53,9 +53,12 @@ from tax_modeler.scenarios.quintile_analysis import (
 from tax_modeler.reporting import BLUE, GREEN, NAVY, make_quintile_pdf
 from tax_modeler.scenarios.registry import baseline_for, get_scenario
 
-from _forecast_common import CALIBRATED_PKL, TARGET_YEARS
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
-# MID scenario parameters (matches forecast_sb3125_enhanced.py MID).
+from _forecast_common import CALIBRATED_PKL, TARGET_YEARS  # noqa: E402
+
+# MID scenario parameters (matches chain/forecast_sb3125_enhanced.py MID).
 MID_ALPHA           = 1.5
 MID_TOP_PREMIUM     = 0.010
 MID_REEC            = "obbba_mid"
@@ -137,7 +140,7 @@ def main(bill: str = "sb3125_cd1") -> None:
     label = scenario.label
 
     if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py first.")
+        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py first.")
         sys.exit(1)
 
     import time

@@ -1,10 +1,8 @@
 """Phase 9 smoke tests: real CPS-ASEC donor matching, multi-marginal
-demographic projection, and per-PUMA forecast-script flag.
+demographic projection (the per-PUMA forecast-script flag went with the removed demo scripts).
 """
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -175,34 +173,3 @@ def test_single_dim_back_compat(taxed_units):
     assert result.per_dim_results == {}
     # senior_share_target is set
     assert result.senior_share_target == pytest.approx(hawaii_senior_share(2040))
-
-
-# ---------------------------------------------------------------------------
-# Phase 9c: --by-puma flag end-to-end via subprocess
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("script,extra_args", [
-    ("forecast_snap_10pct_cut.py", ["--no-takeup-imputation"]),
-    ("forecast_eitc_doubled.py", []),
-    ("forecast_combined_reform.py", []),
-])
-def test_by_puma_flag_creates_csv(script, extra_args, tmp_path):
-    """Each forecast script with --by-puma produces a *_by_puma.csv."""
-    out = tmp_path / f"{Path(script).stem}.csv"
-    puma_out = tmp_path / f"{Path(script).stem}_by_puma.csv"
-    cmd = [
-        sys.executable, str(REPO_ROOT / script),
-        "--out", str(out),
-        "--by-puma",
-        *extra_args,
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-    assert proc.returncode == 0, (
-        f"{script} failed:\nstdout:\n{proc.stdout[-1000:]}\nstderr:\n{proc.stderr[-1000:]}"
-    )
-    assert puma_out.exists(), f"{puma_out} not created"
-    df = pd.read_csv(puma_out)
-    assert "count_weighted" in df.columns
-    assert "poverty_rate_baseline" in df.columns
-    assert len(df) > 0

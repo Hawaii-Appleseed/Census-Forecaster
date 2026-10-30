@@ -14,9 +14,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "scripts"))   # _forecast_common
 _spec = importlib.util.spec_from_file_location(
-    "run_scenario", REPO_ROOT / "run_scenario.py"
+    "run_scenario", REPO_ROOT / "scripts" / "run_scenario.py"
 )
 run_scenario = importlib.util.module_from_spec(_spec)
 # Register before exec: @dataclass resolves type hints via

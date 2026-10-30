@@ -60,7 +60,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "analyses"))   # forecast_rxkids_2028
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 
@@ -203,7 +203,7 @@ def main(argv=None) -> int:
         q = scores[level - 1]
     kappa = q / 1.645
     print(f"n={n} folds  q90={q:.3f}  kappa = q/1.645 = {kappa:.3f}")
-    print("-> paste into forecast_rxkids_2028.py:")
+    print("-> paste into analyses/forecast_rxkids_2028.py:")
     print(f"     BIRTH_KALMAN_LOG_BIAS = {log_bias:.4f}")
     print(f"     BIRTH_KALMAN_SE_KAPPA = {kappa:.3f}")
 

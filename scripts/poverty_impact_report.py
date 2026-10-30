@@ -763,7 +763,7 @@ def tidy_by_state(
     new scenario a schema change. The long form is one row per
     (tax_year, scenario, population, metric) — new scenarios become rows.
     Emitted ADDITIVELY next to by_state.csv (Phase 1,
-    DASHBOARD_PIPELINE_SCOPE.md); the wide file stays during transition.
+    docs/archive/DASHBOARD_PIPELINE_SCOPE.md); the wide file stays during transition.
     """
     row = by_state.iloc[0]
     # Longest-first so e.g. `_no_hi_eitc` wins over any shorter overlap.

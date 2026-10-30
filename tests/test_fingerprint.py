@@ -1,13 +1,11 @@
-"""_forecast_common.fingerprint, the key of the chain's cached step outputs."""
+"""common.fingerprint, the key of the chain's cached step outputs."""
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO))
-
-from _forecast_common import fingerprint  # noqa: E402
+from common import fingerprint as fp
+from common.fingerprint import REPO, fingerprint
 
 
 def test_same_inputs_same_key():
@@ -37,8 +35,6 @@ def test_a_directory_hashes_its_files(tmp_path):
 def test_every_workspace_package_is_hashed(monkeypatch):
     """A change in any package the model imports (not only tax_modeler)
     changes the key."""
-    import _forecast_common
-
     seen = []
     real = Path.rglob
 
@@ -47,7 +43,7 @@ def test_every_workspace_package_is_hashed(monkeypatch):
         return real(self, pattern)
 
     monkeypatch.setattr(Path, "rglob", spy)
-    _forecast_common.fingerprint(b"x")
+    fp.fingerprint(b"x")
     hashed = {p.relative_to(REPO).as_posix() for p in seen}
     for src in (REPO / "packages").glob("*/src"):
         assert src.relative_to(REPO).as_posix() in hashed
@@ -58,8 +54,6 @@ def test_every_workspace_package_is_hashed(monkeypatch):
 def _fake_repo(tmp_path, monkeypatch):
     """A workspace with one package: ``pkg.used`` imports ``pkg.helper``;
     ``pkg.unused`` is imported by nothing; a step script imports ``pkg.used``."""
-    import _forecast_common
-
     src = tmp_path / "packages" / "pkg" / "src" / "pkg"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("")
@@ -70,21 +64,19 @@ def _fake_repo(tmp_path, monkeypatch):
     (tmp_path / "packages" / "pkg" / "config").mkdir()
     (tmp_path / "packages" / "pkg" / "config" / "params.json").write_text("{}")
     (tmp_path / "scripts").mkdir()
-    (tmp_path / "step.py").write_text("import pkg.used\n")
-    monkeypatch.setattr(_forecast_common, "REPO", tmp_path)
-    monkeypatch.setattr(_forecast_common, "NARROW_FINGERPRINT", True)
+    (tmp_path / "scripts" / "step.py").write_text("import pkg.used\n")
+    monkeypatch.setattr(fp, "REPO", tmp_path)
+    monkeypatch.setattr(fp, "NARROW_FINGERPRINT", True)
     return src
 
 
 def test_closure_follows_imports_inside_functions_and_packages(tmp_path, monkeypatch):
-    import _forecast_common
-
     src = _fake_repo(tmp_path, monkeypatch)
-    names = {f.name for f in _forecast_common.code_closure(tmp_path / "step.py")}
+    names = {f.name for f in fp.code_closure(tmp_path / "scripts" / "step.py")}
     assert names == {"step.py", "__init__.py", "used.py", "helper.py"}
-    assert {f.name for f in _forecast_common.code_closure("pkg.used")} == \
+    assert {f.name for f in fp.code_closure("pkg.used")} == \
         {"__init__.py", "used.py", "helper.py"}
-    assert (src / "unused.py") not in _forecast_common.code_closure("pkg.used")
+    assert (src / "unused.py") not in fp.code_closure("pkg.used")
 
 
 def test_narrow_key_ignores_code_the_step_cannot_reach(tmp_path, monkeypatch):
@@ -112,48 +104,40 @@ def test_narrow_key_still_hashes_every_data_and_config_file(tmp_path, monkeypatc
 
 
 def test_untraceable_import_falls_back_to_the_whole_packages(tmp_path, monkeypatch):
-    import _forecast_common
-
     src = _fake_repo(tmp_path, monkeypatch)
     (src / "helper.py").write_text("import importlib\n\ndef g(name):\n    return importlib.import_module(name)\n")
-    assert _forecast_common.code_closure("pkg.used") is None
+    assert fp.code_closure("pkg.used") is None
     before = fingerprint(b"x", code=("pkg.used",))
     (src / "unused.py").write_text("X = 2\n")
     assert fingerprint(b"x", code=("pkg.used",)) != before
 
 
 def test_narrow_key_switched_off_hashes_whole_packages(tmp_path, monkeypatch):
-    import _forecast_common
-
     src = _fake_repo(tmp_path, monkeypatch)
-    monkeypatch.setattr(_forecast_common, "NARROW_FINGERPRINT", False)
+    monkeypatch.setattr(fp, "NARROW_FINGERPRINT", False)
     before = fingerprint(b"x", code=("pkg.used",))
     (src / "unused.py").write_text("X = 2\n")
     assert fingerprint(b"x", code=("pkg.used",)) != before
 
 
 def test_whole_package_key_hashes_config(tmp_path, monkeypatch):
-    import _forecast_common
-
     _fake_repo(tmp_path, monkeypatch)
-    monkeypatch.setattr(_forecast_common, "NARROW_FINGERPRINT", False)
+    monkeypatch.setattr(fp, "NARROW_FINGERPRINT", False)
     before = fingerprint(b"x")
     (tmp_path / "packages" / "pkg" / "config" / "params.json").write_text('{"a": 1}')
     assert fingerprint(b"x") != before
 
 
 def test_guard_fails_when_the_step_imports_outside_its_closure(tmp_path, monkeypatch):
-    import _forecast_common
-
     _fake_repo(tmp_path, monkeypatch)
     monkeypatch.syspath_prepend(str(tmp_path / "packages" / "pkg" / "src"))
     for m in [m for m in sys.modules if m == "pkg" or m.startswith("pkg.")]:
         monkeypatch.delitem(sys.modules, m)
-    with _forecast_common.closure_guard(("pkg.used",)):
+    with fp.closure_guard(("pkg.used",)):
         import pkg.used
         pkg.used.f()
     try:
-        with _forecast_common.closure_guard(("pkg.used",)):
+        with fp.closure_guard(("pkg.used",)):
             import pkg.unused  # noqa: F401
     except RuntimeError as e:
         assert "pkg.unused" in str(e)
@@ -163,12 +147,10 @@ def test_guard_fails_when_the_step_imports_outside_its_closure(tmp_path, monkeyp
 
 def test_chain_closures_trace():
     """The chain's two narrow keys trace (no dynamic import fell them back)."""
-    import _forecast_common
-
     sys.path.insert(0, str(REPO / "scripts"))
     for code in (("poverty_impact_report", "tax_modeler.pipeline"),
                  ("tax_modeler.simulator.golden", "tax_modeler.simulator.population")):
-        closure = _forecast_common.code_closure(*code)
+        closure = fp.code_closure(*code)
         assert closure is not None and len(closure) > 50
 
 
@@ -177,7 +159,7 @@ def test_narrow_key_is_on_unless_switched_off():
     import subprocess
 
     def on(env):
-        out = subprocess.run([sys.executable, "-c", "import _forecast_common as c; print(c.NARROW_FINGERPRINT)"],
+        out = subprocess.run([sys.executable, "-c", "import common.fingerprint as c; print(c.NARROW_FINGERPRINT)"],
                              cwd=REPO, env=env, capture_output=True, text=True, check=True)
         return out.stdout.strip() == "True"
 
@@ -190,8 +172,6 @@ def test_narrow_key_is_on_unless_switched_off():
 def _lazy_pkg(tmp_path, monkeypatch, step_source):
     """``lazypkg`` exports ``Thing`` lazily (a ``_LAZY`` map read by
     ``__getattr__``), as tax_modeler's ``__init__`` does."""
-    import _forecast_common
-
     src = tmp_path / "packages" / "lazypkg" / "src" / "lazypkg"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text(
@@ -205,9 +185,9 @@ def _lazy_pkg(tmp_path, monkeypatch, step_source):
     (src / "other.py").write_text("X = 1\n")
     (src / "sub.py").write_text("Y = 1\n")
     (tmp_path / "scripts").mkdir()
-    (tmp_path / "step.py").write_text(step_source)
-    monkeypatch.setattr(_forecast_common, "REPO", tmp_path)
-    return {f.name for f in _forecast_common.code_closure(tmp_path / "step.py") or []}
+    (tmp_path / "scripts" / "step.py").write_text(step_source)
+    monkeypatch.setattr(fp, "REPO", tmp_path)
+    return {f.name for f in fp.code_closure(tmp_path / "scripts" / "step.py") or []}
 
 
 def test_closure_follows_a_lazy_export(tmp_path, monkeypatch):
@@ -234,9 +214,25 @@ def test_lazy_getattr_is_not_an_untraceable_import(tmp_path, monkeypatch):
 def test_chain_closures_skip_the_lazy_init_exports():
     """With tax_modeler's and its calibration's ``__init__`` lazy, the chain's
     keys leave out calibration modules neither build uses."""
-    import _forecast_common
-
     sys.path.insert(0, str(REPO / "scripts"))
-    closure = {f.name for f in _forecast_common.code_closure(
+    closure = {f.name for f in fp.code_closure(
         "tax_modeler.simulator.golden", "tax_modeler.simulator.population")}
     assert "irs_bracket_calibration.py" not in closure
+
+
+def test_repo_root_is_checked_at_import_and_can_be_overridden(tmp_path):
+    import os
+    import subprocess
+
+    def run(root):
+        env = {**os.environ, "CF_REPO_ROOT": str(root)}
+        return subprocess.run([sys.executable, "-c", "import common.fingerprint as c; print(c.REPO)"],
+                              env=env, capture_output=True, text=True)
+
+    bad = run(tmp_path)
+    assert bad.returncode != 0 and "not the Census-Forecaster repo root" in bad.stderr
+    (tmp_path / "packages").mkdir()
+    (tmp_path / "pyproject.toml").write_text("")
+    good = run(tmp_path)
+    assert good.returncode == 0 and good.stdout.strip() == str(tmp_path.resolve())
+    assert (REPO / "pyproject.toml").exists() and (REPO / "packages").is_dir()

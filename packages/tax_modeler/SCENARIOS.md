@@ -59,9 +59,12 @@ and the delta.
 
 ### Step 4: write a forecast script
 
-Mirror `forecast_sb3125_cd1.py` at the repo root.  After this refactor,
-those scripts no longer need `sys.path.insert` hacks — they just import
-from the installed `tax_modeler` package.
+Mirror `analyses/forecast_sb3125.py` (or, for a step of the published chain,
+`chain/forecast_sb3125_enhanced.py`).  Both put `scripts/` on `sys.path` for
+`_forecast_common` (paths, `--cd` parsing, the tax-unit cache) and import
+everything else from the installed `tax_modeler` package.  To score a bill
+without writing a script, register it in `tax_modeler.scenarios.registry` and
+run `python scripts/run_scenario.py --list`.
 
 ## Part 2 — Extending to a new state
 
@@ -242,35 +245,13 @@ assert report.passes  # within ±5% count, ±20% dollars
 
 ### End-to-end forecast scripts
 
-Three runnable demos at the repo root chain the full stack:
-
-* `forecast_snap_10pct_cut.py`     — SNAP cut → poverty/income impact
-* `forecast_eitc_doubled.py`       — federal + HI EITC expansion
-* `forecast_combined_reform.py`    — tax cut + benefit cut combined
-
-Each runs in <2s on the bundled synthetic fixture and accepts CLI flags
-(`--cut-pct`, `--year`, `--out`, etc.) for parameter sweeps.
-
-### Geographic stratification (`--by-puma`)
-
-Each `forecast_*.py` script accepts an opt-in `--by-puma` flag that
-produces a per-PUMA breakdown alongside the headline state-level table:
-
-```
-$ python forecast_snap_10pct_cut.py --by-puma --no-takeup-imputation
-
-[state-level summary printed as usual]
-
-Per-PUMA breakdown saved: /tmp/forecast_snap_10pct_cut_by_puma.csv
-       count_weighted  poverty_rate_baseline  poverty_rate_cut  delta_pp
-00100          5453.0                  0.171             0.187     +1.56
-```
-
-PUMAs with weighted count below `--puma-min-count` (default 100) are
-flagged with a `~` prefix to signal small-sample instability per Census
-SAE guidance. With Hawaii's 12 PUMAs, full PUMS-level runs typically
-produce 50K+ filers per PUMA so suppression rarely fires; the synthetic
-fixture has all units in one PUMA so the table collapses to one row.
+The May 2026 demos that chained the full stack on the bundled synthetic
+fixture (`forecast_snap_10pct_cut.py`, `forecast_eitc_doubled.py`,
+`forecast_combined_reform.py`, with their `--by-puma` breakdown) were removed
+when the repo was reorganised; `tests/tax_modeler/smoke/` covers the same
+reforms through `apply_reform`. The runnable scripts now live in `chain/`
+(the Act 24 model chain, rerun by `scripts/rerun_models.py`) and `analyses/`
+(everything else); `scripts/run_scenario.py` lists and dispatches them.
 
 ### Real CPS-ASEC donor matching (Phase 9)
 

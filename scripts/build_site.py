@@ -85,7 +85,7 @@ ACT24 = Estimate(
         "vs_pre_act46.csv": "act24_vs_pre_act46/decomposition.csv",
     },
     stamp=("manifest.json",),
-    # forecast_act24_vs_pre_act46.py writes its own manifest; runs made before
+    # chain/forecast_act24_vs_pre_act46.py writes its own manifest; runs made before
     # it did have none, and then the script and SB3125_CD1_FORECAST.md's
     # reconciliation section are its provenance.
     optional={"vs_pre_act46_manifest.json": "act24_vs_pre_act46/manifest.json"},
@@ -487,8 +487,8 @@ def build_capital_gains() -> tuple[str, dict]:
         'Its figures were produced by the Institute on Taxation and Economic Policy.')
     T_dotax = T_DOTAX_STATS
     T_code = (
-        f'Hawaiʻi Appleseed, <code>forecast_cg_rate_options.py</code>, Census-Forecaster model, commit '
-        f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_cg_rate_options.py">github.com</a>')
+        f'Hawaiʻi Appleseed, <code>chain/forecast_cg_rate_options.py</code>, Census-Forecaster model, commit '
+        f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_cg_rate_options.py">github.com</a>')
     T_cbo = (
         f'Congressional Budget Office, economic projections, {esc(p["cbo_vintage"])} vintage, capital gains realizations, '
         'adjusted to Hawaiʻi. <a href="https://www.cbo.gov/topics/budget/economic-projections">cbo.gov</a>')
@@ -706,14 +706,14 @@ def build_act24() -> tuple[str, dict]:
                'energy technologies income tax credit, 2026. <a href="https://tax.hawaii.gov/">tax.hawaii.gov</a>')
     T_claims = ('Hawaiʻi Department of Taxation, “Tax Credits Claimed by Hawaiʻi Taxpayers,” Tax Year 2023, '
                 'Tables 2, A-5 and A-6. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_sb3125_enhanced.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>chain/forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_sb3125_enhanced.py">github.com</a>')
     T_doc = (f'Hawaiʻi Appleseed, “SB 3125 (enacted as Act 24, SLH 2026) — Hawaii Income Tax Fiscal Impact Forecast,” '
              f'methodology and results, Census-Forecaster model. <a href="{REPO_URL}/blob/main/SB3125_CD1_FORECAST.md">github.com</a>')
     T_cor = ('Council on Revenues, General Fund forecast letter, May 21, 2026. '
              '<a href="https://tax.hawaii.gov/useful/a9_1cor/">tax.hawaii.gov</a>')
-    T_pre = (f'Hawaiʻi Appleseed, <code>forecast_act24_vs_pre_act46.py</code>, Census-Forecaster model. '
-             f'<a href="{REPO_URL}/blob/main/forecast_act24_vs_pre_act46.py">github.com</a>')
+    T_pre = (f'Hawaiʻi Appleseed, <code>chain/forecast_act24_vs_pre_act46.py</code>, Census-Forecaster model. '
+             f'<a href="{REPO_URL}/blob/main/chain/forecast_act24_vs_pre_act46.py">github.com</a>')
 
     src_model = "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; middle scenario."
 
@@ -878,8 +878,8 @@ def build_working_families() -> tuple[str, dict]:
                'Tables A-1 and A-2. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
     T_eitc_report = ('Hawaiʻi Department of Taxation, “Earned Income Tax Credit Report, Tax Year 2024” (Act 107, SLH 2017), '
                      'December 2025, Tables 1 to 4. <a href="https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf">files.hawaii.gov</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_working_family_credits.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>chain/forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_working_family_credits.py">github.com</a>')
 
     src_model = f"Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; tax year {Y}."
 
@@ -1195,8 +1195,8 @@ def build_conveyance() -> tuple[str, dict]:
     T_gis = ('County of Hawaiʻi parcels with assessed values and homeowner status, April 27, 2026, and dwelling units by '
              'parcel, June 2025, State of Hawaiʻi Statewide GIS Program. '
              '<a href="https://geodata.hawaii.gov/arcgis/rest/services/ParcelsZoning/MapServer/5">geodata.hawaii.gov</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_conveyance_sb3028.py</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_conveyance_sb3028.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>analyses/forecast_conveyance_sb3028.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/analyses/forecast_conveyance_sb3028.py">github.com</a>')
 
     src_maui = (f"Source: Hawaiʻi Appleseed estimates from County of Maui sales, fiscal years {min(p['maui_base_fy'])} to "
                 f"{max(p['maui_base_fy'])}, at fiscal year {Y} prices. Tax due at the sale, before any change in the number of sales.")
@@ -1420,7 +1420,7 @@ def build_conveyance() -> tuple[str, dict]:
     H, D = "HB2049 HD3", "SB3028 HD2"
     # The comparison's HD2 rows must be the page's own estimate: otherwise it
     # was run on another model version (rerun bill_comparison.py after
-    # forecast_conveyance_sb3028.py).
+    # analyses/forecast_conveyance_sb3028.py).
     stale = [(y, k) for y in years for k in ("static", "behavioral")
              if abs(BC[(y, D, k)]["state_change_$M"] - rev[(y, k)]["state_change_$M"]) > 1e-6]
     if stale:

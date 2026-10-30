@@ -1,8 +1,8 @@
 """SB 3125 vs TY2026-frozen baseline — ITEP-comparable distributional analysis.
 
 Usage:
-  python forecast_sb3125_vs_fy26base.py --cd 1   # SB 3125 CD1 (default)
-  python forecast_sb3125_vs_fy26base.py --cd 2   # SB 3125 CD2
+  python chain/forecast_sb3125_vs_fy26base.py --cd 1   # SB 3125 CD1 (default)
+  python chain/forecast_sb3125_vs_fy26base.py --cd 2   # SB 3125 CD2
 
 Replaces the two separate scripts:
   forecast_sb3125_cd1_vs_fy26base.py  (identical except TaxSystemRegistry call)
@@ -26,7 +26,7 @@ statute differs between them. Itemized-deduction amounts are an economic
 input, not statute, so the frozen baseline reads the same target-year
 amounts as the bill.
 
-Requires calibrated_base.pkl (run forecast_sb3125_enhanced.py --cd {N} first).
+Requires calibrated_base.pkl (run chain/forecast_sb3125_enhanced.py --cd {N} first).
 
 Outputs:
   /tmp/cd{N}_vs_fy26base_bracket_mid_2027_2031.csv
@@ -44,7 +44,8 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
 
 import numpy as np
 import pandas as pd
@@ -132,7 +133,7 @@ def _bin_delta(inc, w, diffs):
 
 def main(cd: str) -> None:
     if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd {cd} first.")
+        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd {cd} first.")
         sys.exit(1)
 
     import time
@@ -255,7 +256,7 @@ def main(cd: str) -> None:
     )
     write_run_manifest(
         run_dir,
-        script=f"forecast_sb3125_vs_fy26base.py --cd {cd}",
+        script=f"chain/forecast_sb3125_vs_fy26base.py --cd {cd}",
         params={"cd": cd, "target_years": TARGET_YEARS},
         inputs={
             "calibrated_base": str(CALIBRATED_PKL),

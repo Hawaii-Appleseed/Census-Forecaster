@@ -477,7 +477,7 @@ def test_realization_response_by_scenario():
 
 
 def test_scenarios_match_the_act24_run():
-    spec_ = importlib.util.spec_from_file_location("enh", REPO / "forecast_sb3125_enhanced.py")
+    spec_ = importlib.util.spec_from_file_location("enh", REPO / "chain/forecast_sb3125_enhanced.py")
     mod = importlib.util.module_from_spec(spec_)
     sys.modules["enh"] = mod
     spec_.loader.exec_module(mod)
@@ -864,7 +864,7 @@ class TestPopulationScoring:
         (tmp_path / "s.json").write_text(json.dumps(
             {"name": "cli", "first_year": 2027, "income_tax": {"personal_exemption": 3_000}}))
         monkeypatch.syspath_prepend(str(REPO))
-        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "forecast_custom.py")
+        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "analyses/forecast_custom.py")
         mod = importlib.util.module_from_spec(spec_)
         spec_.loader.exec_module(mod)
         out = tmp_path / "out"
@@ -889,7 +889,7 @@ class TestPopulationScoring:
         (tmp_path / "s.json").write_text(json.dumps({"name": "lo", "first_year": 2027, "behavior": ["low"],
                                                      "income_tax": {"personal_exemption": 3_000}}))
         monkeypatch.syspath_prepend(str(REPO))
-        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "forecast_custom.py")
+        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "analyses/forecast_custom.py")
         mod = importlib.util.module_from_spec(spec_)
         spec_.loader.exec_module(mod)
         assert mod.main(["--spec", str(tmp_path / "s.json"), "--population", str(tmp_path / "pop"),
@@ -1036,7 +1036,7 @@ class TestCredits:
         (tmp_path / "s.json").write_text(json.dumps({"name": "cr", "first_year": 2028,
                                                      "credits": {"eitc_percent": 40, "food_excise": "act163"}}))
         monkeypatch.syspath_prepend(str(REPO))
-        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "forecast_custom.py")
+        spec_ = importlib.util.spec_from_file_location("forecast_custom", REPO / "analyses/forecast_custom.py")
         mod = importlib.util.module_from_spec(spec_)
         spec_.loader.exec_module(mod)
         argv = ["--spec", str(tmp_path / "s.json"), "--population", str(tmp_path / "pop"),

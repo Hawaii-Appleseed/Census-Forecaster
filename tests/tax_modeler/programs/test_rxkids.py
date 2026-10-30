@@ -434,9 +434,9 @@ def test_magi_proxy_adds_back_nontaxable_social_security():
     non-taxable 15% (ssp_full − ssp) back onto the model's gross income."""
     import sys
     from pathlib import Path
-    repo_root = Path(__file__).resolve().parents[3]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
+    scripts_dir = Path(__file__).resolve().parents[3] / "analyses"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
     import forecast_rxkids_2028 as fc
 
     df = pd.DataFrame({
@@ -494,12 +494,12 @@ def test_rxkids_missing_medicaid_column_falls_back_to_clause2(caplog):
 
 
 def _forecast_module():
-    """Import the repo-root forecast script (mirrors the magi-proxy test)."""
+    """Import the analyses/ forecast script (mirrors the magi-proxy test)."""
     import sys
     from pathlib import Path
-    repo_root = Path(__file__).resolve().parents[3]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
+    scripts_dir = Path(__file__).resolve().parents[3] / "analyses"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
     import forecast_rxkids_2028 as fc
     return fc
 
@@ -604,7 +604,7 @@ def test_rxkids_universal_scenario_produces_a_real_income_only_split():
 
 # ---------------------------------------------------------------------------
 # Forecast scenarios: universal eligibility + postnatal-duration variants
-# (forecast_rxkids_2028.py prices statutory_6mo / universal_6mo / universal_12mo)
+# (analyses/forecast_rxkids_2028.py prices statutory_6mo / universal_6mo / universal_12mo)
 # ---------------------------------------------------------------------------
 
 

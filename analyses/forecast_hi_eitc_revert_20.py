@@ -31,16 +31,16 @@ Outputs
 
 Usage
 -----
-    uv run python forecast_hi_eitc_revert_20.py \\
+    uv run python analyses/forecast_hi_eitc_revert_20.py \\
         --tax-year 2025 \\
         --pums-data-dir packages/data/raw/pums_2024_1yr \\
         --out reports/eitc_revert_20_2028/
 
     # Disable the behavioral scenario:
-    uv run python forecast_hi_eitc_revert_20.py --no-behavioral
+    uv run python analyses/forecast_hi_eitc_revert_20.py --no-behavioral
 
     # Sensitivity sweep on the LFP elasticity:
-    uv run python forecast_hi_eitc_revert_20.py --lfp-elasticity 0.3
+    uv run python analyses/forecast_hi_eitc_revert_20.py --lfp-elasticity 0.3
 """
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ import numpy as np
 import pandas as pd
 
 LOG = logging.getLogger("forecast_hi_eitc_revert_20")
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 

@@ -1,6 +1,6 @@
 # Tax simulator preset (Top rate 14% (was 13%)), scored against current law (Act 24).
 # Generated from tax_modeler.simulator.presets; run with
-#   python forecast_custom.py --spec reforms/examples/top_rate_14.yaml
+#   python analyses/forecast_custom.py --spec reforms/examples/top_rate_14.yaml
 name: top_rate_14
 label: Top rate 14% (was 13%)
 first_year: 2027

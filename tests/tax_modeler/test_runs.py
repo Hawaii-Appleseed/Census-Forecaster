@@ -19,14 +19,14 @@ def test_write_and_read_manifest(tmp_path):
 
     path = write_run_manifest(
         run,
-        script="forecast_sb3125_enhanced.py --cd 2",
+        script="chain/forecast_sb3125_enhanced.py --cd 2",
         params={"cd": "2", "years": [2027, 2028]},
         inputs={"cache": "tax_units_cache.parquet"},
     )
     assert path.exists()
 
     m = read_run_manifest(run)
-    assert m["script"] == "forecast_sb3125_enhanced.py --cd 2"
+    assert m["script"] == "chain/forecast_sb3125_enhanced.py --cd 2"
     assert m["params"]["cd"] == "2"
     assert m["params_fingerprint"]  # non-empty
     assert m["outputs"] == ["enhanced.csv"]  # manifest itself excluded

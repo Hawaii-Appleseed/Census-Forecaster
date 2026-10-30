@@ -14,8 +14,8 @@
 Self-contained: no cached tax-unit file required.
 
 Usage:
-  python generate_reec_report.py --cd 1
-  python generate_reec_report.py --cd 2
+  python analyses/generate_reec_report.py --cd 1
+  python analyses/generate_reec_report.py --cd 2
 
 Output: /tmp/reec_cd{N}_analysis_report.pdf
 """
@@ -30,7 +30,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-REPO         = Path(__file__).parent
+REPO         = Path(__file__).resolve().parent.parent
 TARGET_YEARS = [2027, 2028, 2029, 2030, 2031]
 DEMAND_YEARS = list(range(2024, 2032))
 
@@ -657,7 +657,7 @@ def _page_agi_dist(pdf, agi_bins: list, ind_total_M: float):
 
 
 # Hawaiʻi household quintile income boundaries (2026-anchored, household income).
-# Source: forecast_sb3125_static_quintile.py — weighted equal-population breaks.
+# Source: analyses/forecast_sb3125_static_quintile.py — weighted equal-population breaks.
 # Re-anchored to the analysis year at render time (see _page_quintile_burden).
 _HH_QUINTILE_BREAKS = [28_336, 60_915, 100_510, 168_638]
 
@@ -669,7 +669,7 @@ _HI_HOUSEHOLDS = 471_000
 _AGI_BIN_EDGES = [0, 10_000, 30_000, 60_000, 100_000, 200_000, float("inf")]
 
 # Pareto shape for the $200K+ income tail (repo convention — see PARETO_ALPHA
-# in forecast_sb3125_static_quintile.py).
+# in analyses/forecast_sb3125_static_quintile.py).
 _PARETO_ALPHA = 1.5
 
 

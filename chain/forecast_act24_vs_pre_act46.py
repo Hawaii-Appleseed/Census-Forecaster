@@ -1,11 +1,11 @@
 """Act 24 (SB 3125 CD2) vs a TRUE pre-Act-46 baseline — ITEP-reconciliation.
 
 Usage:
-  python forecast_act24_vs_pre_act46.py
+  python chain/forecast_act24_vs_pre_act46.py
 
 Why this script exists
 ----------------------
-`forecast_sb3125_vs_fy26base.py` measures Act 24 against **Act 46 law frozen
+`chain/forecast_sb3125_vs_fy26base.py` measures Act 24 against **Act 46 law frozen
 at TY2026**. That baseline already banks Act 46's first two phase-in steps:
 the standard deduction has already gone $4,400 -> $8,800 (TY2024) -> $16,000
 (TY2026) for joint filers, and the TY2025 bracket vintage is already in
@@ -40,7 +40,7 @@ premium 1.0%/yr), so the only thing differing between them is statute
 static bracket change — the ``tieout_act24_page`` column checks that every
 year. Until September 28, 2026 this script built its own population
 (``redistribute_mid_high_incomes`` + ``project_and_recalibrate``, as
-`forecast_sb3125_vs_fy26base.py` still does), on which C ran about 70% above
+`chain/forecast_sb3125_vs_fy26base.py` still does), on which C ran about 70% above
 the page's figure for the same comparison.
 
 Both scripts score the frozen baseline on the target year's itemized
@@ -57,7 +57,7 @@ alternative tax (HRS §235-51(f)), as on the Act 24 page, the tax simulator
 and the capital-gains page.
 
 Requires data/artifacts/sb3125_calibrated_base.pkl (run
-forecast_sb3125_enhanced.py --cd 2 first).
+chain/forecast_sb3125_enhanced.py --cd 2 first).
 
 Outputs:
   runs/act24_vs_pre_act46/decomposition.csv
@@ -73,7 +73,8 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
 
 import pandas as pd
 
@@ -107,7 +108,7 @@ def _cfg_2017(yr: int) -> TaxSystemConfig:
 
 def main() -> None:
     if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd 2 first.")
+        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd 2 first.")
         sys.exit(1)
 
     print("Loading calibrated base...", flush=True)
@@ -125,7 +126,7 @@ def main() -> None:
     page = pd.read_csv(ENHANCED) if ENHANCED.exists() else None
     if page is None:
         print(f"  NOTE: {ENHANCED} missing, so column C is not checked against the Act 24 "
-              f"page; run forecast_sb3125_enhanced.py --cd 2.", flush=True)
+              f"page; run chain/forecast_sb3125_enhanced.py --cd 2.", flush=True)
 
     calc = TaxCalculator()
 
@@ -171,7 +172,7 @@ def main() -> None:
     from _forecast_common import cache_provenance
     from tax_modeler.runs import write_run_manifest
     write_run_manifest(
-        out_dir, script="forecast_act24_vs_pre_act46.py",
+        out_dir, script="chain/forecast_act24_vs_pre_act46.py",
         params={"cd": "2", "target_years": TARGET_YEARS, "alpha": MID_ALPHA,
                 "top_premium": MID_TOP_PREMIUM, "tail_k": tail_k, "cal_tax_year": cal_tax_year,
                 "tieout_checked": page is not None},
@@ -219,7 +220,7 @@ def main() -> None:
         if worst > 0.01:
             print(f"\nWARNING: column C differs from the Act 24 page by up to {worst:.3f}M. "
                   f"Both must score the same population, gains base and systems; re-run "
-                  f"forecast_sb3125_enhanced.py --cd 2 if it is stale.", flush=True)
+                  f"chain/forecast_sb3125_enhanced.py --cd 2 if it is stale.", flush=True)
 
     print(f"\nSaved: {out_dir / 'decomposition.csv'}", flush=True)
 

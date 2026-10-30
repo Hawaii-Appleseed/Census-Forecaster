@@ -118,21 +118,21 @@ def sample_household_data() -> pd.DataFrame:
 
 
 # -----------------------------------------------------------------------------
-# The capital-gains page's scorer (forecast_cg_rate_options.py)
+# The capital-gains page's scorer (chain/forecast_cg_rate_options.py)
 # -----------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def cg_page():
     """The capital-gains page's ``Scorer`` class, ``distribution`` function
     (with its ``_GROUPS``), ``BETA`` and ``CAP_CURRENT``, read from
-    ``forecast_cg_rate_options.py`` without importing it: importing the
+    ``chain/forecast_cg_rate_options.py`` without importing it: importing the
     script turns warnings and logging off for the whole test process."""
     import ast
     import types
 
     import numpy as np
 
-    path = Path(__file__).resolve().parents[2] / "forecast_cg_rate_options.py"
+    path = Path(__file__).resolve().parents[2] / "chain/forecast_cg_rate_options.py"
     tree = ast.parse(path.read_text())
     wanted = [n for n in tree.body
               if (isinstance(n, ast.ClassDef) and n.name == "Scorer")

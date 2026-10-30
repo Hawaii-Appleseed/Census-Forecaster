@@ -1,8 +1,8 @@
 """Capital-gains rate options on top of Act 24 (SB 3125 CD2) — revenue + distribution.
 
 Usage:
-  python forecast_cg_rate_options.py              # project TY2026-2031, score, plot
-  python forecast_cg_rate_options.py --plot-only  # redraw figures from saved CSVs
+  python chain/forecast_cg_rate_options.py              # project TY2026-2031, score, plot
+  python chain/forecast_cg_rate_options.py --plot-only  # redraw figures from saved CSVs
 
 Question
 --------
@@ -24,7 +24,7 @@ Act 24 year is also scored on Act 46 brackets to isolate what Act 24 changed.
 Method
 ------
 Population: the same calibrated tax-unit base, $1M+ synthesis and CBO-aged
-MID projection as forecast_act24_vs_pre_act46.py.
+MID projection as chain/forecast_act24_vs_pre_act46.py.
 
 Capital-gains base: the model's own CG shares come from IRS SOI "net capital
 gain (less loss)", which includes short-term gains (already taxed at ordinary
@@ -65,7 +65,7 @@ nonresident gains — in a typical year (TY2018-2023 pooled nonresident/resident
 ratio) and at the TY2022 ratio, when composite returns spiked.
 
 Requires data/artifacts/sb3125_calibrated_base.pkl (run
-forecast_sb3125_enhanced.py --cd 2 first). A full run takes ~25 minutes.
+chain/forecast_sb3125_enhanced.py --cd 2 first). A full run takes ~25 minutes.
 
 Outputs (runs/cg_rate_options/):
   revenue_by_year.csv       $M by year x law x option x top-share variant
@@ -107,7 +107,8 @@ from tax_modeler.calibration.cg_anchor import (
     rank_classes,
 )
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 OUT_DIR = REPO / "runs" / "cg_rate_options"
 
 MID_ALPHA = 1.5
@@ -136,14 +137,14 @@ GRID = "#d4d4d4"
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_base() -> pd.DataFrame:
-    """Calibrated base + $1M+ synthesis, identical to forecast_act24_vs_pre_act46.py."""
+    """Calibrated base + $1M+ synthesis, identical to chain/forecast_act24_vs_pre_act46.py."""
     from tax_modeler.artifacts import load_calibrated_base
     from tax_modeler.base import build_tail_units
 
     from _forecast_common import CALIBRATED_PKL
 
     if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run forecast_sb3125_enhanced.py --cd 2 first.")
+        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd 2 first.")
         sys.exit(1)
     base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
@@ -403,7 +404,7 @@ def run() -> None:
 
     from _forecast_common import cache_provenance
     write_run_manifest(
-        OUT_DIR, script="forecast_cg_rate_options.py",
+        OUT_DIR, script="chain/forecast_cg_rate_options.py",
         params={"years": YEARS, "dist_years": DIST_YEARS, "beta": BETA,
                 "top_share_variants": TOP_SHARE_VARIANTS, "cap_current": CAP_CURRENT,
                 "options": dict(OPTIONS), "alpha": MID_ALPHA,

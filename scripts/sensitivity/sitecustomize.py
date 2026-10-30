@@ -8,7 +8,7 @@ that reads the anchors (forward targets, the IPF calibration, the tail's
 synthesis target, the capital-gains class ranks) sees the override.
 
 Python imports ``sitecustomize`` at start-up in every interpreter that has this
-directory on ``PYTHONPATH``. The scenario workers ``forecast_sb3125_enhanced.py``
+directory on ``PYTHONPATH``. The scenario workers ``chain/forecast_sb3125_enhanced.py``
 starts are forked (where the platform can fork), so they inherit the parent's
 patch and its already-loaded DOTAX tables; where they are spawned instead, this
 module patches them itself. ``DOTAX_SENS_TOP`` selects the $1M+ values:
@@ -41,10 +41,10 @@ pickle), so run each variant in its own copy:
     cp data/artifacts/tax_units_cache.* $V/data/artifacts/
     cd $V && PYTHONPATH=<repo>/scripts/sensitivity DOTAX_SENS_TOP=avg \\
         DOTAX_SENS_MARK=/tmp/sens/mark_avg \\
-        <repo>/.venv/bin/python forecast_sb3125_enhanced.py --cd 2
+        <repo>/.venv/bin/python chain/forecast_sb3125_enhanced.py --cd 2
     # then, once data/artifacts/sb3125_calibrated_base.pkl exists in $V, the
-    # same prefix on forecast_sb3125_vs_fy26base.py --cd 2 and
-    # forecast_act24_vs_pre_act46.py, run from $V (the scripts find their
+    # same prefix on chain/forecast_sb3125_vs_fy26base.py --cd 2 and
+    # chain/forecast_act24_vs_pre_act46.py, run from $V (the scripts find their
     # output and artifact directories next to themselves; from the repo they
     # would read the repo's calibrated base and overwrite its runs/)
 

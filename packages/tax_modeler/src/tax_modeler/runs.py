@@ -1,4 +1,4 @@
-"""Manifested run-output store (Phase 1 of DASHBOARD_PIPELINE_SCOPE.md).
+"""Manifested run-output store (Phase 1 of docs/archive/DASHBOARD_PIPELINE_SCOPE.md).
 
 A "run" is one forecast-script execution. Its outputs land in a single
 directory (``runs/<slug>/`` at the repo root) together with a
@@ -38,7 +38,7 @@ def write_run_manifest(
 
     Args:
         script: producing script, repo-relative (e.g.
-            ``forecast_sb3125_enhanced.py --cd 2``).
+            ``chain/forecast_sb3125_enhanced.py --cd 2``).
         params: JSON-able parameter dict; fingerprinted for staleness
             checks.
         inputs: provenance of consumed artifacts (e.g. the tax-unit

@@ -8,7 +8,7 @@ current law is Act 163's credits through TY2027 and the earlier ones after.
 
 The simulator does not score these on its own population, which has no
 federal EITC and no take-up. It prices them with the working-family credits
-run (``forecast_working_family_credits.py``, the "Expiring Relief" page):
+run (``chain/forecast_working_family_credits.py``, the "Expiring Relief" page):
 each credit under both laws, with take-up calibrated to DOTAX claims. The
 EITC is a share of the federal credit with take-up held fixed, so its cost is
 linear in the share: (share in points) x (the 20% credit / 20). The

@@ -1,14 +1,14 @@
 """SB 3125 fiscal forecast with behavioral response and growth corrections.
 
 Usage:
-  python forecast_sb3125_enhanced.py --cd 1   # SB 3125 CD1 (default)
-  python forecast_sb3125_enhanced.py --cd 2   # SB 3125 CD2
+  python chain/forecast_sb3125_enhanced.py --cd 1   # SB 3125 CD1 (default)
+  python chain/forecast_sb3125_enhanced.py --cd 2   # SB 3125 CD2
 
 Replaces:
   forecast_sb3125_cd1_enhanced.py
   forecast_sb3125_cd2_enhanced.py
 
-Improvements over forecast_sb3125.py:
+Improvements over analyses/forecast_sb3125.py:
 
   1. **ETI behavioral response** — per-filer taxable-income elasticity.
      Each filer's marginal rate is computed under both the Act 46 baseline
@@ -112,7 +112,10 @@ import sys
 import traceback
 from pathlib import Path
 
-from _forecast_common import (
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
+
+from _forecast_common import (  # noqa: E402
     ARTIFACT_DIR, TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
 
@@ -195,7 +198,6 @@ SCENARIOS = [
 ]
 
 # Requires the workspace to be installed: `uv sync --all-packages`.
-REPO = Path(__file__).parent
 
 CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors in every "
                       "scenario), statutory alternative tax (HRS §235-51(f))")
@@ -469,7 +471,7 @@ if __name__ == "__main__":
 
         wall_start = time.perf_counter()
 
-        units = load_cached_units(CD, built_by="forecast_sb3125_enhanced.py")
+        units = load_cached_units(CD, built_by="chain/forecast_sb3125_enhanced.py")
 
         print("Enriching + base tax + calibrating (one-time)...", flush=True)
         # Calibrates on the same itemized-deduction params the projection uses
@@ -502,7 +504,7 @@ if __name__ == "__main__":
         save_calibrated_base(
             calibrated_base, calibrated_pkl,
             deduction_params=CAL_DED_PARAMS, tax_year=2023,
-            extra_meta={"built_by": "forecast_sb3125_enhanced.py", "cd": CD},
+            extra_meta={"built_by": "chain/forecast_sb3125_enhanced.py", "cd": CD},
         )
 
         # Capital gains: DOTAX anchors MID; every scenario rescales its gains
@@ -661,7 +663,7 @@ if __name__ == "__main__":
         )
         write_run_manifest(
             RUN_DIR,
-            script=f"forecast_sb3125_enhanced.py --cd {CD}",
+            script=f"chain/forecast_sb3125_enhanced.py --cd {CD}",
             params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
                     "capital_gains": CAPITAL_GAINS_NOTE,
                     "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
@@ -682,7 +684,7 @@ if __name__ == "__main__":
         all_brackets.to_csv(RUN_DIR / "bracket.csv", index=False)
         write_run_manifest(
             RUN_DIR,
-            script=f"forecast_sb3125_enhanced.py --cd {CD}",
+            script=f"chain/forecast_sb3125_enhanced.py --cd {CD}",
             params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
                     "capital_gains": CAPITAL_GAINS_NOTE,
                     "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},

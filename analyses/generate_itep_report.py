@@ -6,7 +6,7 @@ forecast_sb3125_cd2_enhanced.py) and writes a self-contained Chart.js HTML
 matching the ITEP-style report format, with an added REEC credit section.
 
 Usage:
-    python3 generate_itep_report.py [--output /path/to/output.html]
+    python3 analyses/generate_itep_report.py [--output /path/to/output.html]
 
 Dependencies: pandas only (no matplotlib, no reportlab).
 """
@@ -22,7 +22,7 @@ import pandas as pd
 # Input / output paths — canonical location is the manifested runs/ store;
 # fall back to the legacy /tmp mirrors during the transition.
 # ---------------------------------------------------------------------------
-_REPO = Path(__file__).parent
+_REPO = Path(__file__).resolve().parent.parent
 
 
 def _prefer_runs(runs_path: Path, tmp_path: Path) -> Path:
@@ -874,8 +874,8 @@ def main() -> None:
     if missing:
         print(f"ERROR — missing input file(s):\n  " + "\n  ".join(missing), file=sys.stderr)
         print("\nRun these first:", file=sys.stderr)
-        print("  python3 forecast_sb3125_cd2_vs_fy26base.py", file=sys.stderr)
-        print("  python3 forecast_sb3125_cd2_enhanced.py", file=sys.stderr)
+        print("  python3 chain/forecast_sb3125_vs_fy26base.py --cd 2", file=sys.stderr)
+        print("  python3 chain/forecast_sb3125_enhanced.py --cd 2", file=sys.stderr)
         sys.exit(1)
 
     q_df = _load_quintile(args.quintile_csv)

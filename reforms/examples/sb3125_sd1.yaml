@@ -1,6 +1,6 @@
 # Tax simulator preset (SB 3125 SD1 brackets), scored against current law (Act 24).
 # Generated from tax_modeler.simulator.presets; run with
-#   python forecast_custom.py --spec reforms/examples/sb3125_sd1.yaml
+#   python analyses/forecast_custom.py --spec reforms/examples/sb3125_sd1.yaml
 name: sb3125_sd1
 label: SB 3125 SD1 brackets
 first_year: 2027

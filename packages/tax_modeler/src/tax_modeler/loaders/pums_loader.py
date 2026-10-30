@@ -170,7 +170,7 @@ class PUMSDataLoader:
         to load. Say where the files go and how to redirect the search,
         rather than a bare path — this is the same guidance
         ``pipeline._load_pums`` gives, made available to the direct
-        callers of this loader (forecast_sb3125.py, poverty_impact_report,
+        callers of this loader (analyses/forecast_sb3125.py, poverty_impact_report,
         eitc_ctc_geo_report) that bypass the pipeline wrapper.
         """
         return MissingDataError(

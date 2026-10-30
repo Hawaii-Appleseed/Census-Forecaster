@@ -8,7 +8,7 @@ carry: run it with a Python that has it (the system python3 does). The
 module imports fitz only when it opens a report, so its pure helpers import,
 and are tested (tests/test_mls_sales_by_band.py), without it. Writes
 packages/tax_modeler/src/tax_modeler/data/raw/conveyance/
-mls_sales_by_band_fy2023_2026.csv, which forecast_conveyance_sb3028.py uses to calibrate each county's synthetic sales
+mls_sales_by_band_fy2023_2026.csv, which analyses/forecast_conveyance_sb3028.py uses to calibrate each county's synthetic sales
 by price band. Columns: county; band_lo, band_hi (dollars; 'inf' on the open
 $10M+ band, which pandas reads as float inf); mls_per_year, the FY2023-26
 mean of MLS sales of houses and condominiums (land removed), with mls_low

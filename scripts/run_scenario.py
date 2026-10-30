@@ -1,16 +1,16 @@
 """Single entry point for listing and running modeled scenarios.
 
-Phase 2 of DASHBOARD_PIPELINE_SCOPE.md. Before this, answering "what can
+Phase 2 of docs/archive/DASHBOARD_PIPELINE_SCOPE.md. Before this, answering "what can
 this repo model, and how do I run it?" meant reading every forecast_*.py
 docstring and knowing each one's private ``--cd``/``--bill`` convention.
 
-    python run_scenario.py --list
-    python run_scenario.py --slug sb3125_cd1 --runner quintile
-    python run_scenario.py --slug sb3125_cd2 --runner enhanced
-    python run_scenario.py --spec reforms/examples/top_rate_14.yaml
+    python scripts/run_scenario.py --list
+    python scripts/run_scenario.py --slug sb3125_cd1 --runner quintile
+    python scripts/run_scenario.py --slug sb3125_cd2 --runner enhanced
+    python scripts/run_scenario.py --spec reforms/examples/top_rate_14.yaml
 
 ``--spec`` scores a user-defined income tax change (the tax simulator's spec
-format) against current law, Act 24, via forecast_custom.py.
+format) against current law, Act 24, via analyses/forecast_custom.py.
 
 This module DISPATCHES to the existing scripts — it does not reimplement
 any model math, so routing work through it cannot change results. Domain
@@ -29,7 +29,8 @@ from typing import Callable, Dict, List, Sequence
 
 from tax_modeler.scenarios.registry import get_scenario, list_scenarios
 
-from _forecast_common import REPO, RUNS_DIR
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # _forecast_common
+from _forecast_common import REPO, RUNS_DIR  # noqa: E402
 
 # SB 3125 conference-draft scripts take --cd 1|2 rather than a slug.
 _CD_ARG = {"sb3125_cd1": "1", "sb3125_cd2": "2"}
@@ -62,14 +63,14 @@ RUNNERS: Dict[str, Runner] = {
     r.name: r for r in [
         Runner(
             name="quintile",
-            script="forecast_bill_quintile.py",
+            script="analyses/forecast_bill_quintile.py",
             describe="Distributional quintile analysis vs Act 46 (dynamic pipeline)",
             slugs=("sb3125_cd1", "sb3125_sd1", "hb2306_hd1"),
             build_args=_bill_args,
         ),
         Runner(
             name="enhanced",
-            script="forecast_sb3125_enhanced.py",
+            script="chain/forecast_sb3125_enhanced.py",
             describe="Fiscal forecast with behavioral response (LOW/MID/HIGH/RECESSION)",
             slugs=("sb3125_cd1", "sb3125_cd2"),
             build_args=_cd_args,
@@ -77,7 +78,7 @@ RUNNERS: Dict[str, Runner] = {
         ),
         Runner(
             name="fy26base",
-            script="forecast_sb3125_vs_fy26base.py",
+            script="chain/forecast_sb3125_vs_fy26base.py",
             describe="ITEP-comparable comparison vs a TY2026-frozen baseline",
             slugs=("sb3125_cd1", "sb3125_cd2"),
             build_args=_cd_args,
@@ -85,14 +86,14 @@ RUNNERS: Dict[str, Runner] = {
         ),
         Runner(
             name="static_quintile",
-            script="forecast_sb3125_static_quintile.py",
+            script="analyses/forecast_sb3125_static_quintile.py",
             describe="Static-scoring quintile breakdown (CBO/TPC methodology)",
             slugs=("sb3125_cd1", "sb3125_cd2"),
             build_args=_cd_args,
         ),
         Runner(
             name="sensitivity",
-            script="forecast_sb3125_sensitivity.py",
+            script="analyses/forecast_sb3125_sensitivity.py",
             describe="LOW/MID/HIGH sweep over Pareto alpha x REEC demand",
             slugs=("sb3125_cd1", "sb3125_cd2"),
             build_args=_cd_args,
@@ -191,14 +192,14 @@ def _parse_args():
     p.add_argument("--dry-run", action="store_true",
                    help="Print the command without executing it.")
     p.add_argument("--spec", help="Score an income tax spec file against Act 24 "
-                                  "(forecast_custom.py).")
+                                  "(analyses/forecast_custom.py).")
     return p.parse_args()
 
 
 def run_spec(spec_path: str, *, dry_run: bool = False) -> int:
     python = str(REPO / ".venv" / "bin" / "python")
     # forecast_custom runs from the repo root; resolve the path against the caller's directory
-    cmd = [python, str(REPO / "forecast_custom.py"), "--spec", str(Path(spec_path).resolve())]
+    cmd = [python, str(REPO / "analyses" / "forecast_custom.py"), "--spec", str(Path(spec_path).resolve())]
     print(f"→ spec {spec_path} vs current law (Act 24): {' '.join(cmd)}", flush=True)
     if dry_run:
         return 0

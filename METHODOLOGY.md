@@ -2642,7 +2642,7 @@ The bespoke param/sentinel/loader (`natl_unemp_data`, `_NATL_UNEMP`,
 written by `refresh_market_panel` (reference value; it does not anchor and
 no code consumes it). Scope for applying the registry pattern to the
 remaining bespoke channels (bps/saipe/laus, market reader):
-`REGISTRY_MIGRATION_SCOPE.md`.
+`docs/archive/REGISTRY_MIGRATION_SCOPE.md`.
 
 ### County-channel registry migration (2026-07-16)
 
@@ -2676,7 +2676,7 @@ The aux block is now fully generated from two registries (county, national)
 plus the small hardcoded `mkt_*` block, which stays bespoke by choice: the
 market channels are screen-gated (they appear/disappear with
 `selected_signals.json`), so their spec is dynamic where a registry is
-static. See `REGISTRY_MIGRATION_SCOPE.md` for the reusable recipe.
+static. See `docs/archive/REGISTRY_MIGRATION_SCOPE.md` for the reusable recipe.
 
 ### State-level UI claims channel (2026-08-22)
 

@@ -5,7 +5,7 @@
     python scripts/build_simulator_population.py --check-only # check only; writes nothing
 
 Reads data/artifacts/sb3125_calibrated_base.pkl, which
-`forecast_sb3125_enhanced.py --cd 2` writes; run that first so the simulator
+`chain/forecast_sb3125_enhanced.py --cd 2` writes; run that first so the simulator
 and the Act 24 page share a population and a model version. Writes
 runs/tax_simulator/ (population.npz + population.json for Python, the web
 files for the estimates site, golden kernel fixtures, manifest.json), then
@@ -13,7 +13,7 @@ checks that scoring Act 24 against Act 46 on the population reproduces the
 Act 24 run (runs/sb3125_cd2_enhanced/): the static and post-response bracket
 change for LOW/MID/HIGH, and every MID distribution table. Exits non-zero if
 it does not, before writing anything else; so after a change that moves the
-Act 24 figures, re-run `forecast_sb3125_enhanced.py --cd 2` first.
+Act 24 figures, re-run `chain/forecast_sb3125_enhanced.py --cd 2` first.
 
 Both score capital gains on the DOTAX-anchored base with the statutory
 alternative tax: the simulator through tax_modeler.simulator.gains (under a
@@ -26,7 +26,7 @@ plan reproduces the capital-gains page's method and lands near its numbers
 (check_cg_page_parity, writing cg_page_comparison.json).
 
 The EITC and food/excise credit options are priced from the working-family
-credits run (runs/working_family_credits/, forecast_working_family_credits.py),
+credits run (runs/working_family_credits/, chain/forecast_working_family_credits.py),
 which must exist: its cost table goes into the web metadata (and so the
 model version), runs/tax_simulator/credits.json and the golden credit cases.
 After that run changes, rebuild with --from-saved.
@@ -57,16 +57,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
+sys.path.insert(0, str(REPO / "chain"))     # forecast_cg_rate_options (the capital-gains page's scorer)
 
 from _forecast_common import (  # noqa: E402
     ARTIFACT_DIR,
     CALIBRATED_PKL,
     RUNS_DIR,
     cache_provenance,
-    closure_guard,
-    fingerprint,
 )
+from common.fingerprint import closure_guard, fingerprint  # noqa: E402
 
 if TYPE_CHECKING:
     from tax_modeler.simulator.population import Population
@@ -101,7 +101,7 @@ def check_reproduces_act24(pop, out_dir: Path) -> list[str]:
     ran = json.loads((ENHANCED / "manifest.json").read_text())["params"].get("gains_factors")
     if ran is None:
         problems.append("runs/sb3125_cd2_enhanced/manifest.json has no gains_factors: re-run "
-                        "forecast_sb3125_enhanced.py --cd 2")
+                        "chain/forecast_sb3125_enhanced.py --cd 2")
     else:
         anchor = pop.meta["cg_anchor"]
         for y in pop.years:
@@ -370,13 +370,13 @@ def write_preset_results(golden_path: Path, out: Path) -> None:
 
 
 # The code the golden fixtures are scored with, for their key
-# (_forecast_common.code_closure): write_golden, and the methods of the
+# (common.fingerprint.code_closure): write_golden, and the methods of the
 # Population it is handed.
 GOLDEN_CODE = ("tax_modeler.simulator.golden", "tax_modeler.simulator.population")
 
 
 def golden_key(pop: Population, credit_table: dict) -> str:
-    """The golden fixtures' inputs, hashed (:func:`_forecast_common.fingerprint`).
+    """The golden fixtures' inputs, hashed (:func:`common.fingerprint.fingerprint`).
 
     Scoring them is ~75 s of CPU, nearly all of --from-saved, yet they change
     only with the model code, the population or the credits' cost table. The
@@ -432,7 +432,7 @@ def main() -> int:
         pop = Population.load(OUT)
     else:
         if not CALIBRATED_PKL.exists():
-            print(f"ERROR: {CALIBRATED_PKL} missing; run forecast_sb3125_enhanced.py --cd 2 first.")
+            print(f"ERROR: {CALIBRATED_PKL} missing; run chain/forecast_sb3125_enhanced.py --cd 2 first.")
             return 1
         print("Building the scoring population (LOW/MID/HIGH x TY2027-2031)...", flush=True)
         from _forecast_common import population_store
@@ -484,7 +484,7 @@ def main() -> int:
 
     wfc = RUNS_DIR / "working_family_credits"
     if not (wfc / "revenue_by_year.csv").exists():
-        print(f"ERROR: {wfc} missing; run forecast_working_family_credits.py first (the "
+        print(f"ERROR: {wfc} missing; run chain/forecast_working_family_credits.py first (the "
               f"simulator's EITC and food/excise options are priced from it).")
         return 1
     credit_table = load_credit_table(wfc, pop.years)

@@ -14,7 +14,8 @@ Why this exists: forecast scripts used to share a bare DataFrame pickle in
 
 Calibrated-base artifacts now carry their deduction params and provenance
 metadata; loaders validate the params fingerprint. Parquet unit caches get a
-``.meta.json`` sidecar with the git SHA of the code that built them.
+``.meta.json`` sidecar with a content key of the code that built them
+(:func:`construction_code_key`) and, as provenance only, the git SHA.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import logging
 import subprocess
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -84,7 +86,8 @@ def git_sha_for_code(paths: Sequence[str], cwd: Path | str = _PKG_ROOT) -> str:
     simulator's manifest and page endnote): built from uncommitted code, no
     commit holds that code, so the bare HEAD SHA would cite one without it.
     Rebuild after committing the code. :func:`_git_sha` itself stays bare,
-    because cache staleness checks compare it with HEAD.
+    because it is plain provenance (a cache's staleness is judged by
+    :func:`construction_code_key`, not by the SHA).
     """
     sha = _git_sha(cwd)
     if sha == "unknown":
@@ -161,7 +164,7 @@ def load_calibrated_base(
         logger.warning(
             "Legacy bare-DataFrame artifact at %s — no embedded deduction "
             "params; falling back to the canonical config. Re-run "
-            "forecast_sb3125_enhanced.py to regenerate a versioned artifact.",
+            "chain/forecast_sb3125_enhanced.py to regenerate a versioned artifact.",
             path,
         )
         return obj, load_canonical_deduction_params(), {"artifact_version": 0}
@@ -179,7 +182,7 @@ def load_calibrated_base(
             raise ValueError(
                 f"Stale calibrated-base artifact at {path}: embedded deduction "
                 f"params ({meta.get('params_fingerprint')}) differ from current "
-                f"config ({expected_fp}) — re-run forecast_sb3125_enhanced.py."
+                f"config ({expected_fp}) — re-run chain/forecast_sb3125_enhanced.py."
             )
 
     logger.info(
@@ -192,8 +195,27 @@ def load_calibrated_base(
 
 
 # ---------------------------------------------------------------------------
-# Parquet unit-cache sidecar (provenance guard against stale construction code)
+# Parquet unit-cache sidecar (content key guard against stale construction code)
 # ---------------------------------------------------------------------------
+
+# The entry module of the build that writes the unit cache; its import closure
+# (every workspace module it can reach, the constructor and PUMS loader among
+# them) is what the cache's content key hashes.
+CONSTRUCTION_CODE = ("tax_modeler.base",)
+
+
+@lru_cache(maxsize=1)
+def construction_code_key() -> str:
+    """Content key of the code that builds the parquet unit cache:
+    ``common.fingerprint.fingerprint(code=CONSTRUCTION_CODE)``. It changes when
+    any file in that code's import closure changes (or the Python, numpy or
+    pandas version does), in a clean or a dirty checkout alike, which the git
+    SHA could not say. If the closure cannot be traced, it hashes the whole
+    packages, as :func:`~common.fingerprint.fingerprint` always does."""
+    from common.fingerprint import fingerprint
+
+    return fingerprint(code=CONSTRUCTION_CODE)
+
 
 def _sidecar_path(cache_path: Path | str) -> Path:
     return Path(cache_path).with_suffix(".meta.json")
@@ -202,26 +224,38 @@ def _sidecar_path(cache_path: Path | str) -> Path:
 def write_cache_sidecar(
     cache_path: Path | str,
     extra: Optional[Dict[str, Any]] = None,
+    *,
+    code_key: Optional[str] = None,
 ) -> Path:
-    """Write a ``.meta.json`` sidecar recording who built a parquet cache."""
+    """Write a ``.meta.json`` sidecar recording who built a parquet cache:
+    ``code_key`` (default :func:`construction_code_key`) is what
+    :func:`check_cache_sidecar` compares; ``git_sha`` and ``created_at`` are
+    provenance."""
     sidecar = _sidecar_path(cache_path)
     meta = {
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_sha": _git_sha(),
+        "code_key": code_key or construction_code_key(),
         **(extra or {}),
     }
     sidecar.write_text(json.dumps(meta, indent=2))
     return sidecar
 
 
-def check_cache_sidecar(cache_path: Path | str) -> Optional[Dict[str, Any]]:
+def check_cache_sidecar(
+    cache_path: Path | str,
+    *,
+    code_key: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """Warn (loudly, to stdout AND the log) if a cache predates current code.
 
     Returns the sidecar metadata, or ``None`` when no sidecar exists. A
-    missing sidecar or a git-SHA mismatch does NOT abort — unit construction
-    is expensive and the cache may still be intentional — but the warning
-    tells the user the cache predates the current checkout (e.g. built before
-    a constructor fix) and should be deleted to force a rebuild.
+    missing sidecar, a sidecar without a ``code_key`` (written before the
+    content key) or a ``code_key`` that differs from the current one
+    (:func:`construction_code_key`) does NOT abort — unit construction is
+    expensive and the cache may still be intentional — but the warning tells
+    the user the cache predates the current construction code and should be
+    deleted to force a rebuild. The git SHA is never compared.
     """
     sidecar = _sidecar_path(cache_path)
     if not sidecar.exists():
@@ -234,13 +268,24 @@ def check_cache_sidecar(cache_path: Path | str) -> Optional[Dict[str, Any]]:
         logger.warning(msg)
         return None
     meta = json.loads(sidecar.read_text())
-    current = _git_sha()
-    if current != "unknown" and meta.get("git_sha") not in ("unknown", current):
+    recorded = meta.get("code_key")
+    current = code_key or construction_code_key()
+    if recorded is None:
         msg = (
-            f"WARNING: {cache_path} was built at git {meta.get('git_sha')} "
-            f"(current: {current}, created {meta.get('created_at')}). If unit "
+            f"WARNING: {cache_path} has no code key in its sidecar (built at git "
+            f"{meta.get('git_sha')}, created {meta.get('created_at')}), so its "
+            "construction code cannot be checked. If it changed since, delete the "
+            "cache to rebuild."
+        )
+    elif recorded != current:
+        msg = (
+            f"WARNING: {cache_path} was built by different construction code "
+            f"(code key {recorded[:12]}, current {current[:12]}; built at git "
+            f"{meta.get('git_sha')}, created {meta.get('created_at')}). If unit "
             "construction changed in between, delete the cache to rebuild."
         )
-        print(msg, flush=True)
-        logger.warning(msg)
+    else:
+        return meta
+    print(msg, flush=True)
+    logger.warning(msg)
     return meta

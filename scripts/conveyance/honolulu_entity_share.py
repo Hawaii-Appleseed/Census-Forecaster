@@ -6,7 +6,7 @@ Usage:
   python scripts/conveyance/honolulu_entity_share.py --refresh  # new OWNDAT pull, dated today
 
 Writes packages/tax_modeler/src/tax_modeler/data/raw/conveyance/
-honolulu_entity_share_by_band.csv, which forecast_conveyance_sb3028.py reads
+honolulu_entity_share_by_band.csv, which analyses/forecast_conveyance_sb3028.py reads
 (entity_share(): seller_weighted_entity_share by band_lo). One row per
 assessed-value band ($4-6M, $6-10M, $10M+, the model's entity bands):
   homes_nonowner_occupied, entity_share_nonowner_occupied,

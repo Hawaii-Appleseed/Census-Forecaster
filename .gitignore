@@ -58,7 +58,7 @@ runs/
 # is already embedded in dashboard.html; would churn on every run.
 dashboard/dist/index.json
 
-# Run outputs written by forecast_rxkids_2028.py — regenerable, not inputs
+# Run outputs written by analyses/forecast_rxkids_2028.py — regenerable, not inputs
 reports/**/spm_units.parquet
 
 # Editor/backup leftovers and stray run logs

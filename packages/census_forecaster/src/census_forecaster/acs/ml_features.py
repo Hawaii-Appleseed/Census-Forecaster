@@ -86,7 +86,7 @@ _LAUS_INDICATOR = "_LAUS_UNEMPLOYMENT_RATE"
 # valid-lags columns. This registry replaces what used to be three bespoke
 # params + three injection blocks + three reader blocks + three loaders
 # (~120 scattered references). Migrated 2026-07-16 with golden-row
-# equivalence (see REGISTRY_MIGRATION_SCOPE.md; same discipline as the
+# equivalence (see docs/archive/REGISTRY_MIGRATION_SCOPE.md; same discipline as the
 # national-macro `unemp` migration).
 #
 # Column policy — both emit 4 columns (3 lags + mean of the valid lags);

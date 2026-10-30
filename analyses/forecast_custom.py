@@ -1,13 +1,13 @@
 """Score a user-defined income tax change against current law (Act 24).
 
 Usage:
-  python forecast_custom.py --spec reforms/examples/top_rate_14.yaml
-  python forecast_custom.py --spec my.json --distribution-year 2027 --distribution-year 2031
+  python analyses/forecast_custom.py --spec reforms/examples/top_rate_14.yaml
+  python analyses/forecast_custom.py --spec my.json --distribution-year 2027 --distribution-year 2031
 
 The spec format is tax_modeler.reform.income_tax_spec (the same JSON the
 estimates-site simulator downloads). Scores it on the simulator population
 (runs/tax_simulator/, built by scripts/build_simulator_population.py after
-forecast_sb3125_enhanced.py --cd 2) with the model's own functions: revenue
+chain/forecast_sb3125_enhanced.py --cd 2) with the model's own functions: revenue
 for TY2027-2031 in the LOW / MID / HIGH scenarios, static and after the
 behavioral response, and MID distribution tables. Baseline: current law,
 Act 24 -- not Act 46, which the forecast_sb3125_* scripts score against.
@@ -34,7 +34,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from _forecast_common import RUNS_DIR, silence_noise
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
+
+from _forecast_common import RUNS_DIR, silence_noise  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -93,7 +96,7 @@ def main(argv=None) -> int:
         pd.DataFrame(tables["quintile"]).to_csv(out / f"quintile_{y}.csv", index=False)
         pd.DataFrame(tables["income_class"]).to_csv(out / f"income_class_{y}.csv", index=False)
     (out / "spec.json").write_text(json.dumps(spec.to_dict(), indent=2) + "\n")
-    write_run_manifest(out, script=f"forecast_custom.py --spec {args.spec}",
+    write_run_manifest(out, script=f"analyses/forecast_custom.py --spec {args.spec}",
                        params={"spec": spec.to_dict(), "distribution_years": dist_years},
                        inputs={"population": json.loads((pop_dir / "manifest.json").read_text())
                                if (pop_dir / "manifest.json").exists() else str(pop_dir),

@@ -9,8 +9,8 @@ their own deliberate design languages and must NOT be folded in here:
 
   - ``tax_modeler.reporting.quintile_pdf`` — navy/blue legislative
     distributional reports
-  - ``generate_reec_report.py`` — blue-tinted REEC deliverable
-  - ``generate_itep_report.py`` — ITEP-comparable HTML (also runs on
+  - ``analyses/generate_reec_report.py`` — blue-tinted REEC deliverable
+  - ``analyses/generate_itep_report.py`` — ITEP-comparable HTML (also runs on
     system python3 with no library imports, so it cannot import this)
 """
 

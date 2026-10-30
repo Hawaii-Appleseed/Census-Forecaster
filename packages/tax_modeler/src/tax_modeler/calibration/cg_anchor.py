@@ -11,7 +11,7 @@ income rank (:func:`rank_classes`), so income growth does not push gains
 across fixed nominal class lines. Gains below the $100K class are left
 unallocated (rates there are under 7.25%).
 
-Moved verbatim from ``forecast_cg_rate_options.py`` (the capital-gains page),
+Moved verbatim from ``chain/forecast_cg_rate_options.py`` (the capital-gains page),
 which imports these names back, so the page and the tax simulator
 (``tax_modeler.simulator.gains``) anchor with one implementation.
 """

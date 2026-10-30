@@ -495,7 +495,7 @@ def test_reweight_then_takeup_hits_irs_childless_share():
 
 def test_admin_caseload_has_hi_eitc_anchor():
     """Hawaii caseload table must include a hi_eitc anchor for the
-    1A take-up-calibration step in forecast_hi_eitc_revert_20.py.
+    1A take-up-calibration step in analyses/forecast_hi_eitc_revert_20.py.
     Anchor year is TY 2023 — the first year HI EITC was refundable
     (Act 209, 2023). DOTAX Tax Credits Claimed Table A-1/A-2: 84,470
     returns, $77.054M.

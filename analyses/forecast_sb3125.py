@@ -5,8 +5,8 @@ Compares projected revenue under:
   - Scenario:  SB 3125 CD1 or CD2 (2026 conference draft) which overrides §235-51
 
 Usage:
-  python forecast_sb3125.py --cd 1   # SB 3125 CD1 (default)
-  python forecast_sb3125.py --cd 2   # SB 3125 CD2
+  python analyses/forecast_sb3125.py --cd 1   # SB 3125 CD1 (default)
+  python analyses/forecast_sb3125.py --cd 2   # SB 3125 CD2
 
 Replaces the two separate scripts:
   forecast_sb3125_cd1.py  (identical except TaxSystemRegistry call + output path)
@@ -22,7 +22,10 @@ import sys
 import traceback
 from pathlib import Path
 
-from _forecast_common import (
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
+
+from _forecast_common import (  # noqa: E402
     TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
 
@@ -50,7 +53,7 @@ if __name__ == "__main__":
         wall_start = time.perf_counter()
 
         # ---- Build calibrated base-year units (raw units cached) -----------
-        units = load_cached_units(CD, built_by="forecast_sb3125.py")
+        units = load_cached_units(CD, built_by="analyses/forecast_sb3125.py")
 
         t0 = time.perf_counter()
         print("Enriching + base tax + calibrating...", flush=True)

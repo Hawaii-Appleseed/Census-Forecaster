@@ -38,13 +38,13 @@ Caveats
 
 Usage
 -----
-    uv run python forecast_rxkids_2028.py \\
+    uv run python analyses/forecast_rxkids_2028.py \\
         --tax-year 2028 \\
         --pums-data-dir packages/data/raw/pums_2024_1yr \\
         --out reports/rxkids_2028/
 
     # Smoke test on the synthetic fixture (no replicate SE):
-    uv run python forecast_rxkids_2028.py --use-fixture
+    uv run python analyses/forecast_rxkids_2028.py --use-fixture
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ import numpy as np
 import pandas as pd
 
 LOG = logging.getLogger("forecast_rxkids_2028")
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 PUMS_CONSTRUCTION_YEAR = 2022

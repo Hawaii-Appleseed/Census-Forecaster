@@ -511,7 +511,7 @@ def _methodology_page(pdf: BriefPDF, data: BriefData) -> None:
         pdf,
         "The methodology, parameters, and full results tables are documented "
         "in this project's public methodology files (METHODOLOGY.md, "
-        "REVIEW_FINDINGS.md). The model and its source code are maintained as a "
+        "docs/archive/REVIEW_FINDINGS.md). The model and its source code are maintained as a "
         "Python package; a v2 release was published in 2025.",
     )
 

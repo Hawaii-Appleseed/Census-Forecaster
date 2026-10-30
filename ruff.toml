@@ -36,8 +36,9 @@ ignore = [
 [lint.per-file-ignores]
 # Tests use unconventional patterns and that's fine
 "tests/**/*.py" = ["B", "SIM"]
-# Forecast scripts are top-level analytical scripts; minimal lint
-"forecast_*.py" = ["E402", "F401"]
+# Forecast scripts are analytical scripts (chain steps, one-off analyses); minimal lint
+"chain/forecast_*.py" = ["E402", "F401"]
+"analyses/*.py" = ["E402", "F401"]
 
 [format]
 quote-style = "double"

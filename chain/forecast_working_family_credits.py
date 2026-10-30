@@ -1,7 +1,7 @@
 """Working-family tax credits after Act 163 expires: revenue, distribution, poverty.
 
 Usage:
-  python forecast_working_family_credits.py            # TY2022-2031, writes runs/working_family_credits/
+  python chain/forecast_working_family_credits.py            # TY2022-2031, writes runs/working_family_credits/
 
 Question
 --------
@@ -81,7 +81,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 OUT_DIR = REPO / "runs" / "working_family_credits"
 PUMS_DIR = REPO / "packages" / "data" / "raw" / "pums_2024_1yr"
@@ -103,7 +103,7 @@ DOTAX = {
 EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
 
 
-# The code load_population's build runs, for its cache key (_forecast_common.code_closure).
+# The code load_population's build runs, for its cache key (common.fingerprint.code_closure).
 BUILD_CODE = ("poverty_impact_report", "tax_modeler.pipeline")
 
 
@@ -120,7 +120,8 @@ def load_population():
     """
     import pickle
 
-    from _forecast_common import ARTIFACT_DIR, closure_guard, fingerprint
+    from _forecast_common import ARTIFACT_DIR
+    from common.fingerprint import closure_guard, fingerprint
 
     cache = ARTIFACT_DIR / "working_family_units.pkl"
     key_path = cache.with_suffix(".key")
@@ -273,7 +274,7 @@ def run() -> None:
 
     from tax_modeler.runs import write_run_manifest
     write_run_manifest(
-        OUT_DIR, script="forecast_working_family_credits.py",
+        OUT_DIR, script="chain/forecast_working_family_credits.py",
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
                 "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),

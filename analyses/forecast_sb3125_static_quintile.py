@@ -1,8 +1,8 @@
 """SB 3125 distributional analysis by income quintile, TY 2027–2031.
 
 Usage:
-  python forecast_sb3125_static_quintile.py --cd 1   # SB 3125 CD1 (default)
-  python forecast_sb3125_static_quintile.py --cd 2   # SB 3125 CD2
+  python analyses/forecast_sb3125_static_quintile.py --cd 1   # SB 3125 CD1 (default)
+  python analyses/forecast_sb3125_static_quintile.py --cd 2   # SB 3125 CD2
 
 Replaces:
   forecast_sb3125_cd1_quintile.py
@@ -37,7 +37,10 @@ import sys
 import traceback
 from pathlib import Path
 
-from _forecast_common import (
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
+
+from _forecast_common import (  # noqa: E402
     TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
 )
 
@@ -207,7 +210,7 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
     cd_label     = f"CD{cd}"
     PDF_OUT      = Path(f"/tmp/sb3125_cd{cd}_quintile_distributional_report.pdf")
     # Prefer the manifested runs/ copy; fall back to the legacy /tmp mirror.
-    _runs_enh    = Path(__file__).parent / "runs" / f"sb3125_cd{cd}_enhanced" / "enhanced.csv"
+    _runs_enh    = REPO / "runs" / f"sb3125_cd{cd}_enhanced" / "enhanced.csv"
     ENHANCED_CSV = _runs_enh if _runs_enh.exists() else Path(f"/tmp/sb3125_cd{cd}_enhanced_2027_2031.csv")
 
     # DOTAX TY2023 actuals from the scenario library; en-dash for display.
@@ -521,7 +524,7 @@ if __name__ == "__main__":
         wall_start = time.perf_counter()
 
         # ---- One-time setup -------------------------------------------------
-        units = load_cached_units(CD, built_by="forecast_sb3125_static_quintile.py")
+        units = load_cached_units(CD, built_by="analyses/forecast_sb3125_static_quintile.py")
 
         print("Enriching + base tax + calibrating...", flush=True)
         t0 = time.perf_counter()

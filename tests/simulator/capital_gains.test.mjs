@@ -1,5 +1,5 @@
 // The simulator's capital gains against the capital-gains page
-// (site/data/capital-gains, forecast_cg_rate_options.py).
+// (site/data/capital-gains, chain/forecast_cg_rate_options.py).
 //
 //   node --test tests/simulator/*.test.mjs
 //
@@ -153,7 +153,7 @@ test("a gains-only plan lands near the capital-gains page's estimates", () => {
 });
 
 test("the response is the page's: MID's realization parameter is its BETA", () => {
-  // forecast_cg_rate_options.py BETA = 2.0; the strong-response parameters
+  // chain/forecast_cg_rate_options.py BETA = 2.0; the strong-response parameters
   // (the LOW revenue scenario) 2.6, the weak ones (HIGH) 1.6
   assert.equal(meta.scenarios.mid.cg_beta, 2.0);
   assert.equal(meta.scenarios.low.cg_beta, 2.6);
