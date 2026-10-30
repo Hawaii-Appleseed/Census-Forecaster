@@ -9,6 +9,7 @@ Hawaiʻi tax microsimulation: loads PUMS households, constructs tax units, compu
 | File | Purpose |
 |------|---------|
 | `src/tax_modeler/base.py` | The production population build every chain script calls: `load_or_build_raw_units()` (PUMS → cached raw tax units), `build_calibrated_base()` (enrich → base tax on the canonical deduction params at TY2023 → rake → re-score), `validate_calibrated_base()` (DOTAX tie-out numbers), `build_tail_units()` (calibrated base + $1M+ tail, the vs-FY26 / capital-gains variant) |
+| `src/tax_modeler/agreement.py` | `compare_populations(base, poverty)`: how the revenue base (5-year PUMS, raked to DOTAX) and the poverty population (1-year PUMS, Census weights) differ on units by AGI band and filing status, children and EITC eligibility, in per cent and in the poverty sample's standard errors, with DOTAX's figure alongside. Read-only; run by `chain/forecast_working_family_credits.py` (writes `population_agreement.csv`, unpublished) and `scripts/check_population_agreement.py` |
 | `src/tax_modeler/pipeline.py` | `run_pipeline()` — top-level orchestration for revenue forecasts; builds its base through `base.build_calibrated_base`, so it matches production. Also the stage primitives (`enrich_for_credits`, `compute_base_tax`, `calibrate`) |
 | `src/tax_modeler/poverty/impact.py` | `compute_poverty_impact()` — SPM poverty rate computation |
 | `src/tax_modeler/units/constructor.py` | `TaxUnitConstructor` — builds tax units from PUMS persons |

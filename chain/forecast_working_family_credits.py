@@ -199,11 +199,41 @@ def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dic
     }
 
 
+def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd.DataFrame | None:
+    """Print how this population differs from the revenue base on what both measure.
+
+    The revenue base is the pickle step 1 writes; without it there is nothing to
+    compare and the check says so. It reads both frames and changes neither, so
+    no figure this step publishes depends on it. A failure here is reported and
+    does not stop the run.
+    """
+    from _forecast_common import CALIBRATED_PKL
+
+    if not CALIBRATED_PKL.exists():
+        print(f"  population agreement skipped: {CALIBRATED_PKL.name} not found "
+              "(run chain/forecast_sb3125_enhanced.py --cd 2 first)", flush=True)
+        return None
+    try:
+        from tax_modeler import agreement
+        from tax_modeler.artifacts import load_calibrated_base
+
+        revenue_base, _, _ = load_calibrated_base(CALIBRATED_PKL)
+        table = agreement.compare_populations(revenue_base, units)
+    except Exception as exc:  # noqa: BLE001 - a diagnostic must not stop the chain
+        print(f"  population agreement check failed: {type(exc).__name__}: {exc}", flush=True)
+        return None
+    if out_dir is not None:
+        table.to_csv(out_dir / "population_agreement.csv", index=False)
+    print("\n" + agreement.summarize(table) + "\n", flush=True)
+    return table
+
+
 def run() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     print("Loading PUMS population...", flush=True)
     base, persons = load_population()
+    population_agreement(base, OUT_DIR)
 
     frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
     for yr in YEARS:
