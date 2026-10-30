@@ -112,7 +112,7 @@ proposals. Self-contained analyses with their own entry guides:
 | Analysis | Start here |
 |---|---|
 | **RxKids Hawaiʻi** — cost of a prenatal/infant cash program | **[`RXKIDS_GUIDE.md`](RXKIDS_GUIDE.md)** → [`RXKIDS_METHODOLOGY.md`](RXKIDS_METHODOLOGY.md) |
-| SB 3125 CD1 — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) |
+| SB 3125 CD1/CD2 (Act 24) — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) · its "Current results" tables are generated from `runs/` by `scripts/render_results.py` |
 | Act 163 EITC and food/excise expansions expiring after TY2027 | [`chain/forecast_working_family_credits.py`](chain/forecast_working_family_credits.py) · published on the estimates site |
 | Capital-gains rate options on Act 24 brackets | [`chain/forecast_cg_rate_options.py`](chain/forecast_cg_rate_options.py) · published on the estimates site |
 | Conveyance tax restructuring (SB 3028 HD2, 2026) | [`CONVEYANCE_TAX_SCOPE.md`](CONVEYANCE_TAX_SCOPE.md) → [`analyses/forecast_conveyance_sb3028.py`](analyses/forecast_conveyance_sb3028.py) · published on the estimates site |

@@ -19,8 +19,11 @@ The order:
    the import, it compares against the previous figures.
 4. ``build_site.py --import-runs tax-simulator``, then every page.
 
-It stops there. Before committing: update ``SB3125_CD1_FORECAST.md`` if any
-result moved (CLAUDE.md), commit that, then commit ``site/`` on top.
+5. ``render_results.py`` rewrites the generated "Current results" block of
+   ``SB3125_CD1_FORECAST.md`` from the fresh runs.
+
+It stops there. Before committing: update the doc's prose if methodology
+changed (CLAUDE.md), commit the doc, then commit ``site/`` on top.
 """
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
 import build_site as site  # noqa: E402
+import render_results  # noqa: E402
 import rerun_models  # noqa: E402
 
 
@@ -71,11 +75,16 @@ def main() -> int:
     for p in site.build():
         print(f"wrote {p.relative_to(REPO)}")
 
-    changed = subprocess.run(["git", "status", "--short", "--", "site", "tests/simulator"],
+    if render_results.main([]):
+        return 1
+
+    changed = subprocess.run(["git", "status", "--short", "--", "site", "tests/simulator",
+                              "SB3125_CD1_FORECAST.md"],
                              cwd=REPO, check=True, capture_output=True, text=True).stdout
     print("\nChanged:\n" + (changed or "  nothing\n"))
-    print("Next: if a result moved, update SB3125_CD1_FORECAST.md and commit it; "
-          "then commit site/ and tests/simulator/.")
+    print("Next: the generated results block in SB3125_CD1_FORECAST.md is already current; "
+          "update its prose only if methodology changed. Commit the doc, then site/ and "
+          "tests/simulator/.")
     return 0
 
 
