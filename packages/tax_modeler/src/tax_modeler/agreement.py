@@ -9,6 +9,13 @@ describe the same state, so any quantity both can measure should be close.
 far apart they are, in per cent and in the poverty sample's standard errors, with
 the Department's own figure alongside where it publishes one.
 
+The poverty population is read as the working-family step uses it, not as it is
+cached: aged to the calibration year and with the EITC by-children reweight
+(``poverty_impact_report._apply_eitc_reweight``) applied, before take-up. That
+reweight exists because the unadjusted population is short in 1- and 2-child
+EITC units; read before it, the EITC rows show a 13 per cent shortfall that the
+step has already corrected, and after it a 6 per cent excess.
+
 It changes nothing. It exists so that the gap is visible on every run before
 anyone adjusts a weight, and so a later change to the poverty weights can be
 judged by whether it narrows these gaps.
@@ -143,6 +150,28 @@ def profile(units: pd.DataFrame, *, with_error: bool) -> pd.DataFrame:
         R = units[reps].to_numpy(dtype=float).T          # (80, n)
         theta = R @ X                                     # (80, measures)
         out["se"] = np.sqrt(SDR_FACTOR * ((theta - value) ** 2).sum(axis=0))
+    return out
+
+
+def carry_weight_changes(before: pd.DataFrame, after: pd.DataFrame) -> pd.DataFrame:
+    """``after`` with each replicate weight scaled by the factor that changed ``weight``.
+
+    A step that edits ``weight`` (the EITC by-children reweight) leaves the 80
+    replicates on the old scale, so every replicate would sit a constant shift
+    from the headline and the standard error would measure the edit, not the
+    sample. Every such edit here is a multiplicative factor on the unit's weight,
+    so scaling the replicates by the same factor is their replicate (the same
+    argument ``forecast_working_family_credits._replicate_ratios`` makes).
+    """
+    if len(before) != len(after) or not before.index.equals(after.index):
+        raise ValueError("carry_weight_changes needs the same units in the same order")
+    out = after.copy()
+    reps = replicate_columns(out)
+    if reps:
+        w0 = before["weight"].to_numpy(dtype=float)
+        w1 = after["weight"].to_numpy(dtype=float)
+        factor = np.divide(w1, w0, out=np.ones_like(w1), where=w0 > 0)
+        out[reps] = out[reps].to_numpy(dtype=float) * factor[:, None]
     return out
 
 

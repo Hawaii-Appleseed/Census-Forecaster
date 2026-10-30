@@ -106,3 +106,23 @@ def test_the_dotax_anchor_is_attached_to_matching_measures():
     t = agreement.compare_populations(_units(), _units(seed=2)).set_index("measure")
     assert t.loc["Returns, all classes", "dotax"] == pytest.approx(631_054)
     assert pd.isna(t.loc["Qualifying children", "dotax"])
+
+
+def test_replicates_follow_a_weight_edit_so_the_error_measures_the_sample_not_the_edit():
+    before = _units()
+    after = before.copy()
+    after.loc[after.index[:50], "weight"] *= 1.5
+    carried = agreement.carry_weight_changes(before, after)
+    reps = agreement.replicate_columns(carried)
+    ratio = carried[reps].to_numpy() / before[reps].to_numpy()
+    expect = (after["weight"] / before["weight"]).to_numpy()
+    assert np.allclose(ratio, expect[:, None])
+    naive = agreement.profile(after, with_error=True).set_index("measure").loc["Tax units", "se"]
+    fixed = agreement.profile(carried, with_error=True).set_index("measure").loc["Tax units", "se"]
+    assert fixed < naive          # the uncorrected replicates carry the edit as spurious error
+
+
+def test_carrying_weight_changes_needs_the_same_units():
+    u = _units()
+    with pytest.raises(ValueError, match="same units"):
+        agreement.carry_weight_changes(u, u.iloc[:-1])
