@@ -19,10 +19,9 @@ Usage
 from __future__ import annotations
 
 import argparse
-import math
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -36,9 +35,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     print("[phi-ablation] loading panel ...", file=sys.stderr)
-    from census_forecaster.scripts.load_calibration_panel import load_panel, PanelMissingError
     from census_forecaster.acs.calibration import run_stratified_calibration
     from census_forecaster.acs.ensemble import project_ensemble_multi
+    from census_forecaster.scripts.load_calibration_panel import PanelMissingError, load_panel
 
     try:
         series_by_key, populations, manifest = load_panel()
@@ -230,8 +229,8 @@ def _build_report(
         "",
         "## Summary",
         "",
-        f"| Metric | v3 (φ=0.85) | v4 (per-cell φ) | Delta |",
-        f"|--------|------------|----------------|-------|",
+        "| Metric | v3 (φ=0.85) | v4 (per-cell φ) | Delta |",
+        "|--------|------------|----------------|-------|",
         f"| Median MAPE | {v3_med:.2f}% | {v4_med:.2f}% | {rel_delta:+.1f}% |",
         f"| Any coverage < 80% | {'yes' if any(c < 80 for c in v3_covs) else 'no'} "
         f"| {'yes' if any_below_80_v4 else 'no'} | — |",

@@ -1,7 +1,8 @@
-# Repo-wide lint/format config.
-# Goal: catch real bugs and import hygiene without imposing a giant cleanup
-# pass on the existing codebase.  CI runs `ruff check` allowed-to-fail
-# until a follow-up cleanup PR lands.
+# Repo-wide lint/format config. CI enforces it: `ruff check .` must pass.
+#
+# Enforced: pyflakes (undefined names, unused imports and variables), bugbear, import order,
+# modern syntax, and pycodestyle's real errors. Ignored below: rules that are judgment calls or
+# the repo's script style, not bugs. `uv run ruff check . --fix` applies the safe fixes.
 
 line-length = 100
 target-version = "py310"
@@ -25,20 +26,27 @@ select = [
     "B",   # flake8-bugbear (real bugs)
     "SIM", # flake8-simplify (style → bug-prevention)
 ]
-# Things we deliberately don't enforce yet (would generate noise without
-# catching real bugs in this codebase):
+# Things we deliberately don't enforce (they would generate noise without catching bugs here):
 ignore = [
     "E501",   # line-too-long — formatting handled by ruff format
+    "E701",   # one-line `if x: y` — the analysis scripts' style
+    "E702",   # semicolon-separated statements — the analysis scripts' style
     "B008",   # function call in default arg (we use Path(...) defaults)
+    "SIM102", # collapse nested ifs — judgment call
+    "SIM103", # return the condition directly — judgment call
+    "SIM105", # contextlib.suppress instead of try/except/pass — judgment call
     "SIM108", # ternary collapse — sometimes hurts readability
+    "SIM401", # dict.get instead of if/else — judgment call
 ]
 
 [lint.per-file-ignores]
-# Tests use unconventional patterns and that's fine
-"tests/**/*.py" = ["B", "SIM"]
+# Tests use unconventional patterns and that's fine. E712: a few assert `== True` on numpy booleans.
+"tests/**/*.py" = ["B", "SIM", "E402", "E712"]
 # Forecast scripts are analytical scripts (chain steps, one-off analyses); minimal lint
 "chain/forecast_*.py" = ["E402", "F401"]
 "analyses/*.py" = ["E402", "F401"]
+# Command-line scripts put the repo on sys.path before importing it.
+"scripts/*.py" = ["E402"]
 
 [format]
 quote-style = "double"

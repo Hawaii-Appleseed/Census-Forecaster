@@ -38,7 +38,6 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 STOOQ_URL_TMPL = "https://stooq.com/q/d/l/?s={symbol}&i=m"
 YAHOO_CHART_URL_TMPL = (
@@ -57,7 +56,7 @@ class MonthlyBar:
     year: int
     month: int          # 1-12
     adj_close: float
-    volume: Optional[float] = None
+    volume: float | None = None
 
 
 def _default_cache_dir() -> Path:
@@ -107,7 +106,7 @@ def _parse_stooq_csv(raw: bytes, start_year: int) -> list[MonthlyBar]:
             continue
         vol_raw = (row.get("Volume") or "").strip()
         try:
-            volume: Optional[float] = float(vol_raw) if vol_raw else None
+            volume: float | None = float(vol_raw) if vol_raw else None
         except ValueError:
             volume = None
         bars.append(MonthlyBar(year=year, month=month,
@@ -145,7 +144,7 @@ def _parse_yahoo_chart(payload: dict, start_year: int) -> list[MonthlyBar]:
         quote = result["indicators"]["quote"][0]
     except (KeyError, IndexError, TypeError) as exc:
         err = (payload.get("chart") or {}).get("error")
-        raise MarketDataError(f"yahoo chart payload malformed: {err or exc}")
+        raise MarketDataError(f"yahoo chart payload malformed: {err or exc}") from exc
     adj = (result["indicators"].get("adjclose") or [{}])[0].get("adjclose")
     closes = adj if adj else quote.get("close", [])
     volumes = quote.get("volume", [])
@@ -211,7 +210,7 @@ def _fetch_yfinance(symbol: str, start_year: int) -> list[MonthlyBar]:
 
 
 def _drop_incomplete_month(bars: list[MonthlyBar],
-                           today: Optional[date] = None) -> list[MonthlyBar]:
+                           today: date | None = None) -> list[MonthlyBar]:
     t = today or date.today()
     return [b for b in bars if (b.year, b.month) < (t.year, t.month)]
 
@@ -219,12 +218,12 @@ def _drop_incomplete_month(bars: list[MonthlyBar],
 # ----- cache plumbing (daily snapshots, mirrors bls/client.py) -----
 
 def _cache_path(cache_dir: Path, symbol: str,
-                today: Optional[date] = None) -> Path:
+                today: date | None = None) -> Path:
     t = today or date.today()
     return cache_dir / f"{symbol}_{t.isoformat()}.json"
 
 
-def _load_cached(path: Path) -> Optional[tuple[list[MonthlyBar], str]]:
+def _load_cached(path: Path) -> tuple[list[MonthlyBar], str] | None:
     if not path.exists():
         return None
     try:
@@ -254,13 +253,13 @@ def _save_cached(path: Path, bars: list[MonthlyBar], provenance: str) -> None:
 
 def fetch_monthly_history(
     symbol: str,
-    stooq_symbol: Optional[str] = None,
+    stooq_symbol: str | None = None,
     *,
     start_year: int = 2005,
-    cache_dir: Optional[Path] = None,
+    cache_dir: Path | None = None,
     offline: bool = False,
     source: str = "auto",
-    today: Optional[date] = None,
+    today: date | None = None,
 ) -> tuple[list[MonthlyBar], str]:
     """Fetch a symbol's monthly adjusted-close history.
 
@@ -303,7 +302,7 @@ def fetch_monthly_history(
             f"offline mode: no cached history for {symbol} at {cpath}"
         )
 
-    bars: Optional[list[MonthlyBar]] = None
+    bars: list[MonthlyBar] | None = None
     provenance = ""
     errors: list[str] = []
 

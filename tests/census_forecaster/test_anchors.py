@@ -4,21 +4,18 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from census_forecaster.acs.anchors import (
-    AnchorRate,
+    _inverse_variance_weights,
     anchor_as_forecast,
     combined_anchor_rate,
-    _inverse_variance_weights,
 )
-from census_forecaster.models import AcsObservation
 from census_forecaster.acs.sources import (
     AnchorSource,
     AnnualRate,
     available_sources,
     load_source,
 )
-
+from census_forecaster.models import AcsObservation
 
 # ---------------------------------------------------------------------------
 # Source loading + visibility

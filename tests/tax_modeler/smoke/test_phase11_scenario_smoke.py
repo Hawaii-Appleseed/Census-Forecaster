@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from tax_modeler import (
     TAX_SYSTEM_FACTORY_REGISTRY,
     BehavioralParams,
@@ -17,7 +16,6 @@ from tax_modeler import (
     register_tax_system,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

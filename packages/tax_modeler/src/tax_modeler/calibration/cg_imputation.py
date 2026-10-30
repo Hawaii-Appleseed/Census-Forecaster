@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -58,7 +57,7 @@ _UPPER_BOUND = 1_000_000.0  # at/above this: handled by synthesis
 
 def impute_capital_gains_from_soi(
     df: pd.DataFrame,
-    soi_df: Optional[pd.DataFrame] = None,
+    soi_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Set ``synthetic_cg_share`` for PUMS filers in the $100K–$1M range.
 
@@ -78,7 +77,8 @@ def impute_capital_gains_from_soi(
     two mid-tier income bins.
     """
     from tax_modeler.calibration.irs_soi_state_targets import (
-        load_soi_state_targets, SOI_AGI_BINS,
+        SOI_AGI_BINS,
+        load_soi_state_targets,
     )
 
     out = df.copy()
@@ -97,7 +97,7 @@ def impute_capital_gains_from_soi(
         out["synthetic_cg_share"] = out["synthetic_cg_share"].fillna(0.0)
 
     incomes  = out["income"].to_numpy(dtype=float)
-    weights  = out["weight"].to_numpy(dtype=float)
+    _weights  = out["weight"].to_numpy(dtype=float)
     cg_arr   = out["synthetic_cg_share"].to_numpy(dtype=float).copy()
 
     # Rows already assigned by Pareto synthesis — do not overwrite.
@@ -106,7 +106,7 @@ def impute_capital_gains_from_soi(
     # Look up the actual bin tuples from SOI_AGI_BINS to avoid float/int
     # mismatch in MultiIndex lookup.
     bin_100_200 = next(b for b in SOI_AGI_BINS if b[0] == 100_000)
-    bin_200_plus = next(b for b in SOI_AGI_BINS if b[0] == 200_000)
+    _bin_200_plus = next(b for b in SOI_AGI_BINS if b[0] == 200_000)
 
     # ── $100K–$200K bin ──────────────────────────────────────────────────────
     row_100_200 = soi_df.loc[bin_100_200]
@@ -156,7 +156,7 @@ def impute_capital_gains_from_soi(
 def _national_subbin_shares_with_hi_calibration(
     soi_state_df: pd.DataFrame,
     *,
-    national_csv: Optional[Path] = None,
+    national_csv: Path | None = None,
 ) -> tuple[float, float, float]:
     """Return (national_200K-500K_share, national_500K-1M_share, HI_calib_ratio).
 

@@ -26,10 +26,14 @@ its stacked shortcut.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
-from typing import Callable, Optional
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from tax_modeler.config.tax_system_config import TaxSystemConfig
 
 
 def build_units(
@@ -95,7 +99,7 @@ def project_units(
     *,
     year: int,
     top_premium: float,
-    macro_shock: Optional[str] = None,
+    macro_shock: str | None = None,
     store=None,
 ) -> pd.DataFrame:
     """Project ``units`` to tax year ``year`` and re-score what moved.
@@ -135,7 +139,7 @@ def _project_units(units, *, year, top_premium, macro_shock):
     return refresh_stale_hawaii_tax(projected, target_year=year)
 
 
-def statute(factory: Callable[[int], "TaxSystemConfig"]) -> Callable[[int], "TaxSystemConfig"]:
+def statute(factory: Callable[[int], TaxSystemConfig]) -> Callable[[int], TaxSystemConfig]:
     """``factory`` with the statutory alternative tax on capital gains
     (``cg_alt_tax="statute"``) instead of the registry's stacked shortcut."""
     return lambda year: replace(factory(year), cg_alt_tax="statute")

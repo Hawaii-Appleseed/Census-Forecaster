@@ -26,13 +26,11 @@ is derived for the by-household-type disaggregation.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
-import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
-
 
 # Dollar columns + count columns to sum across tax units in the same SPM
 # unit. All SPM resource components plus the tax/credit columns the
@@ -337,7 +335,7 @@ def aggregate_to_spm_units(
     # ---- 7. Derive spm-unit filing status proxy (for by_household_type)
     out["filing_status"] = [
         _classify_spm_household_type(int(a), int(c))
-        for a, c in zip(out["n_adults"].fillna(0), out["n_children"].fillna(0))
+        for a, c in zip(out["n_adults"].fillna(0), out["n_children"].fillna(0), strict=False)
     ]
     out["is_multi_tax_unit_spm"] = out["n_tax_units_pooled"] > 1
 

@@ -58,7 +58,7 @@ def _random_schedule(rng: random.Random) -> list[list[float]]:
     rates = [round(rng.uniform(0, 16), rng.choice([0, 1, 2])) for _ in range(n)]
     if rng.random() < 0.7:
         rates.sort()
-    return [[0.0, rates[0]]] + [[float(f), r] for f, r in zip(floors, rates[1:])]
+    return [[0.0, rates[0]]] + [[float(f), r] for f, r in zip(floors, rates[1:], strict=False)]
 
 
 def random_specs(n: int, seed: int = 20260926) -> list[dict]:
@@ -454,7 +454,7 @@ def write_golden(pop: Population, path, *, credit_table: dict, n_random: int = 1
     households, household_systems = _households(calc)
     spec_resolution = [{"spec": d, "systems": {str(y): system_to_json(s.system_for(y), calc)
                                                for y in pop.years}}
-                       for d, s in zip(spec_dicts, specs)]
+                       for d, s in zip(spec_dicts, specs, strict=False)]
     invalid = invalid_specs()
     for d in invalid:
         try:

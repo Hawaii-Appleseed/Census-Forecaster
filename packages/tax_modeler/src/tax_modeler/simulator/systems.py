@@ -33,7 +33,7 @@ def system_to_json(config: TaxSystemConfig, calc: TaxCalculator | None = None) -
            "brackets": {}, "standard_deduction": {}}
     for fs in CSV_STATUSES:
         b = calc.brackets_for(config, fs)
-        out["brackets"][fs] = [[float(f), float(r)] for f, r in zip(b["income_min"], b["rate"])]
+        out["brackets"][fs] = [[float(f), float(r)] for f, r in zip(b["income_min"], b["rate"], strict=False)]
         out["standard_deduction"][fs] = float(calc.standard_deduction_for(config, fs))
     return out
 

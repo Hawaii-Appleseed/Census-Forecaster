@@ -16,8 +16,6 @@ their own deliberate design languages and must NOT be folded in here:
 
 from __future__ import annotations
 
-from typing import Tuple
-
 # Brand guide: Ash / Teal / Slate / Charcoal
 TEAL = "#005F73"        # primary
 GOLD = "#E9B949"        # accent
@@ -39,7 +37,7 @@ CSS_VARS = {
 }
 
 
-def hex_to_rgb(h: str) -> Tuple[int, int, int]:
+def hex_to_rgb(h: str) -> tuple[int, int, int]:
     """``"#005F73"`` → ``(0, 95, 115)`` — fpdf2 wants integer RGB."""
     h = h.lstrip("#")
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))

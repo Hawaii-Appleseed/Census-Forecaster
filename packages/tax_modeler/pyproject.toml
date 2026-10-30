@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.17"]
 ui = ["streamlit>=1.30"]
 geo = ["geopandas>=0.14"]
 # pyreadstat is needed only by the optional CEX (Consumer Expenditure

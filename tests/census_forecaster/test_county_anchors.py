@@ -15,10 +15,8 @@ import json
 from pathlib import Path
 
 import pytest
-
 from census_forecaster.acs.anchors import combined_anchor_rate
 from census_forecaster.acs.sources import AnchorSource, load_source
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.benefits._fpl import hawaii_fpl
 from tax_modeler.benefits.childcare import compute_childcare_for_units
 from tax_modeler.benefits.liheap import compute_liheap_for_units

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -23,10 +22,10 @@ logger = logging.getLogger(__name__)
 class OccupationMatch:
     """Result of occupation matching with confidence score."""
     pums_code: str
-    bls_code: Optional[str]
+    bls_code: str | None
     match_level: str  # 'exact', 'major_group', 'state_wide'
     confidence: float
-    wage_data: Optional[Dict[str, float]] = None
+    wage_data: dict[str, float] | None = None
     
 
 class OccupationMatcher:
@@ -119,10 +118,10 @@ class OccupationMatcher:
                 'wage_growth': 0.02  # Default 2% if no growth data
             }
         
-        logger.info(f"Built occupation lookup tables:")
+        logger.info("Built occupation lookup tables:")
         logger.info(f"  - Exact matches: {len(self.exact_matches)} codes")
         logger.info(f"  - Major groups: {len(self.major_group_data)} groups")
-        logger.info(f"  - State-wide fallback available")
+        logger.info("  - State-wide fallback available")
     
     def match(self, pums_socp: str) -> OccupationMatch:
         """
@@ -171,7 +170,7 @@ class OccupationMatcher:
         # Fallback to state-wide
         return self._fallback_state_wide(pums_socp, "no_match")
     
-    def _fallback_state_wide(self, pums_socp: Optional[str], reason: str) -> OccupationMatch:
+    def _fallback_state_wide(self, pums_socp: str | None, reason: str) -> OccupationMatch:
         """Create state-wide fallback match."""
         return OccupationMatch(
             pums_code=pums_socp or "unknown",
@@ -218,7 +217,7 @@ class OccupationMatcher:
         match_stats = df[f'{output_prefix}match_level'].value_counts()
         total = len(df)
         
-        logger.info(f"Match results:")
+        logger.info("Match results:")
         for level, count in match_stats.items():
             pct = count / total * 100
             logger.info(f"  - {level}: {count:,} ({pct:.1f}%)")

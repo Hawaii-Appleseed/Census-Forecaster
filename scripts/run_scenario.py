@@ -23,9 +23,9 @@ import argparse
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Sequence
 
 from tax_modeler.scenarios.registry import get_scenario, list_scenarios
 
@@ -36,11 +36,11 @@ from _forecast_common import REPO, RUNS_DIR  # noqa: E402
 _CD_ARG = {"sb3125_cd1": "1", "sb3125_cd2": "2"}
 
 
-def _cd_args(slug: str) -> List[str]:
+def _cd_args(slug: str) -> list[str]:
     return ["--cd", _CD_ARG[slug]]
 
 
-def _bill_args(slug: str) -> List[str]:
+def _bill_args(slug: str) -> list[str]:
     return ["--bill", slug]
 
 
@@ -52,14 +52,14 @@ class Runner:
     script: str
     describe: str
     slugs: Sequence[str]
-    build_args: Callable[[str], List[str]]
+    build_args: Callable[[str], list[str]]
     #: True when the script writes its own runs/ manifest (Phase 1).
     self_manifests: bool = False
     #: Runner needs the venv interpreter (library imports).
     needs_venv: bool = True
 
 
-RUNNERS: Dict[str, Runner] = {
+RUNNERS: dict[str, Runner] = {
     r.name: r for r in [
         Runner(
             name="quintile",
@@ -102,7 +102,7 @@ RUNNERS: Dict[str, Runner] = {
 }
 
 
-def runners_for(slug: str) -> List[Runner]:
+def runners_for(slug: str) -> list[Runner]:
     return [r for r in RUNNERS.values() if slug in r.slugs]
 
 
@@ -110,7 +110,7 @@ def print_listing() -> None:
     """Show every registry scenario and the analyses available for it."""
     print("Scenarios (tax_modeler.scenarios.registry):\n")
     for spec in list_scenarios():
-        years = "TY%d only" % spec.fixed_year if not spec.takes_year else "TY2027-2031"
+        years = f"TY{spec.fixed_year} only" if not spec.takes_year else "TY2027-2031"
         names = [r.name for r in runners_for(spec.slug)]
         print(f"  {spec.slug:26} {spec.label:28} {years:12} overlay={spec.overlay}")
         if spec.statute:
@@ -166,8 +166,8 @@ def run(slug: str, runner_name: str, *, dry_run: bool = False) -> int:
     if not runner.self_manifests:
         # Record the dispatch for runners that don't write their own
         # manifest yet, so every run is still enumerable.
-        from tax_modeler.runs import write_run_manifest
         from _forecast_common import cache_provenance
+        from tax_modeler.runs import write_run_manifest
         run_dir = RUNS_DIR / f"{slug}_{runner.name}"
         run_dir.mkdir(parents=True, exist_ok=True)
         write_run_manifest(

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler.projection.dotax_validation import (
     compare_with_model,
     latest_complete_windows,

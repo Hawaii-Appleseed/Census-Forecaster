@@ -77,8 +77,8 @@ def _weight(df: pd.DataFrame) -> np.ndarray:
 def _build_units(
     persons: pd.DataFrame, households: pd.DataFrame, tax_year: int, apply_takeup: bool
 ) -> pd.DataFrame:
+    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.units.constructor import TaxUnitConstructor
-    from tax_modeler.pipeline import enrich_for_credits, compute_base_tax
 
     ctor = TaxUnitConstructor(
         persons.copy(), households.copy(),
@@ -178,7 +178,7 @@ def _report(units: pd.DataFrame, scale_to_irs_total: bool) -> None:
     buckets = ["0", "1", "2", "3+"]
     model_w = {b: 0.0 for b in buckets}
     model_n = {b: 0 for b in buckets}
-    for is_claimer, n, wt in zip(claimers, nqc, w):
+    for is_claimer, n, wt in zip(claimers, nqc, w, strict=False):
         if not is_claimer:
             continue
         b = _bucket(int(n))

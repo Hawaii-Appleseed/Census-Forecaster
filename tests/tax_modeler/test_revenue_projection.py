@@ -22,10 +22,12 @@ Test organisation
 from __future__ import annotations
 
 import math
-from unittest.mock import patch
 
 import pytest
-
+from tax_modeler.projection.revenue_concentration import (
+    DOTAX_2022_MEDIAN_INCOME,
+    expected_revenue_per_filer,
+)
 from tax_modeler.projection.revenue_projection import (
     DEFAULT_GEOID,
     DEFAULT_METHOD,
@@ -34,12 +36,6 @@ from tax_modeler.projection.revenue_projection import (
     project_revenue_2026,
     project_revenue_per_filer,
 )
-from tax_modeler.projection.revenue_concentration import (
-    DOTAX_2022_MEDIAN_INCOME,
-    expected_revenue_per_filer,
-)
-from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -302,7 +298,8 @@ class TestProjectRevenuePerFilerParams:
 
     def test_custom_tax_fn_respected(self):
         """Custom tax_fn changes per_filer_revenue but not income_se."""
-        flat_fn = lambda y: y * 0.05
+        def flat_fn(y):
+            return y * 0.05
         p_conc = project_revenue_per_filer(target_year=2026)
         p_flat = project_revenue_per_filer(target_year=2026, tax_fn=flat_fn)
         assert p_conc is not None and p_flat is not None
@@ -325,7 +322,7 @@ class TestProjectRevenuePerFilerParams:
         With a very large conformal quantile, the CI must be wider than
         without.  horizon = 2026 - anchor_year(2024) = 2 → "short" bucket.
         """
-        from tax_modeler.projection.revenue_conformal import RevenueConformalRecord, WILDCARD
+        from tax_modeler.projection.revenue_conformal import WILDCARD, RevenueConformalRecord
         # Artificial record with a large quantile (10×Z_90), wildcard horizon
         big_q = RevenueConformalRecord(
             method="ensemble", h_bucket=WILDCARD,

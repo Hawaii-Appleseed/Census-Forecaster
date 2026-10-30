@@ -10,10 +10,9 @@ Key insight: Revenue = f(AGI, filing_status, ...), so matching AGI ensures reven
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Tuple
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -153,17 +152,17 @@ def apply_revenue_calibration(
     total_actual_agi = (df[output_weight_col] * df[agi_col]).sum()
     overall_error = abs(total_actual_agi - total_target_agi) / total_target_agi * 100
     
-    logger.info(f"\nOverall AGI:")
+    logger.info("\nOverall AGI:")
     logger.info(f"  Target: ${total_target_agi/1e9:.2f}B")
     logger.info(f"  Actual: ${total_actual_agi/1e9:.2f}B")
     logger.info(f"  Error: {overall_error:.2f}%")
     
     if overall_error < 1:
-        logger.info(f"\n✅ Excellent accuracy - Revenue estimates will be highly accurate")
+        logger.info("\n✅ Excellent accuracy - Revenue estimates will be highly accurate")
     elif overall_error < 5:
-        logger.info(f"\n✅ Good accuracy - Revenue estimates will be accurate")
+        logger.info("\n✅ Good accuracy - Revenue estimates will be accurate")
     else:
-        logger.info(f"\n⚠️  Error > 5% - Review calibration")
+        logger.info("\n⚠️  Error > 5% - Review calibration")
     
     # Sample bracket validation
     logger.info("\n" + "="*80)
@@ -198,11 +197,11 @@ def apply_revenue_calibration(
         logger.info(f"  Error: {error:.2f}%")
         
         if error < 1:
-            logger.info(f"  ✅ Excellent")
+            logger.info("  ✅ Excellent")
         elif error < 5:
-            logger.info(f"  ✅ Good")
+            logger.info("  ✅ Good")
         else:
-            logger.info(f"  ⚠️  Needs review")
+            logger.info("  ⚠️  Needs review")
     
     # Clean up temporary columns
     df = df.drop(columns=['_ipf_category'])

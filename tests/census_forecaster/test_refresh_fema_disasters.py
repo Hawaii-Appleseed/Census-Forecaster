@@ -8,13 +8,12 @@ control deletes most of the panel instead of testing it.
 from __future__ import annotations
 
 import pytest
-
+from census_forecaster.scripts import refresh_fema_disasters as fema
 from lab.markets.screen import (
     _drop_months,
     month_index,
     months_to_indices,
 )
-from census_forecaster.scripts import refresh_fema_disasters as fema
 
 
 class _Resp:

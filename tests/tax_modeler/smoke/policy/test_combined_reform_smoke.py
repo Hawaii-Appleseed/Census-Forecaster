@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-
+from lab.validation import validate_against_admin_caseload
 from tax_modeler import (
     AdminCaseload,
     Reform,
@@ -10,12 +10,9 @@ from tax_modeler import (
     apply_reform,
     compute_hi_eitc_for_units,
     compute_snap_for_units,
-    compute_spm_resources,
     compute_ssi_for_units,
     compute_ssi_hi_supplement_for_units,
 )
-from lab.validation import validate_against_admin_caseload
-
 
 pytestmark = pytest.mark.smoke
 

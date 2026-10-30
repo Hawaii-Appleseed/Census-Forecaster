@@ -11,9 +11,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from .occupation_matcher import OccupationMatcher
@@ -59,7 +57,7 @@ class EnsembleProjector:
         # Load ACS income growth trends
         self._load_acs_growth()
         
-        logger.info(f"Initialized EnsembleProjector:")
+        logger.info("Initialized EnsembleProjector:")
         logger.info(f"  Base year: {base_year}")
         logger.info(f"  Ensemble weights: ACS={acs_weight:.1f}, BLS={bls_weight:.1f}")
     
@@ -152,7 +150,7 @@ class EnsembleProjector:
         projected['projection_year'] = target_year
         projected['years_projected'] = years_forward
         
-        logger.info(f"Projection complete:")
+        logger.info("Projection complete:")
         logger.info(f"  Average growth: {((projected[income_column] / tax_units[income_column]).mean() - 1) * 100:.1f}%")
         logger.info(f"  Median growth: {((projected[income_column] / tax_units[income_column]).median() - 1) * 100:.1f}%")
         
@@ -239,14 +237,14 @@ class EnsembleProjector:
         tax_units['acs_contribution'] = effective_acs_weight * acs_factor
         tax_units['bls_contribution'] = effective_bls_weight * bls_factor
         
-        logger.info(f"Growth factor statistics:")
+        logger.info("Growth factor statistics:")
         logger.info(f"  Mean: {ensemble_factor.mean():.3f} ({(ensemble_factor.mean() - 1) * 100:.1f}% growth)")
         logger.info(f"  Median: {ensemble_factor.median():.3f}")
         logger.info(f"  Min/Max: {ensemble_factor.min():.3f} / {ensemble_factor.max():.3f}")
         
         return tax_units
     
-    def get_projection_summary(self, projected_units: pd.DataFrame) -> Dict:
+    def get_projection_summary(self, projected_units: pd.DataFrame) -> dict:
         """Generate summary statistics for projection."""
         
         summary = {

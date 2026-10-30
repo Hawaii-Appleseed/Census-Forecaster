@@ -26,9 +26,9 @@ import argparse
 import math
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from census_forecaster.acs.calibration import (
     COVERAGE_LOWER_BOUND,
@@ -36,15 +36,11 @@ from census_forecaster.acs.calibration import (
     FoldResidual,
     run_stratified_calibration,
 )
-from census_forecaster.acs.ml_features import build_panel_index, load_county_data
+from census_forecaster.acs.ml_features import load_county_data
 from census_forecaster.acs.ml_trend import (
     METHOD_NAME as ML_METHOD,
-    project_ml_trend,
-    train_ml_model,
 )
-from census_forecaster.acs.projection import effective_year
 from census_forecaster.scripts.load_calibration_panel import load_panel
-
 
 # Ship-gate thresholds. See module docstring.
 SHIP_GATE_RMSE_DELTA = 0.05         # 5% relative RMSE drop required
@@ -115,7 +111,7 @@ def _build_with_ml_residuals(
         by_key[key][r.method] = r
 
     out: list[FoldResidual] = []
-    for key, methods in by_key.items():
+    for _key, methods in by_key.items():
         trend = methods.get("trend_ensemble")
         anchor = methods.get("multi_anchor")
         ml = methods.get(ML_METHOD)
@@ -238,8 +234,8 @@ def _apply_v3_corrections(
     on the production-ready CIs rather than the raw (uncalibrated)
     output of the projection step.
     """
-    from census_forecaster.acs.strata import index_records, record_from_dict, DEFAULT_N_THRESHOLD
     from census_forecaster.acs.projection import EMPIRICAL_SE_INFLATOR
+    from census_forecaster.acs.strata import DEFAULT_N_THRESHOLD, index_records, record_from_dict
 
     sr = calibration_payload.get("strata_records") or {}
     bias_recs = [record_from_dict(d) for d in sr.get("bias", [])]
@@ -431,7 +427,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     anchor_years = [int(s) for s in args.anchors.split(",")]
     horizons = [int(s) for s in args.horizons.split(",")]
 
-    print(f"[ablation] loading panel ...", file=sys.stderr)
+    print("[ablation] loading panel ...", file=sys.stderr)
     series, populations, manifest = load_panel()
     print(
         f"[ablation] panel: {sum(len(v) for v in series.values())} obs, "
@@ -444,7 +440,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     n_ind = len(set(ind for (_, ind) in series))
     n_models = n_ind * len(anchor_years)
 
-    print(f"[ablation] running v3 calibration WITHOUT ml ...", file=sys.stderr)
+    print("[ablation] running v3 calibration WITHOUT ml ...", file=sys.stderr)
     cal_no_ml = run_stratified_calibration(
         series_by_key=series,
         anchor_years=anchor_years,
@@ -482,12 +478,12 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
 
     # Apply v3 bias + κ corrections to each method's residuals.
-    print(f"[ablation] applying v3 corrections to fold residuals ...", file=sys.stderr)
+    print("[ablation] applying v3 corrections to fold residuals ...", file=sys.stderr)
     resid_no_ml = _apply_v3_corrections(_residuals_from_calibration(cal_no_ml), cal_no_ml)
     resid_ml_no_bps = _apply_v3_corrections(_residuals_from_calibration(cal_ml_no_bps), cal_ml_no_bps)
     resid_ml_bps = _apply_v3_corrections(_residuals_from_calibration(cal_ml_bps), cal_ml_bps)
 
-    print(f"[ablation] aggregating per-indicator metrics ...", file=sys.stderr)
+    print("[ablation] aggregating per-indicator metrics ...", file=sys.stderr)
     ensemble_v3 = _build_ensemble_v3_residuals(resid_no_ml)
     ensemble_ml_no_bps = _build_with_ml_residuals(resid_ml_no_bps, series, populations)
     ensemble_ml_bps = _build_with_ml_residuals(resid_ml_bps, series, populations)
@@ -563,7 +559,7 @@ def _build_ensemble_v3_residuals(
         by_key[key][r.method] = r
 
     out: list[FoldResidual] = []
-    for key, methods in by_key.items():
+    for _key, methods in by_key.items():
         trend = methods.get("trend_ensemble")
         anchor = methods.get("multi_anchor")
         if trend is not None and anchor is not None:

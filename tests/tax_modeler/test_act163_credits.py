@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.hi_eitc import hawaii_eitc_parameters
 from tax_modeler.credits.hi_food_excise import compute_hi_food_excise_for_units
 

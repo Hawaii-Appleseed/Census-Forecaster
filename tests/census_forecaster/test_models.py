@@ -1,6 +1,5 @@
 """Tests for the AcsObservation / GeographySeries / ForecastPoint dataclasses."""
 import pytest
-
 from census_forecaster.models import AcsObservation, ForecastPoint, GeographySeries
 
 

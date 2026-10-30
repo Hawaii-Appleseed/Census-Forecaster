@@ -57,10 +57,10 @@ import re
 import sys
 import zipfile
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 from statistics import mean
-from typing import Optional, Sequence
 
 import requests
 
@@ -250,7 +250,7 @@ def annual_from_bls(points: Sequence[dict], first_year: int = FIRST_YEAR) -> dic
     return dict(sorted(out.items()))
 
 
-def _hud_fmr_year(column: object) -> Optional[int]:
+def _hud_fmr_year(column: object) -> int | None:
     """``'fmr24_2'`` -> 2024 and ``'fmr99_2'`` -> 1999; None for any other column.
 
     ``fmrYY_2`` is the 2-bedroom FMR for fiscal year YY. The workbook spans 1983
@@ -358,7 +358,7 @@ def years_lost(previous: dict[int, float], new: dict[int, float]) -> list[int]:
     return sorted(set(previous) - set(new))
 
 
-def build_payload(spec: dict, values: dict[int, float], today: Optional[date] = None) -> dict:
+def build_payload(spec: dict, values: dict[int, float], today: date | None = None) -> dict:
     today = today or date.today()
     return {
         "source": spec["source"],
@@ -376,8 +376,8 @@ def build_payload(spec: dict, values: dict[int, float], today: Optional[date] = 
 # Fetchers (network)
 # ---------------------------------------------------------------------------
 
-def fetch_bls_annual(series_id: str, api_key: Optional[str], *, first_year: int = FIRST_YEAR,
-                     last_year: Optional[int] = None) -> list[dict]:
+def fetch_bls_annual(series_id: str, api_key: str | None, *, first_year: int = FIRST_YEAR,
+                     last_year: int | None = None) -> list[dict]:
     """Chunked BLS fetch (10-year windows keyless, 20 with a key) → raw points."""
     last_year = last_year or date.today().year
     window = 20 if api_key else 10
@@ -392,7 +392,7 @@ def fetch_bls_annual(series_id: str, api_key: Optional[str], *, first_year: int 
     return points
 
 
-def fetch_hud_workbook(*, today: Optional[date] = None, timeout: float = 90.0) -> bytes:
+def fetch_hud_workbook(*, today: date | None = None, timeout: float = 90.0) -> bytes:
     """Newest ``FMR_2Bed_1983_<year>.xlsx`` as bytes.
 
     The end year in the name moves each autumn, so try next year, this year and
@@ -413,7 +413,7 @@ def fetch_hud_workbook(*, today: Optional[date] = None, timeout: float = 90.0) -
     raise RuntimeError(f"no FMR_2Bed_1983_<year>.xlsx published for {year - 1}-{year + 1}")
 
 
-def fetch_values(spec: dict, api_key: Optional[str], first_year: int = FIRST_YEAR) -> dict[int, float]:
+def fetch_values(spec: dict, api_key: str | None, first_year: int = FIRST_YEAR) -> dict[int, float]:
     kind = spec["kind"]
     if kind == "fred_annual":
         values = annual_from_fred_annual(fetch_fred_csv(spec["fred_id"]), first_year)
@@ -443,7 +443,7 @@ def _read_previous(path: Path) -> dict[int, float]:
         return {int(y): float(v) for y, v in json.load(f).get("values_by_year", {}).items()}
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refresh the PCE, FHFA Hawaii HPI, QCEW Hawaii wage and HUD FMR anchors.")
     parser.add_argument("--out", type=Path, default=ANCHORS_DIR,

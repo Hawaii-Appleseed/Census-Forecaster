@@ -59,9 +59,9 @@ import io
 import json
 import re
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 from urllib.parse import urljoin
 
 import requests
@@ -107,7 +107,7 @@ def _normalize(label: object) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _header_year(value: object) -> Optional[int]:
+def _header_year(value: object) -> int | None:
     """Year from a Table 6 header cell, or None.
 
     Accepts ``1990`` (int) and the revised-vintage string forms HTA
@@ -126,7 +126,7 @@ def _header_year(value: object) -> Optional[int]:
 
 
 def discover_historical_url(page_url: str = HISTORICAL_PAGE,
-                            *, timeout: float = 30.0) -> Optional[str]:
+                            *, timeout: float = 30.0) -> str | None:
     """Find the 'historical-visitors-through-<year>' workbook link.
 
     The upload paths rotate on every republish, so the listing page is the
@@ -236,7 +236,7 @@ def merge_into_macro_monthly(series_by_id: dict[str, list[dict]],
     return payload
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None):
+def _parse_args(argv: Sequence[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--url", default=None,
                    help="Workbook URL (default: discover from the HTA page)")
@@ -245,7 +245,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None):
     return p.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
     url = args.url

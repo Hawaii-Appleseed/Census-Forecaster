@@ -41,17 +41,18 @@ warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
 import pandas as pd
-
 from tax_modeler.base import build_tail_units
-from tax_modeler.config.tax_system_config import TaxCalculator
 from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
-from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
-from tax_modeler.scenarios.quintile_analysis import (
-    generate_quintile_report, compute_quintile_breaks,
-    cor_scale_factor_for_year, per_unit_tax,
-)
+from tax_modeler.config.tax_system_config import TaxCalculator
 from tax_modeler.reporting import BLUE, GREEN, NAVY, make_quintile_pdf
+from tax_modeler.scenarios.quintile_analysis import (
+    compute_quintile_breaks,
+    cor_scale_factor_for_year,
+    generate_quintile_report,
+    per_unit_tax,
+)
 from tax_modeler.scenarios.registry import baseline_for, get_scenario
+from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common

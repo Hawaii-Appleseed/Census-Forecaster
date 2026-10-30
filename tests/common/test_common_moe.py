@@ -1,9 +1,8 @@
 """Verify common.moe directly (not via census_forecaster shim)."""
 from __future__ import annotations
 
-import math
 import pytest
-from common.moe import ACS_MOE_Z, moe_to_se, se_to_moe, combine_se, ci_from_se, moe_sum
+from common.moe import ACS_MOE_Z, ci_from_se, combine_se, moe_sum, moe_to_se, se_to_moe
 
 
 class TestMoeDirectImport:

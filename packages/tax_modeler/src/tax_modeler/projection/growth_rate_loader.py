@@ -26,10 +26,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 import pandas as pd
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +58,7 @@ _DEFAULTS = {
 }
 
 
-def _validate_rate(rate: float, name: str, bounds_key: str) -> Optional[float]:
+def _validate_rate(rate: float, name: str, bounds_key: str) -> float | None:
     """Validate a computed rate against reasonable bounds.
 
     Returns the rate if valid, None if out of bounds.
@@ -75,7 +73,7 @@ def _validate_rate(rate: float, name: str, bounds_key: str) -> Optional[float]:
     return None
 
 
-def _compute_cagr(series: pd.Series, years: int) -> Optional[float]:
+def _compute_cagr(series: pd.Series, years: int) -> float | None:
     """Compute CAGR from the last N years of a time series.
 
     Args:
@@ -103,7 +101,7 @@ def _compute_cagr(series: pd.Series, years: int) -> Optional[float]:
     return cagr
 
 
-def _read_fred_csv(project_root: Path, filename: str) -> Optional[pd.DataFrame]:
+def _read_fred_csv(project_root: Path, filename: str) -> pd.DataFrame | None:
     """Read a FRED CSV file from data/external/fred/.
 
     Returns DataFrame with 'date' and 'value' columns, sorted by date.
@@ -121,7 +119,7 @@ def _read_fred_csv(project_root: Path, filename: str) -> Optional[pd.DataFrame]:
         return None
 
 
-def _read_bls_cpi_csv(project_root: Path) -> Optional[pd.DataFrame]:
+def _read_bls_cpi_csv(project_root: Path) -> pd.DataFrame | None:
     """Read BLS CPI CSV from data/external/bls_cpi/."""
     path = project_root / "data" / "external" / "bls_cpi" / "honolulu_cpi.csv"
     if not path.exists():
@@ -392,7 +390,7 @@ def _load_pop_growth(project_root: Path, cohort: str) -> float:
     return fallback
 
 
-def load_all_rates(project_root: Union[str, Path]) -> dict:
+def load_all_rates(project_root: str | Path) -> dict:
     """Load all data-driven growth rates with hardcoded fallbacks.
 
     Args:

@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from lab.markets.client import MonthlyBar
 from lab.markets.panel import PricesPanel, load_prices_panel
 

@@ -38,7 +38,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -59,17 +58,16 @@ DEFAULT_CBPP_CACHE = (
 # ---------------------------------------------------------------------------
 
 def _load_units(
-    pums_data_dir: Optional[Path],
+    pums_data_dir: Path | None,
     use_fixture: bool,
 ) -> pd.DataFrame:
     """Build enriched, taxed tax units with HI EITC + geography assigned.
 
     Returns a DataFrame ready for projection or direct estimation.
     """
-    from tax_modeler.pipeline import enrich_for_credits, compute_base_tax
-    from tax_modeler.units.constructor import TaxUnitConstructor
     from tax_modeler.analysis.puma_crosswalk import assign_geography
-    from tax_modeler.credits.hi_eitc import compute_hi_eitc_for_units
+    from tax_modeler.pipeline import enrich_for_credits
+    from tax_modeler.units.constructor import TaxUnitConstructor
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -127,8 +125,8 @@ def _build_units_for_tax_year(
     project_tax_units_forward, which rebuilds Hawaii tax + federal credits
     using year-specific parameters.
     """
-    from tax_modeler.pipeline import compute_base_tax
     from tax_modeler.credits.hi_eitc import compute_hi_eitc_for_units
+    from tax_modeler.pipeline import compute_base_tax
 
     if project:
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
@@ -194,7 +192,7 @@ _REPORT_COLUMNS = [
 ]
 
 
-def _aggregate(df: pd.DataFrame, group_col: Optional[str]) -> pd.DataFrame:
+def _aggregate(df: pd.DataFrame, group_col: str | None) -> pd.DataFrame:
     """Population-weighted aggregation with CBPP-comparable columns."""
     if group_col is None:
         groups = [("__state__", df)]
@@ -242,7 +240,7 @@ def _aggregate(df: pd.DataFrame, group_col: Optional[str]) -> pd.DataFrame:
 # CBPP table 367 fetch + compare
 # ---------------------------------------------------------------------------
 
-def _try_fetch_cbpp_table367(cache_path: Path) -> Optional[pd.DataFrame]:
+def _try_fetch_cbpp_table367(cache_path: Path) -> pd.DataFrame | None:
     """Attempt to download CBPP table 367 senate-district CSV.
 
     On failure (network down, schema change), falls back to the cached
@@ -329,7 +327,7 @@ def _compare_against_cbpp(
 # CLI
 # ---------------------------------------------------------------------------
 
-def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def _parse_args(argv: list | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--tax-year", type=int, required=True,
                    help="Tax year (2022-2026).")
@@ -353,7 +351,7 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

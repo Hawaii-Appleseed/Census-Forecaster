@@ -11,7 +11,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from census_forecaster.acs.anchors import (
     AnchorRate,
     anchor_as_forecast,
@@ -22,14 +21,12 @@ from census_forecaster.acs.ensemble import (
     project_ensemble,
     project_ensemble_multi,
 )
-from census_forecaster.models import AcsObservation
 from census_forecaster.acs.projection import (
     ANNUAL_RATE_CAP,
-    fit_damped_trend,
     project_ar1_log_diff,
     project_damped_trend,
 )
-from census_forecaster.acs.sources import available_sources
+from census_forecaster.models import AcsObservation
 
 
 def _obs(year, est, moe=1000.0, vintage="1y", indicator="B19013_001E"):

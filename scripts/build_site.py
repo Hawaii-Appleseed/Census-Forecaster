@@ -1611,8 +1611,8 @@ def build_tax_simulator() -> tuple[str, dict]:
     fallback = f"""
 <div class="ha-sim__fallback" id="sim-fallback">
 <noscript><div class="ha-est__callout"><p><strong>The simulator needs JavaScript.</strong> With it turned off you can still see what the model gives for a few options, below.</p></div></noscript>
-{table(["Option", f"First year ($M)", f"{Y0} to {Y1} ($M)", "Range across scenarios ($M)"], rows,
-       caption=f"Table 1. Change in Revenue Compared With Current Law, Middle Scenario With Behavioral Response")}
+{table(["Option", "First year ($M)", f"{Y0} to {Y1} ($M)", "Range across scenarios ($M)"], rows,
+       caption="Table 1. Change in Revenue Compared With Current Law, Middle Scenario With Behavioral Response")}
 <p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, the model behind this page. Each option applies from tax year {Y0}, except renewing Act 163’s credits, which current law keeps through {renew_fy - 1}, so that option applies from {renew_fy}, and its figures are for {renew_fy} and for {renew_fy} to {Y1}.</p>
 </div>"""
     app = f"""

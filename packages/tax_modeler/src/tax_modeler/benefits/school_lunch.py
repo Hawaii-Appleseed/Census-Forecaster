@@ -39,8 +39,8 @@ Reform DSL (``Reform.benefit_overrides["school_lunch"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -48,7 +48,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 # USDA Food & Nutrition Service "National School Lunch Program Hawaii
 # reimbursement rates" — annual notices in the Federal Register. Values
@@ -93,7 +92,7 @@ def hawaii_school_lunch_parameters(tax_year: int = 2024) -> SchoolLunchParameter
 
 
 def with_school_lunch_overrides(
-    base: SchoolLunchParameters, overrides: Optional[Mapping[str, object]]
+    base: SchoolLunchParameters, overrides: Mapping[str, object] | None
 ) -> SchoolLunchParameters:
     if not overrides:
         return base
@@ -111,8 +110,8 @@ def compute_school_lunch_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[SchoolLunchParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: SchoolLunchParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "school_lunch_amount",
 ) -> pd.DataFrame:
     """Compute annual NSLP free/reduced school-lunch resource per tax unit.

@@ -23,7 +23,7 @@ Interpretation caveats (also in the JSON's ``limitations``):
 from __future__ import annotations
 
 import json
-from typing import Dict, Iterable, Optional
+from collections.abc import Iterable
 
 from .sb3125_cd1_credits import (
     BASE_YEAR,
@@ -42,7 +42,7 @@ def load_dpp_solar() -> dict:
         return json.load(f)
 
 
-def _partial_year(data: dict) -> Optional[int]:
+def _partial_year(data: dict) -> int | None:
     """The calendar year the dataset only partially covers, if any."""
     max_iso = data.get("max_issuedate") or ""
     if len(max_iso) >= 7 and int(max_iso[5:7]) < 12:
@@ -53,7 +53,7 @@ def _partial_year(data: dict) -> Optional[int]:
 def empirical_demand_factors(
     basis: str = "value",
     base_year: int = BASE_YEAR,
-) -> Dict[int, float]:
+) -> dict[int, float]:
     """Residential solar-permit factors normalized to ``base_year`` = 1.0.
 
     ``basis`` — 'value' (declared job value; comparable to the model's
@@ -79,7 +79,7 @@ def empirical_demand_factors(
     h1_key = "res_val" if basis == "value" else "res_n"
     h1_base = h1.get(str(base_year), {}).get(h1_key)
 
-    out: Dict[int, float] = {}
+    out: dict[int, float] = {}
     for y_str, rec in annual.items():
         y = int(y_str)
         if y == partial:
@@ -94,7 +94,7 @@ def empirical_demand_factors(
 
 def compare_with_model(
     years: Iterable[int] = (2024, 2025, 2026),
-    scenarios: Optional[Iterable[str]] = None,
+    scenarios: Iterable[str] | None = None,
 ) -> list[dict]:
     """Empirical permit factors vs the model's ``g(y) × d(y)`` demand path.
 

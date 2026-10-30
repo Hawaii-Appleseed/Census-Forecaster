@@ -81,10 +81,10 @@ Module layout
 """
 from __future__ import annotations
 
-import math
 import logging
-from dataclasses import dataclass, field
-from typing import Callable, Optional, Sequence
+import math
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
 from census_forecaster.backtest.acs import BacktestRow, BacktestSummary, ProjectorFn
 
@@ -416,7 +416,7 @@ def run_calibrated_revenue_backtest(
         summaries — dict[method → BacktestSummary] on eval anchors,
             with conformal-floored CIs.
     """
-    from .revenue_backtest import run_revenue_backtest, _CONCENTRATION_TAX_FN
+    from .revenue_backtest import _CONCENTRATION_TAX_FN, run_revenue_backtest
     from .revenue_concentration import concentration_marginal_fn
 
     _tax = tax_fn or _CONCENTRATION_TAX_FN
@@ -436,7 +436,6 @@ def run_calibrated_revenue_backtest(
     )
 
     # Step 2: evaluate with conformal-floored CIs
-    from math import sqrt
     summaries = run_revenue_backtest(
         series_by_key,
         anchors=eval_anchors,

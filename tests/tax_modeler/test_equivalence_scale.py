@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler.poverty.thresholds import _equivalence_scale, hawaii_spm_threshold
 
 

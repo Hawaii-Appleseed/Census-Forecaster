@@ -115,17 +115,14 @@ NOTES (also surfaced via :class:`PovertyImpactResult.notes`):
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
-from tax_modeler.metrics.poverty import poverty_gap, poverty_rate
-
 from .spm import SPMResourceMeta, compute_spm_resources
 from .thresholds import threshold_for_units
-
 
 _DEFAULT_SCENARIOS: tuple[str, ...] = (
     "no_eitc",
@@ -326,7 +323,7 @@ def _scenario_resources(
     raise ValueError(f"unknown scenario: {scenario!r}")
 
 
-def _group_positions(units: pd.DataFrame, group_col: Optional[str]) -> list[tuple[object, np.ndarray]]:
+def _group_positions(units: pd.DataFrame, group_col: str | None) -> list[tuple[object, np.ndarray]]:
     """Each group's key and row positions, in the order :func:`_aggregate`
     reports them: the whole frame for ``group_col=None``, else
     ``units.groupby(group_col)`` (missing keys kept), rows in frame order."""
@@ -339,12 +336,12 @@ def _group_positions(units: pd.DataFrame, group_col: Optional[str]) -> list[tupl
 def _aggregate(
     units: pd.DataFrame,
     *,
-    group_col: Optional[str],
+    group_col: str | None,
     threshold: np.ndarray,
     person_weight: np.ndarray,
     filer_weight: np.ndarray,
     scenarios: Sequence[str],
-    groups: Optional[list[tuple[object, np.ndarray]]] = None,
+    groups: list[tuple[object, np.ndarray]] | None = None,
 ) -> pd.DataFrame:
     """Per-geography aggregation for baseline + every scenario.
 
@@ -733,7 +730,7 @@ def _se_columns_for_aggregate(
     *,
     headline: pd.DataFrame,
     replicate_frames: list[pd.DataFrame],
-    group_col: Optional[str],
+    group_col: str | None,
 ) -> pd.DataFrame:
     """Compute ``*_se`` columns for one aggregated DataFrame.
 
@@ -858,7 +855,7 @@ def compute_poverty_impact_with_se(
 
     # Per-geography replicate aggregations. Mirror the same five group_col
     # axes that compute_poverty_impact emits.
-    geo_axes: list[tuple[str, Optional[str], pd.DataFrame]] = [
+    geo_axes: list[tuple[str, str | None, pd.DataFrame]] = [
         ("by_state", None, headline.by_state),
         ("by_county", "county", headline.by_county),
         ("by_house_district", "house_district", headline.by_house_district),

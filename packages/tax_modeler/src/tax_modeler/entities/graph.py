@@ -9,14 +9,13 @@ Wrap-only design: nothing in this module mutates the underlying frames.
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional
 
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
 from tax_modeler.units.relshipp_codes import SPM_PRIMARY, SPM_UNRELATED
-
 
 # ---------------------------------------------------------------------------
 # View dataclasses
@@ -29,11 +28,11 @@ class Person:
 
     person_id: str       # SERIALNO_SPORDER
     serialno: str        # household identifier
-    age: Optional[int]
-    sex: Optional[int]
-    relationship: Optional[int]   # PUMS RELSHIPP
+    age: int | None
+    sex: int | None
+    relationship: int | None   # PUMS RELSHIPP
     earnings: float                # WAGP + SEMP
-    _row: Optional[pd.Series] = field(default=None, repr=False, compare=False)
+    _row: pd.Series | None = field(default=None, repr=False, compare=False)
 
     @property
     def household_id(self) -> str:
@@ -49,7 +48,7 @@ class TaxUnit:
     filing_status: str
     primary_filer_id: str
     secondary_filer_id: str
-    dependent_person_ids: List[str]
+    dependent_person_ids: list[str]
     income: float
     weight: float
     _row: pd.Series = field(repr=False, compare=False)
@@ -58,7 +57,7 @@ class TaxUnit:
     def hh_id(self) -> str:
         return self.serialno
 
-    def person_ids(self) -> List[str]:
+    def person_ids(self) -> list[str]:
         """Every person attached to this tax unit (filer + spouse + deps)."""
         out = [self.primary_filer_id]
         if self.secondary_filer_id and self.secondary_filer_id != "0":
@@ -78,7 +77,7 @@ class SPMUnit:
 
     spm_unit_id: str             # currently equals serialno
     serialno: str
-    tax_unit_filer_ids: List[str]
+    tax_unit_filer_ids: list[str]
 
 
 @dataclass(frozen=True)
@@ -87,9 +86,9 @@ class Household:
 
     serialno: str
     weight: float
-    puma: Optional[str]
-    tax_unit_filer_ids: List[str]
-    person_ids: List[str]
+    puma: str | None
+    tax_unit_filer_ids: list[str]
+    person_ids: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +121,8 @@ class EntityGraph:
     def __init__(
         self,
         units_df: pd.DataFrame,
-        person_df: Optional[pd.DataFrame] = None,
-        hh_df: Optional[pd.DataFrame] = None,
+        person_df: pd.DataFrame | None = None,
+        hh_df: pd.DataFrame | None = None,
     ) -> None:
         missing = [c for c in _REQUIRED_UNIT_COLS if c not in units_df.columns]
         if missing:
@@ -151,11 +150,11 @@ class EntityGraph:
         return self._units
 
     @property
-    def person_df(self) -> Optional[pd.DataFrame]:
+    def person_df(self) -> pd.DataFrame | None:
         return self._persons
 
     @property
-    def hh_df(self) -> Optional[pd.DataFrame]:
+    def hh_df(self) -> pd.DataFrame | None:
         return self._hh
 
     # -- Construction --------------------------------------------------- #
@@ -164,9 +163,9 @@ class EntityGraph:
     def from_units(
         cls,
         units_df: pd.DataFrame,
-        person_df: Optional[pd.DataFrame] = None,
-        hh_df: Optional[pd.DataFrame] = None,
-    ) -> "EntityGraph":
+        person_df: pd.DataFrame | None = None,
+        hh_df: pd.DataFrame | None = None,
+    ) -> EntityGraph:
         return cls(units_df, person_df=person_df, hh_df=hh_df)
 
     # -- TaxUnit lookups ------------------------------------------------ #
@@ -181,7 +180,7 @@ class EntityGraph:
         for _, row in self._units.iterrows():
             yield self._row_to_tax_unit(row)
 
-    def tax_units_in_household(self, serialno: str) -> List[TaxUnit]:
+    def tax_units_in_household(self, serialno: str) -> list[TaxUnit]:
         idxs = self._units_by_serialno.get(str(serialno), [])
         return [self._row_to_tax_unit(self._units.iloc[i]) for i in idxs]
 
@@ -197,13 +196,13 @@ class EntityGraph:
             raise KeyError(f"no person with id={person_id}")
         return self._row_to_person(person_id, self._persons.loc[person_id])
 
-    def people_in_tax_unit(self, filer_id: str) -> List[Person]:
+    def people_in_tax_unit(self, filer_id: str) -> list[Person]:
         if self._persons is None:
             return []
         tu = self.tax_unit(filer_id)
         return [self.person(pid) for pid in tu.person_ids() if pid in self._persons.index]
 
-    def people_in_household(self, serialno: str) -> List[Person]:
+    def people_in_household(self, serialno: str) -> list[Person]:
         if self._persons is None:
             return []
         sn = str(serialno)

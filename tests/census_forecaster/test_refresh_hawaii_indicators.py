@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-
-from lab.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
 from census_forecaster.scripts import refresh_hawaii_indicators as hi
+from lab.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
 
 
 class _Resp:

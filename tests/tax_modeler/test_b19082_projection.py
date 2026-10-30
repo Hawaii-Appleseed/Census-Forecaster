@@ -27,7 +27,6 @@ import math
 from unittest.mock import patch
 
 import pytest
-
 from tax_modeler.projection.b19082_projection import (
     B19082_TOP_QUINTILE,
     _load_b19082_series,
@@ -35,7 +34,6 @@ from tax_modeler.projection.b19082_projection import (
     get_base_top_quintile_share,
     project_top_quintile_share,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -456,7 +454,8 @@ class TestPhaseHIntegration:
         """Custom tax_fn → B19082 layer is skipped; top_income_scale=None."""
         from tax_modeler.projection.revenue_projection import project_revenue_per_filer
 
-        flat_fn = lambda y: y * 0.05
+        def flat_fn(y):
+            return y * 0.05
         series = _make_series(2015, 2022)
         with patch(
             "tax_modeler.projection.b19082_projection._load_b19082_series",
@@ -493,7 +492,7 @@ class TestPhaseHIntegration:
         # Growing top share (top earners pulling away)
         growing_series = _make_series(2015, 2022, base_pct=50.0, drift=0.5)
         # Flat top share
-        flat_series = _make_series(2015, 2022, base_pct=51.2, drift=0.0)
+        _flat_series = _make_series(2015, 2022, base_pct=51.2, drift=0.0)
 
         with patch(
             "tax_modeler.projection.b19082_projection._load_b19082_series",

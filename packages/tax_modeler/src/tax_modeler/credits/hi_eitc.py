@@ -27,8 +27,8 @@ Reform DSL (``Reform.benefit_overrides["hi_eitc"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ class HawaiiEitcParameters:
     amount_pct: float = 1.0
 
 
-def hawaii_eitc_parameters(tax_year: Optional[int] = None) -> HawaiiEitcParameters:
+def hawaii_eitc_parameters(tax_year: int | None = None) -> HawaiiEitcParameters:
     """Year-aware HI EITC parameters.
 
     * TY 2018-2022: 20% of federal, non-refundable (Act 107, 2017).
@@ -65,7 +65,7 @@ def hawaii_eitc_parameters(tax_year: Optional[int] = None) -> HawaiiEitcParamete
 
 
 def with_hi_eitc_overrides(
-    base: HawaiiEitcParameters, overrides: Optional[Mapping[str, object]]
+    base: HawaiiEitcParameters, overrides: Mapping[str, object] | None
 ) -> HawaiiEitcParameters:
     if not overrides:
         return base
@@ -82,9 +82,9 @@ def with_hi_eitc_overrides(
 def compute_hi_eitc_for_units(
     units: pd.DataFrame,
     *,
-    tax_year: Optional[int] = None,
-    params: Optional[HawaiiEitcParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    tax_year: int | None = None,
+    params: HawaiiEitcParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     federal_eitc_col: str = "eitc_amount",
     tax_before_credits_col: str = "hi_tax_before_credits",
     out_col: str = "hi_eitc_amount",

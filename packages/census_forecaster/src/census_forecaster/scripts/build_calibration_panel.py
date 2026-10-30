@@ -64,14 +64,14 @@ import os
 import random
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
 
-from ..acs.client import AcsClient
-from ..acs.strata import classify_pop, POP_BUCKET_BOUNDS
 from common.models import AcsObservation
 
+from ..acs.client import AcsClient
+from ..acs.strata import classify_pop
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -581,7 +581,7 @@ def _default_panel_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "data" / "calibration_panel"
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Build the v3 calibration panel from the Census ACS API.",
     )

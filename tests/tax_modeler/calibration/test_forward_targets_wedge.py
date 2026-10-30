@@ -5,8 +5,7 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
-from tax_modeler.calibration.forward_targets import ForwardTargets, build_targets
+from tax_modeler.calibration.forward_targets import build_targets
 
 
 def test_wedge_fields_default_none():

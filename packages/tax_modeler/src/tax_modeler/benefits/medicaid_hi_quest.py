@@ -33,8 +33,8 @@ Reform DSL (``Reform.benefit_overrides["medicaid"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 # 2024 HI Med-QUEST PMPM (annualized × 12). State Plan Amendment + CMS-64
 # expenditures are the production source.
@@ -72,7 +71,7 @@ def hawaii_medicaid_parameters() -> MedicaidParameters:
 
 
 def with_medicaid_overrides(
-    base: MedicaidParameters, overrides: Optional[Mapping[str, object]]
+    base: MedicaidParameters, overrides: Mapping[str, object] | None
 ) -> MedicaidParameters:
     if not overrides:
         return base
@@ -90,12 +89,12 @@ def compute_medicaid_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[MedicaidParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: MedicaidParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "medicaid_amount",
     receives_col: str = "medicaid_receives",
-    family_income_col: Optional[str] = None,
-    family_size_col: Optional[str] = None,
+    family_income_col: str | None = None,
+    family_size_col: str | None = None,
 ) -> pd.DataFrame:
     """Compute Hawaii Med-QUEST in-kind benefit + receives flag.
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.errors import DataValidationError
 from tax_modeler.units.spm_unit_assembly import (
     attach_spm_unit_id_to_tax_units,

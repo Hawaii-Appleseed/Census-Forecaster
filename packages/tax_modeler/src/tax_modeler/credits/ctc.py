@@ -27,11 +27,11 @@ amount, not per child) and to the per-child cap.
 
 from __future__ import annotations
 
-from typing import Dict, List
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
 from functools import cache
+
+import numpy as np
+import pandas as pd
 
 from tax_modeler.per_unit import (
     apply_columns,
@@ -132,11 +132,11 @@ def _cached_ctc_parameters(tax_year: int, extrapolate: bool) -> CTCParameters:
 
 
 def calculate_ctc(
-    tax_unit: Dict,
+    tax_unit: dict,
     tax_year: int = 2023,
     *,
     extrapolate: bool = False,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Calculate Child Tax Credit for a tax unit.
 
@@ -225,7 +225,7 @@ def calculate_ctc(
     return result
 
 
-def _first_present(tax_unit: Dict, *keys: str, default: float = 0.0) -> float:
+def _first_present(tax_unit: dict, *keys: str, default: float = 0.0) -> float:
     """First key whose value is present and not NaN (federal columns first)."""
     for key in keys:
         val = tax_unit.get(key)
@@ -234,7 +234,7 @@ def _first_present(tax_unit: Dict, *keys: str, default: float = 0.0) -> float:
     return default
 
 
-def _filer_has_ssn(tax_unit: Dict) -> bool:
+def _filer_has_ssn(tax_unit: dict) -> bool:
     """Taxpayer (or either spouse on a joint return) holds a work-eligible SSN.
 
     PUMS has no SSN/ITIN field, so this reads an imputed ``filer_has_ssn``
@@ -246,7 +246,7 @@ def _filer_has_ssn(tax_unit: Dict) -> bool:
     return bool(flag)
 
 
-def _get_qualifying_children(dependents: List[Dict], params: CTCParameters) -> List[Dict]:
+def _get_qualifying_children(dependents: list[dict], params: CTCParameters) -> list[dict]:
     """
     Identify qualifying children for CTC purposes.
 
@@ -266,7 +266,7 @@ def _get_qualifying_children(dependents: List[Dict], params: CTCParameters) -> L
     return qualifying
 
 
-def _is_qualifying_child_ctc(dependent: Dict, params: CTCParameters) -> bool:
+def _is_qualifying_child_ctc(dependent: dict, params: CTCParameters) -> bool:
     """
     Check if a dependent qualifies for CTC.
 
@@ -441,7 +441,7 @@ def calculate_ctc_for_tax_units(
     return pd.DataFrame(results)
 
 
-def get_ctc_summary_stats(tax_units_df: pd.DataFrame) -> Dict[str, float]:
+def get_ctc_summary_stats(tax_units_df: pd.DataFrame) -> dict[str, float]:
     """
     Calculate summary statistics for CTC across tax units.
 
@@ -489,7 +489,7 @@ def ctc_for_units(
         lambda unit: calculate_ctc(unit, tax_year=tax_year, extrapolate=extrapolate))
 
 
-def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Dict[str, np.ndarray]:
+def _ctc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> dict[str, np.ndarray]:
     """:func:`calculate_ctc`'s result keys for every unit (raises
     ``per_unit.NotVectorizable`` where the per-unit path is needed)."""
     n = len(df)

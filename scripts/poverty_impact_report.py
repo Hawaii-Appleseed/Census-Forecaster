@@ -55,7 +55,6 @@ import re
 import sys
 import textwrap
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -77,7 +76,7 @@ def _replicate_weight_cols(prefix: str = "WGTP", n: int = 80) -> list[str]:
 
 
 def _load_units(
-    pums_data_dir: Optional[Path],
+    pums_data_dir: Path | None,
     use_fixture: bool,
     *,
     with_replicate_weights: bool = False,
@@ -92,9 +91,9 @@ def _load_units(
     weights (``WGTP1`` .. ``WGTP80``) are also broadcast from households
     onto persons so SDR sampling-variance can be computed downstream.
     """
-    from tax_modeler.pipeline import enrich_for_credits
-    from tax_modeler.base import build_raw_units
     from tax_modeler.analysis.puma_crosswalk import assign_geography
+    from tax_modeler.base import build_raw_units
+    from tax_modeler.pipeline import enrich_for_credits
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -409,8 +408,8 @@ def _apply_credit_takeup(
     IRS SOI). Baseline poverty lifts for the no_eitc / no_ctc scenarios are
     overstated by ~25% / ~15% respectively when this step is skipped.
     """
-    from tax_modeler.pipeline import apply_credit_takeup
     from tax_modeler.errors import ConfigError, MissingDataError
+    from tax_modeler.pipeline import apply_credit_takeup
     LOG.info(
         "Applying IRS-anchored take-up imputation for %s at year=%d",
         ",".join(programs), tax_year,
@@ -440,7 +439,7 @@ def _apply_credit_takeup(
 # ---------------------------------------------------------------------------
 
 
-def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def _parse_args(argv: list | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -693,8 +692,8 @@ _HI_CTC_NARRATIVE = (
 )
 
 
-def _format_uncertainty(*, se: Optional[float], param_min: Optional[float],
-                       param_max: Optional[float]) -> str:
+def _format_uncertainty(*, se: float | None, param_min: float | None,
+                       param_max: float | None) -> str:
     """Render the uncertainty clause appended to the persons-count.
 
     Inline in the running prose: ``" (sampling 90% CI ±X,XXX; assumption
@@ -721,9 +720,9 @@ def _format_uncertainty(*, se: Optional[float], param_min: Optional[float],
 
 def _narrative_for_scenario(
     scn: str, persons_lifted: float, *,
-    se: Optional[float] = None,
-    param_min: Optional[float] = None,
-    param_max: Optional[float] = None,
+    se: float | None = None,
+    param_min: float | None = None,
+    param_max: float | None = None,
 ) -> str:
     """Return a 2-3 sentence Appleseed-register narrative for one scenario.
 
@@ -803,7 +802,7 @@ def _print_summary(
     tax_year: int,
     by_state: pd.DataFrame,
     scenarios: tuple[str, ...],
-    sdr_state: Optional[pd.DataFrame] = None,
+    sdr_state: pd.DataFrame | None = None,
 ) -> None:
     s = by_state.iloc[0]
     se = sdr_state.iloc[0] if sdr_state is not None and not sdr_state.empty else None
@@ -915,7 +914,7 @@ def _print_summary(
     print()
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

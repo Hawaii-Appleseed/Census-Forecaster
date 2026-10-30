@@ -45,16 +45,17 @@ from __future__ import annotations
 import json
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, ci_from_se, combine_se
+from common.moe import ci_from_se, combine_se, moe_to_se
+
 from .projection import (
     ANNUAL_RATE_CAP,
-    effective_year,
     EMPIRICAL_SE_INFLATOR,
+    effective_year,
 )
 from .sources import AnchorSource, AnnualRate, available_sources
 
@@ -98,7 +99,7 @@ class LevelAnchorPoint:
     se: float
     indicator: str
     end_year: int
-    geoid: Optional[str]
+    geoid: str | None
     source_names: tuple[str, ...]
     weights: tuple[float, ...]
 
@@ -106,10 +107,10 @@ class LevelAnchorPoint:
 def combined_level_anchor(
     indicator: str,
     end_year: int,
-    geoid: Optional[str] = None,
-    sources: Optional[list[AnchorSource]] = None,
-    calibration: Optional[dict] = None,
-) -> Optional[LevelAnchorPoint]:
+    geoid: str | None = None,
+    sources: list[AnchorSource] | None = None,
+    calibration: dict | None = None,
+) -> LevelAnchorPoint | None:
     """Combine all level-type anchor sources for this indicator at end_year.
 
     Inverse-variance combines the latest observed levels from all level-type
@@ -145,8 +146,8 @@ def combined_level_anchor(
     else:
         weights = [w / total_inv for w in inv_vars]
 
-    point = sum(w * lv for w, (lv, _, _) in zip(weights, items))
-    se = math.sqrt(sum((w * se) ** 2 for w, (_, se, _) in zip(weights, items)))
+    point = sum(w * lv for w, (lv, _, _) in zip(weights, items, strict=False))
+    se = math.sqrt(sum((w * se) ** 2 for w, (_, se, _) in zip(weights, items, strict=False)))
     # Ensure combined SE >= any single source's floor.
     max_floor = max(s.level_se_floor for s in level_sources if s.level_se_floor > 0) if level_sources else 0.0
     se = max(se, max_floor)
@@ -220,7 +221,7 @@ def level_anchor_as_forecast(
 
     source_str = "+".join(
         f"{name}={w:.2f}"
-        for name, w in zip(level_anchor.source_names, level_anchor.weights)
+        for name, w in zip(level_anchor.source_names, level_anchor.weights, strict=False)
     )
     notes = (
         f"level_anchor(sources=[{source_str}], "
@@ -267,7 +268,7 @@ def _inverse_variance_weights(
     source_names: Sequence[str],
     rates: Sequence[AnnualRate],
     rmse_floor: float = 0.005,
-    indicator_rmse: Optional[dict[str, float]] = None,
+    indicator_rmse: dict[str, float] | None = None,
 ) -> list[float]:
     """Inverse-(variance + floor²) weighting across source/rate pairs.
 
@@ -279,7 +280,7 @@ def _inverse_variance_weights(
     if len(source_names) != len(rates):
         raise ValueError("source_names and rates must align")
     raw_inv: list[float] = []
-    for name, r in zip(source_names, rates):
+    for name, r in zip(source_names, rates, strict=False):
         if indicator_rmse is not None and name in indicator_rmse:
             v = max(indicator_rmse[name], rmse_floor) ** 2
         else:
@@ -297,7 +298,7 @@ def _inverse_variance_weights(
 
 def load_calibration(
     path: Path = DEFAULT_CALIBRATION_PATH,
-) -> Optional[dict]:
+) -> dict | None:
     """Load the full calibration payload.
 
     Returns the entire JSON object (not just one slice) so callers can
@@ -323,12 +324,12 @@ def load_calibration(
 def combined_anchor_rate(
     indicator: str,
     end_year: int,
-    sources: Optional[Sequence[AnchorSource]] = None,
-    calibration: Optional[dict[str, dict[str, float]]] = None,
+    sources: Sequence[AnchorSource] | None = None,
+    calibration: dict[str, dict[str, float]] | None = None,
     correlation_rho: float = 0.6,
     calibration_horizon: int = ANCHOR_CALIBRATION_HORIZON,
-    geoid: Optional[str] = None,
-) -> Optional[AnchorRate]:
+    geoid: str | None = None,
+) -> AnchorRate | None:
     """Compute the indicator-specific multi-source anchor rate at end_year.
 
     Process
@@ -406,7 +407,7 @@ def combined_anchor_rate(
     # own time-series suggests.
     horizon = max(int(calibration_horizon), 1)
     rates_calibrated: list[AnnualRate] = []
-    for name, r in zip(source_names, rates):
+    for name, r in zip(source_names, rates, strict=False):
         if name in per_source_rmse:
             cal_se = per_source_rmse[name] / horizon
             new_se = max(r.se_log_rate, cal_se)
@@ -419,7 +420,7 @@ def combined_anchor_rate(
         indicator_rmse=per_source_rmse if per_source_rmse else None,
     )
 
-    point = sum(w * r.log_rate for w, r in zip(weights, rates_calibrated))
+    point = sum(w * r.log_rate for w, r in zip(weights, rates_calibrated, strict=False))
 
     # Variance of weighted sum with cross-source correlation rho.
     n = len(weights)

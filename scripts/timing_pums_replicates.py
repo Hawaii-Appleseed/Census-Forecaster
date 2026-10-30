@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional
 
 import requests
 
@@ -31,7 +30,7 @@ def _fetch(
     url: str,
     get_vars: list[str],
     state_fips: str,
-    api_key: Optional[str],
+    api_key: str | None,
     timeout: int = 120,
 ) -> tuple[float, int, int]:
     """Return (elapsed_seconds, n_rows, payload_bytes)."""
@@ -52,7 +51,7 @@ def _fetch(
     return elapsed, len(rows) - 1, n_bytes  # subtract header row
 
 
-def regime_a_single_call(state_fips: str, year: int, vintage: str, api_key: Optional[str]) -> None:
+def regime_a_single_call(state_fips: str, year: int, vintage: str, api_key: str | None) -> None:
     """All 80 housing-unit replicate weights in one request."""
     url = _build_url(year, vintage)
     base = ["SERIALNO", "PUMA", "WGTP"]
@@ -66,7 +65,7 @@ def regime_a_single_call(state_fips: str, year: int, vintage: str, api_key: Opti
         print(f"    FAIL: {e.response.status_code} — {e.response.text[:200]}")
 
 
-def regime_b_two_calls(state_fips: str, year: int, vintage: str, api_key: Optional[str]) -> None:
+def regime_b_two_calls(state_fips: str, year: int, vintage: str, api_key: str | None) -> None:
     """Split into two calls; join by SERIALNO."""
     url = _build_url(year, vintage)
     base = ["SERIALNO", "PUMA", "WGTP"]
@@ -82,7 +81,7 @@ def regime_b_two_calls(state_fips: str, year: int, vintage: str, api_key: Option
         print(f"    FAIL: {e.response.status_code} — {e.response.text[:200]}")
 
 
-def regime_c_baseline(state_fips: str, year: int, vintage: str, api_key: Optional[str]) -> None:
+def regime_c_baseline(state_fips: str, year: int, vintage: str, api_key: str | None) -> None:
     """Baseline — just the main weight (what current fetch_pums does)."""
     url = _build_url(year, vintage)
     get_vars = ["SERIALNO", "PUMA", "WGTP"]
@@ -100,7 +99,7 @@ def extrapolate(seconds_per_state_year: float) -> None:
     years = 15
     total_calls = states * years
     seconds_total = total_calls * seconds_per_state_year
-    print(f"\n=== Extrapolation ===")
+    print("\n=== Extrapolation ===")
     print(f"At {seconds_per_state_year:.2f}s per state-year:")
     print(f"  50 states x 15 years = {total_calls} state-years")
     print(f"  Total wall-clock: {seconds_total:.0f}s "

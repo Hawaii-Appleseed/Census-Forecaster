@@ -27,7 +27,6 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 # (anchor name, last_refresh) pairs already warned about in this process.
 _STALE_WARNED: set[tuple[str, str]] = set()
@@ -99,7 +98,7 @@ class AnchorSource:
         geography: str = "any",
         anchor_type: str = "rate",
         level_se_floor: float = 0.0,
-    ) -> "AnchorSource":
+    ) -> AnchorSource:
         with open(path) as f:
             data = json.load(f)
         # Stale-data warning: if `last_refresh` (YYYY-MM) is more than 6
@@ -177,7 +176,7 @@ class AnchorSource:
         by_geoid = self._data.get("values_by_geoid_year") or {}
         return tuple(sorted(by_geoid.keys()))
 
-    def _values_dict_for(self, geoid: Optional[str]) -> dict:
+    def _values_dict_for(self, geoid: str | None) -> dict:
         """Pick the appropriate {year: value} dict for the requested geoid.
 
         For geography == "county" we look up `values_by_geoid_year[geoid]`;
@@ -198,8 +197,8 @@ class AnchorSource:
 
     def load_series(
         self,
-        end_year: Optional[int] = None,
-        geoid: Optional[str] = None,
+        end_year: int | None = None,
+        geoid: str | None = None,
     ) -> list[tuple[int, float]]:
         """Return [(year, value), ...] sorted ascending, limited by visibility.
 
@@ -229,8 +228,8 @@ class AnchorSource:
 
     def annual_log_rates(
         self,
-        end_year: Optional[int] = None,
-        geoid: Optional[str] = None,
+        end_year: int | None = None,
+        geoid: str | None = None,
     ) -> list[AnnualRate]:
         """YoY log-rates with empirical residual SE.
 
@@ -263,9 +262,9 @@ class AnchorSource:
 
     def latest_level(
         self,
-        end_year: Optional[int] = None,
-        geoid: Optional[str] = None,
-    ) -> Optional[float]:
+        end_year: int | None = None,
+        geoid: str | None = None,
+    ) -> float | None:
         """Return the most recently visible observed level value.
 
         Unlike ``load_series``, does not filter out ``v <= 0`` — a 0%
@@ -274,8 +273,8 @@ class AnchorSource:
         Only meaningful when ``anchor_type == "level"``.
         """
         values = self._values_dict_for(geoid)
-        best_year: Optional[int] = None
-        best_val: Optional[float] = None
+        best_year: int | None = None
+        best_val: float | None = None
         for k, v in values.items():
             try:
                 yr = int(k)
@@ -294,9 +293,9 @@ class AnchorSource:
 
     def smoothed_annual_rate(
         self,
-        end_year: Optional[int] = None,
-        geoid: Optional[str] = None,
-    ) -> Optional[AnnualRate]:
+        end_year: int | None = None,
+        geoid: str | None = None,
+    ) -> AnnualRate | None:
         """Recency-weighted geometric mean of YoY log-rates.
 
         Mirrors `projection._recency_weighted_initial_trend` so the
@@ -483,7 +482,7 @@ def load_source(name_or_filename: str) -> AnchorSource:
     )
 
 
-def available_sources(indicator: Optional[str] = None) -> list[AnchorSource]:
+def available_sources(indicator: str | None = None) -> list[AnchorSource]:
     """All registered sources (optionally filtered to those that can anchor `indicator`)."""
     sources: list[AnchorSource] = []
     for spec in _REGISTRY_SPEC:

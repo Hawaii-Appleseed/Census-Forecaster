@@ -16,7 +16,6 @@ import logging
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler import (
     AdminCaseload,
     CaseloadTarget,
@@ -28,13 +27,12 @@ from tax_modeler import (
     compute_ssi_hi_supplement_for_units,
     impute_takeup,
 )
+from tax_modeler.calibration.eitc_reweight import reweight_eitc_eligibles_by_children
 from tax_modeler.calibration.takeup_imputation import (
     impute_takeup_eitc_by_children,
     scale_benefit_to_dollar_target,
 )
-from tax_modeler.calibration.eitc_reweight import reweight_eitc_eligibles_by_children
 from tax_modeler.errors import ConfigError, DataValidationError
-
 
 pytestmark = pytest.mark.smoke
 
@@ -566,7 +564,7 @@ def test_reform_path_does_not_apply_baseline_takeup(taxed_units):
     column equal to fresh eligibility-based computation, not zeroed-out."""
     # Manually apply take-up imputation to baseline first
     baseline = compute_snap_for_units(taxed_units)
-    cl = AdminCaseload.load()
+    _cl = AdminCaseload.load()
     # Use a tiny target so most eligible units have benefit_col == 0 in baseline
     tiny_target = CaseloadTarget(
         program="snap", year=2024, unit="household",

@@ -9,7 +9,6 @@ import dataclasses
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.config.tax_system_config import (
     TaxCalculator,
     TaxSystemRegistry,

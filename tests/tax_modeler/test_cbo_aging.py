@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.calibration.cbo_aging import (
     CBO_COMPONENTS,
     DEFAULT_HAWAII_FACTORS,

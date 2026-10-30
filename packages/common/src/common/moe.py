@@ -25,7 +25,7 @@ in METHODOLOGY.md rather than silently absorbing it.
 from __future__ import annotations
 
 import math
-from typing import Iterable, Sequence
+from collections.abc import Iterable
 
 # Census MOE → SE conversion constant for 2006-onward ACS releases.
 # (Z value for a 90% two-sided normal confidence interval.)

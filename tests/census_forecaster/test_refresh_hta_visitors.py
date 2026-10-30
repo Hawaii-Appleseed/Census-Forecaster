@@ -14,13 +14,12 @@ import json
 
 import openpyxl
 import pytest
-
+from census_forecaster.scripts import refresh_hta_visitors as hta
 from lab.markets.screen import (
     HAWAII_PREDICTORS,
     HYPOTHESIS_PAIRS,
     MONTHLY_TARGETS,
 )
-from census_forecaster.scripts import refresh_hta_visitors as hta
 
 _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]

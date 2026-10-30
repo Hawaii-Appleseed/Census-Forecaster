@@ -54,8 +54,9 @@ from __future__ import annotations
 import dataclasses
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from tax_modeler.config.tax_system_config import TaxSystemConfig, TaxSystemRegistry
 from tax_modeler.errors import ConfigError
@@ -269,7 +270,7 @@ class IncomeTaxSpec:
     metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "IncomeTaxSpec":
+    def from_dict(cls, data: Mapping[str, Any]) -> IncomeTaxSpec:
         if not isinstance(data, Mapping):
             raise ConfigError("spec: expected a mapping")
         unknown = set(data) - _TOP_KEYS

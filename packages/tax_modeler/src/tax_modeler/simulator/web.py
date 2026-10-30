@@ -31,7 +31,12 @@ from pathlib import Path
 import numpy as np
 
 from tax_modeler.config.tax_system_config import TaxCalculator
-from tax_modeler.reform.income_tax_spec import FIRST_YEAR_RANGE, MAX_BRACKETS, MAX_FLOOR, current_law_system
+from tax_modeler.reform.income_tax_spec import (
+    FIRST_YEAR_RANGE,
+    MAX_BRACKETS,
+    MAX_FLOOR,
+    current_law_system,
+)
 
 from .gains import ensure_gains_anchor
 from .population import Population

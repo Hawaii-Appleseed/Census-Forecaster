@@ -82,10 +82,9 @@ from __future__ import annotations
 
 import csv
 import functools
-import math
 import logging
+import math
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +260,7 @@ def _marginal_rate_schedule(
     taxable = max(income - deduction, 0.0)
     if taxable <= 0.0:
         return 0.0
-    for lo, hi, rate, base_tax, base_income in brackets:
+    for lo, hi, rate, _base_tax, _base_income in brackets:
         if lo < taxable <= hi:
             return rate
     # If taxable equals exactly a bracket boundary (lo), fall through to
@@ -354,7 +353,7 @@ def hawaii_marginal_real(
 def hawaii_tax_weighted(
     income: float,
     tax_year: int = 2022,
-    weights: Optional[dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> float:
     """Filing-status-weighted Hawaii tax for a household income.
 
@@ -399,7 +398,7 @@ def hawaii_tax_weighted(
 def hawaii_marginal_weighted(
     income: float,
     tax_year: int = 2022,
-    weights: Optional[dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> float:
     """Filing-status-weighted marginal rate at ``income``.
 

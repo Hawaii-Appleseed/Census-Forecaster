@@ -16,18 +16,14 @@ import json
 import math
 import random
 from collections import defaultdict
-from pathlib import Path
 
 import pytest
-
 from census_forecaster.acs.calibration import (
-    run_holdout_calibration,
     run_stratified_calibration,
     write_calibration,
 )
 from census_forecaster.acs.ensemble import project_ensemble_multi
 from census_forecaster.models import AcsObservation
-
 
 # -----------------------------------------------------------------------------
 # Fixture: synthetic multi-county panel

@@ -11,9 +11,8 @@ This ensures accurate representation across the full income distribution.
 from __future__ import annotations
 
 import logging
+
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,7 @@ def calculate_taxable_income(tax_units: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def assign_income_bracket(taxable_income: float, brackets: List[Tuple[float, float, int]]) -> int:
+def assign_income_bracket(taxable_income: float, brackets: list[tuple[float, float, int]]) -> int:
     """
     Assign income bracket index for a given taxable income.
     
@@ -129,7 +128,7 @@ def assign_income_bracket(taxable_income: float, brackets: List[Tuple[float, flo
 def calculate_bracket_factors(tax_units: pd.DataFrame, 
                               filing_status: str,
                               weight_col: str = 'weight',
-                              target_split: Optional[Dict[str, float]] = None) -> Dict[int, float]:
+                              target_split: dict[str, float] | None = None) -> dict[int, float]:
     """
     Calculate calibration factors for each income bracket within a filing status.
     
@@ -296,7 +295,7 @@ def apply_bracket_calibration(tax_units: pd.DataFrame,
         logger.info(f"Calibrated weight: {status_after['weight_calibrated'].sum():,.0f}")
         
         # Show bracket-level changes
-        logger.info(f"\nBracket-level calibration factors:")
+        logger.info("\nBracket-level calibration factors:")
         for i, (min_inc, max_inc, soi_count) in enumerate(brackets):
             bracket_data = status_after[status_after['bracket'] == i]
             if len(bracket_data) > 0:
@@ -323,7 +322,7 @@ def apply_bracket_calibration(tax_units: pd.DataFrame,
     logger.info(f"\nTotal weight: {total_before:,.0f} -> {total_after:,.0f}")
     logger.info(f"Change: {total_after - total_before:+,.0f} ({(total_after - total_before)/total_before*100:+.1f}%)")
     
-    logger.info(f"\nFiling Status Distribution:")
+    logger.info("\nFiling Status Distribution:")
     logger.info(f"{'Status':<30} {'Before':>12} {'After':>12} {'Target':>12} {'Gap':>10}")
     logger.info("-"*80)
     
@@ -361,7 +360,7 @@ def apply_bracket_calibration(tax_units: pd.DataFrame,
     return df
 
 
-def validate_calibration(tax_units: pd.DataFrame, weight_col: str = 'weight_calibrated') -> Dict:
+def validate_calibration(tax_units: pd.DataFrame, weight_col: str = 'weight_calibrated') -> dict:
     """
     Validate calibration results against SOI benchmarks.
     

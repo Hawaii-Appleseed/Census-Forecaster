@@ -48,12 +48,11 @@ Wilson, T., Grossman, I., Alexander, M., et al. (2021).
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, combine_se, ci_from_se, ACS_MOE_Z, moe_reliability_note
-
+from common.moe import ci_from_se, combine_se, moe_reliability_note, moe_to_se
 
 # -----------------------------------------------------------------------------
 # Shared constants

@@ -11,8 +11,8 @@ file-backed JSON cache, offline mode, atomic writes.
 """
 from .client import (
     BEA_API_URL,
-    BeaClient,
     BeaApiError,
+    BeaClient,
 )
 
 __all__ = [

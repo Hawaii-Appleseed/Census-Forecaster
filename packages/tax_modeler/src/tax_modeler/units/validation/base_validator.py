@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, Optional, Any, Set, Tuple
+
 import pandas as pd
 
 
@@ -22,9 +22,9 @@ class ValidationIssue:
     """Represents a validation issue found during tax unit validation."""
     message: str
     severity: ValidationSeverity
-    tax_unit_id: Optional[str] = None
-    field: Optional[str] = None
-    details: Optional[Dict] = None
+    tax_unit_id: str | None = None
+    field: str | None = None
+    details: dict | None = None
 
 
 class TaxUnitValidator:
@@ -36,7 +36,7 @@ class TaxUnitValidator:
     """
     
     @staticmethod
-    def validate_tax_unit(tax_unit: Dict) -> List[ValidationIssue]:
+    def validate_tax_unit(tax_unit: dict) -> list[ValidationIssue]:
         """
         Validate a single tax unit.
         
@@ -113,7 +113,7 @@ class TaxUnitValidator:
         return issues
     
     @staticmethod
-    def validate_tax_units(tax_units: List[Dict]) -> List[ValidationIssue]:
+    def validate_tax_units(tax_units: list[dict]) -> list[ValidationIssue]:
         """
         Validate a collection of tax units.
         
@@ -144,9 +144,9 @@ class TaxUnitValidator:
     
     @staticmethod
     def validate_household_coverage(
-        tax_units: List[Dict], 
+        tax_units: list[dict], 
         household_members: pd.DataFrame
-    ) -> List[ValidationIssue]:
+    ) -> list[ValidationIssue]:
         """
         Validate that all household members are properly assigned to tax units.
         

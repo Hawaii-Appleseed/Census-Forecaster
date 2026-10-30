@@ -53,7 +53,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # Hawaii under-6 share of population under 18 (2022 ACS B01001).
 # 0-5: ~99k; 6-17: ~197k; share under 6 = 99/(99+197) ≈ 0.334.
 _HI_UNDER_6_SHARE = 0.334

@@ -51,7 +51,6 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
 
 import pandas as pd
 
@@ -79,7 +78,7 @@ class PipelineResult:
     projected_units: pd.DataFrame    # projected target-year units
     estimator: object                # RevenueEstimator instance
 
-    state_summary: Dict              # estimator.state_summary()
+    state_summary: dict              # estimator.state_summary()
     by_county: pd.DataFrame          # estimator.by_county()
     by_filing_status: pd.DataFrame   # estimator.by_filing_status()
     by_income_quintile: pd.DataFrame # estimator.by_income_quintile()
@@ -90,10 +89,10 @@ class PipelineResult:
     n_weighted_filers: float         # population-weighted filer count
     elapsed_seconds: float           # wall-clock time for the full run
 
-    timings: Dict[str, float] = field(default_factory=dict)
+    timings: dict[str, float] = field(default_factory=dict)
 
     # Optional reform comparison (populated when run_pipeline receives a Reform)
-    reform_result: Optional[object] = None  # tax_modeler.reform.ReformResult | None
+    reform_result: object | None = None  # tax_modeler.reform.ReformResult | None
 
 
 # ---------------------------------------------------------------------------
@@ -277,8 +276,8 @@ def enrich_for_credits(df: pd.DataFrame) -> pd.DataFrame:
 
 def enrich_for_benefits(
     df: pd.DataFrame,
-    person_df: Optional[pd.DataFrame] = None,
-    hh_df: Optional[pd.DataFrame] = None,
+    person_df: pd.DataFrame | None = None,
+    hh_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Pull richer PUMS variables (DIS, HINS*, WKHP, CIT, TEN) onto tax units.
 
@@ -387,8 +386,8 @@ def compute_base_tax(
         Year used to select bracket vintage and standard-deduction values.
         Default 2023 reflects the DOTAX Table A8 calibration anchor.
     """
-    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
     from tax_modeler.credits.eitc import calculate_eitc_for_tax_units
+    from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
     from tax_modeler.projection.tax_unit_projector import _recalculate_ctc
 
     df = calculate_hawaii_tax_for_units(df, tax_year=tax_year, deduction_params=deduction_params)
@@ -546,14 +545,14 @@ def _calibrate(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_pipeline(
     target_year: int,
-    base_year: Optional[int] = None,
-    pums_data_dir: Optional[Path] = None,
+    base_year: int | None = None,
+    pums_data_dir: Path | None = None,
     state: str = "15",
     pums_type: str = "5yr",
     method: str = "ensemble",
-    tax_units_df: Optional[pd.DataFrame] = None,
+    tax_units_df: pd.DataFrame | None = None,
     skip_calibration: bool = False,
-    reform: Optional[object] = None,    # tax_modeler.reform.Reform | None
+    reform: object | None = None,    # tax_modeler.reform.Reform | None
     apply_credit_takeup: bool = False,
     credit_takeup_year: int = 2022,
 ) -> PipelineResult:
@@ -619,7 +618,7 @@ def run_pipeline(
     _apply_credit_takeup = globals()["apply_credit_takeup"]
 
     wall_start = time.perf_counter()
-    timings: Dict[str, float] = {}
+    timings: dict[str, float] = {}
 
     # ------------------------------------------------------------------ #
     # Stages 1–5: build calibrated base-year units (skipped if supplied)  #

@@ -6,11 +6,7 @@ to verify the JSON round-trip.
 """
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
-
 from census_forecaster.models import AcsObservation
 from census_forecaster.scripts.build_calibration_panel import (
     DEFAULT_SAMPLE_TARGETS,
@@ -27,7 +23,6 @@ from census_forecaster.scripts.load_calibration_panel import (
     load_populations,
     panel_dir_exists,
 )
-
 
 # -----------------------------------------------------------------------------
 # Fixtures

@@ -19,8 +19,8 @@ referenced, never reimplemented, so scenario math cannot drift.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
 
 from tax_modeler.config.tax_system_config import TaxSystemConfig, TaxSystemRegistry
 
@@ -41,9 +41,9 @@ class ScenarioSpec:
     family: str
     system: Callable[..., TaxSystemConfig]
     overlay: str = "none"
-    baseline: Optional[str] = "act46"
+    baseline: str | None = "act46"
     takes_year: bool = True
-    fixed_year: Optional[int] = None
+    fixed_year: int | None = None
     statute: str = ""
 
     def __post_init__(self) -> None:
@@ -76,7 +76,7 @@ class ScenarioSpec:
         return self.system()
 
 
-_SPECS: List[ScenarioSpec] = [
+_SPECS: list[ScenarioSpec] = [
     ScenarioSpec(
         slug="act46",
         label="Act 46",
@@ -153,7 +153,7 @@ _SPECS: List[ScenarioSpec] = [
     ),
 ]
 
-SCENARIO_SPECS: Dict[str, ScenarioSpec] = {s.slug: s for s in _SPECS}
+SCENARIO_SPECS: dict[str, ScenarioSpec] = {s.slug: s for s in _SPECS}
 
 
 def get_scenario(slug: str) -> ScenarioSpec:
@@ -166,7 +166,7 @@ def get_scenario(slug: str) -> ScenarioSpec:
         ) from None
 
 
-def list_scenarios(family: Optional[str] = None) -> List[ScenarioSpec]:
+def list_scenarios(family: str | None = None) -> list[ScenarioSpec]:
     """All specs, optionally filtered to one family, in registry order."""
     specs = list(SCENARIO_SPECS.values())
     if family is not None:
@@ -174,7 +174,7 @@ def list_scenarios(family: Optional[str] = None) -> List[ScenarioSpec]:
     return specs
 
 
-def baseline_for(spec_or_slug) -> Optional[ScenarioSpec]:
+def baseline_for(spec_or_slug) -> ScenarioSpec | None:
     """Resolve a scenario's baseline spec (``None`` for the baseline itself)."""
     spec = spec_or_slug if isinstance(spec_or_slug, ScenarioSpec) else get_scenario(spec_or_slug)
     return get_scenario(spec.baseline) if spec.baseline else None

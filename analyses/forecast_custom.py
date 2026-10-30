@@ -51,13 +51,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     silence_noise()
 
+    import yaml
     from tax_modeler.errors import ConfigError
     from tax_modeler.reform.income_tax_spec import load_spec
     from tax_modeler.runs import write_run_manifest
     from tax_modeler.simulator.population import Population
     from tax_modeler.simulator.score import score_spec
-
-    import yaml
 
     try:
         spec = load_spec(args.spec)

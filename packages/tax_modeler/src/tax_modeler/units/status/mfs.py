@@ -8,8 +8,8 @@ Married Filing Separately status.
 from __future__ import annotations
 
 import logging
+
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,10 @@ def is_married_filing_separately(
     
     # Must be married to each other
     if not _are_married(person1, person2):
-        logger.debug(f"MFS Check: Not married to each other, returning False")
+        logger.debug("MFS Check: Not married to each other, returning False")
         return False
     
-    logger.debug(f"MFS Check: Confirmed married to each other")
+    logger.debug("MFS Check: Confirmed married to each other")
     
     # Get incomes
     income1 = _calculate_income(person1)
@@ -76,7 +76,7 @@ def is_married_filing_separately(
             if person1.get('DIS') == 1 or person2.get('DIS') == 1:
                 # Lower income threshold for itemizing
                 if max(income1, income2) > 40000:
-                    logger.debug(f"  Disability status difference detected, considering MFS")
+                    logger.debug("  Disability status difference detected, considering MFS")
                     return True
     
     # 4. More lenient citizenship status criteria
@@ -86,9 +86,9 @@ def is_married_filing_separately(
         logger.debug(f"Citizenship check - CIT1: {cit1}, CIT2: {cit2}")
         # Broader citizenship difference check
         if (cit1 >= 3 and cit2 < 3) or (cit2 >= 3 and cit1 < 3):
-            logger.debug(f"  Different citizenship status detected")
+            logger.debug("  Different citizenship status detected")
             if max(income1, income2) > 30000:  # Much lower income threshold
-                logger.debug(f"  Income threshold met, considering MFS")
+                logger.debug("  Income threshold met, considering MFS")
                 return True
     
     # 5. More lenient self-employment criteria
@@ -137,7 +137,7 @@ def is_married_filing_separately(
             logger.debug("  Medicare coverage difference with income disparity, considering MFS")
             return True
     
-    logger.debug(f"MFS Check: No MFS criteria met, returning False")
+    logger.debug("MFS Check: No MFS criteria met, returning False")
     return False
 
 def _are_married(person1: pd.Series, person2: pd.Series) -> bool:

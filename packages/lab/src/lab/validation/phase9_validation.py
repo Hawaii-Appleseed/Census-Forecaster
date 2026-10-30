@@ -31,12 +31,12 @@ def _load_taxed_units():
     persons = pd.read_parquet(fixture_dir / "synthetic_pums_persons.parquet")
     households = pd.read_parquet(fixture_dir / "synthetic_pums_households.parquet")
 
-    from tax_modeler.units.constructor import TaxUnitConstructor
     from tax_modeler import (
         compute_base_tax,
         enrich_for_benefits,
         enrich_for_credits,
     )
+    from tax_modeler.units.constructor import TaxUnitConstructor
 
     ctor = TaxUnitConstructor(
         persons.copy(), households.copy(),
@@ -73,7 +73,6 @@ def _check_donor_matching(units):
 
 def _check_multi_marginal_projection(units):
     from tax_modeler import (
-        hawaii_demographic_targets,
         project_demographics_forward,
     )
     out, result = project_demographics_forward(

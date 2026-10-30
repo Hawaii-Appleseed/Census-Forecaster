@@ -17,11 +17,11 @@ References:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Tuple, List, Optional
 from dataclasses import dataclass
+
+import numpy as np
+import pandas as pd
 
 from tax_modeler.calibration import dotax_base
 
@@ -33,7 +33,7 @@ class CalibrationTarget:
     """Represents a single calibration target (margin)."""
     name: str
     dimension: str  # 'weight', 'agi', 'filing_status', 'tax'
-    targets: Dict[Tuple, float]  # Mapping of bracket/category to target value
+    targets: dict[tuple, float]  # Mapping of bracket/category to target value
     weight: float = 1.0  # Relative importance (for prioritization)
 
 
@@ -75,8 +75,8 @@ class IPFCalibrationOrchestrator:
         self.calibration_history = []
         
     def calculate_chi_squared(self, 
-                              current: Dict[Tuple, float],
-                              target: Dict[Tuple, float]) -> float:
+                              current: dict[tuple, float],
+                              target: dict[tuple, float]) -> float:
         """
         Calculate chi-squared statistic for convergence testing.
         
@@ -89,8 +89,8 @@ class IPFCalibrationOrchestrator:
         return chi_sq
     
     def calculate_max_deviation(self,
-                                 current: Dict[Tuple, float],
-                                 target: Dict[Tuple, float]) -> float:
+                                 current: dict[tuple, float],
+                                 target: dict[tuple, float]) -> float:
         """
         Calculate maximum relative deviation for convergence testing.
         
@@ -105,7 +105,7 @@ class IPFCalibrationOrchestrator:
     
     def ipf_adjust_weights_to_filer_counts(self,
                                            df: pd.DataFrame,
-                                           targets: Dict[Tuple, float],
+                                           targets: dict[tuple, float],
                                            agi_col: str = 'agi',
                                            weight_col: str = 'weight') -> pd.DataFrame:
         """
@@ -129,7 +129,7 @@ class IPFCalibrationOrchestrator:
     
     def ipf_adjust_weights_to_tax_totals(self,
                                          df: pd.DataFrame,
-                                         targets: Dict[Tuple, float],
+                                         targets: dict[tuple, float],
                                          agi_col: str = 'agi',
                                          tax_col: str = 'hi_state_tax',
                                          weight_col: str = 'weight',
@@ -144,7 +144,7 @@ class IPFCalibrationOrchestrator:
     def ipf_adjust_weights_to_weighted_sum(
         self,
         df: pd.DataFrame,
-        targets: Dict[Tuple, float],
+        targets: dict[tuple, float],
         value_col: str,
         agi_col: str = 'agi',
         weight_col: str = 'weight',
@@ -169,7 +169,7 @@ class IPFCalibrationOrchestrator:
     
     def ipf_adjust_weights_to_filing_status(self,
                                             df: pd.DataFrame,
-                                            targets: Dict[str, float],
+                                            targets: dict[str, float],
                                             filing_status_col: str = 'filing_status',
                                             weight_col: str = 'weight') -> pd.DataFrame:
         """
@@ -225,8 +225,8 @@ class IPFCalibrationOrchestrator:
         # Initial validation
         logger.info("\nInitial state:")
         filer_dev = self._validate_filer_counts(result)
-        tax_dev = self._validate_tax_totals(result)
-        status_dev = self._validate_filing_status(result)
+        _tax_dev = self._validate_tax_totals(result)
+        _status_dev = self._validate_filing_status(result)
         
         # IPF iteration loop
         for iteration in range(self.max_iterations):
@@ -268,8 +268,8 @@ class IPFCalibrationOrchestrator:
             
             # Validate current state
             filer_dev = self._validate_filer_counts(result)
-            tax_dev = self._validate_tax_totals(result)
-            status_dev = self._validate_filing_status(result)
+            _tax_dev = self._validate_tax_totals(result)
+            _status_dev = self._validate_filing_status(result)
             
             # Calculate convergence metrics
             if self.convergence_criterion == 'chi_squared':
@@ -308,7 +308,7 @@ class IPFCalibrationOrchestrator:
         calibrate_tax_totals: bool = True,
         calibrate_filing_status: bool = True,
         calibrate_soi_agi: bool = True,
-        soi_agi_targets_M: Optional[Dict[Tuple[float, float], float]] = None,
+        soi_agi_targets_M: dict[tuple[float, float], float] | None = None,
         soi_universe_scale: float = 1.0,
         max_outer_iters: int = 30,
         outer_tolerance: float = 0.01,
@@ -391,8 +391,8 @@ class IPFCalibrationOrchestrator:
         from pums_estimator.estimation.rake import rake_arrays  # lazy cross-package import
 
         result = df.copy()
-        margins: Dict[str, Dict[str, float]] = {}
-        temp_cols: List[str] = []
+        margins: dict[str, dict[str, float]] = {}
+        temp_cols: list[str] = []
 
         # --- filer-count margin ------------------------------------------
         if calibrate_filer_counts:
@@ -412,7 +412,7 @@ class IPFCalibrationOrchestrator:
             }
 
         # --- filing-status margin ----------------------------------------
-        _FS_CODE: Dict[str, int] = {
+        _FS_CODE: dict[str, int] = {
             "single": 0,
             "married_filing_jointly": 1,
             "head_of_household": 2,
@@ -441,7 +441,7 @@ class IPFCalibrationOrchestrator:
         # the count-target population can produce, the constraint is
         # arithmetically inconsistent (PUMS-derived per-filer tax doesn't
         # match DOTAX). Skip raking it so the multi-pass IPF can converge.
-        infeasible_bins: List[Tuple[float, float]] = []
+        infeasible_bins: list[tuple[float, float]] = []
         if calibrate_tax_totals:
             for (lo, hi), tgt in list(tax_targets.items()):
                 ftgt = self.DOTAX_FILER_TARGETS.get((lo, hi), 0)
@@ -530,7 +530,7 @@ class IPFCalibrationOrchestrator:
         # Skip the SOI top bin ($200K+) — synthesis fills the $1M+ tier
         # with target tax of $663M, which dominates this SOI bin's AGI.
         # Including it would force the rake to fight synthesis.
-        soi_targets_scaled: Dict[Tuple[float, float], float] = {}
+        soi_targets_scaled: dict[tuple[float, float], float] = {}
         if calibrate_soi_agi and soi_agi_targets_M:
             for (lo, hi), tgt in soi_agi_targets_M.items():
                 if skip_synthesis_bin and lo >= 200_000:
@@ -550,7 +550,7 @@ class IPFCalibrationOrchestrator:
 
         # --- outer iteration ---------------------------------------------
         initial_weight = float(df["weight"].sum())
-        history: List[Tuple[int, float, float, float]] = []
+        history: list[tuple[int, float, float, float]] = []
         converged = False
         STALE_LIMIT = 3  # iterations with no meaningful improvement → fixed point
         STALE_TOL = 1e-4
@@ -633,7 +633,7 @@ class IPFCalibrationOrchestrator:
         result.drop(columns=temp_cols, inplace=True, errors="ignore")
         return result
 
-    def _validate_filer_counts(self, df: pd.DataFrame) -> Dict[str, float]:
+    def _validate_filer_counts(self, df: pd.DataFrame) -> dict[str, float]:
         """Validate filer counts and return deviation metrics."""
         current_counts = {}
         total_sq_error = 0
@@ -656,7 +656,7 @@ class IPFCalibrationOrchestrator:
             'max_deviation': max_dev
         }
     
-    def _validate_tax_totals(self, df: pd.DataFrame) -> Dict[str, float]:
+    def _validate_tax_totals(self, df: pd.DataFrame) -> dict[str, float]:
         """Validate tax totals and return deviation metrics."""
         current_totals = {}
         total_sq_error = 0
@@ -679,7 +679,7 @@ class IPFCalibrationOrchestrator:
             'max_deviation': max_dev
         }
     
-    def _validate_filing_status(self, df: pd.DataFrame) -> Dict[str, float]:
+    def _validate_filing_status(self, df: pd.DataFrame) -> dict[str, float]:
         """Validate filing status distribution and return deviation metrics."""
         current_counts = {}
         total_sq_error = 0
@@ -835,7 +835,7 @@ def apply_ipf_calibration_via_rake(
     # Auto-load IRS SOI Hawaii Table 2 AGI targets if enabled. Universe
     # scaling: SOI counts ~674.7K returns vs DOTAX 618.4K; we scale SOI
     # AGI down so it matches the DOTAX-anchored filer universe.
-    soi_agi_targets_M: Optional[Dict[Tuple[float, float], float]] = None
+    soi_agi_targets_M: dict[tuple[float, float], float] | None = None
     soi_universe_scale = 1.0
     if calibrate_soi_agi:
         try:

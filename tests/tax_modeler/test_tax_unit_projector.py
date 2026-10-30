@@ -10,10 +10,8 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
 from tax_modeler.revenue.estimator import RevenueEstimator
-
 
 # ---------------------------------------------------------------------------
 # Helpers

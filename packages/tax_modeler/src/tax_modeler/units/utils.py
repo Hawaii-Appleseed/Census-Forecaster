@@ -6,10 +6,9 @@ This module contains helper functions used throughout the tax unit construction 
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
-import pandas as pd
-import numpy as np
 import logging
+
+import pandas as pd
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ def setup_logging(level: int = logging.INFO) -> None:
     )
     logger.setLevel(level)
 
-def validate_input_data(person_df: pd.DataFrame, hh_df: pd.DataFrame) -> Tuple[bool, str]:
+def validate_input_data(person_df: pd.DataFrame, hh_df: pd.DataFrame) -> tuple[bool, str]:
     """
     Validate the input data frames.
     
@@ -121,7 +120,7 @@ def is_retired(age: int, in_labor_force: bool = None) -> bool:
         return True
     return False
 
-def get_income_quantile(income: float, quantiles: List[float]) -> int:
+def get_income_quantile(income: float, quantiles: list[float]) -> int:
     """
     Determine which income quantile a value falls into.
     

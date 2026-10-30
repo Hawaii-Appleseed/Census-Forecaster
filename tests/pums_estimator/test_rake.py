@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from pums_estimator.models import PumsRecord, CountyControls
-from pums_estimator.estimation.rake import rake, _categorise
-
+from pums_estimator.estimation.rake import _categorise, rake
+from pums_estimator.models import CountyControls, PumsRecord
 
 # ---------------------------------------------------------------------------
 # Helpers

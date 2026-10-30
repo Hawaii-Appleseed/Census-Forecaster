@@ -7,16 +7,14 @@ and smoke test suites.
 """
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-
+import pytest
+from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
 from tax_modeler.pipeline import (
     PipelineResult,
     _enrich_for_credits,
     run_pipeline,
 )
-from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
-
 
 # ---------------------------------------------------------------------------
 # Helpers

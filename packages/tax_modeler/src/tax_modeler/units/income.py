@@ -8,13 +8,13 @@ to project to 2026.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Union
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from tax_modeler.config.income_growth import apply_income_growth
 
 
-def extract_person_income_components(person: pd.Series) -> Dict[str, float]:
+def extract_person_income_components(person: pd.Series) -> dict[str, float]:
     """
     Extract individual income components adjusted by ADJINC, without growth projection.
 
@@ -123,7 +123,7 @@ def calculate_tax_unit_income(
 
 
 def calculate_persons_income(
-    persons: List[Union[pd.Series, Dict]],
+    persons: list[pd.Series | dict],
     apply_2026_growth: bool = True,
     is_resident: bool = True,
 ) -> float:

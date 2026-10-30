@@ -58,9 +58,8 @@ This overlay does NOT model:
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Dict
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +303,9 @@ def _hawaii_nominal_growth(target_year: int) -> float:
     """
     try:
         from tax_modeler.projection.income_forecast import (
-            get_hawaii_real_growth_factor, _load_cpi_honolulu_series, _project_cpi,
+            _load_cpi_honolulu_series,
+            _project_cpi,
+            get_hawaii_real_growth_factor,
         )
         real = get_hawaii_real_growth_factor(BASE_YEAR, target_year)
         if real is None:
@@ -378,7 +379,6 @@ def compute_dynamic_agi_eligibility_share(
     As nominal income grows year-over-year, more filers cross above the
     unindexed thresholds — eligibility share declines.
     """
-    import pandas as pd  # local import keeps the module import-light
 
     bin_edges = [0, 10_000, 30_000, 60_000, 100_000, 200_000, float("inf")]
     bin_labels = ["<$10K", "$10K-$30K", "$30K-$60K", "$60K-$100K",
@@ -507,7 +507,7 @@ def _reec_baseline_M(
     corp_subject_to_agi_limit: bool = False,
     effective_claim_share: float = 1.0,
     cgec_annual_growth: float = 0.030,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """REEC projected demand for target_year, with eligibility breakdown.
 
     Applies Hawaii nominal income growth and OBBBA demand-decay factors
@@ -919,7 +919,7 @@ def compute_credit_overlay(
     interpretation: str = "B",
     dynamic_refundable_share: bool = False,
     _ci_pass: bool = False,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute SB 3125 CD1 credit-cap fiscal impact for ``target_year``.
 
     Positive values = revenue gained by the State.
@@ -968,12 +968,12 @@ def compute_credit_overlay(
         cgec_annual_growth=cgec_annual_growth,
     )
 
-    cf_keys: Dict[str, float] = {}
+    cf_keys: dict[str, float] = {}
     if model_carryforward_pool:
         # Vintage simulation: derive util rates per pool from the same
         # refundable/nonrefundable split logic as the static overlay.
-        util_ind  = _effective_claim_share_individual(reec_effective_claim_share)
-        util_corp = _effective_claim_share_corporate(reec_effective_claim_share)
+        _util_ind  = _effective_claim_share_individual(reec_effective_claim_share)
+        _util_corp = _effective_claim_share_corporate(reec_effective_claim_share)
 
         # The util_rate in the simulation is the *nonrefundable* utilization
         # rate (the rate at which stock is drawn down). Refundable claims

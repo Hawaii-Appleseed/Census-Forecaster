@@ -4,9 +4,8 @@ Tests for the income module.
 
 from __future__ import annotations
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
 from tax_modeler.units.income import calculate_person_income, calculate_tax_unit_income
 
 # Test data

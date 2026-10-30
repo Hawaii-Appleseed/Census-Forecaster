@@ -45,12 +45,10 @@ instead of unpacking opaque tuples.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from tax_modeler.errors import ConfigError
 
 from .behavioral_response import BehavioralParams
-
 
 # ---------------------------------------------------------------------------
 # Top-income synthesis parameters
@@ -91,25 +89,25 @@ class TopIncomeParams:
     top_bracket_differential: float = 0.025
 
     @classmethod
-    def low(cls) -> "TopIncomeParams":
+    def low(cls) -> TopIncomeParams:
         """Conservative for revenue (light tail, low premium)."""
         return cls(pareto_alpha=1.6, top_premium_pct=0.005,
                    top_bracket_differential=0.015)
 
     @classmethod
-    def mid(cls) -> "TopIncomeParams":
+    def mid(cls) -> TopIncomeParams:
         """Calibrated MID — IRS SOI 2022 HI tail shape."""
         return cls(pareto_alpha=1.5, top_premium_pct=0.010,
                    top_bracket_differential=0.025)
 
     @classmethod
-    def high(cls) -> "TopIncomeParams":
+    def high(cls) -> TopIncomeParams:
         """Aggressive for revenue (heavy tail, high premium)."""
         return cls(pareto_alpha=1.4, top_premium_pct=0.013,
                    top_bracket_differential=0.035)
 
     @classmethod
-    def named(cls, name: str) -> "TopIncomeParams":
+    def named(cls, name: str) -> TopIncomeParams:
         m = {"low": cls.low, "mid": cls.mid, "high": cls.high}
         if name not in m:
             raise ConfigError(
@@ -158,22 +156,22 @@ class MacroScenario:
     reec_eff_share: float = 0.30
 
     @classmethod
-    def low(cls) -> "MacroScenario":
+    def low(cls) -> MacroScenario:
         return cls(reec_demand_scenario="obbba_severe",
                    cgec_growth_pct=0.015, macro_shock="recession_2027_mild")
 
     @classmethod
-    def mid(cls) -> "MacroScenario":
+    def mid(cls) -> MacroScenario:
         return cls(reec_demand_scenario="obbba_mid",
                    cgec_growth_pct=0.025, macro_shock="none")
 
     @classmethod
-    def high(cls) -> "MacroScenario":
+    def high(cls) -> MacroScenario:
         return cls(reec_demand_scenario="pre_obbba",
                    cgec_growth_pct=0.035, macro_shock="none")
 
     @classmethod
-    def named(cls, name: str) -> "MacroScenario":
+    def named(cls, name: str) -> MacroScenario:
         m = {"low": cls.low, "mid": cls.mid, "high": cls.high}
         if name not in m:
             raise ConfigError(
@@ -219,7 +217,7 @@ class ForecastScenario:
     metadata: dict = field(default_factory=dict)
 
     @classmethod
-    def low(cls) -> "ForecastScenario":
+    def low(cls) -> ForecastScenario:
         return cls(
             label="LOW",
             top=TopIncomeParams.low(),
@@ -228,7 +226,7 @@ class ForecastScenario:
         )
 
     @classmethod
-    def mid(cls) -> "ForecastScenario":
+    def mid(cls) -> ForecastScenario:
         return cls(
             label="MID",
             top=TopIncomeParams.mid(),
@@ -237,7 +235,7 @@ class ForecastScenario:
         )
 
     @classmethod
-    def high(cls) -> "ForecastScenario":
+    def high(cls) -> ForecastScenario:
         return cls(
             label="HIGH",
             top=TopIncomeParams.high(),
@@ -246,7 +244,7 @@ class ForecastScenario:
         )
 
     @classmethod
-    def static(cls) -> "ForecastScenario":
+    def static(cls) -> ForecastScenario:
         """Static-scoring scenario (no behavioral response)."""
         return cls(
             label="STATIC",
@@ -256,7 +254,7 @@ class ForecastScenario:
         )
 
     @classmethod
-    def named(cls, name: str) -> "ForecastScenario":
+    def named(cls, name: str) -> ForecastScenario:
         m = {"low": cls.low, "mid": cls.mid, "high": cls.high, "static": cls.static}
         if name.lower() not in m:
             raise ConfigError(

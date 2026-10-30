@@ -26,8 +26,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
-
 
 # Repo-relative location of the bundled Hawaii tax tables.
 # (resolves to packages/tax_modeler/src/tax_modeler/data/tax_tables/...)
@@ -95,9 +93,9 @@ class StateConfig:
     pease_threshold_mfs: float
     personal_exemption_year_inflection: int
     tax_table_dir: Path
-    available_bracket_years: Tuple[int, ...] = field(default_factory=tuple)
-    spm_thresholds_csv: Optional[Path] = None
-    admin_caseload_csv: Optional[Path] = None
+    available_bracket_years: tuple[int, ...] = field(default_factory=tuple)
+    spm_thresholds_csv: Path | None = None
+    admin_caseload_csv: Path | None = None
 
 
 HAWAII = StateConfig(

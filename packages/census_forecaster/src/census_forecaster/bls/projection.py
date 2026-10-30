@@ -52,7 +52,6 @@ from datetime import date
 
 from .client import find_nearest_periods
 
-
 # Per-month projection cap: bounds noisy bimonthly print from compounding
 # into an unrealistic extrapolation. (1+0.0189)^12 ≈ 1.252 → ±~25%/yr.
 PROJ_MONTHLY_CAP = 0.0189
@@ -495,7 +494,7 @@ def compute_cpi_ratio(
         bias_source: str | None = None
         if calibration is not None:
             from .calibration import (
-                h_bucket_for_months, vol_regime_for_value,
+                h_bucket_for_months,
                 resolve_kappa_and_bias,
             )
             h_bucket = h_bucket_for_months(t_proj.horizon_months)

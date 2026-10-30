@@ -5,7 +5,7 @@ endpoints); these pin the pre-registration contract only.
 """
 from __future__ import annotations
 
-from lab.markets.attention import TERMS, DEFAULT_TIME_WINDOW
+from lab.markets.attention import DEFAULT_TIME_WINDOW, TERMS
 from lab.markets.screen import MONTHLY_TARGETS
 
 

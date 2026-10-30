@@ -8,16 +8,15 @@ Head of Household filing status.
 from __future__ import annotations
 
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union
 
 from tax_modeler.units.relshipp_codes import (
     EITC_QUALIFYING_CHILD_RELS,
-    QUALIFYING_RELATIVE_RELS,
     FOSTER_CHILD,
     GRANDCHILD,
     OWN_CHILD,
-    PARENT,
+    QUALIFYING_RELATIVE_RELS,
 )
+
 
 def is_head_of_household(
     person: pd.Series, 
@@ -39,8 +38,8 @@ def is_head_of_household(
     logger = logging.getLogger(__name__)
     
     person_id = person.name
-    person_age = person.get('AGEP', 0)
-    person_rel = person.get('RELSHIPP', 0)
+    _person_age = person.get('AGEP', 0)
+    _person_rel = person.get('RELSHIPP', 0)
     
     # Must be unmarried or considered unmarried on the last day of the year
     if not _is_unmarried(person, person_data):

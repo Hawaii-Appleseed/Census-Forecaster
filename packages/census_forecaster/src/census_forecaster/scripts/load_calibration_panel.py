@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 from common.models import AcsObservation
 
@@ -35,7 +34,7 @@ def _default_panel_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "data" / "calibration_panel"
 
 
-def panel_dir_exists(panel_dir: Optional[Path] = None) -> bool:
+def panel_dir_exists(panel_dir: Path | None = None) -> bool:
     """Lightweight check: are the three expected files present?"""
     d = panel_dir or _default_panel_dir()
     return all(
@@ -44,7 +43,7 @@ def panel_dir_exists(panel_dir: Optional[Path] = None) -> bool:
     )
 
 
-def load_panel(panel_dir: Optional[Path] = None) -> tuple[
+def load_panel(panel_dir: Path | None = None) -> tuple[
     dict[tuple[str, str], list[AcsObservation]],
     dict[str, int],
     dict,
@@ -83,7 +82,7 @@ def load_panel(panel_dir: Optional[Path] = None) -> tuple[
         series_by_key[(obs.geoid, obs.indicator)].append(obs)
 
     # Sort each series by effective year for downstream consistency.
-    for key, obs_list in series_by_key.items():
+    for _key, obs_list in series_by_key.items():
         obs_list.sort(key=lambda o: (o.year, o.vintage))
 
     populations: dict[str, int] = {
@@ -93,7 +92,7 @@ def load_panel(panel_dir: Optional[Path] = None) -> tuple[
     return dict(series_by_key), populations, manifest
 
 
-def load_populations(panel_dir: Optional[Path] = None) -> dict[str, int]:
+def load_populations(panel_dir: Path | None = None) -> dict[str, int]:
     """Load just the population lookup (cheaper than loading the full panel)."""
     d = panel_dir or _default_panel_dir()
     pop_path = d / "county_population_2020.json"

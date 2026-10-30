@@ -25,8 +25,8 @@ F-test is ~30 lines).
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, Optional, Sequence
 
 import numpy as np
 from scipy import stats
@@ -547,12 +547,12 @@ _AMBIGUOUS_SIGNS: dict[tuple[str, str], str] = {
 }
 
 
-def expected_sign(predictor: str, target: str) -> Optional[int]:
+def expected_sign(predictor: str, target: str) -> int | None:
     """+1/-1 if the mechanism predicts a direction, else None."""
     return EXPECTED_SIGN.get((predictor, target))
 
 
-def mean_lead_corr(xcorrs: Sequence[LeadCorr], lags: int) -> Optional[float]:
+def mean_lead_corr(xcorrs: Sequence[LeadCorr], lags: int) -> float | None:
     """Mean correlation over leads 1..``lags`` — the window the Granger
     test at that lag actually uses.
 
@@ -564,7 +564,7 @@ def mean_lead_corr(xcorrs: Sequence[LeadCorr], lags: int) -> Optional[float]:
     return sum(rs) / len(rs) if rs else None
 
 
-def sign_materiality(nobs: Optional[int]) -> float:
+def sign_materiality(nobs: int | None) -> float:
     """|mean r| below this is not a direction, it is noise around zero.
 
     ``1/sqrt(n)`` — approximately one standard error of a correlation
@@ -579,7 +579,7 @@ def sign_materiality(nobs: Optional[int]) -> float:
 
 def sign_matches(predictor: str, target: str,
                  xcorrs: Sequence[LeadCorr], lags: int,
-                 nobs: Optional[int] = None) -> Optional[bool]:
+                 nobs: int | None = None) -> bool | None:
     """Does the correlation run the way the mechanism predicts?
 
     Returns ``None`` — meaning "no directional verdict", NOT "passed" —
@@ -669,8 +669,8 @@ class ScreenCandidate:
     transform: str
     target: str
     lags: int
-    granger: Optional[GrangerResult]
-    best_xcorr: Optional[LeadCorr]
+    granger: GrangerResult | None
+    best_xcorr: LeadCorr | None
     bh_pass: bool = False
     note: str = ""
     #: True/False if the mean correlation over leads 1..lags runs the
@@ -678,10 +678,10 @@ class ScreenCandidate:
     #: directional claim (EXPECTED_SIGN / _AMBIGUOUS_SIGNS) or the row
     #: carries no Granger test. False means the hypothesis as WRITTEN
     #: is contradicted even if bh_pass is True.
-    sign_ok: Optional[bool] = None
+    sign_ok: bool | None = None
     #: The mean lead-1..lags correlation that sign_ok was judged on,
     #: kept so the report can show what was actually scored.
-    sign_stat: Optional[float] = None
+    sign_stat: float | None = None
 
 
 @dataclass
@@ -731,7 +731,7 @@ def transform_series(values: dict[int, float], how: str,
     out: dict[int, float] = {}
     if how in ("diff", "log_diff"):
         keys = sorted(values)
-        for prev_k, cur_k in zip(keys, keys[1:]):
+        for prev_k, cur_k in zip(keys, keys[1:], strict=False):
             gap = cur_k - prev_k
             if gap > 3:
                 continue
@@ -815,7 +815,7 @@ def granger_f_test(
     *,
     lags: int,
     min_nobs_per_param: int = 8,
-) -> Optional[GrangerResult]:
+) -> GrangerResult | None:
     """Restricted-vs-unrestricted OLS Granger F-test.
 
     H0: coefficients on x's lags are jointly zero in
@@ -896,7 +896,7 @@ def run_screen(
     max_lead: int = 18,
     q: float = 0.10,
     exclude_2020: bool = False,
-    exclude_months: Optional[Iterable[str]] = None,
+    exclude_months: Iterable[str] | None = None,
 ) -> ScreenReport:
     """Run the pre-registered screen.
 
@@ -969,7 +969,7 @@ def run_screen(
     # BH across every Granger test actually run.
     report.n_tests = len(granger_ps)
     for slot, passed in zip(granger_slots,
-                            benjamini_hochberg(granger_ps, q=q)):
+                            benjamini_hochberg(granger_ps, q=q), strict=False):
         c = report.candidates[slot]
         report.candidates[slot] = ScreenCandidate(
             ticker=c.ticker, transform=c.transform, target=c.target,

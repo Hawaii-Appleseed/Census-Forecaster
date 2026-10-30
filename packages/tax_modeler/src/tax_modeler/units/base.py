@@ -7,9 +7,8 @@ Contains the core TaxUnitConstructor class and base functionality.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+
 import pandas as pd
-import numpy as np
 
 # Configure logging
 logging.basicConfig(
@@ -90,7 +89,7 @@ class TaxUnitConstructor:
         tax_units = []
         
         # Process each household
-        for hh_id, hh_group in self.person_df.groupby('SERIALNO'):
+        for _hh_id, hh_group in self.person_df.groupby('SERIALNO'):
             # Skip households with no adults
             if not hh_group['is_adult'].any():
                 continue
@@ -104,7 +103,7 @@ class TaxUnitConstructor:
             return pd.DataFrame(tax_units)
         return pd.DataFrame()
     
-    def _process_household(self, hh_group: pd.DataFrame) -> List[dict]:
+    def _process_household(self, hh_group: pd.DataFrame) -> list[dict]:
         """
         Process a single household into tax filing units.
         

@@ -33,8 +33,9 @@ O(1) and avoids re-aggregation cost on every projection call.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Literal, Mapping, Optional
+from typing import Literal
 
 # -----------------------------------------------------------------------------
 # Bucket types and boundaries
@@ -54,7 +55,7 @@ WILDCARD: str = "*"
 # intervals: a county with pop equal to the upper bound falls into the
 # *next* bucket. Tuned to put roughly 1/4 of US counties in each bucket
 # at the 2020 vintage (~3,143 counties total).
-POP_BUCKET_BOUNDS: tuple[tuple[str, int, Optional[int]], ...] = (
+POP_BUCKET_BOUNDS: tuple[tuple[str, int, int | None], ...] = (
     ("small",  0,        50_000),
     ("medium", 50_000,   200_000),
     ("large",  200_000,  1_000_000),
@@ -192,7 +193,7 @@ def index_records(
     records: Iterable[StrataRecord],
     n_threshold: int = DEFAULT_N_THRESHOLD,
     floor_value: float = 0.0,
-) -> Callable[[str, str, Optional[str], Optional[str]], LookupResult]:
+) -> Callable[[str, str, str | None, str | None], LookupResult]:
     """Return a lookup callable with the v3 fallback chain.
 
     The returned callable signature is::
@@ -245,8 +246,8 @@ def index_records(
     def lookup(
         indicator: str,
         method: str,
-        pop_bucket: Optional[str],
-        h_bucket: Optional[str],
+        pop_bucket: str | None,
+        h_bucket: str | None,
     ) -> LookupResult:
         # 1. Exact match
         if pop_bucket and h_bucket:

@@ -19,6 +19,29 @@ for "10% SNAP cut" / "20% SNAP expansion" style analyses.
 """
 from __future__ import annotations
 
+# Phase 5 — federal-cost-share + in-kind programs
+from .aca_ptc import (
+    AcaPtcParameters,
+    aca_ptc_parameters,
+    compute_aca_ptc_for_units,
+)
+from .childcare import (
+    ChildcareParameters,
+    compute_childcare_for_units,
+    hawaii_childcare_parameters,
+)
+from .housing import (
+    HousingParameters,
+    compute_housing_for_units,
+    hawaii_housing_parameters,
+)
+from .liheap import LiheapParameters, compute_liheap_for_units, hawaii_liheap_parameters
+from .medicaid_hi_quest import (
+    MedicaidParameters,
+    compute_medicaid_for_units,
+    hawaii_medicaid_parameters,
+)
+from .moop import compute_moop_for_units
 from .snap import (
     SnapParameters,
     compute_snap_for_units,
@@ -30,30 +53,7 @@ from .ssi_hi_supplement import (
     compute_ssi_hi_supplement_for_units,
     hawaii_ssi_supplement_parameters,
 )
-# Phase 5 — federal-cost-share + in-kind programs
-from .aca_ptc import (
-    AcaPtcParameters,
-    aca_ptc_parameters,
-    compute_aca_ptc_for_units,
-)
-from .medicaid_hi_quest import (
-    MedicaidParameters,
-    compute_medicaid_for_units,
-    hawaii_medicaid_parameters,
-)
 from .wic import WicParameters, compute_wic_for_units, hawaii_wic_parameters
-from .liheap import LiheapParameters, compute_liheap_for_units, hawaii_liheap_parameters
-from .childcare import (
-    ChildcareParameters,
-    compute_childcare_for_units,
-    hawaii_childcare_parameters,
-)
-from .housing import (
-    HousingParameters,
-    compute_housing_for_units,
-    hawaii_housing_parameters,
-)
-from .moop import compute_moop_for_units
 
 __all__ = [
     "SnapParameters",

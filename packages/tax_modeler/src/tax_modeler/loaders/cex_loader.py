@@ -19,14 +19,12 @@ Key Features:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 import logging
 from dataclasses import dataclass
-import re
-import os
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 # pyreadstat is needed only for SAS XPT inputs. Make it optional so the
 # rest of tax_modeler imports cleanly without it; CEXLoader methods that
@@ -122,7 +120,7 @@ class CEXLoader:
     
     def __init__(
         self,
-        data_dir: Optional[Path] = None,
+        data_dir: Path | None = None,
         cache_data: bool = True
     ):
         """
@@ -136,14 +134,14 @@ class CEXLoader:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.cache_data = cache_data
         
-        self._income_data_cache: Dict[int, pd.DataFrame] = {}
+        self._income_data_cache: dict[int, pd.DataFrame] = {}
         
         # Set up file paths for SAS data
         self.interview_dir = self.data_dir / CEX_INTERVIEW_DIR
         self.diary_dir = self.data_dir / CEX_DIARY_DIR
         self.weights_dir = self.data_dir / CEX_WEIGHTS_DIR
     
-    def _load_sas_file(self, file_pattern: str, directory: Optional[Path] = None) -> pd.DataFrame:
+    def _load_sas_file(self, file_pattern: str, directory: Path | None = None) -> pd.DataFrame:
         """Load a SAS7BDAT file matching the given pattern.
         
         Args:
@@ -557,8 +555,8 @@ class CEXLoader:
     def get_non_wage_income_patterns(
         self,
         year: int = 2022,
-        income_percentile: Optional[int] = None
-    ) -> Dict[str, float]:
+        income_percentile: int | None = None
+    ) -> dict[str, float]:
         """
         Get non-wage income patterns for statistical matching.
         
@@ -645,9 +643,9 @@ class CEXLoader:
     def match_income_composition(
         self,
         total_income: float,
-        age: Optional[int] = None,
+        age: int | None = None,
         year: int = 2022
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Match income composition for a given total income level.
         
@@ -688,7 +686,7 @@ class CEXLoader:
         
         return composition
     
-    def get_summary_statistics(self, year: int = 2022) -> Dict:
+    def get_summary_statistics(self, year: int = 2022) -> dict:
         """Get summary statistics for CEX data."""
         df = self.load_income_data(year)
         

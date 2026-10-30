@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.calibration import cg_anchor
 from tax_modeler.calibration.cg_anchor import (
     _CLASSES,

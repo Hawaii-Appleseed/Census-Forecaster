@@ -51,9 +51,9 @@ import itertools
 import logging
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -149,8 +149,8 @@ class Cell:
 
     label: str
     values: dict[str, float] = field(default_factory=dict)  # param.name -> value
-    varied_param: Optional[str] = None  # OAT: which param differs from MID
-    varied_level: Optional[str] = None  # "low" | "mid" | "high"
+    varied_param: str | None = None  # OAT: which param differs from MID
+    varied_level: str | None = None  # "low" | "mid" | "high"
 
     def cli_overrides(self, params: Iterable[SweepParam]) -> list[str]:
         """Render this cell as additional CLI flags to pass through."""
@@ -189,8 +189,8 @@ def _enumerate_factorial(params: tuple[SweepParam, ...]) -> list[Cell]:
     levels = ("low", "mid", "high")
     cells: list[Cell] = []
     for combo in itertools.product(levels, repeat=len(params)):
-        vals = {p.name: p.values()[level] for p, level in zip(params, combo)}
-        label = "__".join(f"{p.name}={level}" for p, level in zip(params, combo))
+        vals = {p.name: p.values()[level] for p, level in zip(params, combo, strict=False)}
+        label = "__".join(f"{p.name}={level}" for p, level in zip(params, combo, strict=False))
         cells.append(Cell(label=label, values=vals))
     return cells
 
@@ -219,7 +219,7 @@ def _run_cell(
     params: tuple[SweepParam, ...],
     base_argv: list[str],
     out_root: Path,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Run one cell, return its by_state.csv as a DataFrame (or None on error)."""
     # Import the report's main() lazily to avoid heavy import-time cost when
     # the sweep is just enumerated (e.g., during --dry-run).
@@ -305,7 +305,7 @@ def _wide_param_ranges(
 # CLI
 # ---------------------------------------------------------------------------
 
-def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def _parse_args(argv: list | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -360,7 +360,7 @@ def _base_argv(args: argparse.Namespace) -> list[str]:
     return argv
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

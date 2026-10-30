@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 
-
 REQUIRED_COLUMNS = (
     "earned_income",
     "investment_income",

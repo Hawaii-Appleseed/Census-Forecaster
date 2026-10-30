@@ -58,7 +58,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 
-def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def _parse_args(argv: list | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--tax-year", type=int, default=2025,
                    help="Tax year for the run. Defaults to 2025 (the latest "
@@ -227,7 +227,7 @@ def _bootstrap_persons_newly_poor(
     return out
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -493,7 +493,7 @@ def main(argv: Optional[list] = None) -> int:
         lines.append(f"- Intensive-margin response (1C) restricted to EITC phase-in workers, "
                      f"ε={args.intensive_elasticity_phase_in} (Eissa-Hoynes 2004 midpoint).")
     if args.bootstrap_replicates > 0:
-        lines.append(f"- Bootstrap CI (1D) captures PUMS sampling uncertainty only; elasticity uncertainty via --lfp-elasticity sweep.")
+        lines.append("- Bootstrap CI (1D) captures PUMS sampling uncertainty only; elasticity uncertainty via --lfp-elasticity sweep.")
     lines.append("- Other channels not modeled: marriage / fertility / take-up of other safety nets (TANF, UI).")
 
     summary = "\n".join(lines)

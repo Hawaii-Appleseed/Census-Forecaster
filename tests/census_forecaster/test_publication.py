@@ -4,10 +4,8 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
-from census_forecaster.publication import acs_1y_release_date, acs_5y_release_date
 from census_forecaster.models import AcsObservation
-
+from census_forecaster.publication import acs_1y_release_date, acs_5y_release_date
 
 # ---------------------------------------------------------------------------
 # publication.py helpers — verify historical dates

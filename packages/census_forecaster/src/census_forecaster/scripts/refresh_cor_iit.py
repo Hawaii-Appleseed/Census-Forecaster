@@ -153,7 +153,7 @@ def parse_iit_row(text: str) -> dict[int, float]:
         )
 
     # Source is thousands of dollars; the model works in $M.
-    return {fy: round(v / 1_000.0, 3) for fy, v in zip(fiscal_years, values)}
+    return {fy: round(v / 1_000.0, 3) for fy, v in zip(fiscal_years, values, strict=False)}
 
 
 def extract_pdf_text(pdf_bytes: bytes) -> str:
@@ -165,7 +165,7 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
             "       pip install 'census-forecaster[cor]'",
             file=sys.stderr,
         )
-        raise SystemExit(2)
+        raise SystemExit(2) from None
 
     chunks = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:

@@ -17,11 +17,9 @@ children receive a non-zero imputation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-
 
 _DEFAULT_DONOR_PATH = (
     Path(__file__).resolve().parents[1]
@@ -51,7 +49,7 @@ def _aggregate_donor_families(donors_raw: pd.DataFrame) -> pd.DataFrame:
 def compute_childcare_expense_for_units(
     units: pd.DataFrame,
     *,
-    donor_path: Optional[Path] = None,
+    donor_path: Path | None = None,
     out_col: str = "childcare_expense_amount",
     income_col: str = "total_cash_income",
     qualifying_children_col: str = "num_qualifying_children",
@@ -118,7 +116,7 @@ def compute_childcare_expense_for_units(
     amt = np.full(len(out), global_mean, dtype=float)
     cell_lookup = cell.to_dict()
     kid_lookup = kid_mean.to_dict()
-    for i, (kb, ib) in enumerate(zip(kid_bin, inc_bin)):
+    for i, (kb, ib) in enumerate(zip(kid_bin, inc_bin, strict=False)):
         v = cell_lookup.get((kb, ib))
         if v is not None and not pd.isna(v):
             amt[i] = v

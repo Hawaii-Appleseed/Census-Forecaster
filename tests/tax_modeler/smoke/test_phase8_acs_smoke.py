@@ -6,7 +6,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler import (
     DonorMatcher,
     distribution_by_geography,
@@ -17,7 +16,6 @@ from tax_modeler import (
     threshold_for_units,
 )
 from tax_modeler.errors import ConfigError, DataValidationError
-
 
 pytestmark = pytest.mark.smoke
 

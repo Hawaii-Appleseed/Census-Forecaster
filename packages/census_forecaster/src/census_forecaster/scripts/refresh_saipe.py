@@ -51,12 +51,11 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 import requests
-
 
 SAIPE_API_BASE = "https://api.census.gov/data/timeseries/poverty/saipe"
 
@@ -85,7 +84,7 @@ def fetch_saipe_poverty_rates(
     start_year: int,
     end_year: int,
     geoids: Sequence[str] | None = None,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: float = 120.0,
 ) -> dict[str, dict[str, float]]:
     """Fetch annual county poverty rates from the Census SAIPE API.
@@ -234,7 +233,7 @@ def _default_anchors_dir() -> Path:
 # CLI
 # ---------------------------------------------------------------------------
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch Census SAIPE county poverty rates as an anchor.",
     )

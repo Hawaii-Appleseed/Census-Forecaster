@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.errors import ConfigError
 from tax_modeler.poverty.impact import compute_poverty_impact
@@ -14,7 +13,6 @@ from tax_modeler.programs import (
     compute_rxkids_for_units,
     hawaii_rxkids_parameters,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -783,7 +781,8 @@ def test_doh_nowcast_widens_moe_for_annualised_years():
     annualised = [n for n in ncs.values() if n["annualised"]]
     if not (complete and annualised):
         pytest.skip("snapshot has no complete/annualised nowcast pair to compare")
-    rel = lambda n: n["moe"] / n["estimate"]
+    def rel(n):
+        return n["moe"] / n["estimate"]
     assert rel(annualised[0]) > rel(complete[0])
 
 
@@ -798,7 +797,8 @@ def test_doh_nowcast_extends_series_and_tightens_projection():
     assert without["nowcasts"] == []
     assert all(n["year"] > without["last_final_year"] for n in with_doh["nowcasts"])
 
-    width = lambda p: p["ci90_high"] - p["ci90_low"]
+    def width(p):
+        return p["ci90_high"] - p["ci90_low"]
     assert width(with_doh) < width(without)
     # Sanity: the projected cohort stays in a plausible band for Hawaiʻi.
     assert 10_000 < with_doh["point"] < 18_000
@@ -1108,7 +1108,8 @@ def test_kalman_interval_is_wider_than_the_undercovering_ensemble():
     fc = _forecast_module()
     k = fc._project_births(2028, method="kalman")
     e = fc._project_births(2028, method="ensemble")
-    width = lambda p: p["ci90_high"] - p["ci90_low"]
+    def width(p):
+        return p["ci90_high"] - p["ci90_low"]
     assert width(k) > width(e)
 
 

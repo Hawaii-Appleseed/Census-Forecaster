@@ -15,7 +15,6 @@ import random
 from collections import defaultdict
 
 import pytest
-
 from census_forecaster.acs.calibration import (
     DEFAULT_BIAS_CLAMP_LOG,
     FoldResidual,
@@ -28,12 +27,9 @@ from census_forecaster.acs.calibration import (
     write_calibration,
 )
 from census_forecaster.acs.strata import (
-    DEFAULT_N_THRESHOLD,
-    WILDCARD,
     record_from_dict,
 )
 from census_forecaster.models import AcsObservation
-
 
 # -----------------------------------------------------------------------------
 # Fixtures

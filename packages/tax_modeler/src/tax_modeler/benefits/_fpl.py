@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from tax_modeler.errors import ConfigError
 
-
 # 2024 HHS Hawaii poverty guidelines (annual, by household size).
 # Source: Federal Register, Jan 2024.
 _HI_FPL_BASE_2024 = {

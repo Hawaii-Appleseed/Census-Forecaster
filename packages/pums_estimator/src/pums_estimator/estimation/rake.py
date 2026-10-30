@@ -27,7 +27,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from ..models import PumsRecord, CountyControls
+from ..models import CountyControls, PumsRecord
 
 
 def rake(
@@ -75,7 +75,7 @@ def rake(
         for var_name, targets in controls.margins.items():
             # --- accumulate current weighted totals per category ---
             current: dict[str, float] = {cat: 0.0 for cat in targets}
-            for rec, w in zip(records, weights):
+            for rec, w in zip(records, weights, strict=False):
                 val = rec.variables.get(var_name)
                 if val is None:
                     continue
@@ -84,7 +84,7 @@ def rake(
                     current[cat] += w
 
             # --- scale weights ---
-            for i, (rec, w) in enumerate(zip(records, weights)):
+            for i, (rec, w) in enumerate(zip(records, weights, strict=False)):
                 val = rec.variables.get(var_name)
                 if val is None:
                     continue

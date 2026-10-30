@@ -31,8 +31,8 @@ Reference: Venn, Shafer, Vovk (2005); Papadopoulos et al. (2002).
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
 from .strata import WILDCARD
 
@@ -138,9 +138,9 @@ def build_conformal_lookup(
     def lookup(
         indicator: str,
         method: str,
-        pop_bucket: Optional[str],
-        h_bucket: Optional[str],
-    ) -> Optional[float]:
+        pop_bucket: str | None,
+        h_bucket: str | None,
+    ) -> float | None:
         pb = pop_bucket or WILDCARD
         hb = h_bucket or WILDCARD
         for p, h in (

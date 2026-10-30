@@ -24,7 +24,6 @@ Why redistribute vs replace:
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -53,7 +52,7 @@ def redistribute_500k_to_1m_incomes(
     pareto_alpha: float = _DEFAULT_ALPHA,
     income_col: str = "income",
     weight_col: str = "weight",
-) -> Tuple[pd.DataFrame, dict]:
+) -> tuple[pd.DataFrame, dict]:
     """Replace ``income`` for $500K-$1M filers with a truncated-Pareto draw.
 
     The mapping uses each filer's weighted percentile within the bracket as

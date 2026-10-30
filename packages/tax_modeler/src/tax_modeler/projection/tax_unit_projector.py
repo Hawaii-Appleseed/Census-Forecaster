@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, NamedTuple, Optional
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # County → ACS FIPS geoid mapping
 # ---------------------------------------------------------------------------
 
-_HAWAII_COUNTY_GEOIDS: Dict[str, str] = {
+_HAWAII_COUNTY_GEOIDS: dict[str, str] = {
     "Hawaii":   "15001",
     "Honolulu": "15003",
     "Kalawao":  "15005",
@@ -72,7 +72,7 @@ _STATE_PROXY_GEOID = "15003"
 # Default anchor year when base_year is not supplied. This is the dollar-year
 # of the input PUMS incomes (2024 for the 2020-2024 5-year file) — aging grows
 # FROM here, so it must match the data vintage, not a hardcoded 2022.
-from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR  # noqa: E402 - sits with the constant it sets
 
 _DEFAULT_BASE_YEAR = PUMS_INCOME_DOLLAR_YEAR
 
@@ -97,7 +97,7 @@ class _GrowthFactorResult(NamedTuple):
 # Private helpers
 # ---------------------------------------------------------------------------
 
-def _resolve_geoid(county: str, geoid_map: Dict[str, str]) -> Optional[str]:
+def _resolve_geoid(county: str, geoid_map: dict[str, str]) -> str | None:
     """Return the FIPS geoid for a county name using a case-insensitive match."""
     county_lower = county.lower()
     for key, geoid in geoid_map.items():
@@ -122,10 +122,10 @@ def _deduction_params_for(target_year: int, county, geoid_lookup: dict[str, str]
 
 def _fetch_growth_factor(
     geoid: str,
-    anchor_year: Optional[int],
+    anchor_year: int | None,
     target_year: int,
     method: str,
-) -> Optional[_GrowthFactorResult]:
+) -> _GrowthFactorResult | None:
     """
     Return the nominal B19013 income growth factor and 90% CI for a geoid.
 
@@ -172,7 +172,7 @@ def _apply_bls_income_projection(
     df: pd.DataFrame,
     pums_persons_df: pd.DataFrame,
     bls_oes_data: pd.DataFrame,
-    acs_timeseries_dir: Optional[Path],
+    acs_timeseries_dir: Path | None,
     target_year: int,
     ep_base_year: int,
     acs_weight: float,
@@ -390,18 +390,18 @@ def _recalculate_ctc(
 def project_tax_units_forward(
     tax_units_df: pd.DataFrame,
     target_year: int,
-    base_year: Optional[int] = None,
+    base_year: int | None = None,
     method: str = "ensemble",
-    geoid_map: Optional[Dict[str, str]] = None,
-    pums_persons_df: Optional[pd.DataFrame] = None,
-    acs_timeseries_dir: Optional[Path] = None,
-    bls_oes_data: Optional[pd.DataFrame] = None,
+    geoid_map: dict[str, str] | None = None,
+    pums_persons_df: pd.DataFrame | None = None,
+    acs_timeseries_dir: Path | None = None,
+    bls_oes_data: pd.DataFrame | None = None,
     acs_weight: float = 0.4,
     bls_weight: float = 0.6,
     eitc_poverty_alpha: float = 0.5,
     use_cbo_aging: bool = False,
     cbo_vintage: str = "2025-01",
-    cbo_hawaii_factors: Optional[Dict[str, float]] = None,
+    cbo_hawaii_factors: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """
     Project tax units to ``target_year`` using county-specific income growth.
@@ -534,7 +534,7 @@ def project_tax_units_forward(
         tax_units_df = assign_geography(tax_units_df)
 
     # --- Per-county growth factors (with CI) — scalar path only -------------
-    county_growth: Dict[str, _GrowthFactorResult] = {}
+    county_growth: dict[str, _GrowthFactorResult] = {}
     has_county = "county" in tax_units_df.columns
 
     if not use_bls_path and not use_cbo_aging and has_county:
@@ -560,7 +560,7 @@ def project_tax_units_forward(
                 )
 
     # Compute fallback lazily (only if needed)
-    _fallback: Optional[_GrowthFactorResult] = None
+    _fallback: _GrowthFactorResult | None = None
 
     def fallback() -> _GrowthFactorResult:
         nonlocal _fallback
@@ -696,7 +696,7 @@ def project_tax_units_forward(
 
     if has_county:
         # Compute per-county scaled deduction params and recalculate each group.
-        county_ded_params: Dict[str, dict] = {
+        county_ded_params: dict[str, dict] = {
             county: _deduction_params_for(target_year, county, geoid_lookup)
             for county in df["county"].dropna().unique()
         }
@@ -770,7 +770,7 @@ def project_tax_units_forward(
     from tax_modeler.adjustments.eitc_poverty_scaling import scale_eitc_for_poverty
     from tax_modeler.projection.acs_supplement_forecast import project_acs_supplement
 
-    county_poverty_factors: Dict[str, float] = {}
+    county_poverty_factors: dict[str, float] = {}
     if has_county:
         for county in df["county"].dropna().unique():
             geoid = _resolve_geoid(str(county), geoid_lookup) or _STATE_PROXY_GEOID

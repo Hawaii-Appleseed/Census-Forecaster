@@ -6,7 +6,6 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.eitc import classify_eitc_region
 from tax_modeler.poverty.spm import _EMPLOYEE_FICA_RATE
 from tax_modeler.scenarios.eitc_labor_response import (

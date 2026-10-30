@@ -44,9 +44,9 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 import requests
 
@@ -77,7 +77,7 @@ SALES_PREFIX = "EIA_HI_ELEC_SALES_"
 _STATE = "HI"
 
 
-def resolve_api_key(explicit: Optional[str] = None) -> Optional[str]:
+def resolve_api_key(explicit: str | None = None) -> str | None:
     """$EIA_API_KEY, then ~/.eia_api_key. Never read from the repo."""
     if explicit:
         return explicit.strip()
@@ -182,7 +182,7 @@ def merge_into_macro_monthly(
     return payload
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None):
+def _parse_args(argv: Sequence[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--api-key", default=None,
                    help="EIA key (default: $EIA_API_KEY, then ~/.eia_api_key)")
@@ -191,7 +191,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None):
     return p.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     api_key = resolve_api_key(args.api_key)
     if not api_key:

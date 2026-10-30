@@ -43,11 +43,10 @@ county controls.  Interpret SEs as lower bounds on true uncertainty.
 from __future__ import annotations
 
 import math
-from typing import Optional
 
-from ..models import PumsRecord, CountyControls, SyntheticEstimatePoint
+from ..models import CountyControls, PumsRecord, SyntheticEstimatePoint
 from ..pums.crosswalk import pumas_for_county
-from .rake import rake, _categorise
+from .rake import _categorise, rake
 
 
 def estimate_county_distribution(
@@ -114,7 +113,7 @@ def estimate_county_distribution(
     target_cats = controls.margins.get(variable, {})
     category_totals: dict[str, float] = {}
     category_sq_w: dict[str, float] = {}
-    for rec, w in zip(allocated, raked_weights):
+    for rec, w in zip(allocated, raked_weights, strict=False):
         val = rec.variables.get(variable)
         if val is None:
             continue

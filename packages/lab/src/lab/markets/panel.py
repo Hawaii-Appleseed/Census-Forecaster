@@ -24,7 +24,6 @@ import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import census_forecaster
 
@@ -55,7 +54,7 @@ class PricesPanel:
     # ----- (de)serialisation -----
 
     @classmethod
-    def from_payload(cls, payload: dict) -> "PricesPanel":
+    def from_payload(cls, payload: dict) -> PricesPanel:
         series: dict[str, list[MonthlyBar]] = {}
         for symbol, rows in payload.get("series", {}).items():
             bars = []
@@ -78,7 +77,7 @@ class PricesPanel:
             start_year=int(payload.get("start_year", 2005)),
         )
 
-    def to_payload(self, *, limitations: Optional[list[str]] = None) -> dict:
+    def to_payload(self, *, limitations: list[str] | None = None) -> dict:
         return {
             "version": 1,
             "fetch_date": self.fetch_date,
@@ -124,7 +123,7 @@ class PricesPanel:
         """
         bars = self.bars(symbol)
         out: list[tuple[int, int, float]] = []
-        for prev, cur in zip(bars, bars[1:]):
+        for prev, cur in zip(bars, bars[1:], strict=False):
             if _month_index(cur.year, cur.month) - _month_index(prev.year, prev.month) != 1:
                 continue
             out.append((cur.year, cur.month,
@@ -133,8 +132,8 @@ class PricesPanel:
 
     def momentum(
         self, symbol: str, months: int,
-        as_of: Optional[tuple[int, int]] = None,
-    ) -> Optional[float]:
+        as_of: tuple[int, int] | None = None,
+    ) -> float | None:
         """Log price change over ``months`` months ending at ``as_of``.
 
         ``as_of`` is (year, month); defaults to the latest bar. Returns
@@ -157,8 +156,8 @@ class PricesPanel:
 
     def annualized_vol(
         self, symbol: str, window: int = 36,
-        as_of: Optional[tuple[int, int]] = None,
-    ) -> Optional[float]:
+        as_of: tuple[int, int] | None = None,
+    ) -> float | None:
         """Annualised σ of monthly log returns over the trailing window.
 
         Sample standard deviation × √12. Returns None with fewer than
@@ -186,7 +185,7 @@ class PricesPanel:
         ]
 
 
-def load_prices_panel(path: Optional[Path] = None) -> PricesPanel:
+def load_prices_panel(path: Path | None = None) -> PricesPanel:
     """Load the bundled (or a specified) prices panel JSON."""
     p = path or PRICES_PANEL_PATH
     if not p.exists():

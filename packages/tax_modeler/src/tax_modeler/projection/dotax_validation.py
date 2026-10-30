@@ -27,7 +27,6 @@ seasonal shapes.
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional
 
 from .income_forecast import DEFAULT_HAWAII_GEOID  # noqa: F401  (re-export convenience)
 
@@ -44,8 +43,8 @@ def load_dotax_collections() -> dict:
 def yoy_window_growth(
     series: str,
     months: list[str],
-    data: Optional[dict] = None,
-) -> Optional[float]:
+    data: dict | None = None,
+) -> float | None:
     """YoY growth of ``series`` summed over ``months`` vs the same window
     one year earlier. Returns None unless BOTH windows are complete.
 
@@ -58,7 +57,7 @@ def yoy_window_growth(
         data = load_dotax_collections()
     monthly = data["monthly"]
 
-    def window_sum(ms: list[str]) -> Optional[float]:
+    def window_sum(ms: list[str]) -> float | None:
         total = 0.0
         for m in ms:
             v = monthly.get(m, {}).get(series)
@@ -74,7 +73,7 @@ def yoy_window_growth(
     return cur / prior - 1.0
 
 
-def latest_complete_windows(data: Optional[dict] = None) -> Dict[str, dict]:
+def latest_complete_windows(data: dict | None = None) -> dict[str, dict]:
     """Best available YoY growth per key series, with the window used.
 
     Prefers the longest same-window comparison the bundle supports for
@@ -88,12 +87,12 @@ def latest_complete_windows(data: Optional[dict] = None) -> Dict[str, dict]:
     def months_with(series: str) -> list[str]:
         return sorted(m for m, v in monthly.items() if series in v)
 
-    out: Dict[str, dict] = {}
+    out: dict[str, dict] = {}
     for series in ("ind_wh", "ge_use", "ge_allocated", "tat", "total"):
         avail = months_with(series)
         # Longest suffix of available months whose year-earlier window is
         # also fully available.
-        best: Optional[dict] = None
+        best: dict | None = None
         for start in range(len(avail)):
             window = avail[start:]
             if len(window) < 3:
@@ -111,7 +110,7 @@ def latest_complete_windows(data: Optional[dict] = None) -> Dict[str, dict]:
     return out
 
 
-def compare_with_model(data: Optional[dict] = None) -> dict:
+def compare_with_model(data: dict | None = None) -> dict:
     """DOTAX YoY growth vs the model's implied annual nominal growth.
 
     The model factor is cumulative from BASE_YEAR; the comparable
@@ -120,7 +119,8 @@ def compare_with_model(data: Optional[dict] = None) -> dict:
     ``g(y)/g(y−1)`` (with g(BASE_YEAR)=1).
     """
     from tax_modeler.scenarios.sb3125_cd1_credits import (
-        BASE_YEAR, _hawaii_nominal_growth,
+        BASE_YEAR,
+        _hawaii_nominal_growth,
     )
     windows = latest_complete_windows(data)
     if not windows:
@@ -128,7 +128,7 @@ def compare_with_model(data: Optional[dict] = None) -> dict:
 
     # Year the freshest window ends in.
     end_years = {int(w["window"][-7:-3]) for w in windows.values()}
-    model: Dict[int, float] = {}
+    model: dict[int, float] = {}
     for y in sorted(end_years):
         g_y = _hawaii_nominal_growth(y) if y > BASE_YEAR else 1.0
         g_p = _hawaii_nominal_growth(y - 1) if (y - 1) > BASE_YEAR else 1.0

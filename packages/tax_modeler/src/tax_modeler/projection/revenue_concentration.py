@@ -104,10 +104,10 @@ Module layout
 """
 from __future__ import annotations
 
-import math
 import logging
+import math
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -179,9 +179,9 @@ def _default_tax_fn(income: float) -> float:
 
 def expected_revenue_per_filer(
     projected_median_income: float,
-    tax_fn: Optional[Callable[[float], float]] = None,
+    tax_fn: Callable[[float], float] | None = None,
     base_median_income: float = DOTAX_2022_MEDIAN_INCOME,
-    top_income_scale: Optional[float] = None,
+    top_income_scale: float | None = None,
 ) -> float:
     """Bracket-weighted projected per-filer revenue.
 
@@ -256,7 +256,7 @@ def expected_revenue_per_filer(
 
 def concentration_multiplier(
     projected_median_income: float,
-    tax_fn: Optional[Callable[[float], float]] = None,
+    tax_fn: Callable[[float], float] | None = None,
     base_median_income: float = DOTAX_2022_MEDIAN_INCOME,
 ) -> float:
     """Ratio of bracket-weighted to point-estimate revenue: E[tax(Y)] / tax(median).
@@ -297,7 +297,7 @@ def concentration_multiplier(
 
 
 def make_concentration_adjusted_fn(
-    tax_fn: Optional[Callable[[float], float]] = None,
+    tax_fn: Callable[[float], float] | None = None,
     base_median_income: float = DOTAX_2022_MEDIAN_INCOME,
 ) -> Callable[[float], float]:
     """Return a one-arg callable ``projected_income → E[tax(Y)]``.
@@ -347,7 +347,7 @@ def make_concentration_adjusted_fn(
 
 def top_quintile_revenue_fraction(
     projected_median_income: float,
-    tax_fn: Optional[Callable[[float], float]] = None,
+    tax_fn: Callable[[float], float] | None = None,
     base_median_income: float = DOTAX_2022_MEDIAN_INCOME,
 ) -> float:
     """Fraction of total projected revenue from filers with AGI ≥ $75k.
@@ -393,7 +393,7 @@ def top_quintile_revenue_fraction(
 
 def concentration_marginal_fn(
     projected_median_income: float,
-    tax_fn: Optional[Callable[[float], float]] = None,
+    tax_fn: Callable[[float], float] | None = None,
     base_median_income: float = DOTAX_2022_MEDIAN_INCOME,
     eps_fraction: float = 1e-5,
 ) -> float:

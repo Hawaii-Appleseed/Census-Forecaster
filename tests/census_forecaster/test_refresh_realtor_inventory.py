@@ -5,13 +5,12 @@ from __future__ import annotations
 import json
 
 import pytest
-
+from census_forecaster.scripts import refresh_realtor_inventory as rdc
 from lab.markets.screen import (
     HAWAII_PREDICTORS,
     HYPOTHESIS_PAIRS,
     MONTHLY_TARGETS,
 )
-from census_forecaster.scripts import refresh_realtor_inventory as rdc
 
 HEADER = ("month_date_yyyymm,county_fips,county_name,median_listing_price,"
           "active_listing_count,median_days_on_market,new_listing_count,"

@@ -59,9 +59,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 from census_forecaster.acs.calibration import run_stratified_calibration
 from census_forecaster.acs.ml_features import (
@@ -264,7 +264,7 @@ def _sign_check(series, populations, panel) -> tuple[list[str], list[str]]:
     return lines, violations
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--anchors", type=str,
                    default="2014,2015,2016,2017,2018,2019,2020,2021,2022")
@@ -386,7 +386,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "level below is not claimed to be comparable to it. The delta on "
         "identical folds is what the gate is actually asking.",
         "",
-        f"| baseline | +ui_claims | Δ |",
+        "| baseline | +ui_claims | Δ |",
         "|---:|---:|---:|",
         f"| {mape_a:.2%} | {mape_b:.2%} | {d_mape * 100:+.3f}pp |",
         "",

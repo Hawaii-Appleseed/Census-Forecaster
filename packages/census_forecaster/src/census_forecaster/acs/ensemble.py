@@ -43,15 +43,16 @@ Cleveland Fed WP 22-38r — anchor-blend pattern (used in the existing
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, combine_se, ci_from_se
+from common.moe import ci_from_se, moe_to_se
+
 from .projection import (
-    project_damped_trend,
-    project_ar1_log_diff,
     ANNUAL_RATE_CAP,
     effective_year,
+    project_ar1_log_diff,
+    project_damped_trend,
 )
 
 
@@ -211,7 +212,7 @@ def combine_forecasts(
             "combine_forecasts: forecasts must share geoid, indicator, target_year"
         )
     weights = _inverse_variance_weights(forecasts)
-    point = sum(w * f.point for w, f in zip(weights, forecasts))
+    point = sum(w * f.point for w, f in zip(weights, forecasts, strict=False))
 
     # Variance of weighted sum, treating component forecasts as
     # *correlated*. The two component models (damped trend + AR(1) on
@@ -237,15 +238,15 @@ def combine_forecasts(
     # Decompose into sample + forecast components by the same weighting
     # for audit; the values won't sum exactly to se_total under the
     # correlation assumption but they show the relative contribution.
-    se_sample = math.sqrt(sum((w * f.se_sample) ** 2 for w, f in zip(weights, forecasts)))
-    se_forecast = math.sqrt(sum((w * f.se_forecast) ** 2 for w, f in zip(weights, forecasts)))
+    se_sample = math.sqrt(sum((w * f.se_sample) ** 2 for w, f in zip(weights, forecasts, strict=False)))
+    se_forecast = math.sqrt(sum((w * f.se_forecast) ** 2 for w, f in zip(weights, forecasts, strict=False)))
 
     ci_lo, ci_hi = ci_from_se(point, se_total)
     horizons = {f.horizon for f in forecasts}
     horizon = horizons.pop() if len(horizons) == 1 else max(horizons)
 
     component_notes = "; ".join(
-        f"{f.method}={w:.2f}" for f, w in zip(forecasts, weights)
+        f"{f.method}={w:.2f}" for f, w in zip(forecasts, weights, strict=False)
     )
     cap_notes = [f.notes for f in forecasts if f.notes]
     notes = f"weights[{component_notes}]"
@@ -531,7 +532,7 @@ def _v3_strata_lookup(
     raw = sr.get(kind)
     if not raw:
         return None
-    from .strata import index_records, record_from_dict, DEFAULT_N_THRESHOLD
+    from .strata import DEFAULT_N_THRESHOLD, index_records, record_from_dict
     records = [record_from_dict(d) for d in raw]
     return index_records(
         records=records,
@@ -899,8 +900,8 @@ def project_ensemble_multi(
     ml_populations: dict[str, int] | None = None,
     ml_model_cache: dict | None = None,
     ml_panel=None,
-    use_kalman: "bool | None" = None,
-) -> "ForecastPoint | None":
+    use_kalman: bool | None = None,
+) -> ForecastPoint | None:
     """Multi-source anchor ensemble.
 
     Pulls in CPI / PCE / QCEW / HUD FMR / FHFA HPI (whichever apply
@@ -988,9 +989,13 @@ def project_ensemble_multi(
     """
     # Local import to avoid a circular dependency between ensemble and anchors.
     from .anchors import (
-        combined_anchor_rate, anchor_as_forecast, load_calibration,
-        combined_level_anchor, level_anchor_as_forecast, METHOD_LEVEL_ANCHOR,
         ANCHOR_CALIBRATION_HORIZON,
+        METHOD_LEVEL_ANCHOR,
+        anchor_as_forecast,
+        combined_anchor_rate,
+        combined_level_anchor,
+        level_anchor_as_forecast,
+        load_calibration,
     )
     from .strata import classify_horizon
 
@@ -1018,7 +1023,8 @@ def project_ensemble_multi(
         use_kalman = indicator in KALMAN_PROMOTED_INDICATORS
     if use_kalman:
         try:
-            from ..kalman import project_kalman, METHOD_NAME as _KAL_METHOD
+            from ..kalman import METHOD_NAME as _KAL_METHOD
+            from ..kalman import project_kalman
             kal_fp = project_kalman(
                 series_observations=series_observations,
                 target_year=target_year,
@@ -1097,7 +1103,8 @@ def project_ensemble_multi(
                 ml_model_cache = _ML_DEFAULT_MODEL_CACHE
     if use_ml and ml_series_by_key is not None and ml_populations is not None:
         try:
-            from .ml_trend import project_ml_trend_one_shot, METHOD_NAME as _ML_METHOD
+            from .ml_trend import METHOD_NAME as _ML_METHOD
+            from .ml_trend import project_ml_trend_one_shot
             ml_fp = project_ml_trend_one_shot(
                 series_by_key=ml_series_by_key,
                 populations=ml_populations,
@@ -1201,7 +1208,7 @@ def project_ensemble_multi(
         or _level_rmse <= _best_other_rmse * _LEVEL_ANCHOR_RMSE_RATIO
     )
 
-    level_anchor_fp: "ForecastPoint | None" = None
+    level_anchor_fp: ForecastPoint | None = None
     if _level_anchor_ok:
         try:
             from .sources import available_sources as _avail_sources
@@ -1245,7 +1252,7 @@ def project_ensemble_multi(
 
     # Build the rate-anchor blend (inner + anchor_fp) first.
     if inner is None:
-        rate_blend: "ForecastPoint | None" = anchor_fp
+        rate_blend: ForecastPoint | None = anchor_fp
     elif anchor_fp is None:
         rate_blend = inner
     else:

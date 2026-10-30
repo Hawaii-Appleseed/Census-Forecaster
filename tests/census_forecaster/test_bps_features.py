@@ -2,20 +2,17 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import pytest
-
 from census_forecaster.acs.ml_features import (
+    _BPS_INDICATOR,
     PanelIndex,
     build_panel_index,
     load_county_data,
     make_feature_spec,
     make_training_rows,
-    _BPS_INDICATOR,
 )
 from census_forecaster.models import AcsObservation
-
 
 # ---------------------------------------------------------------------------
 # Helpers

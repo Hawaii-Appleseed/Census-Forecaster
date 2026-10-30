@@ -22,25 +22,21 @@ from __future__ import annotations
 import math
 
 import pytest
-
+from census_forecaster.backtest.acs import BacktestRow
 from common.models import AcsObservation
 from tax_modeler.projection.revenue_backtest import (
-    apply_hawaii_tax_brackets,
-    marginal_rate,
     run_revenue_backtest,
 )
 from tax_modeler.projection.revenue_conformal import (
     WILDCARD,
     RevenueConformalRecord,
-    _conformal_quantile,
     _classify_horizon,
+    _conformal_quantile,
     apply_revenue_conformal_floor,
     calibrate_revenue_conformal,
     compute_revenue_conformal_quantiles,
     run_calibrated_revenue_backtest,
 )
-from census_forecaster.backtest.acs import BacktestRow
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

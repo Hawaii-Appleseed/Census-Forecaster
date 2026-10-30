@@ -37,27 +37,24 @@ from __future__ import annotations
 
 import math
 import statistics
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
 
 from ..acs.strata import (
     DEFAULT_N_THRESHOLD,
-    StrataRecord,
     WILDCARD,
+    StrataRecord,
     index_records,
-    record_from_dict,
     record_to_dict,
 )
 from .projection import (
+    _Z_90,
     PROJ_DAMPING,
     PROJ_MONTHLY_CAP,
-    ProjectionResult,
-    _Z_90,
     project_forward_full,
 )
-
 
 # ---------------------------------------------------------------------------
 # Stratification primitives
@@ -735,7 +732,7 @@ def write_bls_calibration(payload: dict, path: Path) -> None:
     tmp.replace(path)
 
 
-def load_bls_calibration(path: Path | None = None) -> Optional[dict]:
+def load_bls_calibration(path: Path | None = None) -> dict | None:
     """Load a BLS calibration JSON. Returns None on absence/error."""
     import json
     import sys
@@ -835,7 +832,7 @@ def lookup_bls_strata(
 
 
 def resolve_kappa_and_bias(
-    calibration: Optional[dict],
+    calibration: dict | None,
     series_id: str,
     h_bucket: str,
     vol_regime: str,

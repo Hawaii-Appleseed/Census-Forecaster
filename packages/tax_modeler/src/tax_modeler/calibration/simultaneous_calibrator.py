@@ -22,7 +22,6 @@ Design principles:
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,9 +35,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # One copy, in ``dotax_base`` (TY2023: 631,125 filers, $2,961M tax).
 
-DOTAX_FILER_TARGETS: Dict[Tuple[float, float], int] = dotax_base.filer_targets()
-DOTAX_TAX_TARGETS: Dict[Tuple[float, float], float] = dotax_base.tax_targets_M()
-DOTAX_STATUS_TARGETS: Dict[str, int] = dotax_base.status_targets()
+DOTAX_FILER_TARGETS: dict[tuple[float, float], int] = dotax_base.filer_targets()
+DOTAX_TAX_TARGETS: dict[tuple[float, float], float] = dotax_base.tax_targets_M()
+DOTAX_STATUS_TARGETS: dict[str, int] = dotax_base.status_targets()
 
 AGI_BRACKETS = sorted(DOTAX_FILER_TARGETS.keys())
 
@@ -72,10 +71,10 @@ def phase1_reweight(
     weight_floor: float = 0.05,
     weight_ceiling_ratio: float = 15.0,
     *,
-    filer_targets: Optional[Dict[Tuple[float, float], int]] = None,
-    status_targets: Optional[Dict[str, int]] = None,
-    agi_mass_targets: Optional[Dict[Tuple[float, float], float]] = None,
-    tier_agi_targets: Optional[Dict[Tuple[float, float], float]] = None,
+    filer_targets: dict[tuple[float, float], int] | None = None,
+    status_targets: dict[str, int] | None = None,
+    agi_mass_targets: dict[tuple[float, float], float] | None = None,
+    tier_agi_targets: dict[tuple[float, float], float] | None = None,
 ) -> pd.DataFrame:
     """
     Adjust weights to simultaneously match DOTAX-style filer-count targets
@@ -304,7 +303,7 @@ def phase2_tax_calibrate(
     multiplier_floor: float = 0.3,
     multiplier_ceiling: float = 5.0,
     *,
-    tax_targets: Optional[Dict[Tuple[float, float], float]] = None,
+    tax_targets: dict[tuple[float, float], float] | None = None,
 ) -> pd.DataFrame:
     """
     Scale per-unit tax liabilities so that the weighted total in every AGI
@@ -417,9 +416,9 @@ class SimultaneousCalibrator:
         weight_ceiling_ratio: float = 15.0,
         tax_multiplier_ceiling: float = 5.0,
         *,
-        filer_targets: Optional[Dict[Tuple[float, float], int]] = None,
-        status_targets: Optional[Dict[str, int]] = None,
-        tax_targets: Optional[Dict[Tuple[float, float], float]] = None,
+        filer_targets: dict[tuple[float, float], int] | None = None,
+        status_targets: dict[str, int] | None = None,
+        tax_targets: dict[tuple[float, float], float] | None = None,
     ):
         self.raking_max_iter = raking_max_iter
         self.raking_tolerance = raking_tolerance

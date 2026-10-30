@@ -42,9 +42,9 @@ import io
 import json
 import re
 import sys
+from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional, Sequence
 
 import requests
 
@@ -272,13 +272,13 @@ def merge_into_macro_monthly(series_by_id: dict[str, list[dict]],
     return payload
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None):
+def _parse_args(argv: Sequence[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
     try:

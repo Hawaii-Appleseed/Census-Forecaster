@@ -16,10 +16,10 @@ Data Source: DOTAX SOI 2022 Table A-9 (A9-2, A9-3, A9-4)
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 

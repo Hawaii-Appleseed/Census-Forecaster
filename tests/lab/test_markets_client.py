@@ -4,10 +4,8 @@ from __future__ import annotations
 import json
 import urllib.request
 from datetime import date
-from pathlib import Path
 
 import pytest
-
 from lab.markets import client as mclient
 from lab.markets.client import (
     MarketDataError,

@@ -1,10 +1,8 @@
 """Tests for the poverty-path SDR glue (compute_poverty_sdr)."""
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.errors import DataValidationError
 from tax_modeler.poverty.impact import _aggregate
 from tax_modeler.poverty.uncertainty import compute_poverty_sdr

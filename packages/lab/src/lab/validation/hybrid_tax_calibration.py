@@ -17,10 +17,10 @@ Data Sources:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -204,8 +204,8 @@ def apply_hybrid_tax_calibration(
         targets_agi[category] = row['total_agi_millions'] * 1_000_000
     
     # Count brackets by source
-    a9_count = len([k for k in targets_returns.keys() if '150000.0)' not in k or k.endswith('150000.0)')])
-    a2_count = len([k for k in targets_returns.keys() if '150000.0,' in k])
+    a9_count = len([k for k in targets_returns if '150000.0)' not in k or k.endswith('150000.0)')])
+    a2_count = len([k for k in targets_returns if '150000.0,' in k])
     
     logger.info(f"Calibrating {len(df_calibrate):,} tax units to {len(targets_returns)} hybrid brackets...")
     logger.info(f"Target total returns: {sum(targets_returns.values()):,.0f}")
@@ -239,7 +239,7 @@ def apply_hybrid_tax_calibration(
     logger.info("✅ Hybrid calibration complete")
     logger.info(f"  Total returns (calibrated): {df_final[output_weight_col].sum():,.0f}")
     logger.info(f"  Records calibrated: {len(df_calibrate):,} (100%)")
-    logger.info(f"  Coverage: 100% with 19 brackets per filing status")
+    logger.info("  Coverage: 100% with 19 brackets per filing status")
     
     return df_final
 
@@ -331,7 +331,7 @@ def validate_hybrid_calibration(
     logger.info(f"\nA-2 brackets (≥ $150k): {len(a2_results)} brackets, {a2_results['target'].sum():,.0f} returns")
     logger.info(f"  Mean error: {a2_results['error_pct'].mean():.3f}%")
     logger.info(f"  Max error: {a2_results['error_pct'].max():.3f}%")
-    logger.info(f"\nOverall:")
+    logger.info("\nOverall:")
     logger.info(f"  Max bracket error: {max_error:.3f}%")
     logger.info(f"  Mean bracket error: {mean_error:.3f}%")
     

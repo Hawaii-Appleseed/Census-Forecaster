@@ -12,17 +12,16 @@ at the district level for Hawaii, including:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 import sys
+from pathlib import Path
+
+import pandas as pd
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from tax_modeler.credits.ctc import calculate_ctc, get_ctc_summary_stats
+from tax_modeler.credits.ctc import calculate_ctc
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class DistrictCTCAnalyzer:
     Comprehensive district-level CTC analysis for Hawaii.
     """
     
-    def __init__(self, tax_units_df: pd.DataFrame, person_df: Optional[pd.DataFrame] = None):
+    def __init__(self, tax_units_df: pd.DataFrame, person_df: pd.DataFrame | None = None):
         """
         Initialize the district CTC analyzer.
         
@@ -218,7 +217,7 @@ class DistrictCTCAnalyzer:
             
             return df_with_districts
     
-    def _create_puma_district_mapping(self, district_type: str) -> Dict[str, str]:
+    def _create_puma_district_mapping(self, district_type: str) -> dict[str, str]:
         """Create PUMA to district mapping for Hawaii."""
         try:
             # Load crosswalk
@@ -227,9 +226,9 @@ class DistrictCTCAnalyzer:
             
             # Create mapping
             if district_type == 'county':
-                mapping = dict(zip(crosswalk['PUMA'], crosswalk['county']))
+                mapping = dict(zip(crosswalk['PUMA'], crosswalk['county'], strict=False))
             else:
-                mapping = dict(zip(crosswalk['PUMA'], crosswalk[f'{district_type}_district'].astype(str)))
+                mapping = dict(zip(crosswalk['PUMA'], crosswalk[f'{district_type}_district'].astype(str), strict=False))
                 
             logger.info(f"Created {district_type} mapping for {len(mapping)} PUMAs")
             return mapping
@@ -238,7 +237,7 @@ class DistrictCTCAnalyzer:
             logger.error(f"Error creating {district_type} mapping: {e}")
             raise
     
-    def _calculate_district_ctc_stats(self, district_group: pd.DataFrame, district_name: str) -> Dict:
+    def _calculate_district_ctc_stats(self, district_group: pd.DataFrame, district_name: str) -> dict:
         """Calculate CTC statistics for a single district."""
         # Apply weights for population scaling
         total_weight = district_group['weight'].sum()
@@ -266,7 +265,7 @@ class DistrictCTCAnalyzer:
         
         return stats
     
-    def _calculate_demographic_breakdowns(self, district_group: pd.DataFrame) -> Dict:
+    def _calculate_demographic_breakdowns(self, district_group: pd.DataFrame) -> dict:
         """Calculate demographic breakdowns for a district."""
         breakdowns = {}
         
@@ -300,7 +299,7 @@ class DistrictCTCAnalyzer:
         
         return breakdowns
     
-    def generate_statewide_summary(self) -> Dict:
+    def generate_statewide_summary(self) -> dict:
         """Generate statewide CTC summary statistics."""
         logger.info("Generating statewide CTC summary...")
         
@@ -381,7 +380,7 @@ class DistrictCTCAnalyzer:
 
 
 def create_ctc_district_report(tax_units_df: pd.DataFrame, 
-                              output_dir: str = 'output/district_analysis') -> Dict:
+                              output_dir: str = 'output/district_analysis') -> dict:
     """
     Create comprehensive CTC district analysis report.
     

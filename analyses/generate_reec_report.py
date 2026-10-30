@@ -121,7 +121,7 @@ def _load_historical():
 def _compute_scenarios(cd: str, compute_fn, agi_elig_share: float):
     import pandas as pd
     rows = []
-    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT):
+    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT, strict=False):
         for year in TARGET_YEARS:
             cd2_kw: dict = {}
             if cd == "2":
@@ -144,7 +144,7 @@ def _compute_scenarios(cd: str, compute_fn, agi_elig_share: float):
 def _compute_demand_projection(compute_fn):
     import pandas as pd
     rows = []
-    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT):
+    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT, strict=False):
         for year in DEMAND_YEARS:
             result = compute_fn(
                 year,
@@ -241,8 +241,8 @@ def _text_width_axes(text: str, fontsize: float, fig_w_in: float = 8.5) -> float
     Uses TextPath for a deterministic measurement (no draw cycle needed) so
     header badges can be sized to fit their text exactly.
     """
-    from matplotlib.textpath import TextPath
     from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextPath
     fp = FontProperties(family="sans-serif", size=fontsize)
     tp = TextPath((0, 0), text, prop=fp)
     return tp.get_extents().width / (fig_w_in * 72.0)
@@ -255,7 +255,7 @@ def _text_width_axes(text: str, fontsize: float, fig_w_in: float = 8.5) -> float
 def _page_cover(pdf, cd: str, total_ty23: float):
     """Page 1 — Cover (portrait)."""
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle, FancyBboxPatch
+    from matplotlib.patches import FancyBboxPatch, Rectangle
 
     fig = plt.figure(figsize=PAGE)
     fig.patch.set_facecolor("white")
@@ -872,7 +872,7 @@ def _page_quintile_burden(pdf, results_df, agi_bins: list, cd: str):
             q_income_limit[q] += income_limit_loss * w
             q_cap_loss[q]     += cap_loss * w
 
-    q_total_loss = [il + cl for il, cl in zip(q_income_limit, q_cap_loss)]
+    q_total_loss = [il + cl for il, cl in zip(q_income_limit, q_cap_loss, strict=False)]
     hh_per_q     = _HI_HOUSEHOLDS / n_q
     q_avg_per_hh = [loss * 1e6 / hh_per_q for loss in q_total_loss]
 
@@ -1403,7 +1403,7 @@ def _page_summary_table(pdf, results_df, cd: str):
     years = sorted(results_df["tax_year"].unique())
 
     # Key metrics only — plain-English labels, MID scenario only
-    col_sample = results_df.columns.tolist()
+    _col_sample = results_df.columns.tolist()
     metrics = [
         ("reec_baseline_$M",   "Projected RETITC claims (no bill)"),
         ("reec_after_bill_$M", "State cost with SB 3125"),
@@ -1422,7 +1422,7 @@ def _page_summary_table(pdf, results_df, cd: str):
         ),
     )
 
-    n_scen        = len(SHOW_SCENARIOS)
+    _n_scen        = len(SHOW_SCENARIOS)
     top, bot, gap = 0.85, 0.08, 0.0
     panel_h       = top - bot   # one panel, full height
     col_labels    = ["Metric"] + [f"Tax Year {y}" for y in years]
@@ -1586,19 +1586,24 @@ def main(cd: str = "1") -> Path:
 
     try:
         from tax_modeler.scenarios.sb3125_cd1_credits import (
-            compute_credit_overlay,
             REEC_INDIVIDUAL_BY_AGI_BIN as RETITC_INDIVIDUAL_BY_AGI_BIN,
+        )
+        from tax_modeler.scenarios.sb3125_cd1_credits import (
             REEC_INDIVIDUAL_TOTAL_M as RETITC_INDIVIDUAL_TOTAL_M,
+        )
+        from tax_modeler.scenarios.sb3125_cd1_credits import (
             _reec_eligible_individual_M,
+            compute_credit_overlay,
         )
     except ImportError as exc:
         print(f"ERROR: Could not import tax_modeler: {exc}", file=sys.stderr)
         print("Run `uv sync --all-packages` to install the venv.", file=sys.stderr)
         sys.exit(1)
 
+    import shutil as _shutil
+
     import matplotlib
     import matplotlib.font_manager as _fm
-    import shutil as _shutil
 
     # ------------------------------------------------------------------ #
     # Font setup — Source Sans 3, all four weights                        #

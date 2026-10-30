@@ -57,10 +57,12 @@ import math
 import os
 import statistics
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from typing import Iterable
+
+from ..bls.client import fetch_cpi_data
 
 # ---------------------------------------------------------------------------
 # Imports from the live projector
@@ -69,20 +71,17 @@ from typing import Iterable
 # Imports from the live projector (in-package)
 # ---------------------------------------------------------------------------
 from ..bls.projection import (
-    project_forward_full,
-    smoothed_monthly_rate,
-    residual_log_std,
-    forecast_se_log,
-    damped_compound_factor,
-    PROJ_DAMPING,
-    PROJ_MONTHLY_CAP,
     _PROJ_SE_INFLATOR,
     _RESIDUAL_LOG_STD_PRIOR,
     _Z_90,
+    PROJ_DAMPING,
+    PROJ_MONTHLY_CAP,
     ProjectionResult,
+    damped_compound_factor,
+    forecast_se_log,
+    project_forward_full,
+    residual_log_std,
 )
-from ..bls.client import fetch_cpi_data
-
 
 # ---------------------------------------------------------------------------
 # Config
@@ -727,6 +726,7 @@ def _run_stratified_v3(asof: str) -> int:
     Returns 0 on success, non-zero on failure.
     """
     from pathlib import Path
+
     from ..bls.calibration import run_stratified_bls_calibration, write_bls_calibration
 
     pkg_root = Path(__file__).resolve().parent.parent

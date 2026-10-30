@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -24,7 +23,10 @@ def fixture_units():
     import sys
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from poverty_impact_report import (
-        _apply_arpa_ctc, _apply_hi_eitc, _build_units_for_tax_year, _load_units,
+        _apply_arpa_ctc,
+        _apply_hi_eitc,
+        _build_units_for_tax_year,
+        _load_units,
     )
     units, _persons = _load_units(None, use_fixture=True)
     units = _build_units_for_tax_year(units, tax_year=2024, project=True)

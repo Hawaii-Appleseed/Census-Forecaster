@@ -13,10 +13,7 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from census_forecaster.acs.ml_features import (
-    FeatureSpec,
-    PanelIndex,
     _pop_one_hot,
     build_panel_index,
     make_feature_spec,

@@ -35,11 +35,10 @@ Usage
 from __future__ import annotations
 
 import argparse
-import json
 import sys
+from collections.abc import Iterable, Sequence
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
 
 import requests
 
@@ -181,13 +180,13 @@ def build_payload(disasters: list[dict]) -> dict:
     }
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None):
+def _parse_args(argv: Sequence[str] | None = None):
     p = argparse.ArgumentParser(description="Refresh FEMA HI disasters")
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         disasters = fetch_hi_disasters()

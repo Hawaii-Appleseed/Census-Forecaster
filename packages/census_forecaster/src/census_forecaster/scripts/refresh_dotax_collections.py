@@ -43,9 +43,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 BASE_URL = "https://files.hawaii.gov/tax/stats/monthly"
 
@@ -280,7 +280,7 @@ def refresh(out_path: Path, months_back: int, verbose: bool = True) -> tuple:
     return payload, n_files, throttled
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch DOTAX monthly collections and merge into the bundle.")
     parser.add_argument("--out", type=Path, default=_default_out())

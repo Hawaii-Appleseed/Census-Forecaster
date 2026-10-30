@@ -6,12 +6,12 @@ Handles loading brackets, deductions, exemptions, and tax calculations for any y
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-import pandas as pd
+
 import numpy as np
-import logging
+import pandas as pd
 
 from tax_modeler.liability.cg_alternative import alternative_tax
 from tax_modeler.per_unit import groups_by_value
@@ -31,19 +31,19 @@ class TaxSystemConfig:
     description: str = ""
     
     # Optional: bracket adjustments (for rollback scenarios)
-    bracket_adjustments: Optional[Dict[str, List[Tuple[float, float]]]] = None
+    bracket_adjustments: dict[str, list[tuple[float, float]]] | None = None
     # Format: {'filing_status': [(income_threshold, rate_adjustment_pp), ...]}
 
     # Optional: bracket scenario tag (matches 'scenario' column in bracket CSV)
     # Leave None to use baseline rows (scenario == '')
-    bracket_scenario: Optional[str] = None
+    bracket_scenario: str | None = None
 
     # Optional: credit scenario tag (e.g. 'hb2306_hd1' for enhanced CDCC)
     # Leave None to use current-law credit calculations
-    credit_scenario: Optional[str] = None
+    credit_scenario: str | None = None
 
     # Optional: income surcharges
-    surcharges: Optional[Dict[str, Dict[str, float]]] = None
+    surcharges: dict[str, dict[str, float]] | None = None
     # Format: {'filing_status': {'threshold': 1000000, 'rate': 0.01}}
 
     # Optional: inline schedules, for systems that are not rows in the bracket
@@ -52,8 +52,8 @@ class TaxSystemConfig:
     # names (Single_Married_Separate, Head_of_Household, Joint_Surviving_Spouse).
     # brackets: status -> ((floor, rate in percent), ...), floors rising from 0.
     # When set they replace bracket_year / bracket_scenario / standard_deduction_year.
-    brackets: Optional[Dict[str, Tuple[Tuple[float, float], ...]]] = None
-    standard_deductions: Optional[Dict[str, float]] = None
+    brackets: dict[str, tuple[tuple[float, float], ...]] | None = None
+    standard_deductions: dict[str, float] | None = None
 
     # HRS §235-51(f) alternative tax on net long-term capital gains
     # (tax_modeler.liability.cg_alternative). "stacked": the legacy shortcut,
@@ -63,7 +63,7 @@ class TaxSystemConfig:
     # capital_gains_rate_pct (percent; None = no alternative tax, gains taxed
     # as ordinary income), as the tax simulator's systems use.
     cg_alt_tax: str = "stacked"
-    capital_gains_rate_pct: Optional[float] = 7.25
+    capital_gains_rate_pct: float | None = 7.25
 
     def __post_init__(self):
         if self.cg_alt_tax not in ("stacked", "statute"):
@@ -74,7 +74,7 @@ class TaxSystemConfig:
                              f"use cg_alt_tax='statute' for {self.capital_gains_rate_pct!r}")
 
     @property
-    def cg_alt_rate(self) -> Optional[float]:
+    def cg_alt_rate(self) -> float | None:
         """The statutory alternative rate as a decimal (None: no alternative
         tax). Percent / 100, the same operation as the browser kernel's."""
         r = self.capital_gains_rate_pct
@@ -82,7 +82,7 @@ class TaxSystemConfig:
 
 
 # Every filing-status spelling the model uses -> the CSV's column/row names.
-CANONICAL_STATUS: Dict[str, str] = {
+CANONICAL_STATUS: dict[str, str] = {
     'single': 'Single_Married_Separate',
     'married_filing_jointly': 'Joint_Surviving_Spouse',
     'married_filing_separately': 'Single_Married_Separate',
@@ -443,7 +443,7 @@ def _frozen(value):
     raise TypeError(f"no exact key for {type(value).__name__}")
 
 
-def _schedule_key(config: TaxSystemConfig, filing_status: str) -> Optional[tuple]:
+def _schedule_key(config: TaxSystemConfig, filing_status: str) -> tuple | None:
     """Everything :meth:`TaxCalculator.brackets_for` reads from ``config``
     (inline schedules, CSV vintage and scenario, adjustments), exactly; None
     when some field has no exact key, and the schedule is then not cached."""
@@ -457,7 +457,7 @@ def _schedule_key(config: TaxSystemConfig, filing_status: str) -> Optional[tuple
 class TaxCalculator:
     """Centralized tax calculation engine."""
     
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """Initialize calculator with data file paths."""
         if project_root is None:
             # Bundled data lives inside the package: tax_modeler/data/raw/...
@@ -475,7 +475,7 @@ class TaxCalculator:
         logger.info(f"Loaded deductions for years: {sorted(self.all_deductions['Year'].unique())}")
     
     def get_brackets(self, year: int, filing_status: str,
-                     scenario: Optional[str] = None) -> pd.DataFrame:
+                     scenario: str | None = None) -> pd.DataFrame:
         """Get tax brackets for a specific year, filing status, and optional scenario.
 
         Args:
@@ -578,7 +578,7 @@ class TaxCalculator:
     def apply_bracket_adjustments(
         self, 
         brackets: pd.DataFrame, 
-        adjustments: Dict[str, List[float]]
+        adjustments: dict[str, list[float]]
     ) -> pd.DataFrame:
         """Apply rate adjustments to brackets (for rollback scenarios)."""
         adjusted = brackets.copy()
@@ -603,7 +603,7 @@ class TaxCalculator:
     def _bracket_tax(
         self,
         taxable_income: float,
-        brackets: "pd.DataFrame",
+        brackets: pd.DataFrame,
     ) -> tuple:
         """Apply bracket schedule to taxable income; return (tax, marginal_rate)."""
         tax = 0.0
@@ -629,9 +629,9 @@ class TaxCalculator:
         config: TaxSystemConfig,
         filing_status: str,
         num_exemptions: int = 1,
-        deduction_override: Optional[float] = None,
+        deduction_override: float | None = None,
         cg_income: float = 0.0,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculate tax liability for a single tax unit.
 
@@ -734,7 +734,7 @@ class TaxCalculator:
         self,
         config: TaxSystemConfig,
         filing_status: str,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return (floors, rates_decimal, cum_tax_at_floor) for vectorized bracket math.
 
         ``cum_tax_at_floor[i]`` is the cumulative bracket tax owed at exactly
@@ -758,7 +758,7 @@ class TaxCalculator:
 
     def _build_schedule(
         self, config: TaxSystemConfig, filing_status: str,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         brackets = self.brackets_for(config, filing_status)
         floors = brackets['income_min'].to_numpy(dtype=float)
         rates = brackets['rate_decimal'].to_numpy(dtype=float)
@@ -946,7 +946,7 @@ class TaxCalculator:
         weight_col: str = 'weight',
         num_exemptions_col: str = 'num_exemptions',
         num_dependents_col: str = 'num_dependents',
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Vectorized counterpart of :meth:`calculate_revenue` (~30-50× faster).
 
         Weighted totals of :meth:`unit_liabilities`, which computes per-filer
@@ -999,7 +999,7 @@ class TaxCalculator:
         weight_col: str = 'weight',
         num_exemptions_col: str = 'num_exemptions',
         num_dependents_col: str = 'num_dependents',
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculate total revenue for a dataframe of tax units.
 
@@ -1057,7 +1057,7 @@ class TaxCalculator:
         for i, (income, status, num_ex) in enumerate(zip(
             tax_units[income_col],
             tax_units[filing_status_col],
-            num_exemptions
+            num_exemptions, strict=False
         )):
             try:
                 ded = float(deductions[i])
@@ -1082,7 +1082,7 @@ class TaxCalculator:
             tax_units[income_col],
             tax_units[filing_status_col],
             liabilities,
-            num_dependents
+            num_dependents, strict=False
         )):
             try:
                 cr = credit_calc.calculate_total_credits(
@@ -1121,7 +1121,7 @@ def compare_systems(
     tax_units: pd.DataFrame,
     baseline_config: TaxSystemConfig,
     scenario_config: TaxSystemConfig,
-    calculator: Optional[TaxCalculator] = None,
+    calculator: TaxCalculator | None = None,
 ) -> pd.DataFrame:
     """
     Compare two tax systems and return detailed comparison.

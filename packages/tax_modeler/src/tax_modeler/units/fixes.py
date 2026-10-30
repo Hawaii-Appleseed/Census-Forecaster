@@ -12,9 +12,10 @@ This module provides fixes for the identified overcounting problems:
 from __future__ import annotations
 
 import logging
-import pandas as pd
-from typing import Dict, List, Set, Tuple, Any, Optional
+from typing import Any
+
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class TaxUnitOvercountingFix:
             'single': 'single'
         }
     
-    def filter_valid_households(self, person_df: pd.DataFrame, hh_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def filter_valid_households(self, person_df: pd.DataFrame, hh_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Filter out households without persons to prevent empty household processing."""
         logger.info("Filtering valid households...")
         
@@ -57,7 +58,7 @@ class TaxUnitOvercountingFix:
         
         return valid_person_df, valid_hh_df
     
-    def standardize_filing_status(self, tax_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def standardize_filing_status(self, tax_units: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Standardize filing status values across all tax units."""
         logger.info("Standardizing filing status values...")
         
@@ -81,7 +82,7 @@ class TaxUnitOvercountingFix:
         
         return standardized_units
     
-    def deduplicate_tax_units(self, tax_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def deduplicate_tax_units(self, tax_units: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove duplicate tax units based on filer IDs and household IDs."""
         logger.info("Deduplicating tax units...")
         
@@ -111,8 +112,8 @@ class TaxUnitOvercountingFix:
         
         return deduplicated_units
     
-    def validate_household_tax_unit_mapping(self, tax_units: List[Dict[str, Any]], 
-                                          expected_households: int) -> Dict[str, Any]:
+    def validate_household_tax_unit_mapping(self, tax_units: list[dict[str, Any]], 
+                                          expected_households: int) -> dict[str, Any]:
         """Validate that the household-to-tax-unit mapping is reasonable."""
         logger.info("Validating household-to-tax-unit mapping...")
         
@@ -141,7 +142,7 @@ class TaxUnitOvercountingFix:
             }
         }
         
-        logger.info(f"Tax unit validation results:")
+        logger.info("Tax unit validation results:")
         logger.info(f"  Total tax units: {validation_results['total_tax_units']:,}")
         logger.info(f"  Households with units: {validation_results['total_households_with_units']:,}")
         logger.info(f"  Expected households: {validation_results['expected_households']:,}")
@@ -168,7 +169,7 @@ class TaxUnitOvercountingFix:
         validation_results['issues'] = issues
         return validation_results
     
-    def fix_dependent_field_handling(self, tax_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def fix_dependent_field_handling(self, tax_units: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Fix dependent field handling to prevent array ambiguity errors."""
         logger.info("Fixing dependent field handling...")
         
@@ -199,7 +200,7 @@ class TaxUnitOvercountingFix:
         return fixed_units
     
     def apply_comprehensive_fixes(self, person_df: pd.DataFrame, hh_df: pd.DataFrame,
-                                tax_units: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, pd.DataFrame, List[Dict[str, Any]], Dict[str, Any]]:
+                                tax_units: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame, list[dict[str, Any]], dict[str, Any]]:
         """Apply all comprehensive fixes for overcounting issues."""
         logger.info("Applying comprehensive overcounting fixes...")
         
@@ -225,7 +226,7 @@ class TaxUnitOvercountingFix:
         return valid_person_df, valid_hh_df, deduplicated_units, validation_results
 
 def apply_overcounting_fixes(person_df: pd.DataFrame, hh_df: pd.DataFrame,
-                           tax_units: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, pd.DataFrame, List[Dict[str, Any]], Dict[str, Any]]:
+                           tax_units: list[dict[str, Any]]) -> tuple[pd.DataFrame, pd.DataFrame, list[dict[str, Any]], dict[str, Any]]:
     """Convenience function to apply all overcounting fixes."""
     fixer = TaxUnitOvercountingFix()
     return fixer.apply_comprehensive_fixes(person_df, hh_df, tax_units)

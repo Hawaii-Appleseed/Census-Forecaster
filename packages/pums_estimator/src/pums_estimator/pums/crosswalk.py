@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Optional
 
 # Resolve data/crosswalks/ relative to the repo root.
 # File depth from repo root:  packages/pums_estimator/src/pums_estimator/pums/crosswalk.py
@@ -36,7 +35,7 @@ _DEFAULT_CROSSWALK_DIR = _REPO_ROOT / "data" / "crosswalks"
 
 def load_crosswalk(
     vintage_year: int = 2020,
-    crosswalk_dir: Optional[Path] = None,
+    crosswalk_dir: Path | None = None,
 ) -> dict[str, list[tuple[str, float]]]:
     """Load PUMA-to-county crosswalk from a Census relationship file.
 

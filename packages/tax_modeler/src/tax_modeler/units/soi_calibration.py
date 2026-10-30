@@ -15,10 +15,8 @@ Key Features:
 from __future__ import annotations
 
 import logging
+
 import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +26,8 @@ class SOICalibrator:
     Calibrates PUMS-based tax units to match DOTAX and IRS SOI benchmarks.
     """
     
-    def __init__(self, dotax_benchmarks: Optional[Dict] = None, 
-                 irs_benchmarks: Optional[Dict] = None):
+    def __init__(self, dotax_benchmarks: dict | None = None, 
+                 irs_benchmarks: dict | None = None):
         """
         Initialize the SOI calibrator.
         
@@ -223,7 +221,7 @@ class SOICalibrator:
         original_total = tax_units['weight_original'].sum()
         calibrated_total = tax_units['weight_calibrated'].sum()
         
-        logger.info(f"\nCalibration Results:")
+        logger.info("\nCalibration Results:")
         logger.info(f"  Original weighted total: {original_total:,.0f}")
         logger.info(f"  Calibrated weighted total: {calibrated_total:,.0f}")
         logger.info(f"  Change: {calibrated_total - original_total:,.0f} ({(calibrated_total/original_total - 1)*100:+.1f}%)")
@@ -235,13 +233,13 @@ class SOICalibrator:
         
         # Log by filing status if available
         if 'filing_status' in tax_units.columns:
-            logger.info(f"\nCalibrated totals by filing status:")
+            logger.info("\nCalibrated totals by filing status:")
             status_totals = tax_units.groupby('filing_status')['weight_calibrated'].sum()
             for status, total in status_totals.items():
                 pct = (total / calibrated_total) * 100
                 logger.info(f"  {status}: {total:,.0f} ({pct:.1f}%)")
     
-    def validate_calibration(self, tax_units: pd.DataFrame) -> Dict:
+    def validate_calibration(self, tax_units: pd.DataFrame) -> dict:
         """
         Validate calibrated tax units against SOI benchmarks.
         
@@ -292,8 +290,8 @@ class SOICalibrator:
 
 
 def calibrate_to_soi_benchmarks(tax_units: pd.DataFrame,
-                                dotax_benchmarks: Optional[Dict] = None,
-                                irs_benchmarks: Optional[Dict] = None,
+                                dotax_benchmarks: dict | None = None,
+                                irs_benchmarks: dict | None = None,
                                 method: str = 'ipf') -> pd.DataFrame:
     """
     Convenience function to calibrate tax units to SOI benchmarks.
@@ -322,7 +320,7 @@ def calibrate_to_soi_benchmarks(tax_units: pd.DataFrame,
     return calibrated
 
 
-def load_dotax_benchmarks(data_dir: str = "data/raw") -> Dict:
+def load_dotax_benchmarks(data_dir: str = "data/raw") -> dict:
     """
     Load DOTAX SOI benchmarks from CSV files.
     
@@ -340,7 +338,7 @@ def load_dotax_benchmarks(data_dir: str = "data/raw") -> Dict:
     return dotax_data
 
 
-def load_irs_benchmarks(data_dir: str = "data/processed") -> Dict:
+def load_irs_benchmarks(data_dir: str = "data/processed") -> dict:
     """
     Load IRS SOI benchmarks.
     

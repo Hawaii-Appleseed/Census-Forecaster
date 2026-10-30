@@ -37,7 +37,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -67,7 +66,7 @@ CBO_COMPONENTS: tuple[str, ...] = (
 # - dividends/interest 1.00: national financial markets, federal-rate-driven
 # - retirement 1.00: SS / pensions federally indexed
 # - other 0.90: mostly rental; HI housing market cooler post-2022
-DEFAULT_HAWAII_FACTORS: Dict[str, float] = {
+DEFAULT_HAWAII_FACTORS: dict[str, float] = {
     "wages":         0.85,
     "proprietors":   0.90,
     "business":      0.90,
@@ -113,7 +112,7 @@ class CBOComponentRates:
     """
     vintage: str
     base_year: int
-    factors: Dict[str, Dict[int, float]]
+    factors: dict[str, dict[int, float]]
 
     def factor(self, component: str, year: int) -> float:
         """Return growth factor for ``component`` at ``year``.
@@ -156,7 +155,7 @@ def _default_csv_path(vintage: str) -> Path:
 
 def load_cbo_rates(
     vintage: str = "2025-01",
-    csv_path: Optional[Path] = None,
+    csv_path: Path | None = None,
     base_year: int = 2022,
 ) -> CBOComponentRates:
     """Load CBO component growth factors from a versioned CSV.
@@ -186,11 +185,11 @@ def load_cbo_rates(
             f"{required - set(df.columns)}"
         )
 
-    factors: Dict[str, Dict[int, float]] = {}
+    factors: dict[str, dict[int, float]] = {}
     for component, group in df.groupby("component"):
         factors[component] = dict(zip(
             group["year"].astype(int),
-            group["growth_factor_from_2022"].astype(float),
+            group["growth_factor_from_2022"].astype(float), strict=False,
         ))
         # Sanity: base_year factor should be 1.0
         if base_year in factors[component]:
@@ -260,7 +259,7 @@ def transfers_outside_income(df: pd.DataFrame) -> pd.Series:
 
 def _component_amounts_for_filer(
     df: pd.DataFrame,
-) -> Dict[str, pd.Series]:
+) -> dict[str, pd.Series]:
     """Return per-component income amounts ($) for each row.
 
     Uses PUMS-actual decomposition columns when present
@@ -274,7 +273,7 @@ def _component_amounts_for_filer(
     which ``income`` excludes (see :func:`transfers_outside_income`).
     """
     inc = df["income"].astype(float).to_numpy()
-    n = len(df)
+    _n = len(df)
 
     def _col(name: str) -> np.ndarray:
         return _numeric_col(df, name)
@@ -328,10 +327,10 @@ def age_filers_with_components(
     target_year: int,
     *,
     base_year: int = 2022,
-    cbo_rates: Optional[CBOComponentRates] = None,
-    hawaii_factors: Optional[Dict[str, float]] = None,
+    cbo_rates: CBOComponentRates | None = None,
+    hawaii_factors: dict[str, float] | None = None,
     soft_anchor_to_cor: bool = False,
-    cor_year_target_M: Optional[float] = None,
+    cor_year_target_M: float | None = None,
     cor_anchor_tolerance: float = 0.03,
 ) -> pd.DataFrame:
     """Age each filer's income components separately, then re-tot to ``income``.

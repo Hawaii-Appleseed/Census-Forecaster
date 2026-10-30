@@ -38,11 +38,8 @@ way IRC §24(d) orders them.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
-
 
 # Federal standard deduction by tax year and filing status (IRS Rev. Procs.).
 # Used as the principal driver: filers with income < SD owe $0 in federal tax
@@ -338,7 +335,7 @@ def compute_federal_income_tax_for_units(
     *,
     tax_year: int,
     out_col: str = "federal_tax_liability",
-    income_col: Optional[str] = None,
+    income_col: str | None = None,
     filing_status_col: str = "filing_status",
     ctc_nonrefundable_col: str = "ctc_nonrefundable",
     extrapolate: bool = False,

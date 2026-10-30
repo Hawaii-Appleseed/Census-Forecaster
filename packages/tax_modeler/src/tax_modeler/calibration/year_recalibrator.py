@@ -37,14 +37,14 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
 from tax_modeler.calibration.forward_targets import (
-    DEFAULT_COR_IIT_PROJECTIONS_M,
     ForwardTargets,
     build_targets,
+)
+from tax_modeler.calibration.forward_targets import (
     summarize as _summarize_targets,
 )
 
@@ -100,19 +100,19 @@ def project_and_recalibrate(
     hawaii_capgain_adjustment: float = 0.95,
     use_cbo_aging: bool = False,
     cbo_vintage: str = "2025-01",
-    cbo_hawaii_factors: Optional[Dict[str, float]] = None,
+    cbo_hawaii_factors: dict[str, float] | None = None,
     apply_top_premium: bool = True,
     top_premium_pct: float = 0.010,
     top_premium_base_year: int = 2024,
     top_premium_threshold: float = 500_000.0,
-    cor_projections_M: Optional[Dict[int, float]] = None,
+    cor_projections_M: dict[int, float] | None = None,
     top_bracket_differential: float = 0.010,
     low_growth: float = 0.025,
     rate_drift: float = 0.005,
     population_growth_rate: float = 0.005,
     method: str = "ensemble",
-    base_year: Optional[int] = None,
-) -> Tuple[pd.DataFrame, Optional[ForwardTargets]]:
+    base_year: int | None = None,
+) -> tuple[pd.DataFrame, ForwardTargets | None]:
     """Project ``units`` to ``target_year`` with optional ITEP-style re-anchoring.
 
     Parameters
@@ -175,13 +175,12 @@ def project_and_recalibrate(
         or ``None`` when ``use_forward_targets=False``.
     """
     # Local imports to avoid circular import via the calibration module
-    from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
-    from tax_modeler.scenarios.behavioral_response import apply_top_income_growth_premium
-    from tax_modeler.calibration.simultaneous_calibrator import (
-        phase1_reweight, phase2_tax_calibrate,
-    )
     from tax_modeler.adjustments.itemized_deductions import (
         scale_deduction_params_for_target_year,
+    )
+    from tax_modeler.calibration.simultaneous_calibrator import (
+        phase1_reweight,
+        phase2_tax_calibrate,
     )
 
     # Build TY-scaled itemized deduction params once. CBO-aging path bypasses
@@ -195,6 +194,8 @@ def project_and_recalibrate(
     # a future state plug-in supplies its own default_geoid without changing
     # this site.
     from tax_modeler.config.state_config import HAWAII
+    from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
+    from tax_modeler.scenarios.behavioral_response import apply_top_income_growth_premium
     _ded_params = scale_deduction_params_for_target_year(
         target_year, state_config=HAWAII
     )
@@ -208,7 +209,8 @@ def project_and_recalibrate(
         # below-$200K filers get income growth from CBO components rather
         # than county medians.
         from tax_modeler.calibration.cbo_aging import (
-            age_filers_with_components, load_cbo_rates,
+            age_filers_with_components,
+            load_cbo_rates,
         )
         from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
         cbo_rates = load_cbo_rates(vintage=cbo_vintage)
@@ -334,6 +336,7 @@ def project_and_recalibrate(
     # let Phase 2 anchor the aggregate.
     if use_soi_anchor or resynthesize_top:
         import numpy as np
+
         from tax_modeler.pipeline import _compute_base_tax as _compute_base_tax_2
 
         top = (1_000_000, float(np.inf))

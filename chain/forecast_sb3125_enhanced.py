@@ -116,7 +116,11 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
 
 from _forecast_common import (  # noqa: E402
-    ARTIFACT_DIR, TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
+    ARTIFACT_DIR,
+    TARGET_YEARS,
+    load_cached_units,
+    parse_cd_args,
+    silence_noise,
 )
 
 # Three calibrated scenarios. Calibration is anchored to (a) the official
@@ -253,28 +257,31 @@ def run_one_scenario(
     if ded_params is None:
         from tax_modeler.artifacts import load_canonical_deduction_params
         ded_params = load_canonical_deduction_params()
+    import logging
     import time
-    import warnings; warnings.filterwarnings("ignore")
-    import logging; logging.disable(logging.WARNING)
+    import warnings
 
-    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+    warnings.filterwarnings("ignore")
+    logging.disable(logging.WARNING)
+
     from tax_modeler.calibration.cg_anchor import apply_anchor_factors
-    from tax_modeler.scenarios.act24_population import build_units, project_units, statute
-    from tax_modeler.scenarios.sb3125_cd1_credits import (
-        compute_credit_overlay,
-        compute_dynamic_agi_eligibility_share,
-    )
+    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
     from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
-    from tax_modeler.scenarios.top_income_synthesis import (
-        synthetic_tail_aging_factor,
-        validate_top_synthesis,
-    )
+    from tax_modeler.scenarios.act24_population import build_units, project_units, statute
     from tax_modeler.scenarios.behavioral_response import (
         BehavioralParams,
         score_with_response,
         top_rate_path,
     )
     from tax_modeler.scenarios.quintile_analysis import cor_scale_factor_for_year
+    from tax_modeler.scenarios.sb3125_cd1_credits import (
+        compute_credit_overlay,
+        compute_dynamic_agi_eligibility_share,
+    )
+    from tax_modeler.scenarios.top_income_synthesis import (
+        synthetic_tail_aging_factor,
+        validate_top_synthesis,
+    )
 
     get_scenario_system = (
         TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
@@ -455,6 +462,7 @@ if __name__ == "__main__":
 
     try:
         import time
+
         import pandas as pd
 
         print(f"SB 3125 {cd_label} enhanced fiscal forecast", flush=True)
@@ -510,8 +518,8 @@ if __name__ == "__main__":
         # Capital gains: DOTAX anchors MID; every scenario rescales its gains
         # with MID's factors (act24_population.mid_gains_factors), as the tax
         # simulator does.
-        from tax_modeler.scenarios.act24_population import mid_gains_factors
         from _forecast_common import population_store
+        from tax_modeler.scenarios.act24_population import mid_gains_factors
         # The MID populations here are built and projected again by the
         # scenario worker, the pre-Act-46 run and the simulator: build them
         # once, from the pickle every step reads, in the shared store.
@@ -546,16 +554,21 @@ if __name__ == "__main__":
 
         # ---- Distributional quintile analysis (MID scenario, all years) -----
         print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
-        import warnings; warnings.filterwarnings("ignore")
-        import logging; logging.disable(logging.WARNING)
+        import logging
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        logging.disable(logging.WARNING)
         from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+        from tax_modeler.scenarios.quintile_analysis import (
+            compute_quintile_breaks,
+            cor_scale_factor_for_year,
+            generate_quintile_report,
+            per_unit_tax,
+        )
         from tax_modeler.scenarios.sb3125_cd1_credits import (
             compute_credit_overlay,
             compute_dynamic_agi_eligibility_share,
-        )
-        from tax_modeler.scenarios.quintile_analysis import (
-            generate_quintile_report, compute_quintile_breaks,
-            cor_scale_factor_for_year, per_unit_tax,
         )
 
         mid_sc = next(s for s in SCENARIOS if s["label"] == "MID")
@@ -653,8 +666,8 @@ if __name__ == "__main__":
         df.to_csv(OUT_CSV, index=False)
 
         # ---- Manifested run output (canonical; /tmp copy kept above) --------
-        from tax_modeler.runs import tidy_long, write_run_manifest
         from _forecast_common import RUNS_DIR, cache_provenance
+        from tax_modeler.runs import tidy_long, write_run_manifest
         RUN_DIR = RUNS_DIR / f"sb3125_cd{CD}_enhanced"
         RUN_DIR.mkdir(parents=True, exist_ok=True)
         df.to_csv(RUN_DIR / "enhanced.csv", index=False)
@@ -694,8 +707,8 @@ if __name__ == "__main__":
         # Print TY 2027 quintile summary
         q27 = all_quintiles[all_quintiles["tax_year"] == 2027].copy()
         print("\n" + "=" * 100, flush=True)
-        print(f"DISTRIBUTIONAL ANALYSIS — MID Scenario, TY 2027 "
-              f"(bracket change + REEC credit loss per household)", flush=True)
+        print("DISTRIBUTIONAL ANALYSIS — MID Scenario, TY 2027 "
+              "(bracket change + REEC credit loss per household)", flush=True)
         print("=" * 100, flush=True)
         pd.set_option("display.float_format", "{:,.1f}".format)
         pd.set_option("display.max_colwidth", 20)
@@ -744,7 +757,7 @@ if __name__ == "__main__":
         # Behavioral decomposition for MID at TY 2027
         mid27 = df[(df["scenario"] == "MID") & (df["tax_year"] == 2027)].iloc[0]
         print("\n" + "-" * 100, flush=True)
-        print(f"BEHAVIORAL DECOMPOSITION (MID scenario, TY 2027):", flush=True)
+        print("BEHAVIORAL DECOMPOSITION (MID scenario, TY 2027):", flush=True)
         print("-" * 100, flush=True)
         print(f"  Static bracket delta:                   ${mid27['bracket_delta_static_$M']:>+8.2f}M", flush=True)
         print(f"  Behavioral response (ETI + migration):  ${mid27['eti_response_$M']:>+8.2f}M", flush=True)

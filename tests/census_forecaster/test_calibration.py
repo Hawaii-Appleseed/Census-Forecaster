@@ -5,7 +5,6 @@ import math
 from collections import defaultdict
 
 import pytest
-
 from census_forecaster.acs.calibration import (
     COVERAGE_LOWER_BOUND,
     COVERAGE_UPPER_BOUND,

@@ -7,13 +7,11 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from census_forecaster.acs.ml_features import (
     NATIONAL_SERIES,
     national_macro_columns,
 )
 from census_forecaster.scripts import refresh_national_macro as script
-
 
 # ---------------------------------------------------------------------------
 # Registry ↔ column consistency

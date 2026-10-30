@@ -10,7 +10,6 @@ import json
 from importlib.resources import files
 
 import pytest
-
 from lab.markets.fundamentals import (
     FUNDAMENTALS,
     REVERSE_PAIRS,

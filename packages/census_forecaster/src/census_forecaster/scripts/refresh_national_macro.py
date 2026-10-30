@@ -67,13 +67,13 @@ import json
 import os
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 import requests
 
-from ..acs.ml_features import NATIONAL_SERIES, NationalSeriesSpec
+from ..acs.ml_features import NATIONAL_SERIES
 from ..bls.client import fetch_cpi_data
 from .refresh_zillow_laus_anchors import _atomic_write_json
 
@@ -97,7 +97,7 @@ _SCREEN_CADENCES = {"monthly", "weekly", "daily"}
 
 def fetch_bls_monthly(
     series_ids: Sequence[str],
-    api_key: Optional[str],
+    api_key: str | None,
     *,
     start_year: int,
     end_year: int,
@@ -193,14 +193,14 @@ def fetch_fred_csv(series_id: str, *, timeout: float = 30.0) -> list[dict]:
 # Aggregation
 # ---------------------------------------------------------------------------
 
-def _year_of(row: dict) -> Optional[int]:
+def _year_of(row: dict) -> int | None:
     if "year" in row:
         return int(row["year"])
     d = row.get("date", "")
     return int(d[:4]) if d[:4].isdigit() else None
 
 
-def _month_of(row: dict) -> Optional[int]:
+def _month_of(row: dict) -> int | None:
     if "period" in row and str(row["period"]).startswith("M"):
         return int(str(row["period"])[1:])
     d = row.get("date", "")
@@ -314,7 +314,7 @@ def read_previous_national_macro(
 def build_national_macro_payload(
     annual_by_name: dict[str, dict[int, float]],
     sources: dict[str, str],
-    series_fetch_date: Optional[dict[str, str]] = None,
+    series_fetch_date: dict[str, str] | None = None,
 ) -> dict:
     today = date.today().isoformat()
     fetched_on = series_fetch_date or {}
@@ -379,7 +379,7 @@ def _merge_macro_monthly(monthly_by_key: dict[str, list[dict]]) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refresh national-macro predictor series "
                     "(CPI panel + BLS + FRED), registry-driven.",

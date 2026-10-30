@@ -7,13 +7,13 @@ PUMA 0100 using population-based allocation enhanced with demographic factors.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import hashlib
+import logging
 from collections.abc import Mapping
 from functools import cache
-from typing import Dict, List, Tuple
-import logging
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class PUMA0100Imputer:
             }
         }
     
-    def calculate_county_probability(self, tax_unit: Dict) -> Dict[str, float]:
+    def calculate_county_probability(self, tax_unit: dict) -> dict[str, float]:
         """
         Calculate probability of assignment to Maui vs Kauai based on demographics.
         
@@ -168,7 +168,7 @@ class PUMA0100Imputer:
         tax_unit_id = tax_unit.get('filer_id', tax_unit.get('SERIALNO', ''))
         return _seed_of(f"puma0100_{tax_unit_id}_county_assignment")
 
-    def assign_county(self, tax_unit: Dict, use_deterministic: bool = True) -> str:
+    def assign_county(self, tax_unit: dict, use_deterministic: bool = True) -> str:
         """
         Assign a county to a tax unit from PUMA 0100.
         
@@ -248,13 +248,13 @@ class PUMA0100Imputer:
         maui_actual = (pd.Series(imputed_counties) == 'Maui').mean()
         kauai_actual = (pd.Series(imputed_counties) == 'Kauai').mean()
         
-        logger.info(f"Validation against 2023 Census population ratios:")
+        logger.info("Validation against 2023 Census population ratios:")
         logger.info(f"  Maui - Expected: {self.base_allocation['Maui']:.1%}, Actual: {maui_actual:.1%}")
         logger.info(f"  Kauai - Expected: {self.base_allocation['Kauai']:.1%}, Actual: {kauai_actual:.1%}")
         
         return df
     
-    def get_imputation_summary(self, tax_units_df: pd.DataFrame) -> Dict:
+    def get_imputation_summary(self, tax_units_df: pd.DataFrame) -> dict:
         """
         Generate summary statistics for the imputation process.
         

@@ -29,14 +29,13 @@ Reform DSL knobs (``Reform.benefit_overrides["ssi"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import ConfigError
-
 
 # 2024 federal benefit rates (monthly)
 _FBR_INDIVIDUAL_2024 = 943.0
@@ -66,7 +65,7 @@ def federal_ssi_parameters() -> SsiParameters:
 
 
 def with_ssi_overrides(
-    base: SsiParameters, overrides: Optional[Mapping[str, object]]
+    base: SsiParameters, overrides: Mapping[str, object] | None
 ) -> SsiParameters:
     if not overrides:
         return base
@@ -82,8 +81,8 @@ def with_ssi_overrides(
 def compute_ssi_for_units(
     units: pd.DataFrame,
     *,
-    params: Optional[SsiParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: SsiParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "ssi_amount",
 ) -> pd.DataFrame:
     """Add a federal SSI annual-amount column to ``units``.

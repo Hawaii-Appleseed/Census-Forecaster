@@ -22,7 +22,6 @@ Variables commonly requested
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import requests
 
@@ -36,7 +35,7 @@ def fetch_pums(
     variables: list[str],
     year: int = 2022,
     vintage: str = "1",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: int = 60,
 ) -> list[PumsRecord]:
     """Fetch PUMS microdata records for a state.
@@ -91,7 +90,7 @@ def fetch_pums(
     records: list[PumsRecord] = []
 
     for row in rows[1:]:
-        d = dict(zip(headers, row))
+        d = dict(zip(headers, row, strict=False))
 
         # PUMA may appear as "PUMA" or as the geo field "public use microdata area"
         puma_raw = d.get("PUMA") or d.get("public use microdata area", "")
@@ -132,7 +131,7 @@ def fetch_pums_with_replicates(
     variables: list[str],
     year: int = 2022,
     vintage: str = "1",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: int = 120,
     weight_type: str = "housing",
 ) -> tuple[list[PumsRecord], list[list[float]]]:
@@ -199,7 +198,7 @@ def fetch_pums_with_replicates(
         resp.raise_for_status()
         rows = resp.json()
         headers = rows[0]
-        return [dict(zip(headers, row)) for row in rows[1:]]
+        return [dict(zip(headers, row, strict=False)) for row in rows[1:]]
 
     # Chunk 1: base fields + replicates 1-40 (43 vars total, under 50-var cap)
     chunk1_vars = ["SERIALNO", "PUMA", main_weight] + list(variables) + [
@@ -257,7 +256,7 @@ def fetch_pums_with_replicates(
     return records, replicate_matrix
 
 
-def _safe_float(val: Optional[str], default: float = 0.0) -> float:
+def _safe_float(val: str | None, default: float = 0.0) -> float:
     if val is None:
         return default
     try:

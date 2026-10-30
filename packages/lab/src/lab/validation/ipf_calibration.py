@@ -12,10 +12,10 @@ finding a balanced solution that minimizes total deviation from both targets.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Tuple, List
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ DOTAX_AGI_BRACKETS = {
 }
 
 
-def assign_agi_bracket(agi: float) -> Tuple[float, float]:
+def assign_agi_bracket(agi: float) -> tuple[float, float]:
     """Assign AGI to DOTAX bracket."""
     for (min_agi, max_agi), _ in DOTAX_AGI_BRACKETS.items():
         if max_agi == float('inf'):
@@ -228,7 +228,7 @@ def apply_ipf_calibration(
 def validate_ipf_calibration(
     tax_units: pd.DataFrame,
     weight_col: str = 'weight_ipf_calibrated'
-) -> Dict:
+) -> dict:
     """
     Validate IPF calibration results.
     
@@ -292,7 +292,7 @@ def iterative_proportional_fitting(
     df: pd.DataFrame,
     weight_col: str,
     category_col: str,
-    targets: Dict[str, float],
+    targets: dict[str, float],
     max_iterations: int = 100,
     tolerance: float = 0.001
 ) -> pd.Series:
@@ -343,8 +343,8 @@ def iterative_proportional_fitting_2d(
     weight_col: str,
     category_col: str,
     value_col: str,
-    targets_count: Dict[str, float],
-    targets_total: Dict[str, float],
+    targets_count: dict[str, float],
+    targets_total: dict[str, float],
     max_iterations: int = 100,
     tolerance: float = 0.001,
     count_weight: float = 0.5
@@ -378,7 +378,7 @@ def iterative_proportional_fitting_2d(
     
     # Calculate average value per unit for each category (for normalization)
     category_avg_values = {}
-    for category in targets_count.keys():
+    for category in targets_count:
         mask = df[category_col] == category
         if mask.sum() > 0:
             avg_value = df.loc[mask, value_col].mean()
@@ -389,7 +389,7 @@ def iterative_proportional_fitting_2d(
         max_total_error = 0
         
         # Adjust weights for each category using composite factor
-        for category in targets_count.keys():
+        for category in targets_count:
             mask = df[category_col] == category
             
             if mask.sum() == 0:
@@ -474,7 +474,7 @@ def iterative_proportional_fitting_2d(
         # Report problematic categories
         logger.warning("Categories with largest errors:")
         category_errors = []
-        for category in targets_count.keys():
+        for category in targets_count:
             mask = df[category_col] == category
             if mask.sum() == 0:
                 continue

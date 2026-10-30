@@ -44,8 +44,7 @@ jobs:
       - name: Install workspace (dev only, smoke fixture has no external deps)
         run: uv sync --all-packages --extra dev
 
-      - name: Lint (allowed-to-fail; flip to required after cleanup)
-        continue-on-error: true
+      - name: Lint
         run: uv run ruff check .
 
       - name: Run smoke tests

@@ -24,19 +24,16 @@ Test organisation
 from __future__ import annotations
 
 import math
-from unittest.mock import patch
 
 import pytest
-
 from tax_modeler.projection.revenue_backtest_hawaii import (
-    HawaiiBacktestResult,
     _DEFAULT_GEOID,
     _DEFAULT_HORIZONS,
+    HawaiiBacktestResult,
     _select_anchors,
     load_series_for_backtest,
     run_hawaii_revenue_backtest,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -381,7 +378,8 @@ class TestRunHawaiiRevenueBacktestParams:
 
     def test_custom_tax_fn_changes_revenue_mape(self):
         """Custom tax_fn produces different MAPE than default concentration model."""
-        flat_fn = lambda y: y * 0.05
+        def flat_fn(y):
+            return y * 0.05
         result_default = run_hawaii_revenue_backtest(use_conformal=False)
         result_flat = run_hawaii_revenue_backtest(
             tax_fn=flat_fn,

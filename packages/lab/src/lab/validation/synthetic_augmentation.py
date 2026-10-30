@@ -14,9 +14,10 @@ Strategy:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ def augment_undersampled_brackets(
         augmented_df = pd.concat([df] + synthetic_records, ignore_index=True)
         
         # Log summary
-        logger.info(f"\nSynthetic Augmentation Summary:")
+        logger.info("\nSynthetic Augmentation Summary:")
         logger.info(f"  Original records: {len(df):,}")
         logger.info(f"  Synthetic records: {sum(len(s) for s in synthetic_records):,}")
         logger.info(f"  Total records: {len(augmented_df):,}")

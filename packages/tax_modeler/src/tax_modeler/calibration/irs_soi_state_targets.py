@@ -19,16 +19,15 @@ to SOI bin boundaries when both are active in the rake.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 import logging
+from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 # IRS SOI Table 2 AGI bins (Hawaii, TY 2022)
-SOI_AGI_BINS: List[Tuple[float, float]] = [
+SOI_AGI_BINS: list[tuple[float, float]] = [
     (0,        25_000),
     (25_000,   50_000),
     (50_000,   75_000),
@@ -38,7 +37,7 @@ SOI_AGI_BINS: List[Tuple[float, float]] = [
 ]
 
 # SOI bin label as it appears in the source CSV
-SOI_BIN_LABELS: Dict[Tuple[float, float], str] = {
+SOI_BIN_LABELS: dict[tuple[float, float], str] = {
     (0,        25_000):       "$1 under $25,000",
     (25_000,   50_000):       "$25,000 under $50,000",
     (50_000,   75_000):       "$50,000 under $75,000",
@@ -50,7 +49,7 @@ SOI_BIN_LABELS: Dict[Tuple[float, float], str] = {
 # Column indexes in hawaii_irs_soi_processed.csv (header at row 3, totals at rows 6-12).
 # Most columns appear as (count_with_item, dollar_total) pairs — we want the
 # dollar columns. Source money amounts are $thousands.
-SOI_COLUMNS: Dict[str, int] = {
+SOI_COLUMNS: dict[str, int] = {
     "n_returns":             2,   # Number of returns
     "n_single":              3,   # Number of single returns
     "n_joint":               4,   # Number of joint returns
@@ -67,7 +66,7 @@ SOI_COLUMNS: Dict[str, int] = {
 
 
 def load_soi_state_targets(
-    csv_path: Optional[Path] = None,
+    csv_path: Path | None = None,
 ) -> pd.DataFrame:
     """Load Hawaii state-level SOI targets by AGI bin.
 
@@ -96,7 +95,7 @@ def load_soi_state_targets(
 
     # Map bin label → row.
     bin_label_col = state["c1"].astype(str).str.strip()
-    rows: Dict[Tuple[float, float], pd.Series] = {}
+    rows: dict[tuple[float, float], pd.Series] = {}
     for (lo, hi), label in SOI_BIN_LABELS.items():
         match = state[bin_label_col == label]
         if match.empty:
@@ -127,7 +126,7 @@ def load_soi_state_targets(
 
 def build_soi_calibration_margins(
     soi_df: pd.DataFrame,
-) -> Dict[str, Dict[Tuple[float, float], float]]:
+) -> dict[str, dict[tuple[float, float], float]]:
     """Return SOI-derived calibration margins keyed by margin name.
 
     Each margin is a dict ``{(agi_lo, agi_hi): target_value}``:
@@ -136,7 +135,7 @@ def build_soi_calibration_margins(
       - ``soi_fed_tax_M``: federal income tax before credits ($M)
       - ``soi_itemized_M``: total itemized deductions ($M)
     """
-    margins: Dict[str, Dict[Tuple[float, float], float]] = {
+    margins: dict[str, dict[tuple[float, float], float]] = {
         "soi_n_returns":   {},
         "soi_agi_M":       {},
         "soi_fed_tax_M":   {},
@@ -150,7 +149,7 @@ def build_soi_calibration_margins(
     return margins
 
 
-def soi_bin_for_agi(agi: float) -> Tuple[float, float]:
+def soi_bin_for_agi(agi: float) -> tuple[float, float]:
     """Return the (lo, hi) SOI bin tuple for a given AGI."""
     for (lo, hi) in SOI_AGI_BINS:
         if lo <= agi < hi:

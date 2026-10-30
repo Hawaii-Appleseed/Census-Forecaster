@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
-
 from tax_modeler import (
     Dimension,
     JointDistributionDrift,
@@ -14,7 +12,6 @@ from tax_modeler import (
     validate_joint_distribution,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

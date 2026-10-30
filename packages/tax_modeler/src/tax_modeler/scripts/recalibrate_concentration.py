@@ -59,7 +59,6 @@ import logging
 import math
 import sys
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +137,7 @@ def _calibrate_bracket(
         ``residual_pct`` is ``|calibrated_tax / avg_tax - 1| * 100``.
     """
     from scipy.optimize import brentq
+
     from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
 
     target = bracket.avg_tax_before_credits
@@ -247,7 +247,7 @@ def _render_python(
         f"# on hawaii_tax_weighted(tax_year={tax_year}), verified against DOTAX totals.",
         f"DOTAX_{tax_year}_BRACKETS: tuple[BracketEntry, ...] = (",
     ]
-    for b, ri in zip(brackets, rep_incomes):
+    for b, ri in zip(brackets, rep_incomes, strict=False):
         lo = f"{int(b.agi_min):>10_}"
         hi = f"{_agi_max_repr(b.agi_max):>10}"
         nr = f"{b.n_returns:>7_}"
@@ -331,7 +331,7 @@ def _print_verification(
     dotax_avg = dotax_total_rev / total_returns if total_returns else 0.0
 
     calibrated_total = 0.0
-    for b, ri in zip(brackets, rep_incomes):
+    for b, ri in zip(brackets, rep_incomes, strict=False):
         if not math.isnan(ri):
             calibrated_total += b.n_returns * hawaii_tax_weighted(ri, tax_year=tax_year)
 

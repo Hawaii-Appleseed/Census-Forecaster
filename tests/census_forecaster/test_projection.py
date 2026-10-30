@@ -8,12 +8,10 @@ the change.
 import math
 
 import pytest
-
-from census_forecaster.models import AcsObservation
 from census_forecaster.acs.projection import (
     ANNUAL_RATE_CAP,
-    DampedTrendFit,
     EMPIRICAL_SE_INFLATOR,
+    DampedTrendFit,
     _recency_weighted_initial_trend,
     effective_year,
     fit_ar1_log_diff,
@@ -21,6 +19,7 @@ from census_forecaster.acs.projection import (
     project_ar1_log_diff,
     project_damped_trend,
 )
+from census_forecaster.models import AcsObservation
 
 
 def _obs(year: int, est: float, moe: float = 1000.0, vintage: str = "1y"):

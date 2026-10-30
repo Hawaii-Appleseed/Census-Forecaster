@@ -60,7 +60,6 @@ from __future__ import annotations
 import functools
 import logging
 import math
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +100,7 @@ def _load_b19082_series(geoid: str) -> tuple:
         Sorted by year ascending.  Empty tuple if unavailable.
     """
     from common.models import AcsObservation
+
     from tax_modeler.projection.acs_supplement_forecast import acs_panel
 
     try:
@@ -131,7 +131,7 @@ def _load_b19082_series(geoid: str) -> tuple:
 def get_base_top_quintile_share(
     base_year: int = _DOTAX_BASE_YEAR,
     geoid: str = "15003",
-) -> Optional[float]:
+) -> float | None:
     """Return observed B19082_005E fraction for ``base_year``.
 
     Looks for a 1-year ACS vintage at ``base_year``; falls back to the
@@ -177,8 +177,8 @@ def get_base_top_quintile_share(
 def project_top_quintile_share(
     target_year: int,
     geoid: str = "15003",
-    anchor_year: Optional[int] = None,
-) -> Optional[float]:
+    anchor_year: int | None = None,
+) -> float | None:
     """Project B19082_005E top-quintile income share to ``target_year``.
 
     Uses the ``carry_forward`` projector (most robust for slowly-drifting
@@ -204,8 +204,8 @@ def project_top_quintile_share(
         Projected top-quintile share as a fraction, or ``None`` if the
         panel has no B19082_005E data for this geoid.
     """
-    from census_forecaster.backtest.acs import DEFAULT_METHODS
     from census_forecaster.acs.projection import effective_year
+    from census_forecaster.backtest.acs import DEFAULT_METHODS
 
     series = _load_b19082_series(geoid)
     if not series:
@@ -264,8 +264,8 @@ def compute_top_income_scale(
     target_year: int,
     base_year: int = _DOTAX_BASE_YEAR,
     geoid: str = "15003",
-    anchor_year: Optional[int] = None,
-) -> Optional[float]:
+    anchor_year: int | None = None,
+) -> float | None:
     """Compute the ``top_income_scale`` argument for ``expected_revenue_per_filer``.
 
     The scale factor is::

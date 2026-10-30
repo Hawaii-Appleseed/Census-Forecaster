@@ -4,15 +4,14 @@ Tests for the Married Filing Jointly status determination.
 
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import numpy as np
 from tax_modeler.units.status.mfj import (
-    is_married_filing_jointly, 
-    _are_married, 
     _are_citizens_or_residents,
-    _is_married_to_someone_else
+    _are_married,
+    _is_married_to_someone_else,
+    is_married_filing_jointly,
 )
+
 
 # Test data
 def create_test_person(serialno, sporder, age, married=True, relshipp=20, cit=1):

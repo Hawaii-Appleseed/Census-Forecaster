@@ -1,22 +1,17 @@
 """Unit tests for the v3 calibration strata primitives."""
 from __future__ import annotations
 
-import math
-
-import pytest
-
 from census_forecaster.acs.strata import (
     DEFAULT_N_THRESHOLD,
     POP_BUCKET_BOUNDS,
-    StrataRecord,
     WILDCARD,
+    StrataRecord,
     classify_horizon,
     classify_pop,
     index_records,
     record_from_dict,
     record_to_dict,
 )
-
 
 # -----------------------------------------------------------------------------
 # Bucket boundary tests

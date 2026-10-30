@@ -24,19 +24,20 @@ from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Callable, Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from ..acs.projection import (
-    project_damped_trend,
-    project_ar1_log_diff,
-    effective_year,
-    ANNUAL_RATE_CAP,
-)
-from ..acs.ensemble import project_ensemble, project_ensemble_multi, macro_anchor_projection
+
 from ..acs.anchors import load_calibration
+from ..acs.ensemble import project_ensemble, project_ensemble_multi
+from ..acs.projection import (
+    ANNUAL_RATE_CAP,
+    effective_year,
+    project_ar1_log_diff,
+    project_damped_trend,
+)
 
 
 @dataclass
@@ -94,7 +95,7 @@ def project_carry_forward(
     if not series_observations:
         return None
     latest = series_observations[-1]
-    from common.moe import moe_to_se, ci_from_se
+    from common.moe import ci_from_se, moe_to_se
     sample_se = moe_to_se(latest.moe)
     if math.isnan(sample_se):
         sample_se = 0.0
@@ -157,7 +158,7 @@ def project_linear_log(
     se_forecast_log = sd * math.sqrt(max(horizon, 1.0))
     se_forecast = se_forecast_log * point
 
-    from common.moe import moe_to_se, combine_se, ci_from_se
+    from common.moe import ci_from_se, combine_se, moe_to_se
     sample_relative = moe_to_se(latest.moe) / latest.estimate if latest.estimate > 0 else 0.0
     if not math.isfinite(sample_relative):
         sample_relative = 0.0
@@ -220,7 +221,7 @@ def make_methods_with_multi_anchor(
 def truncate_to_anchor(
     series_observations: Sequence[AcsObservation],
     anchor_year: int,
-    as_of_date: Optional[date] = None,
+    as_of_date: date | None = None,
 ) -> list[AcsObservation]:
     """Keep only observations with effective_year ≤ anchor_year.
 
@@ -365,7 +366,7 @@ def summarise_by_strata(
     Requires a population lookup so each row's geoid can be classified.
     Rows whose geoid has no population entry land in pop_bucket=`unknown`.
     """
-    from ..acs.strata import classify_pop, classify_horizon
+    from ..acs.strata import classify_horizon, classify_pop
 
     by_strata: dict[tuple[str, str], list[BacktestRow]] = {}
     pops = populations or {}

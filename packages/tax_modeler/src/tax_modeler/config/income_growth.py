@@ -17,9 +17,9 @@ Data Sources:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, Any
 import logging
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class GrowthFactors:
         """
         return income * self.real_growth
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging/serialization."""
         return {
             'base_year': self.base_year,
@@ -152,8 +152,9 @@ def build_growth_factors(project_root=None):
         return RESIDENT_GROWTH, NONRESIDENT_GROWTH
 
     try:
-        from tax_modeler.projection.growth_rate_loader import load_all_rates
         from pathlib import Path
+
+        from tax_modeler.projection.growth_rate_loader import load_all_rates
 
         rates = load_all_rates(Path(project_root))
 

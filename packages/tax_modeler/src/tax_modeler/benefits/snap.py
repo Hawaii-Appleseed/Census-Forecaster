@@ -38,14 +38,13 @@ Reform DSL knobs (under ``Reform.benefit_overrides["snap"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import ConfigError
-
 
 # ---------------------------------------------------------------------------
 # Hawaii FY2024 USDA-FNS SNAP parameters (FY = Oct 2023 - Sep 2024)
@@ -129,7 +128,7 @@ def hawaii_snap_parameters() -> SnapParameters:
 
 
 def with_snap_overrides(
-    base: SnapParameters, overrides: Optional[Mapping[str, object]]
+    base: SnapParameters, overrides: Mapping[str, object] | None
 ) -> SnapParameters:
     """Apply Reform-DSL overrides to a SnapParameters baseline."""
     if not overrides:
@@ -219,8 +218,8 @@ def _compute_household_snap(
 def compute_snap_for_units(
     units: pd.DataFrame,
     *,
-    params: Optional[SnapParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: SnapParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "snap_amount",
     months: int = 12,
 ) -> pd.DataFrame:

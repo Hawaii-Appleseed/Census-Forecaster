@@ -19,11 +19,9 @@ amount.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-
 
 _DEFAULT_DONOR_PATH = (
     Path(__file__).resolve().parents[1]
@@ -57,7 +55,7 @@ def _aggregate_donor_families(donors_raw: pd.DataFrame) -> pd.DataFrame:
 def compute_work_expense_for_units(
     units: pd.DataFrame,
     *,
-    donor_path: Optional[Path] = None,
+    donor_path: Path | None = None,
     out_col: str = "work_expense_amount",
     income_col: str = "total_cash_income",
     earned_income_col: str = "earned_income",
@@ -124,7 +122,7 @@ def compute_work_expense_for_units(
     moop = np.full(len(out), global_mean, dtype=float)
     cell_lookup = cell.to_dict()
     earner_lookup = earner_mean.to_dict()
-    for i, (eb, ib) in enumerate(zip(earner_bin, inc_bin)):
+    for i, (eb, ib) in enumerate(zip(earner_bin, inc_bin, strict=False)):
         v = cell_lookup.get((eb, ib))
         if v is not None and not pd.isna(v):
             moop[i] = v

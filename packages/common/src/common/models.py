@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -151,7 +150,7 @@ class GeographySeries:
     @classmethod
     def from_observations(
         cls, geoid: str, indicator: str, obs: list[AcsObservation]
-    ) -> "GeographySeries":
+    ) -> GeographySeries:
         for o in obs:
             if o.geoid != geoid or o.indicator != indicator:
                 raise ValueError(
@@ -175,7 +174,7 @@ class GeographySeries:
         """5-year observations only, sorted by end year."""
         return [o for o in self.observations if o.vintage == "5y"]
 
-    def latest(self, vintage: Optional[str] = None) -> Optional[AcsObservation]:
+    def latest(self, vintage: str | None = None) -> AcsObservation | None:
         """Most recent observation (optionally filtered by vintage)."""
         pool = self.observations if vintage is None else [
             o for o in self.observations if o.vintage == vintage

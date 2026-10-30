@@ -10,14 +10,14 @@ to arbitrary ``n`` (deciles, percentiles, etc.) without code duplication.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Union
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
 
-ArrayLike = Union[np.ndarray, pd.Series, Sequence[float]]
+ArrayLike = np.ndarray | pd.Series | Sequence[float]
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ def decile_summary(
     weights: ArrayLike,
     *,
     n: int = 10,
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> pd.DataFrame:
     """Per-decile (or n-tile) weighted means, totals, and shares.
 

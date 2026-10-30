@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler.scenarios.reec_demand_validation import (
     compare_with_model,
     empirical_demand_factors,

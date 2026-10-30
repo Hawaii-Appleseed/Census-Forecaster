@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from lab.markets.client import MarketDataError, MonthlyBar
 from lab.markets.panel import PricesPanel
 from lab.markets.universe import TICKERS

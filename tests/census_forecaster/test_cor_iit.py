@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from census_forecaster.cor import (
     DATA_PATH,
     cor_source_url,

@@ -29,7 +29,7 @@ targets). Emitted intervals must be labelled accordingly.
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,7 @@ def compute_poverty_sdr(
     replicate_weight_cols: Sequence[str],
     scenarios: Sequence[str] = _DEFAULT_SCENARIOS,
     weight_col: str = "weight",
-    group_col: Optional[str] = None,
+    group_col: str | None = None,
     z: float = Z_90,
 ) -> pd.DataFrame:
     """SDR sampling SE + 90% CI for the headline poverty statistics.

@@ -56,9 +56,8 @@ Module layout
 from __future__ import annotations
 
 import logging
-import math
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +174,8 @@ class RevenueProjection:
     income_growth_factor: float
     revenue_growth_pct: float
     # B19082 top-quintile divergence (Phase H)
-    top_income_scale: Optional[float]
-    b19082_top_share_projected: Optional[float]
+    top_income_scale: float | None
+    b19082_top_share_projected: float | None
     # Audit: why the Phase H layer was/wasn't applied (default keeps existing
     # constructors valid; the projection function always sets it explicitly).
     b19082_status: str = "disabled"
@@ -190,12 +189,12 @@ def project_revenue_per_filer(
     target_year: int = 2026,
     geoid: str = DEFAULT_GEOID,
     method: str = DEFAULT_METHOD,
-    tax_fn: Optional[Callable[[float], float]] = None,
-    marginal_fn: Optional[Callable[[float], float]] = None,
-    conformal_quantiles: Optional[Sequence] = None,
-    anchor_year: Optional[int] = None,
+    tax_fn: Callable[[float], float] | None = None,
+    marginal_fn: Callable[[float], float] | None = None,
+    conformal_quantiles: Sequence | None = None,
+    anchor_year: int | None = None,
     use_b19082: bool = True,
-) -> Optional[RevenueProjection]:
+) -> RevenueProjection | None:
     """Project per-filer revenue to ``target_year`` using the bundled ACS panel.
 
     Steps
@@ -258,14 +257,15 @@ def project_revenue_per_filer(
         * the projected income is non-positive.
     """
     # --- lazy imports keep module importable without heavy deps at top-level ---
-    from census_forecaster.backtest.acs import DEFAULT_METHODS
     from census_forecaster.acs.projection import effective_year
+    from census_forecaster.backtest.acs import DEFAULT_METHODS
+
     from tax_modeler.projection.income_forecast import _load_b19013_series
     from tax_modeler.projection.revenue_backtest import _CONCENTRATION_TAX_FN
     from tax_modeler.projection.revenue_concentration import (
+        DOTAX_2022_MEDIAN_INCOME,
         concentration_marginal_fn,
         expected_revenue_per_filer,
-        DOTAX_2022_MEDIAN_INCOME,
     )
 
     fn = tax_fn or _CONCENTRATION_TAX_FN
@@ -332,8 +332,8 @@ def project_revenue_per_filer(
     income_se = fp.se_total
 
     # 4. B19082 top-quintile divergence (Phase H)
-    top_income_scale: Optional[float] = None
-    b19082_top_share_projected: Optional[float] = None
+    top_income_scale: float | None = None
+    b19082_top_share_projected: float | None = None
     if not use_b19082:
         b19082_status = "disabled"
     elif tax_fn is not None:
@@ -448,12 +448,12 @@ def project_revenue_per_filer(
 def project_revenue_2026(
     geoid: str = DEFAULT_GEOID,
     method: str = DEFAULT_METHOD,
-    tax_fn: Optional[Callable[[float], float]] = None,
-    marginal_fn: Optional[Callable[[float], float]] = None,
-    conformal_quantiles: Optional[Sequence] = None,
-    anchor_year: Optional[int] = None,
+    tax_fn: Callable[[float], float] | None = None,
+    marginal_fn: Callable[[float], float] | None = None,
+    conformal_quantiles: Sequence | None = None,
+    anchor_year: int | None = None,
     use_b19082: bool = True,
-) -> Optional[RevenueProjection]:
+) -> RevenueProjection | None:
     """Project per-filer revenue to 2026 — the tax model primary target year.
 
     Convenience wrapper for :func:`project_revenue_per_filer` with

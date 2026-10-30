@@ -46,9 +46,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -139,7 +139,7 @@ def _build_year_pairs(
         & set(int(y) for y in s1701.index)
     )
     pairs: list[dict] = []
-    irs_by_year = dict(zip(irs["year"].astype(int), irs["eitc_returns"]))
+    irs_by_year = dict(zip(irs["year"].astype(int), irs["eitc_returns"], strict=False))
     for i in range(len(common) - 1):
         y0, y1 = common[i], common[i + 1]
         if y1 - y0 != 1:
@@ -160,8 +160,8 @@ def _build_year_pairs(
 
 def calibrate_eitc_poverty_alpha(
     *,
-    irs_panel_path: Optional[Path] = None,
-    acs_panel_path: Optional[Path] = None,
+    irs_panel_path: Path | None = None,
+    acs_panel_path: Path | None = None,
     geoid: str = _HONOLULU_GEOID,
     vintage: str = "1y",
     exclude_pairs: Sequence[tuple[int, int]] = (
@@ -276,9 +276,9 @@ def calibrate_eitc_poverty_alpha(
         f"OLS log-space fit, no intercept (B19013 factor is the anchor). "
         f"n_year_pairs={len(pairs)}; "
         f"excluded_pairs={list(exclude_pairs) if exclude_pairs else []}.",
-        f"ARPA 2021 pair excluded by default — the one-time Rescue Plan "
-        f"EITC expansion (TY 2021 only) dominates the signal and biases "
-        f"α toward zero if included.",
+        "ARPA 2021 pair excluded by default — the one-time Rescue Plan "
+        "EITC expansion (TY 2021 only) dominates the signal and biases "
+        "α toward zero if included.",
         f"Geography: GEOID {geoid} (Honolulu County) as Hawaii state "
         f"proxy. ACS vintage: {vintage}.",
     ]
@@ -298,7 +298,7 @@ def calibrate_eitc_poverty_alpha(
 def write_calibration_artifact(
     cal: AlphaCalibration,
     *,
-    out_path: Optional[Path] = None,
+    out_path: Path | None = None,
 ) -> Path:
     """Write the JSON artifact at ``data/calibration/eitc_poverty_alpha.json``."""
     out_path = out_path or _DEFAULT_ARTIFACT_PATH

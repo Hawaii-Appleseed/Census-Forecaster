@@ -7,10 +7,9 @@ including state, county, PUMA, and legislative districts.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
+
+import pandas as pd
 
 
 @dataclass
@@ -31,7 +30,7 @@ class GeographicAnalyzer:
     statistics at state, county, PUMA, and legislative district levels.
     """
     
-    def __init__(self, tax_units_df: pd.DataFrame, puma_crosswalk: Optional[pd.DataFrame] = None):
+    def __init__(self, tax_units_df: pd.DataFrame, puma_crosswalk: pd.DataFrame | None = None):
         """
         Initialize the GeographicAnalyzer.
         
@@ -95,7 +94,7 @@ class GeographicAnalyzer:
         
         for name, group in self.tax_units_df.groupby(group_cols):
             if isinstance(name, tuple):
-                geo_dict = dict(zip(group_cols, name))
+                geo_dict = dict(zip(group_cols, name, strict=False))
             else:
                 geo_dict = {group_cols[0]: name}
             
@@ -131,7 +130,7 @@ class GeographicAnalyzer:
         
         return pd.DataFrame(results).sort_values(group_cols)
     
-    def _get_group_columns(self, level: str) -> List[str]:
+    def _get_group_columns(self, level: str) -> list[str]:
         """Get grouping columns for the specified geographic level."""
         if level == GeographicLevel.STATE:
             return ['state']
@@ -151,27 +150,27 @@ class GeographicAnalyzer:
         else:
             raise ValueError(f"Unknown geographic level: {level}")
     
-    def _weighted_sum(self, values: pd.Series, weights: Union[pd.Series, int]) -> float:
+    def _weighted_sum(self, values: pd.Series, weights: pd.Series | int) -> float:
         """Calculate weighted sum."""
         if hasattr(weights, '__len__') and len(weights) > 1:
             return (values * weights).sum()
         else:
             return values.sum()
     
-    def _weighted_mean(self, values: pd.Series, weights: Union[pd.Series, int]) -> float:
+    def _weighted_mean(self, values: pd.Series, weights: pd.Series | int) -> float:
         """Calculate weighted mean."""
         if hasattr(weights, '__len__') and len(weights) > 1:
             return (values * weights).sum() / weights.sum()
         else:
             return values.mean()
     
-    def _weighted_median(self, values: pd.Series, weights: Union[pd.Series, int]) -> float:
+    def _weighted_median(self, values: pd.Series, weights: pd.Series | int) -> float:
         """Calculate weighted median (approximation)."""
         # For simplicity, return regular median
         # In practice, would implement proper weighted median calculation
         return values.median()
     
-    def create_summary_report(self, levels: List[str] = None) -> Dict[str, pd.DataFrame]:
+    def create_summary_report(self, levels: list[str] = None) -> dict[str, pd.DataFrame]:
         """
         Create a comprehensive summary report for multiple geographic levels.
         
@@ -264,7 +263,7 @@ def create_hawaii_puma_crosswalk() -> pd.DataFrame:
 def analyze_ctc_by_all_levels(
     tax_units_df: pd.DataFrame, 
     include_districts: bool = False
-) -> Dict[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     """
     Convenience function to analyze CTC at all available geographic levels.
     

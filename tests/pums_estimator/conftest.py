@@ -7,9 +7,7 @@ from __future__ import annotations
 import csv
 
 import pytest
-
 from pums_estimator.models import PumsRecord
-
 
 # ---------------------------------------------------------------------------
 # Crosswalk fixtures

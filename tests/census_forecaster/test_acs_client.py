@@ -7,8 +7,7 @@ without internet should still be able to run them.
 import json
 
 import pytest
-
-from census_forecaster.acs.client import AcsClient, SUSPENDED_ONE_YEAR
+from census_forecaster.acs.client import SUSPENDED_ONE_YEAR, AcsClient
 
 
 class TestCacheBehavior:

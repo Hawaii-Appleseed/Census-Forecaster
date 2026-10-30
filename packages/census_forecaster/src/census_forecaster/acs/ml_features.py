@@ -39,13 +39,14 @@ strictly so the back-test harness gets honest hold-out residuals.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, NamedTuple, Optional, Sequence
+from typing import NamedTuple
 
 from common.models import AcsObservation
-from .projection import effective_year
 
+from .projection import effective_year
 
 # -----------------------------------------------------------------------------
 # Panel index
@@ -66,7 +67,7 @@ class PanelIndex:
     geoids: tuple[str, ...]
     state_fips_by_geoid: Mapping[str, int]
 
-    def get(self, geoid: str, indicator: str, year: int) -> Optional[float]:
+    def get(self, geoid: str, indicator: str, year: int) -> float | None:
         return self.estimate_by_key.get((geoid, indicator, year))
 
 
@@ -323,10 +324,10 @@ def state_columns() -> tuple[str, ...]:
 
 def build_panel_index(
     series_by_key: Mapping[tuple[str, str], Sequence[AcsObservation]],
-    county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
-    market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
+    county_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
+    market_data: Mapping[str, Mapping[int, float]] | None = None,
+    national_data: Mapping[str, Mapping[int, float]] | None = None,
+    state_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
 ) -> PanelIndex:
     """Build a PanelIndex from the calibration panel.
 
@@ -569,7 +570,7 @@ def make_feature_spec(target_indicator: str, panel: PanelIndex) -> FeatureSpec:
 # Population bucket boundaries — must match `strata.classify_pop`.
 # Repeated here to keep this module a clean dataflow leaf with no
 # back-edge into the calibration layer.
-_POP_BOUNDS: tuple[tuple[str, int, Optional[int]], ...] = (
+_POP_BOUNDS: tuple[tuple[str, int, int | None], ...] = (
     ("small",  0,        50_000),
     ("medium", 50_000,   200_000),
     ("large",  200_000,  1_000_000),
@@ -577,7 +578,7 @@ _POP_BOUNDS: tuple[tuple[str, int, Optional[int]], ...] = (
 )
 
 
-def _pop_one_hot(pop: Optional[float]) -> tuple[float, float, float, float]:
+def _pop_one_hot(pop: float | None) -> tuple[float, float, float, float]:
     """Return (small, medium, large, xlarge) one-hot tuple. All-zeros if missing."""
     if pop is None or not math.isfinite(pop) or pop < 0:
         return (0.0, 0.0, 0.0, 0.0)
@@ -608,7 +609,7 @@ def _build_row(
     anchor_year: int,
     horizon: int,
     spec: FeatureSpec,
-) -> Optional[list[float]]:
+) -> list[float] | None:
     """Build one feature row for (geoid, target_indicator, anchor_year, horizon).
 
     Returns ``None`` when the *required* lag-0 and lag-1 anchors are
@@ -752,7 +753,7 @@ def _build_row(
     for sspec in STATE_SERIES:
         sgeoid = _state_geoid(state_fips)
 
-        def _sv(back: int, _g: str = sgeoid, _sent: str = sspec.sentinel) -> Optional[float]:
+        def _sv(back: int, _g: str = sgeoid, _sent: str = sspec.sentinel) -> float | None:
             v = panel.get(_g, _sent, anchor_year - back)
             return float(v) if (v is not None and v > 0) else None
 
@@ -787,7 +788,7 @@ class TrainingMatrix:
     X: list[list[float]] = field(default_factory=list)
     y: list[float] = field(default_factory=list)
     meta: list[tuple[str, int, int, int]] = field(default_factory=list)
-    spec: Optional[FeatureSpec] = None
+    spec: FeatureSpec | None = None
 
 
 def make_training_rows(
@@ -845,7 +846,7 @@ def make_inference_row(
     anchor_year: int,
     horizon: int,
     spec: FeatureSpec,
-) -> Optional[list[float]]:
+) -> list[float] | None:
     """Build the single prediction-time feature row.
 
     Returns ``None`` when the anchor or anchor-1 are unavailable for this
@@ -864,7 +865,7 @@ def make_inference_row(
 
 def _load_values_by_geoid_year(
     subdir: str, filename: str,
-) -> Optional[dict[str, dict[int, float]]]:
+) -> dict[str, dict[int, float]] | None:
     """Load a ``values_by_geoid_year`` block from a bundled JSON file."""
     path = Path(__file__).parent.parent / "data" / subdir / filename
     if not path.exists():
@@ -897,7 +898,7 @@ def load_county_data() -> dict[str, dict[str, dict[int, float]]]:
 
 def _load_values_by_state_year(
     subdir: str, filename: str,
-) -> Optional[dict[str, dict[int, float]]]:
+) -> dict[str, dict[int, float]] | None:
     """Load a ``values_by_state_year`` block from a bundled JSON file.
 
     State keys are normalised to zero-padded 2-digit FIPS strings so a
@@ -933,7 +934,7 @@ def load_state_data() -> dict[str, dict[str, dict[int, float]]]:
     return out
 
 
-def load_market_signals_data() -> Optional[dict[str, dict[int, float]]]:
+def load_market_signals_data() -> dict[str, dict[int, float]] | None:
     """Load annual market signals from the bundled leading-indicator JSON.
 
     Returns ``{signal_name → {year → value}}`` (names like
@@ -958,7 +959,7 @@ def load_market_signals_data() -> Optional[dict[str, dict[int, float]]]:
     }
 
 
-def load_national_macro_data() -> Optional[dict[str, dict[int, float]]]:
+def load_national_macro_data() -> dict[str, dict[int, float]] | None:
     """Load the national-macro registry series as ``{name → {year → level}}``.
 
     Reads ``data/leading_indicators/national_macro.json`` (``series`` block;

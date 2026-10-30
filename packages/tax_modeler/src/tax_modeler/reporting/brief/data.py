@@ -17,8 +17,14 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[6]
 
 # Brand palette (Hawaii Appleseed) — single-sourced in reporting.palette.
-from tax_modeler.reporting.palette import (  # noqa: E402
-    CHARCOAL, GOLD, LIGHT_GRAY, LIGHT_TEAL, SLATE, TEAL, WHITE,
+from tax_modeler.reporting.palette import (  # noqa: E402, F401 - re-exported: charts.py imports these from here
+    CHARCOAL,
+    GOLD,
+    LIGHT_GRAY,
+    LIGHT_TEAL,
+    SLATE,
+    TEAL,
+    WHITE,
 )
 
 TIER_PREFERENCE = [

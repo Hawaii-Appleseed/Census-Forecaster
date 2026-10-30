@@ -26,7 +26,10 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
 from _forecast_common import (  # noqa: E402
-    TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
+    TARGET_YEARS,
+    load_cached_units,
+    parse_cd_args,
+    silence_noise,
 )
 
 if __name__ == "__main__":
@@ -38,16 +41,19 @@ if __name__ == "__main__":
 
     try:
         import time
+
         import pandas as pd
 
         print(f"SB 3125 CD{CD} fiscal-impact forecast", flush=True)
         print("Importing modules...", flush=True)
         from tax_modeler.base import build_calibrated_base
+        from tax_modeler.config.tax_system_config import (
+            TaxCalculator,
+            TaxSystemRegistry,
+            compare_systems,
+        )
         from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
-        from tax_modeler.config.tax_system_config import (
-            TaxCalculator, TaxSystemRegistry, compare_systems,
-        )
         from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
 
         wall_start = time.perf_counter()
@@ -63,7 +69,8 @@ if __name__ == "__main__":
 
         # ---- Top-income synthesis ------------------------------------------
         from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers, validate_top_synthesis,
+            synthesize_top_filers,
+            validate_top_synthesis,
         )
         t0 = time.perf_counter()
         print("Synthesizing top-income ($1M+) filers...", flush=True)
@@ -140,7 +147,7 @@ if __name__ == "__main__":
                 base_results = []
                 scen_results = []
                 for inc, fs, ndep in zip(proj["income"], proj["filing_status"],
-                                         proj.get("num_dependents", [0]*len(proj))):
+                                         proj.get("num_dependents", [0]*len(proj)), strict=False):
                     b = calc.calculate_tax(inc, baseline_cfg, fs, num_exemptions=int(ndep)+1)
                     s = calc.calculate_tax(inc, scenario_cfg, fs, num_exemptions=int(ndep)+1)
                     base_results.append(b["tax_liability"])
@@ -178,8 +185,8 @@ if __name__ == "__main__":
 
         print("\n" + "=" * 110, flush=True)
         print(f"SB 3125 CD{CD} FISCAL IMPACT ($ millions, vs. Act 46 baseline)", flush=True)
-        print(f"  REEC demand scenario: obbba_mid (SEIA-anchored, Hawaii-tempered)", flush=True)
-        print(f"  Top-income synthesis: Pareto alpha=1.5, target 1,704 filers / $441M tax (DOTAX TY2023)", flush=True)
+        print("  REEC demand scenario: obbba_mid (SEIA-anchored, Hawaii-tempered)", flush=True)
+        print("  Top-income synthesis: Pareto alpha=1.5, target 1,704 filers / $441M tax (DOTAX TY2023)", flush=True)
         print("=" * 110, flush=True)
         print(df.to_string(index=False), flush=True)
         print("\nNote: positive total_impact_$M = revenue gained for the State", flush=True)

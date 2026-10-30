@@ -44,16 +44,12 @@ from __future__ import annotations
 
 import math
 import sys
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Mapping, Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, combine_se, ci_from_se
-from .projection import (
-    ANNUAL_RATE_CAP,
-    EMPIRICAL_SE_INFLATOR,
-    effective_year,
-)
+from common.moe import ci_from_se, combine_se, moe_to_se
+
 from .ml_features import (
     FeatureSpec,
     PanelIndex,
@@ -63,11 +59,14 @@ from .ml_features import (
     load_market_signals_data,
     load_national_macro_data,
     load_state_data,
-    make_feature_spec,
     make_inference_row,
     make_training_rows,
 )
-
+from .projection import (
+    ANNUAL_RATE_CAP,
+    EMPIRICAL_SE_INFLATOR,
+    effective_year,
+)
 
 # Method label used throughout the codebase (calibration strata, ensemble
 # notes, etc.). Kept separate from "lgbm_trend" in the original plan to
@@ -141,12 +140,12 @@ def train_ml_model(
     indicator: str,
     cutoff_year: int,
     horizons: Sequence[int] = (1, 2, 3, 4, 5),
-    panel: Optional[PanelIndex] = None,
-    county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
-    market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
-) -> Optional[TrainedMlModel]:
+    panel: PanelIndex | None = None,
+    county_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
+    market_data: Mapping[str, Mapping[int, float]] | None = None,
+    national_data: Mapping[str, Mapping[int, float]] | None = None,
+    state_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
+) -> TrainedMlModel | None:
     """Fit one HGB model for one (indicator, cutoff_year).
 
     Returns None when (a) sklearn is unavailable, (b) the training matrix
@@ -199,7 +198,7 @@ def train_ml_model(
     preds = est.predict(X)
     residuals = y - preds  # shape (n_train,)
     by_h: dict[int, list[float]] = {}
-    for resid, (_g, _a, _t, h) in zip(residuals, matrix.meta):
+    for resid, (_g, _a, _t, h) in zip(residuals, matrix.meta, strict=False):
         by_h.setdefault(int(h), []).append(float(resid))
 
     std_by_h: dict[int, float] = {}
@@ -255,7 +254,7 @@ def project_ml_trend(
     model: TrainedMlModel,
     panel: PanelIndex,
     populations: Mapping[str, int],
-) -> Optional[ForecastPoint]:
+) -> ForecastPoint | None:
     """Predict the target year for a single (geoid, indicator) using the trained HGB.
 
     Mirrors the public surface of ``project_damped_trend`` — takes a list
@@ -389,14 +388,14 @@ def project_ml_trend_one_shot(
     populations: Mapping[str, int],
     series_observations: Sequence[AcsObservation],
     target_year: int,
-    cutoff_year: Optional[int] = None,
-    model_cache: Optional[dict[tuple[str, int], TrainedMlModel]] = None,
-    panel: Optional[PanelIndex] = None,
-    county_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
-    market_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    national_data: Optional[Mapping[str, Mapping[int, float]]] = None,
-    state_data: Optional[Mapping[str, Mapping[str, Mapping[int, float]]]] = None,
-) -> Optional[ForecastPoint]:
+    cutoff_year: int | None = None,
+    model_cache: dict[tuple[str, int], TrainedMlModel] | None = None,
+    panel: PanelIndex | None = None,
+    county_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
+    market_data: Mapping[str, Mapping[int, float]] | None = None,
+    national_data: Mapping[str, Mapping[int, float]] | None = None,
+    state_data: Mapping[str, Mapping[str, Mapping[int, float]]] | None = None,
+) -> ForecastPoint | None:
     """One-shot: train (or fetch cached) model and produce a forecast.
 
     Used by the ensemble combiner and the back-test harness so callers
@@ -427,7 +426,7 @@ def project_ml_trend_one_shot(
         cutoff_year = int(round(effective_year(series_observations[-1])))
 
     cache_key = (indicator, cutoff_year)
-    model: Optional[TrainedMlModel] = None
+    model: TrainedMlModel | None = None
     if model_cache is not None:
         model = model_cache.get(cache_key)
     if model is None:

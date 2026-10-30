@@ -13,14 +13,14 @@ units below the threshold weighted by the supplied population weights.
 """
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
 
-ArrayLike = Union[np.ndarray, pd.Series, Sequence[float]]
+ArrayLike = np.ndarray | pd.Series | Sequence[float]
 
 
 def _to_arrays(

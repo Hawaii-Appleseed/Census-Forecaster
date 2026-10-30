@@ -21,10 +21,9 @@ shortcut on this loader.
 from __future__ import annotations
 
 import logging
-import pandas as pd
 from pathlib import Path
-from typing import Optional, Tuple, Dict, List
-import numpy as np
+
+import pandas as pd
 
 from tax_modeler.errors import MissingDataError
 
@@ -112,7 +111,7 @@ class PUMSDataLoader:
         self._batch_offset = 0
         self._total_households = None
         # Cache for parquet household files (avoids re-reading on each batch call)
-        self._parquet_cache: Dict[str, pd.DataFrame] = {}
+        self._parquet_cache: dict[str, pd.DataFrame] = {}
 
         # Column renames between PUMS vintages (2024 renamed ST → STATE)
         self._column_renames = {
@@ -272,7 +271,7 @@ class PUMSDataLoader:
 
     def load_persons_for_households(
         self,
-        serialnos: List[str],
+        serialnos: list[str],
         state: str = DEFAULT_STATE,
         pums_type: str = DEFAULT_PUMS_TYPE,
     ) -> pd.DataFrame:
@@ -330,9 +329,9 @@ class PUMSDataLoader:
         self,
         year: int = DEFAULT_PUMS_YEAR,
         state: str = DEFAULT_STATE,
-        sample_size: Optional[int] = None,
+        sample_size: int | None = None,
         pums_type: str = DEFAULT_PUMS_TYPE,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Load and process PUMS data for the specified year and state.
 
         Returns:
@@ -433,8 +432,8 @@ class PUMSDataLoader:
 def load_pums_data(
     year: int = DEFAULT_PUMS_YEAR,
     state: str = DEFAULT_STATE,
-    sample_size: Optional[int] = None,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    sample_size: int | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Convenience function to load PUMS data.
 
     Returns:
