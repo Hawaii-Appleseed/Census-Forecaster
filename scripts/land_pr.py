@@ -37,7 +37,16 @@ def _run(*cmd: str, check: bool = True) -> subprocess.CompletedProcess:
 
 def _pr(number: int) -> dict:
     return json.loads(_run("gh", "pr", "view", str(number), "--repo", GH_REPO, "--json",
-                           "state,headRefName,mergeCommit,files").stdout)
+                           "state,headRefName,mergeCommit").stdout)
+
+
+def _pr_files(number: int) -> list[str]:
+    """Every file the PR changes. ``gh pr view --json files`` stops at 100, so on a big PR the
+    ``site/`` files can be missing from it and the deploy check is silently skipped; the REST
+    endpoint is paged, and ``--paginate`` reads every page."""
+    out = _run("gh", "api", "--paginate", f"repos/{GH_REPO}/pulls/{number}/files",
+               "--jq", ".[].filename").stdout
+    return out.splitlines()
 
 
 def _merge(number: int) -> None:
@@ -127,7 +136,7 @@ def main() -> int:
     sha = pr["mergeCommit"]["oid"]
     _run("git", "fetch", "-q", "origin")
 
-    site_files = [f["path"] for f in pr["files"] if f["path"].startswith("site/")]
+    site_files = [path for path in _pr_files(args.number) if path.startswith("site/")]
     ok = True
     if site_files:
         _wait_for_pages(sha)
