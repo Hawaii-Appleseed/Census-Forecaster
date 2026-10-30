@@ -84,6 +84,11 @@ def code_closure(*entries: str | Path) -> list[Path] | None:
     way — the methods of an object the caller passes in, a class a pickle
     names — is the caller's to list in *entries*; :func:`closure_guard`
     catches what is imported while the step runs.
+
+    A package whose ``__init__`` loads its exports lazily (a ``_LAZY`` dict
+    of name -> module, read by ``__getattr__``) is followed through that map:
+    ``from pkg import X`` and ``pkg.X`` (on a name bound by an import) count
+    as importing ``_LAZY["X"]``, and ``pkg.sub`` as importing ``pkg.sub``.
     """
     import ast
 
@@ -97,22 +102,74 @@ def code_closure(*entries: str | Path) -> list[Path] | None:
             name = name.rpartition(".")[0]
         return None
 
+    def absolute(package: str, level: int, module: str | None) -> str:
+        if not level:
+            return module or ""
+        up = package.split(".")[:len(package.split(".")) - (level - 1)]
+        return ".".join(up + ([module] if module else []))
+
+    def lazy_map(name: str, tree) -> dict[str, str] | None:
+        """A package ``__init__``'s ``_LAZY`` map, with absolute module names."""
+        for node in tree.body:
+            if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                    and getattr(node.targets[0], "id", None) == "_LAZY"
+                    and isinstance(node.value, ast.Dict)):
+                return {k.value: absolute(name, len(v.value) - len(v.value.lstrip(".")),
+                                          v.value.lstrip(".") or None)
+                        for k, v in zip(node.value.keys, node.value.values, strict=True)}
+        return None
+
+    trees = {}
+
+    def tree_of(name: str):
+        if name not in trees:
+            f = mods[name]
+            trees[name] = ast.parse(f.read_bytes(), filename=str(f))
+        return trees[name]
+
+    lazy = {m: lm for m, f in mods.items() if f.name == "__init__.py" and b"_LAZY" in f.read_bytes()
+            and (lm := lazy_map(m, tree_of(m))) is not None}
+
+    def expand(dotted: str) -> set[str]:
+        """*dotted*, plus the module a lazy package's ``_LAZY`` maps a name in it to."""
+        parts = dotted.split(".")
+        out = {dotted}
+        for i in range(1, len(parts)):
+            target = lazy.get(".".join(parts[:i]), {}).get(parts[i])
+            if target:
+                out.add(target)
+        return out
+
     def imports(name: str) -> set[str] | None:
         f = mods[name]
-        tree = ast.parse(f.read_bytes(), filename=str(f))
+        tree = tree_of(name)
         package = name if f.name == "__init__.py" else name.rpartition(".")[0]
         out: set[str] = set()
+        bound: dict[str, str] = {}   # local name -> the module an import bound it to
+        lazy_getattr = set()         # nodes of a lazy package's own __getattr__
+        if name in lazy:
+            for node in tree.body:
+                if isinstance(node, ast.FunctionDef) and node.name == "__getattr__":
+                    lazy_getattr.update(ast.walk(node))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                out.update(a.name for a in node.names)
+                for a in node.names:
+                    out.add(a.name)
+                    if a.asname:
+                        bound[a.asname] = a.name
+                    else:
+                        top = a.name.split(".")[0]
+                        bound[top] = top
             elif isinstance(node, ast.ImportFrom):
-                base = node.module or ""
-                if node.level:
-                    up = package.split(".")[:len(package.split(".")) - (node.level - 1)]
-                    base = ".".join(up + ([base] if base else []))
+                base = absolute(package, node.level, node.module)
                 out.add(base)
-                out.update(f"{base}.{a.name}" for a in node.names)
-            elif isinstance(node, ast.Call):
+                for a in node.names:
+                    if a.name == "*":
+                        out.update(lazy.get(base, {}).values())
+                        continue
+                    out |= expand(f"{base}.{a.name}")
+                    bound[a.asname or a.name] = f"{base}.{a.name}"
+            elif isinstance(node, ast.Call) and node not in lazy_getattr:
                 fn = node.func
                 called = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
                 if called in ("import_module", "__import__"):
@@ -122,6 +179,16 @@ def code_closure(*entries: str | Path) -> list[Path] | None:
                     out.add(arg.value)
                 elif called in ("spec_from_file_location", "run_path", "run_module", "exec"):
                     return None
+        # pkg.X on a name an import bound: X may be a lazy export or a submodule
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                attrs = []
+                base = node
+                while isinstance(base, ast.Attribute):
+                    attrs.append(base.attr)
+                    base = base.value
+                if isinstance(base, ast.Name) and base.id in bound:
+                    out |= expand(".".join([bound[base.id], *reversed(attrs)]))
         return out
 
     todo = []
