@@ -1,0 +1,45 @@
+{
+ "source": {
+  "title": "Tax Credits Claimed by Hawaiʻi Taxpayers, Tables A-1 and A-2",
+  "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research & Planning",
+  "files": {
+   "2022": {
+    "file": "2022credit_tables.xlsx",
+    "sha256": "eedfa2c02d70cabed8c0d156a83ab7d155b8cb01f92a0a5303a9d412ed87b892",
+    "url": "https://files.hawaii.gov/tax/stats/stats/credits/archive/2022credit_tables.xlsx"
+   },
+   "2023": {
+    "file": "2023credit_tables.xlsx",
+    "sha256": "cbab7ed28e5f2d3bf0f29708553b1539709ffef831821b39f5a6fc7931bf9fba",
+    "url": "https://files.hawaii.gov/tax/stats/stats/credits/2023credit_tables.xlsx"
+   }
+  },
+  "note": "Dollars are the printed Table A-1 cells, in thousands of dollars; claims are Table A-2. Both credits are claimed by individuals only, so the ALL and Individuals columns are equal."
+ },
+ "credits": {
+  "eitc": "Earned Income Tax Credit",
+  "food_excise": "Refundable Food/Excise Tax Credit"
+ },
+ "years": {
+  "2022": {
+   "eitc": {
+    "dollars_k": 19786.0,
+    "claims": 60903.0
+   },
+   "food_excise": {
+    "dollars_k": 24961.0,
+    "claims": 208786.0
+   }
+  },
+  "2023": {
+   "eitc": {
+    "dollars_k": 77054.16,
+    "claims": 84470.0
+   },
+   "food_excise": {
+    "dollars_k": 63957.442,
+    "claims": 249806.0
+   }
+  }
+ }
+}
