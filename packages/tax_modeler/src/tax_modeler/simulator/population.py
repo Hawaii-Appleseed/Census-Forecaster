@@ -77,8 +77,11 @@ class Population:
 # building
 # ---------------------------------------------------------------------------
 
-def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...]) -> dict:
-    """Build one scenario's units and project them to every year (picklable)."""
+def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...],
+                     store_at: tuple[str, str] | None = None) -> dict:
+    """Build one scenario's units and project them to every year (picklable).
+    ``store_at`` is a population store's (directory, key): MID, which the
+    Act 24 run already built and projected, is loaded from it."""
     import logging
     import warnings
     warnings.filterwarnings("ignore")
@@ -88,14 +91,21 @@ def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...]) -> 
     from tax_modeler.scenarios.act24_population import build_units, project_units
 
     sc = SCENARIOS[key]
-    base, ded_params, meta = load_calibrated_base(calibrated_path)
+    store = None
+    if store_at is not None and key == "mid":
+        from tax_modeler.scenarios.population_store import PopulationStore
+        store = PopulationStore(*store_at)
+        base, ded_params, meta = store.base(calibrated_path)
+    else:
+        base, ded_params, meta = load_calibrated_base(calibrated_path)
     units, tail_k = build_units(base, alpha=sc.alpha, top_premium=sc.top_premium,
                                 ded_params=ded_params,
-                                cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True)
+                                cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True,
+                                store=store)
     out = {"units": units, "tail_k": tail_k, "years": {},
            "calibrated_meta": {k: v for k, v in meta.items() if k != "deduction_params"}}
     for y in years:
-        out["years"][y] = project_units(units, year=y, top_premium=sc.top_premium)
+        out["years"][y] = project_units(units, year=y, top_premium=sc.top_premium, store=store)
     return out
 
 
@@ -116,8 +126,11 @@ def _household_quintiles(projected: pd.DataFrame, breaks: np.ndarray, year: int)
     return pu_sorted.groupby("hh_id", observed=True)["quintile"].first()
 
 
-def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = None) -> Population:
-    """Build the scoring population from the calibrated base (a few minutes)."""
+def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = None,
+                     store_at: tuple[str, str] | None = None) -> Population:
+    """Build the scoring population from the calibrated base (a few minutes).
+    ``store_at``: a population store's (directory, key) to share MID with
+    the Act 24 run (see ``_scenario_worker``)."""
     from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
 
     from tax_modeler.parallel import forking, process_pool
@@ -127,7 +140,8 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     # process's imports (process_pool).
     with process_pool(max_workers or len(keys)) as pool:
         with forking():
-            futures = {k: pool.submit(_scenario_worker, str(calibrated_path), k, tuple(years))
+            futures = {k: pool.submit(_scenario_worker, str(calibrated_path), k, tuple(years),
+                                      store_at)
                        for k in keys}
         built = {k: f.result() for k, f in futures.items()}
 

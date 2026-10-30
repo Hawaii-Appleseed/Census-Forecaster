@@ -22,6 +22,11 @@ The steps run with Python's bytecode cache on, kept under
 off (``PYTHONDONTWRITEBYTECODE``): otherwise every step recompiles pandas,
 numpy, scipy and the model from source, about a second per process.
 
+The steps of a stage share the cores: unless ``CF_MAX_WORKERS`` is set, each
+gets ``cores // steps in the stage`` (at least 2) for its forked workers
+(``tax_modeler.parallel.fork_map``), instead of each forking one worker per
+year at once.
+
 Each step's output goes to ``runs/chain_logs/<step>.log``. A failed step stops
 the chain before the next stage. Importing the runs into the site is left to
 ``scripts/build_site.py --import-runs`` (see its docstring), so publishing
@@ -59,11 +64,18 @@ def _env() -> dict[str, str]:
     return env
 
 
+def _stage_env(env: dict[str, str], n_steps: int) -> dict[str, str]:
+    if "CF_MAX_WORKERS" in os.environ:
+        return env
+    return {**env, "CF_MAX_WORKERS": str(max(2, (os.cpu_count() or 1) // n_steps))}
+
+
 def main(stages: list[list[list[str]]] = STAGES) -> int:
     LOGS.mkdir(parents=True, exist_ok=True)
-    env = _env()
+    base_env = _env()
     t_all = time.perf_counter()
     for stage in stages:
+        env = _stage_env(base_env, len(stage))
         procs = []
         for cmd in stage:
             log = open(LOGS / f"{_name(cmd)}.log", "w")  # noqa: SIM115 (open while the step runs)

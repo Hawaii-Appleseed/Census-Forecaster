@@ -89,6 +89,18 @@ def fingerprint(*parts) -> str:
     return h.hexdigest()
 
 
+POPULATION_DIR = ARTIFACT_DIR / "populations"
+
+
+def population_store():
+    """The chain's shared populations for the current calibrated base
+    (``tax_modeler.scenarios.population_store``), keyed by the model code and
+    the calibrated-base pickle, which step 1 rewrites on every run."""
+    from tax_modeler.scenarios.population_store import PopulationStore
+
+    return PopulationStore(POPULATION_DIR, fingerprint(CALIBRATED_PKL))
+
+
 def silence_noise() -> None:
     """Suppress library warnings/log spam in analytical script output."""
     warnings.filterwarnings("ignore")

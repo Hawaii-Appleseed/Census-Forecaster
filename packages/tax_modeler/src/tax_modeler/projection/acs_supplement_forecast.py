@@ -103,6 +103,18 @@ class AcsSupplement:
 # ---------------------------------------------------------------------------
 
 
+@functools.cache
+def acs_panel() -> dict:
+    """The bundled ACS calibration panel (``acs_panel.json``), parsed once per
+    process; callers only read it. Every series loader used to re-parse the
+    3.2 MB file on each call."""
+    panel_path = (
+        files("census_forecaster") / "data" / "calibration_panel" / "acs_panel.json"
+    )
+    with panel_path.open() as fh:
+        return json.load(fh)
+
+
 @functools.lru_cache(maxsize=32)
 def _load_acs_series(geoid: str, indicator: str) -> tuple:
     """Load and cache an ACS indicator series for ``geoid`` from the bundled panel.
@@ -112,11 +124,7 @@ def _load_acs_series(geoid: str, indicator: str) -> tuple:
     """
     from common.models import AcsObservation
 
-    panel_path = (
-        files("census_forecaster") / "data" / "calibration_panel" / "acs_panel.json"
-    )
-    with panel_path.open() as fh:
-        panel = json.load(fh)
+    panel = acs_panel()
 
     obs = [
         AcsObservation(

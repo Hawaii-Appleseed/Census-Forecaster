@@ -201,7 +201,8 @@ CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors
                       "scenario), statutory alternative tax (HRS §235-51(f))")
 
 
-def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None):
+def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None,
+                     shared=False):
     """Top-level worker (must be picklable) for the scenario process pool.
 
     The pool (``tax_modeler.parallel.process_pool``) forks its workers where
@@ -209,20 +210,28 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains
     they are spawned, which relies on ``tax_modeler`` being installed in the
     new interpreter (it is when launched under ``uv run`` or after
     ``uv pip install -e``). Either way the worker reads the calibrated base
-    from the pickle.
+    from the pickle. ``shared`` builds and projects through the chain's
+    population store (``_forecast_common.population_store``), for the
+    population other steps build again (MID).
     """
     from tax_modeler.artifacts import load_calibrated_base
-    base, ded_params, meta = load_calibrated_base(calibrated_path)
+    store = None
+    if shared:
+        from _forecast_common import population_store
+        store = population_store()
+        base, ded_params, meta = store.base(calibrated_path)
+    else:
+        base, ded_params, meta = load_calibrated_base(calibrated_path)
     return run_one_scenario(
         base, scenario=scenario_dict, target_years=target_years, cd=cd,
         ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
-        gains_factors=gains_factors,
+        gains_factors=gains_factors, store=store,
     )
 
 
 def run_one_scenario(
     base_calibrated, *, scenario, target_years, cd="1",
-    ded_params=None, cal_tax_year=2023, gains_factors=None,
+    ded_params=None, cal_tax_year=2023, gains_factors=None, store=None,
 ):
     """Run a single scenario across all target years and return per-year rows.
 
@@ -300,7 +309,7 @@ def run_one_scenario(
     # with this scenario's premium. Shared with the tax simulator's population
     # (tax_modeler.scenarios.act24_population).
     units, tail_k = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
-                                ded_params=ded_params, cal_tax_year=cal_tax_year)
+                                ded_params=ded_params, cal_tax_year=cal_tax_year, store=store)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
           f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2023 tax, "
@@ -329,7 +338,7 @@ def run_one_scenario(
         #      only), then re-scoring every unit whose income those changed
         #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes").
         projected = project_units(units, year=year, top_premium=top_premium,
-                                  macro_shock=macro_shock)
+                                  macro_shock=macro_shock, store=store)
         # 2b) Capital gains on the DOTAX-anchored base (MID's factors).
         if gains_factors is not None:
             projected = apply_anchor_factors(projected, gains_factors[year])
@@ -525,11 +534,17 @@ if __name__ == "__main__":
         # with MID's factors (act24_population.mid_gains_factors), as the tax
         # simulator does.
         from tax_modeler.scenarios.act24_population import mid_gains_factors
+        from _forecast_common import population_store
+        # The MID populations here are built and projected again by the
+        # scenario worker, the pre-Act-46 run and the simulator: build them
+        # once, from the pickle every step reads, in the shared store.
+        STORE = population_store()
+        shared_base, _, _ = STORE.base(calibrated_pkl)
         _mid = next(s for s in SCENARIOS if s["label"] == "MID")
         print("Anchoring capital gains to DOTAX on the MID population...", flush=True)
         GAINS_FACTORS = mid_gains_factors(
-            calibrated_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
-            ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS)
+            shared_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
+            ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS, store=STORE)
 
         # Parallel: run all four scenarios concurrently, each in a worker
         # that reads the calibrated pickle. The workers are forked where the
@@ -548,7 +563,7 @@ if __name__ == "__main__":
         with forking():
             futures = {
                 pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                            GAINS_FACTORS): sc["label"]
+                            GAINS_FACTORS, sc["label"] == "MID"): sc["label"]
                 for sc in SCENARIOS
             }
 
@@ -574,9 +589,10 @@ if __name__ == "__main__":
         # enrich=True adds total_cash_income for TCI quintile binning.
         from tax_modeler.calibration.cg_anchor import apply_anchor_factors
         from tax_modeler.scenarios.act24_population import build_units, project_units, statute
-        q_units, _ = build_units(calibrated_base, alpha=mid_sc["alpha"],
+        q_units, _ = build_units(shared_base, alpha=mid_sc["alpha"],
                                  top_premium=mid_sc["top_premium"],
-                                 ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True)
+                                 ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True,
+                                 store=STORE)
 
         # Anchor quintile boundaries to the 2026 base-year income distribution
         # so Q1–Q5 membership is fixed across all projection years.
@@ -590,7 +606,7 @@ if __name__ == "__main__":
 
         for yr in TARGET_YEARS:
             projected_q = apply_anchor_factors(
-                project_units(q_units, year=yr, top_premium=mid_sc["top_premium"]),
+                project_units(q_units, year=yr, top_premium=mid_sc["top_premium"], store=STORE),
                 GAINS_FACTORS[yr])
 
             base_cfg = statute(TaxSystemRegistry.get_act46_system)(yr)
