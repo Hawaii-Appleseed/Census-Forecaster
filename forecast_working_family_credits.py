@@ -103,6 +103,10 @@ DOTAX = {
 EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
 
 
+# The code load_population's build runs, for its cache key (_forecast_common.code_closure).
+BUILD_CODE = ("poverty_impact_report", "tax_modeler.pipeline")
+
+
 def load_population():
     """The tax units and persons, from a cache when its inputs are unchanged.
 
@@ -116,11 +120,12 @@ def load_population():
     """
     import pickle
 
-    from _forecast_common import ARTIFACT_DIR, fingerprint
+    from _forecast_common import ARTIFACT_DIR, closure_guard, fingerprint
 
     cache = ARTIFACT_DIR / "working_family_units.pkl"
     key_path = cache.with_suffix(".key")
-    key = fingerprint(PUMS_DIR, REPO / "scripts" / "poverty_impact_report.py", Path(__file__))
+    key = fingerprint(PUMS_DIR, REPO / "scripts" / "poverty_impact_report.py", Path(__file__),
+                      code=BUILD_CODE)
     if cache.exists() and key_path.exists() and key_path.read_text().strip() == key:
         with open(cache, "rb") as f:
             units, persons, np_state = pickle.load(f)
@@ -131,8 +136,9 @@ def load_population():
     import poverty_impact_report as pir
     from tax_modeler.pipeline import enrich_with_spm_unit_id
 
-    units, persons = pir._load_units(PUMS_DIR, False, with_replicate_weights=True)
-    units, persons = enrich_with_spm_unit_id(units, persons)
+    with closure_guard(BUILD_CODE):
+        units, persons = pir._load_units(PUMS_DIR, False, with_replicate_weights=True)
+        units, persons = enrich_with_spm_unit_id(units, persons)
     key_path.unlink(missing_ok=True)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(".tmp")

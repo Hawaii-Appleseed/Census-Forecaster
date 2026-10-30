@@ -10,9 +10,10 @@ import logging
 import os
 import sys
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
 
-REPO = Path(__file__).parent
+REPO = Path(__file__).resolve().parent
 
 # Raw PUMS location (only needed when rebuilding the tax-unit cache).
 #
@@ -51,15 +52,152 @@ def cache_provenance() -> dict | None:
         return json.load(f)
 
 
-def fingerprint(*parts) -> str:
-    """A sha256 key for a cached step output: every file under each workspace
-    package's ``src`` (``tax_modeler`` and the ``census_forecaster``,
-    ``pums_estimator`` and ``common`` code it calls), the Python, numpy and
-    pandas versions, and *parts* — Paths (a file's bytes, a directory's
-    files), bytes, or anything ``json.dumps`` takes. Hashing whole packages,
-    not the modules a step imports, means any model change misses every
-    cache: slower, never stale. (Until 2026-10-29 only ``tax_modeler`` was
-    hashed, so a change in the packages it imports kept a stale cache.)
+# The narrow cache key (fingerprint(code=...)); CF_NARROW_FINGERPRINT=0 hashes the whole packages.
+NARROW_FINGERPRINT = os.environ.get("CF_NARROW_FINGERPRINT", "1") != "0"
+
+
+def _workspace_modules() -> dict[str, Path]:
+    """Every importable workspace module, by dotted name: the packages under
+    ``packages/*/src``, the root scripts and ``scripts/*.py`` (the steps put
+    both directories on ``sys.path``)."""
+    mods: dict[str, Path] = {}
+    for f in sorted(REPO.glob("*.py")) + sorted((REPO / "scripts").glob("*.py")):
+        mods.setdefault(f.stem, f.resolve())
+    for src in sorted((REPO / "packages").glob("*/src")):
+        for f in sorted(src.rglob("*.py")):
+            parts = f.relative_to(src).with_suffix("").parts
+            mods[".".join(parts[:-1] if parts[-1] == "__init__" else parts)] = f.resolve()
+    return mods
+
+
+def code_closure(*entries: str | Path) -> list[Path] | None:
+    """The source files of every workspace module *entries* (dotted module
+    names, or script Paths) can import, or None if one of them imports code
+    in a way this cannot follow.
+
+    It reads the source, it does not run it, and errs toward too much: an
+    import anywhere in a file counts (inside a function, under
+    ``TYPE_CHECKING``), as do the ``__init__`` of each package on the way and,
+    for ``from a import b``, both ``a`` and ``a.b``. ``importlib.import_module``
+    or ``__import__`` with a non-literal name, ``spec_from_file_location``,
+    ``runpy`` and ``exec`` make it give up. Code that reaches a step some other
+    way — the methods of an object the caller passes in, a class a pickle
+    names — is the caller's to list in *entries*; :func:`closure_guard`
+    catches what is imported while the step runs.
+    """
+    import ast
+
+    mods = _workspace_modules()
+    by_file = {f: m for m, f in mods.items()}
+
+    def resolve(name: str) -> str | None:
+        while name:
+            if name in mods:
+                return name
+            name = name.rpartition(".")[0]
+        return None
+
+    def imports(name: str) -> set[str] | None:
+        f = mods[name]
+        tree = ast.parse(f.read_bytes(), filename=str(f))
+        package = name if f.name == "__init__.py" else name.rpartition(".")[0]
+        out: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                out.update(a.name for a in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                base = node.module or ""
+                if node.level:
+                    up = package.split(".")[:len(package.split(".")) - (node.level - 1)]
+                    base = ".".join(up + ([base] if base else []))
+                out.add(base)
+                out.update(f"{base}.{a.name}" for a in node.names)
+            elif isinstance(node, ast.Call):
+                fn = node.func
+                called = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+                if called in ("import_module", "__import__"):
+                    arg = node.args[0] if node.args else None
+                    if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                        return None
+                    out.add(arg.value)
+                elif called in ("spec_from_file_location", "run_path", "run_module", "exec"):
+                    return None
+        return out
+
+    todo = []
+    for e in entries:
+        if isinstance(e, Path):
+            name = by_file.get(e.resolve())
+            if name is None:
+                raise ValueError(f"{e} is not a workspace module")
+        else:
+            name = resolve(e)
+            if name != e:
+                raise ValueError(f"{e} is not a workspace module")
+        todo.append(name)
+    seen: set[str] = set()
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        parts = name.split(".")
+        todo.extend(p for i in range(1, len(parts)) if (p := resolve(".".join(parts[:i]))))
+        found = imports(name)
+        if found is None:
+            return None
+        todo.extend(r for i in found if (r := resolve(i)) and r not in seen)
+    return sorted(mods[m] for m in seen)
+
+
+def _is_workspace_file(f: Path) -> bool:
+    return (f.parent in (REPO, REPO / "scripts")
+            or any(f.is_relative_to(src) for src in (REPO / "packages").glob("*/src")))
+
+
+@contextmanager
+def closure_guard(code: tuple):
+    """Around a cached step's computation (a cache miss): fail if it imports
+    a workspace module that ``code_closure(*code)`` left out, since a change
+    there would not have changed the key. Off with the narrow key
+    (``CF_NARROW_FINGERPRINT=0``); a module loaded before the step began is
+    not seen, so ``scripts/check_code_closure.py`` runs each step in a fresh
+    process."""
+    files = code_closure(*code) if NARROW_FINGERPRINT else None
+    before = set(sys.modules)
+    yield
+    if files is None:
+        return
+    allowed = set(files)
+    missed = sorted(
+        f"{name} ({f.relative_to(REPO)})"
+        for name in set(sys.modules) - before - {"__main__", "__mp_main__"}  # the step's script
+        if (path := getattr(sys.modules[name], "__file__", None))
+        and _is_workspace_file(f := Path(path).resolve()) and f not in allowed
+    )
+    if missed:
+        raise RuntimeError("the cache key's code closure missed modules this step imported: "
+                           + ", ".join(missed) + ". Add them to its entries.")
+
+
+def fingerprint(*parts, code: tuple | None = None) -> str:
+    """A sha256 key for a cached step output: the model code, the Python,
+    numpy and pandas versions, and *parts* — Paths (a file's bytes, a
+    directory's files), bytes, or anything ``json.dumps`` takes.
+
+    The model code is every file under each workspace package's ``src``
+    (``tax_modeler`` and the ``census_forecaster``, ``pums_estimator`` and
+    ``common`` code it calls) and ``config``: any model change misses every
+    cache, slower but never stale. (Until 2026-10-29 only ``tax_modeler``
+    was hashed, so a change in the packages it imports kept a stale cache;
+    until the narrow key, ``packages/*/config`` was left out.)
+
+    Given *code* (the step's entry modules, see :func:`code_closure`), the
+    Python files are only those *code* can
+    import, so an edit elsewhere keeps the cache; every non-Python file
+    under ``src`` and ``config`` is still hashed. If the closure cannot be
+    traced, or ``CF_NARROW_FINGERPRINT=0``, it hashes the whole packages
+    as above.
     """
     import hashlib
     import json
@@ -69,15 +207,29 @@ def fingerprint(*parts) -> str:
 
     h = hashlib.sha256()
 
+    def add_file(f: Path) -> None:
+        h.update(str(f.relative_to(REPO) if f.is_relative_to(REPO) else f).encode())
+        h.update(f.read_bytes())
+
     def add_path(p: Path) -> None:
         files = sorted(f for f in p.rglob("*") if f.is_file() and "__pycache__" not in f.parts) \
             if p.is_dir() else [p]
         for f in files:
-            h.update(str(f.relative_to(REPO) if f.is_relative_to(REPO) else f).encode())
-            h.update(f.read_bytes())
+            add_file(f)
 
-    for src in sorted((REPO / "packages").glob("*/src")):
-        add_path(src)
+    closure = code_closure(*code) if NARROW_FINGERPRINT and code else None
+    trees = sorted([*(REPO / "packages").glob("*/src"), *(REPO / "packages").glob("*/config")])
+    if closure is None:
+        for tree in trees:
+            add_path(tree)
+    else:
+        h.update(b"narrow")
+        for f in closure:
+            add_file(f)
+        for tree in trees:
+            for f in sorted(f for f in tree.rglob("*") if f.is_file() and f.suffix not in (".py", ".pyc")
+                            and "__pycache__" not in f.parts):
+                add_file(f)
     h.update(f"{sys.version}|numpy {np.__version__}|pandas {pd.__version__}".encode())
     for part in parts:
         if isinstance(part, Path):
