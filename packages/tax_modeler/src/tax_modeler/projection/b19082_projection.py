@@ -57,6 +57,7 @@ Module layout
 """
 from __future__ import annotations
 
+import functools
 import logging
 import math
 from typing import Optional
@@ -81,6 +82,7 @@ _MIN_OBS_FOR_TREND: int = 5
 # Data loading
 # ---------------------------------------------------------------------------
 
+@functools.cache
 def _load_b19082_series(geoid: str) -> tuple:
     """Load B19082_005E observations for ``geoid`` from the bundled ACS panel.
 
@@ -98,17 +100,11 @@ def _load_b19082_series(geoid: str) -> tuple:
     tuple[AcsObservation, ...]
         Sorted by year ascending.  Empty tuple if unavailable.
     """
-    from importlib.resources import files
-    import json
     from common.models import AcsObservation
+    from tax_modeler.projection.acs_supplement_forecast import acs_panel
 
     try:
-        panel_path = (
-            files("census_forecaster")
-            / "data" / "calibration_panel" / "acs_panel.json"
-        )
-        with panel_path.open() as f:
-            panel = json.load(f)
+        panel = acs_panel()
     except Exception as exc:
         logger.debug("Could not load ACS panel: %s", exc)
         return ()

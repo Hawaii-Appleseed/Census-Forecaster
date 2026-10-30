@@ -40,8 +40,13 @@ def build_units(
     ded_params,
     cal_tax_year: int,
     enrich: bool = False,
+    store=None,
 ) -> tuple[pd.DataFrame, float]:
     """Synthesize the $1M+ tail on the calibrated base; return (units, tail_k).
+
+    With a ``store`` (:class:`~tax_modeler.scenarios.population_store.PopulationStore`)
+    that loaded ``base_calibrated``, the result is computed once per store
+    and loaded after that.
 
     The tail's incomes are scaled until its re-scored tax is DOTAX's TY2022
     $1M+ tax (``calibrate_synthetic_tail_to_tax_target``; ``tail_k`` is that
@@ -57,16 +62,32 @@ def build_units(
     ``total_cash_income`` (used to rank households) and leaves every tax input
     unchanged.
     """
+    from tax_modeler.pipeline import compute_base_tax
+
+    def score(u: pd.DataFrame) -> pd.DataFrame:
+        return compute_base_tax(u, deduction_params=ded_params, tax_year=cal_tax_year)
+
+    def build() -> tuple[pd.DataFrame, float]:
+        return _build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
+                            enrich=enrich, score=score)
+
+    if store is not None and store.name_of(base_calibrated) == "base":
+        from tax_modeler.scenarios.population_store import params_tag
+
+        name = (f"units-a{alpha!r}-p{top_premium!r}-e{int(enrich)}"
+                f"-ty{cal_tax_year}-d{params_tag(ded_params)}")
+        return store.get(name, build)
+    return build()
+
+
+def _build_units(base_calibrated, *, alpha, top_premium, enrich, score):
     from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
+    from tax_modeler.pipeline import enrich_for_credits
     from tax_modeler.scenarios.top_income_synthesis import (
         age_synthetic_tail,
         calibrate_synthetic_tail_to_tax_target,
         synthesize_top_filers,
     )
-
-    def score(u: pd.DataFrame) -> pd.DataFrame:
-        return compute_base_tax(u, deduction_params=ded_params, tax_year=cal_tax_year)
 
     units = synthesize_top_filers(base_calibrated, pareto_alpha=alpha)
     if enrich:
@@ -83,8 +104,12 @@ def project_units(
     year: int,
     top_premium: float,
     macro_shock: Optional[str] = None,
+    store=None,
 ) -> pd.DataFrame:
     """Project ``units`` to tax year ``year`` and re-score what moved.
+
+    With a ``store`` that produced ``units`` (``build_units(..., store=)``),
+    each projection is computed once per store and loaded after that.
 
     County B19013 growth with per-filer effective deductions, then the
     top-income growth premium (filers above $500K), then the recession shock
@@ -93,6 +118,16 @@ def project_units(
     unit, so both are followed by ``refresh_stale_hawaii_tax``: left blank,
     every filer above $500K was scored on the standard deduction alone.
     """
+    def project() -> pd.DataFrame:
+        return _project_units(units, year=year, top_premium=top_premium, macro_shock=macro_shock)
+
+    units_name = store.name_of(units) if store is not None else None
+    if units_name is not None:
+        return store.get(f"{units_name}-y{year}-p{top_premium!r}-s{macro_shock}", project)
+    return project()
+
+
+def _project_units(units, *, year, top_premium, macro_shock):
     from tax_modeler.projection.tax_unit_projector import (
         project_tax_units_forward,
         refresh_stale_hawaii_tax,
@@ -122,6 +157,7 @@ def mid_gains_factors(
     ded_params,
     cal_tax_year: int,
     years,
+    store=None,
 ) -> dict[int, dict[str, float]]:
     """The DOTAX anchoring's scale factor per class (``cg_anchor.anchor_factors``)
     on the MID population (``alpha``/``top_premium`` are MID's), per tax year.
@@ -131,10 +167,11 @@ def mid_gains_factors(
     from tax_modeler.parallel import fork_map
 
     units, _ = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
-                           ded_params=ded_params, cal_tax_year=cal_tax_year)
+                           ded_params=ded_params, cal_tax_year=cal_tax_year, store=store)
     years = [int(y) for y in years]
     # Each year projects the same units on its own, so the years run in
-    # forked workers.
+    # forked workers (which save their projections to ``store``, if given).
     factors = fork_map(
-        lambda y: anchor_factors(project_units(units, year=y, top_premium=top_premium), y), years)
+        lambda y: anchor_factors(
+            project_units(units, year=y, top_premium=top_premium, store=store), y), years)
     return dict(zip(years, factors, strict=True))

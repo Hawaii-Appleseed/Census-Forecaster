@@ -422,7 +422,9 @@ def main() -> int:
             print(f"ERROR: {CALIBRATED_PKL} missing; run forecast_sb3125_enhanced.py --cd 2 first.")
             return 1
         print("Building the scoring population (LOW/MID/HIGH x TY2027-2031)...", flush=True)
-        pop = build_population(CALIBRATED_PKL)
+        from _forecast_common import population_store
+        store = population_store()
+        pop = build_population(CALIBRATED_PKL, store_at=(str(store.root), store.key))
         pop.meta["built"] = {"created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                              "git_sha": code_sha}
         pop.save(OUT)

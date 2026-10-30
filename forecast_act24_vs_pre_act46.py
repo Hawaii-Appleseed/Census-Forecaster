@@ -110,12 +110,15 @@ def main() -> None:
         sys.exit(1)
 
     print("Loading calibrated base...", flush=True)
-    from tax_modeler.artifacts import load_calibrated_base
-    base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
+    # The MID population and its projections, as step 1 left them in the
+    # chain's population store (computed here if it did not).
+    from _forecast_common import population_store
+    store = population_store()
+    base, cal_ded_params, cal_meta = store.base(CALIBRATED_PKL)
     cal_tax_year = int(cal_meta.get("tax_year", 2023))
 
     units, tail_k = build_units(base, alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM,
-                                ded_params=cal_ded_params, cal_tax_year=cal_tax_year)
+                                ded_params=cal_ded_params, cal_tax_year=cal_tax_year, store=store)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     page = pd.read_csv(ENHANCED) if ENHANCED.exists() else None
@@ -132,7 +135,7 @@ def main() -> None:
 
         # The Act 24 page's own population and projection (MID), then its
         # gains base: column C is then the page's static bracket change.
-        projected = project_units(units, year=yr, top_premium=MID_TOP_PREMIUM)
+        projected = project_units(units, year=yr, top_premium=MID_TOP_PREMIUM, store=store)
         w = projected["weight"].to_numpy(dtype=float)
         proj_target = apply_anchor_factors(projected, anchor_factors(projected, yr))
 
