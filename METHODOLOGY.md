@@ -1258,7 +1258,8 @@ approximation used by ACS estimation guides.
 
 `scripts/check_population_agreement.py` compares the poverty population's tax-unit
 weights with the revenue base's on units by AGI band and filing status, children and
-EITC eligibility; the findings and the result of a trial reweight (not adopted) are in
+EITC eligibility, and both with the Department of Taxation's and the IRS's Hawaii tables
+(returns, wages, average wage by AGI class); the findings and the result of a trial reweight (not adopted) are in
 `SB3125_CD1_FORECAST.md` under "Poverty population and the revenue base" (October 30, 2026).
 
 **CLI:** pass `--replicate-weights` (and optionally `--n-replicates N`)

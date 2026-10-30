@@ -30,6 +30,16 @@ the gap is judged against the poverty sample's error alone. That overstates the
 significance of a gap a little, since the base is a larger sample, and the check
 says "gap in poverty standard errors" for that reason.
 
+Two benchmarks. The Department of Taxation's tables count resident returns. The IRS
+table (:mod:`tax_modeler.calibration.irs_soi_hi_table2`) counts every federal return
+filed from a Hawaii address, including military families and people who moved in or
+out during the year, and runs 15 to 27 percent above the Department's in every class
+above $50,000. The revenue base is raked to the Department's counts, which is right
+for state tax revenue. The poverty population describes everyone who lives in Hawaii,
+which is what the IRS counts, so it is judged against the IRS: returns, wage returns,
+wages and the average wage per return by IRS class. Those rows carry the IRS figure in
+``irs`` and are marked ``group == "irs"``.
+
 Both populations are scored with the 2023 federal credit rules before the EITC rows
 are read, so those rows compare eligibility on one set of rules, before take-up.
 They are not claims, and the Department's 78,399 state EITC claims are not an
@@ -61,6 +71,18 @@ def _band_label(lo: float, hi: float) -> str:
     return f"AGI {_money(lo)} and up" if np.isinf(hi) else f"AGI {_money(lo)} to {_money(hi)}"
 
 
+def _irs_label(lo: float, hi: float) -> str:
+    """An IRS Table 2 class, e.g. ``$75K to $100K`` or ``$1.0M and up``."""
+    def m(x: float) -> str:
+        if x == 1:
+            return "$1"
+        return f"${x / 1000:,.0f}K" if x < 1e6 else f"${x / 1e6:,.1f}M"
+
+    if np.isinf(lo):
+        return f"below {m(hi)}"
+    return f"{m(lo)} and up" if np.isinf(hi) else f"{m(lo)} to {m(hi)}"
+
+
 def replicate_columns(units: pd.DataFrame) -> list[str]:
     """The ``weight_r01`` .. ``weight_r80`` columns, in order, or [] if absent."""
     cols = [f"weight_r{i:02d}" for i in range(1, 81)]
@@ -79,6 +101,21 @@ def _anchors() -> dict[str, float]:
     for status, n in dotax_base.status_targets().items():
         out[f"Returns, {_STATUS_LABEL[status]}"] = float(n)
     out["Returns, all classes"] = float(sum(dotax_base.filer_targets().values()))
+    return out
+
+
+def _irs_anchors() -> dict[str, float]:
+    """The IRS Table 2 figures for the IRS-band measures, by measure name."""
+    from tax_modeler.calibration import irs_soi_hi_table2 as irs
+
+    out: dict[str, float] = {}
+    ret, wret, wages, avg = irs.returns(), irs.wage_returns(), irs.wages_M(), irs.average_wage()
+    for band in irs.bands()[1:]:                      # the under-$1 class is non-filers here
+        lab = _irs_label(*band)
+        out[f"Returns, IRS band {lab}"] = ret[band]
+        out[f"Wage returns, IRS band {lab}"] = wret[band]
+        out[f"Wages $M, IRS band {lab}"] = wages[band]
+        out[f"Average wage, IRS band {lab}"] = avg[band]
     return out
 
 
@@ -121,6 +158,20 @@ def design(units: pd.DataFrame) -> tuple[list[str], np.ndarray]:
         add("Units eligible for the federal EITC", eitc > 0)
         add("Federal EITC eligibility $M", eitc / 1e6)
         add("EITC-eligible units with children", (eitc > 0) & (kids > 0))
+    if "primary_wagp" in units.columns:
+        from tax_modeler.calibration import irs_soi_hi_table2 as irs
+        from tax_modeler.liability.federal import FEDERAL_W2_WAGE_FACTOR
+
+        def col(c: str) -> np.ndarray:
+            return units[c].fillna(0).to_numpy(dtype=float) if c in units.columns else np.zeros(len(units))
+
+        wages = col("primary_wagp") + col("secondary_wagp")
+        for lo, hi in irs.bands()[1:]:
+            lab = _irs_label(lo, hi)
+            inside = (agi >= lo) & (agi < hi)
+            add(f"Returns, IRS band {lab}", inside)
+            add(f"Wage returns, IRS band {lab}", inside & (wages > 0))
+            add(f"Wages $M, IRS band {lab}", np.where(inside, wages * FEDERAL_W2_WAGE_FACTOR, 0.0) / 1e6)
     return names, np.column_stack(cols)
 
 
@@ -132,9 +183,40 @@ TAIL_FROM_AGI = 500_000
 
 def is_tail_measure(name: str) -> bool:
     """True for a measure in an AGI band the synthetic tail fills ($500K and up)."""
+    if "IRS band" in name:
+        return any(t in name for t in ("IRS band $500K to $1.0M", "IRS band $1.0M and up"))
     return name.startswith(("Returns, AGI $", "AGI $M, AGI $")) and any(
         name.endswith(t) for t in ("$500K to $750K", "$750K to $1.0M", "$1.0M and up")
     )
+
+
+def _ratio(num, den):
+    """``num / den``, NaN where ``den`` is zero."""
+    num, den = np.asarray(num, dtype=float), np.asarray(den, dtype=float)
+    return np.divide(num, den, out=np.full(np.broadcast(num, den).shape, np.nan), where=den > 0)
+
+
+def _with_averages(names: list[str], value: np.ndarray, theta: np.ndarray | None):
+    """Append the average wage per wage return for each IRS band, and its replicates."""
+    idx = {n: i for i, n in enumerate(names)}
+    extra, vals, thetas = [], [], []
+    for n in names:
+        if not n.startswith("Wages $M, IRS band "):
+            continue
+        lab = n[len("Wages $M, IRS band "):]
+        k = idx.get(f"Wage returns, IRS band {lab}")
+        if k is None:
+            continue
+        extra.append(f"Average wage, IRS band {lab}")
+        vals.append(_ratio(value[idx[n]] * 1e6, value[k]))
+        if theta is not None:
+            thetas.append(_ratio(theta[:, idx[n]] * 1e6, theta[:, k]))
+    if not extra:
+        return names, value, theta
+    value = np.concatenate([value, np.array(vals)])
+    if theta is not None:
+        theta = np.column_stack([theta, *thetas])
+    return names + extra, value, theta
 
 
 def profile(units: pd.DataFrame, *, with_error: bool) -> pd.DataFrame:
@@ -142,13 +224,16 @@ def profile(units: pd.DataFrame, *, with_error: bool) -> pd.DataFrame:
     names, X = design(units)
     w = units["weight"].to_numpy(dtype=float)
     value = w @ X
-    out = pd.DataFrame({"measure": names, "value": value})
+    theta = None
     if with_error:
         reps = replicate_columns(units)
         if not reps:
             raise ValueError("with_error needs weight_r01..weight_r80 on the frame")
         R = units[reps].to_numpy(dtype=float).T          # (80, n)
         theta = R @ X                                     # (80, measures)
+    names, value, theta = _with_averages(names, value, theta)
+    out = pd.DataFrame({"measure": names, "value": value})
+    if theta is not None:
         out["se"] = np.sqrt(SDR_FACTOR * ((theta - value) ** 2).sum(axis=0))
     return out
 
@@ -196,7 +281,10 @@ def compare_populations(base: pd.DataFrame, poverty: pd.DataFrame) -> pd.DataFra
     ``base`` is the calibrated revenue base, ``poverty`` the poverty population.
     Columns: ``measure``, ``base``, ``poverty``, ``gap`` (poverty minus base),
     ``gap_pct``, ``poverty_se``, ``gap_in_se``, ``dotax`` (the Department's figure,
-    where it publishes one), ``base_vs_dotax_pct`` and ``poverty_vs_dotax_pct``.
+    where it publishes one), ``base_vs_dotax_pct`` and ``poverty_vs_dotax_pct``, and the
+    same three for the IRS (``irs``, ``base_vs_irs_pct``, ``poverty_vs_irs_pct``).
+    ``group`` is ``shared`` for the measures both populations are compared on and
+    ``irs`` for the IRS-class returns, wages and average wage.
     """
     if "eitc_amount" not in poverty.columns:
         poverty = score_eitc(poverty)
@@ -210,8 +298,12 @@ def compare_populations(base: pd.DataFrame, poverty: pd.DataFrame) -> pd.DataFra
     out["dotax"] = pd.Series(anchors).reindex(out.index)
     out["base_vs_dotax_pct"] = 100 * (out["base"] / out["dotax"] - 1)
     out["poverty_vs_dotax_pct"] = 100 * (out["poverty"] / out["dotax"] - 1)
+    out["irs"] = pd.Series(_irs_anchors()).reindex(out.index)
+    out["base_vs_irs_pct"] = 100 * (out["base"] / out["irs"] - 1)
+    out["poverty_vs_irs_pct"] = 100 * (out["poverty"] / out["irs"] - 1)
     out = out.reset_index(names="measure")
     out["tail_band"] = out["measure"].map(is_tail_measure)
+    out["group"] = np.where(out["measure"].str.contains("IRS band"), "irs", "shared")
     return out
 
 
@@ -235,14 +327,26 @@ def summarize(table: pd.DataFrame, *, z: float = 2.0) -> str:
         dotax = "" if pd.isna(r["dotax"]) else f"{r['dotax']:,.0f}"
         lines.append(f"{name:46}{r['base']:>14,.1f}{r['poverty']:>14,.1f}"
                      f"{r['gap_pct']:>9.1f}{r['gap_in_se']:>8.1f}{dotax:>14}")
-    counted = t[(t["poverty_se"] > 0) & ~t["tail_band"]]
+    shared = t[t["group"] == "shared"]
+    counted = shared[(shared["poverty_se"] > 0) & ~shared["tail_band"]]
     wide = counted[counted["gap_in_se"].abs() > z]
     lines += ["", f"{len(wide)} of {len(counted)} measures differ by more than {z:g} poverty "
-                  f"standard errors (the {int(t['tail_band'].sum())} measures in bands from "
+                  f"standard errors (the {int(shared['tail_band'].sum())} measures in bands from "
                   f"${TAIL_FROM_AGI // 1000}K up are left out: the revenue base gets its top "
                   f"tail by synthesis, after this base)."]
     if len(wide):
         worst = wide.reindex(wide["gap_in_se"].abs().sort_values(ascending=False).index).head(5)
         lines.append("Widest: " + "; ".join(
             f"{m} ({r.gap_pct:+.1f}%, {r.gap_in_se:+.1f} SE)" for m, r in worst.iterrows()))
+    irs_rows = t[t.index.str.startswith("Returns, IRS band") & ~t["tail_band"]]
+    if len(irs_rows):
+        lines += ["", "Against the IRS (every federal return filed from a Hawaii address), by AGI class:",
+                  f"{'':26}{'IRS returns':>13}{'base':>9}{'poverty':>9}{'avg wage, poverty':>20}"]
+        for name, r in irs_rows.iterrows():
+            lab = name.split("IRS band ", 1)[1]
+            row_avg = t.loc[f"Average wage, IRS band {lab}"] if f"Average wage, IRS band {lab}" in t.index else None
+            avg_txt = "" if row_avg is None or pd.isna(row_avg["poverty_vs_irs_pct"]) else f"{row_avg['poverty_vs_irs_pct']:+.0f}%"
+            lines.append(f"{lab:26}{r['irs']:>13,.0f}{r['base_vs_irs_pct']:>+8.0f}%{r['poverty_vs_irs_pct']:>+8.0f}%{avg_txt:>20}")
+        lines.append("(the Department of Taxation's tables count resident returns only, a narrower group; "
+                     "see tax_modeler.calibration.irs_soi_hi_table2)")
     return "\n".join(lines)

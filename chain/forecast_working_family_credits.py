@@ -225,7 +225,6 @@ def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd
         return None
     try:
         import numpy as np
-
         from tax_modeler import agreement
         from tax_modeler.artifacts import load_calibrated_base
 

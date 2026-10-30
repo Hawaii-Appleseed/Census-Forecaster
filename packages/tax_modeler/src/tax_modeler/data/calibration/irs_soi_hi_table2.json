@@ -1,0 +1,210 @@
+{
+ "source": {
+  "title": "Table 2. Individual Income and Tax Data, by State and Size of Adjusted Gross Income (Hawaii)",
+  "publisher": "Internal Revenue Service, Statistics of Income",
+  "page": "https://www.irs.gov/statistics/soi-tax-stats-individual-income-tax-statistics-historic-table-2",
+  "files": {
+   "2022": {
+    "file": "22in12hi.xlsx",
+    "url": "https://www.irs.gov/pub/irs-soi/22in12hi.xlsx",
+    "sha256": "e69eb995584a7d5b9b6d95c3853b6f4629ef115c3908ec7936ae31a7751254c6"
+   },
+   "2023": {
+    "file": "23in12hi.xlsx",
+    "url": "https://www.irs.gov/pub/irs-soi/23in12hi.xlsx",
+    "sha256": "c67a57f3d67d77ea6690f268e62ad800af475d5d645e5d29dde2a79a7d135479"
+   }
+  },
+  "note": "Every federal return filed from a Hawaii address, by AGI class; money amounts in thousands of dollars; returns rounded to the nearest 10. Includes military families and part-year residents, unlike the Department of Taxation's resident-return tables."
+ },
+ "classes": [
+  {
+   "label": "Under $1",
+   "lo": null,
+   "hi": 1
+  },
+  {
+   "label": "$1 to $10,000",
+   "lo": 1,
+   "hi": 10000
+  },
+  {
+   "label": "$10,000 to $25,000",
+   "lo": 10000,
+   "hi": 25000
+  },
+  {
+   "label": "$25,000 to $50,000",
+   "lo": 25000,
+   "hi": 50000
+  },
+  {
+   "label": "$50,000 to $75,000",
+   "lo": 50000,
+   "hi": 75000
+  },
+  {
+   "label": "$75,000 to $100,000",
+   "lo": 75000,
+   "hi": 100000
+  },
+  {
+   "label": "$100,000 to $200,000",
+   "lo": 100000,
+   "hi": 200000
+  },
+  {
+   "label": "$200,000 to $500,000",
+   "lo": 200000,
+   "hi": 500000
+  },
+  {
+   "label": "$500,000 to $1,000,000",
+   "lo": 500000,
+   "hi": 1000000
+  },
+  {
+   "label": "$1,000,000 or more",
+   "lo": 1000000,
+   "hi": null
+  }
+ ],
+ "years": {
+  "2022": {
+   "tax_year": 2022,
+   "returns": [
+    15220.0,
+    74280.0,
+    93970.0,
+    158040.0,
+    110080.0,
+    71890.0,
+    122120.0,
+    37470.0,
+    4920.0,
+    1970.0
+   ],
+   "returns_total": 689960.0,
+   "joint_returns": [
+    3390.0,
+    8000.0,
+    12870.0,
+    27890.0,
+    31570.0,
+    33740.0,
+    87000.0,
+    30490.0,
+    3830.0,
+    1540.0
+   ],
+   "joint_returns_total": 240310.0,
+   "agi_amount_k": [
+    -680178.0,
+    345177.0,
+    1622048.0,
+    5882640.0,
+    6769596.0,
+    6235246.0,
+    16766479.0,
+    10551721.0,
+    3292686.0,
+    6890827.0
+   ],
+   "agi_amount_k_total": 57676242.0,
+   "wage_returns": [
+    2150.0,
+    41390.0,
+    67060.0,
+    134670.0,
+    92360.0,
+    58360.0,
+    99770.0,
+    30200.0,
+    3780.0,
+    1450.0
+   ],
+   "wage_returns_total": 531200.0,
+   "wage_amount_k": [
+    87088.0,
+    242310.0,
+    1133772.0,
+    4830612.0,
+    5265892.0,
+    4504944.0,
+    11522674.0,
+    6059009.0,
+    1360464.0,
+    1439318.0
+   ],
+   "wage_amount_k_total": 36446083.0
+  },
+  "2023": {
+   "tax_year": 2023,
+   "returns": [
+    14010.0,
+    69700.0,
+    89540.0,
+    153770.0,
+    113880.0,
+    74340.0,
+    131140.0,
+    41940.0,
+    5180.0,
+    1960.0
+   ],
+   "returns_total": 695470.0,
+   "joint_returns": [
+    3350.0,
+    7470.0,
+    11630.0,
+    24950.0,
+    29210.0,
+    32050.0,
+    90600.0,
+    34570.0,
+    4100.0,
+    1500.0
+   ],
+   "joint_returns_total": 239430.0,
+   "agi_amount_k": [
+    -643619.0,
+    323299.0,
+    1543924.0,
+    5762485.0,
+    7011450.0,
+    6449577.0,
+    18094971.0,
+    11726380.0,
+    3457928.0,
+    4917011.0
+   ],
+   "agi_amount_k_total": 58643406.0,
+   "wage_returns": [
+    2050.0,
+    37910.0,
+    63620.0,
+    130580.0,
+    96040.0,
+    60220.0,
+    106520.0,
+    34070.0,
+    4100.0,
+    1480.0
+   ],
+   "wage_returns_total": 536580.0,
+   "wage_amount_k": [
+    86260.0,
+    227373.0,
+    1078395.0,
+    4728801.0,
+    5508736.0,
+    4679427.0,
+    12428112.0,
+    6939933.0,
+    1558995.0,
+    1034137.0
+   ],
+   "wage_amount_k_total": 38270169.0
+  }
+ }
+}
