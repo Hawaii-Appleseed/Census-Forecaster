@@ -291,14 +291,14 @@ def _deduction_choice(name, year):
 ])
 def test_hawaii_tax_arrays_match_the_per_unit_calculator(year, deductions):
     from tax_modeler.liability.hawaii import (
-        _hawaii_tax_frame,
+        _hawaii_tax_columns,
         _normalize_deduction_params,
         calculate_hawaii_tax_for_units,
     )
 
     df = _tax_unit_frame()
     params = _deduction_choice(deductions, year)
-    assert _hawaii_tax_frame(df, year, _normalize_deduction_params(params, year, "test")) is not None
+    _hawaii_tax_columns(df, year, _normalize_deduction_params(params, year, "test"))  # vectorizes
     _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=year, deduction_params=params),
                       _per_unit_hawaii(df, year, params))
 
@@ -311,7 +311,7 @@ def test_ctc_arrays_match_calculate_ctc(year, extrapolate):
     from tax_modeler.credits.ctc import _ctc_arrays, calculate_ctc, ctc_for_units
 
     df = _tax_unit_frame(1)
-    assert _ctc_arrays(df, year, extrapolate) is not None
+    _ctc_arrays(df, year, extrapolate)  # vectorizes
     want = apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=year, extrapolate=extrapolate))
     _assert_same_bits(ctc_for_units(df, tax_year=year, extrapolate=extrapolate), want)
     # Without the federal tax column, each unit's is computed from its income.
@@ -328,7 +328,7 @@ def test_eitc_arrays_match_calculate_eitc(year, extrapolate):
     from tax_modeler.credits.eitc import _eitc_arrays, calculate_eitc, calculate_eitc_for_tax_units
 
     df = _tax_unit_frame(2)
-    assert _eitc_arrays(df, year, extrapolate) is not None
+    _eitc_arrays(df, year, extrapolate)  # vectorizes
     want = apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=year, extrapolate=extrapolate))
     _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=year, extrapolate=extrapolate), want)
 
@@ -351,17 +351,18 @@ def test_arrays_read_narrow_and_categorical_columns_like_the_scalar_code(year):
     params = load_canonical_deduction_params()
     _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=year, deduction_params=params),
                       _per_unit_hawaii(df, year, params))
-    assert _ctc_arrays(df, year, True) is not None and _eitc_arrays(df, year, True) is not None
+    _ctc_arrays(df, year, True), _eitc_arrays(df, year, True)  # both vectorize
     _assert_same_bits(ctc_for_units(df, tax_year=year, extrapolate=True),
                       apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=year, extrapolate=True)))
     _assert_same_bits(calculate_eitc_for_tax_units(df, tax_year=year, extrapolate=True),
                       apply_per_unit(df, lambda u: calculate_eitc(u, tax_year=year, extrapolate=True)))
 
 
-def test_int_valued_columns_keep_the_dtype_the_per_unit_frame_infers():
-    """Where every unit's value is a Python int (TY2023's standard deduction
-    and exemptions with no itemizing; a CTC every unit gets in full against
-    ample tax), the per-unit frame stores int64, and so must the arrays."""
+def test_amount_columns_are_float_for_any_frame():
+    """The scalar calculators return floats for every amount (they used to
+    return Python ints for TY2023's standard deduction and exemptions, and
+    for a CTC every unit got in full), so both paths store float64 whatever
+    the frame; counts stay int64."""
     from tax_modeler.credits.ctc import calculate_ctc, ctc_for_units
     from tax_modeler.liability.hawaii import calculate_hawaii_tax_for_units
 
@@ -374,11 +375,10 @@ def test_int_valued_columns_keep_the_dtype_the_per_unit_frame_infers():
     })
     got = calculate_hawaii_tax_for_units(df, tax_year=2023)
     _assert_same_bits(got, _per_unit_hawaii(df, 2023, None))
-    assert got["hi_standard_deduction"].dtype == np.int64
-    assert got["hi_personal_exemptions"].dtype == np.int64
+    assert got["hi_standard_deduction"].dtype == got["hi_personal_exemptions"].dtype == np.float64
     got = ctc_for_units(df, tax_year=2024)
     _assert_same_bits(got, apply_per_unit(df, lambda u: calculate_ctc(u, tax_year=2024)))
-    assert got["ctc_total"].dtype == np.int64
+    assert got["ctc_total"].dtype == np.float64 and got["qualifying_children"].dtype == np.int64
 
 
 @pytest.mark.parametrize("change", ["empty", "object_income", "nan_dependents"])
@@ -433,9 +433,7 @@ def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
     recession-year projection) on the 50-household synthetic PUMS, with the
     array versions and with every unit through the scalar calculators: the
     same frames, bit for bit. Runs everywhere (no gitignored data)."""
-    import tax_modeler.credits.ctc as ctc
-    import tax_modeler.credits.eitc as eitc
-    import tax_modeler.liability.hawaii as hawaii
+    import tax_modeler.per_unit as per_unit
     from tax_modeler.artifacts import load_canonical_deduction_params
     from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.scenarios.act24_population import build_units, project_units
@@ -455,9 +453,7 @@ def test_the_act24_population_is_unchanged_by_the_array_paths(monkeypatch):
         return base, units, project_units(units, year=2029, top_premium=0.013, macro_shock="moderate")
 
     fast = population()
-    monkeypatch.setattr(hawaii, "_hawaii_tax_frame", lambda *a, **k: None)
-    monkeypatch.setattr(ctc, "_ctc_arrays", lambda *a, **k: None)
-    monkeypatch.setattr(eitc, "_eitc_arrays", lambda *a, **k: None)
+    monkeypatch.setattr(per_unit, "FORCE_PER_UNIT", True)
     slow = population()
     for got, want in zip(fast, slow, strict=True):
         _assert_same_bits(got, want)
@@ -495,11 +491,13 @@ def test_array_paths_read_only_what_the_scalar_reads():
 def test_absurd_dependent_counts_take_the_per_unit_path():
     """Past 2**31 dependents the int64 exemption product could overflow, so
     those frames go through the scalar's exact Python ints."""
-    from tax_modeler.liability.hawaii import _hawaii_tax_frame, calculate_hawaii_tax_for_units
+    from tax_modeler.liability.hawaii import _hawaii_tax_columns, calculate_hawaii_tax_for_units
+    from tax_modeler.per_unit import NotVectorizable
 
     df = pd.DataFrame({"income": [5e4, 6e4], "num_dependents": [8.1e15, 3.0],
                        "filing_status": ["single", "single"]})
-    assert _hawaii_tax_frame(df, 2023, None) is None
+    with pytest.raises(NotVectorizable):
+        _hawaii_tax_columns(df, 2023, None)
     _assert_same_bits(calculate_hawaii_tax_for_units(df, tax_year=2023), _per_unit_hawaii(df, 2023, None))
 
 

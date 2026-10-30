@@ -32,15 +32,15 @@ import numpy as np
 import pandas as pd
 
 from tax_modeler.per_unit import (
+    NotVectorizable,
+    apply_columns,
     apply_per_unit,
-    is_py_int,
     numeric_column,
     or_zero,
     py_max,
     py_min,
     py_round,
     status_column,
-    with_unit_columns,
 )
 
 
@@ -123,14 +123,14 @@ class HawaiiTaxParameters:
 
     # Standard deduction amounts by filing status
     standard_deduction: Dict[str, float] = field(default_factory=lambda: {
-        'single':                    2_200,
-        'married_filing_jointly':    4_400,
-        'married_filing_separately': 2_200,
-        'head_of_household':         3_212,
+        'single':                    2_200.0,
+        'married_filing_jointly':    4_400.0,
+        'married_filing_separately': 2_200.0,
+        'head_of_household':         3_212.0,
     })
 
     # Personal exemption per exemption claimed (taxpayer + spouse + each dependent)
-    personal_exemption_per_unit: float = 1_144
+    personal_exemption_per_unit: float = 1_144.0
 
     # Tax brackets: list of (upper_bound, marginal_rate) pairs, from lowest to highest.
     # The last bracket has upper_bound = infinity.
@@ -618,17 +618,21 @@ def calculate_hawaii_tax_for_units(
     normalized = _normalize_deduction_params(
         deduction_params, tax_year, "calculate_hawaii_tax_for_units"
     )
-    fast = _hawaii_tax_frame(tax_units_df, tax_year, normalized)
-    if fast is not None:
-        return fast
-    return _calculate_hawaii_tax_per_unit(tax_units_df, tax_year, normalized)
+    return apply_columns(
+        tax_units_df, lambda df: _hawaii_tax_columns(df, tax_year, normalized),
+        _per_unit_fn(tax_units_df, tax_year, normalized))
 
 
 def _calculate_hawaii_tax_per_unit(
     tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional[dict],
 ) -> pd.DataFrame:
     """:func:`calculate_hawaii_tax` on each unit: the reference the array
-    version (:func:`_hawaii_tax_frame`) reproduces, and its fallback."""
+    version (:func:`_hawaii_tax_columns`) reproduces, and its fallback."""
+    return apply_per_unit(tax_units_df, _per_unit_fn(tax_units_df, tax_year, normalized))
+
+
+def _per_unit_fn(tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional[dict]):
+    """The per-unit call :func:`calculate_hawaii_tax_for_units` makes."""
     # Forward NO_ITEMIZING (not None) into the per-unit call so the inner
     # validation accepts it for tax_year ≥ 2024 without a redundant error.
     inner_params: Any = normalized if normalized is not None else NO_ITEMIZING
@@ -649,7 +653,7 @@ def _calculate_hawaii_tax_per_unit(
             cg_income=cg_income,
         )
 
-    return apply_per_unit(tax_units_df, one)
+    return one
 
 
 # ---------------------------------------------------------------------------
@@ -665,39 +669,22 @@ def _calculate_hawaii_tax_per_unit(
 # pd.NA filing status) are handed to the per-unit path, which treats them as
 # it always has.
 
-def _hawaii_tax_frame(
+def _hawaii_tax_columns(
     df: pd.DataFrame, tax_year: int, deduction_params: Optional[dict],
-) -> Optional[pd.DataFrame]:
-    """:func:`calculate_hawaii_tax_for_units` for every unit at once, or None
-    where the frame needs the per-unit path."""
-    n = len(df)
-    if n == 0 or not df.columns.is_unique:
-        return None
-    agi = np.zeros(n)
-    if "income" in df.columns:
-        income = numeric_column(df, "income")
-        if income is None:
-            return None
-        agi = or_zero(income)
-    deps = np.zeros(n, dtype=np.int64)
-    if "num_dependents" in df.columns:
-        raw = numeric_column(df, "num_dependents")
-        # int(NaN) raises per unit; past 2**31 the int64 exemption product
-        # could overflow where the scalar's Python ints do not.
-        if raw is None or not (np.abs(raw) < 2.0 ** 31).all():
-            return None
-        deps = np.trunc(raw).astype(np.int64)
-    cg_income = np.zeros(n)
+) -> dict[str, np.ndarray]:
+    """:func:`calculate_hawaii_tax_for_units`'s columns for every unit at once
+    (raises ``per_unit.NotVectorizable`` where the per-unit path is needed)."""
+    agi = or_zero(numeric_column(df, "income", default=0.0))
+    raw = numeric_column(df, "num_dependents", default=0.0)
+    # int(NaN) raises per unit; past 2**31 the int64 exemption product could
+    # overflow where the scalar's Python ints do not.
+    if not (np.abs(raw) < 2.0 ** 31).all():
+        raise NotVectorizable("num_dependents")
+    deps = np.trunc(raw).astype(np.int64)
+    cg_income = np.zeros(len(df))
     if "synthetic_cg_share" in df.columns:
-        share = numeric_column(df, "synthetic_cg_share")
-        if share is None:
-            return None
-        cg_income = py_max(0.0, agi * or_zero(share))
-    status = status_column(df)
-    if status is None:
-        return None
-    return with_unit_columns(df, _hawaii_tax_arrays(agi, status, deps, cg_income, tax_year,
-                                                    deduction_params))
+        cg_income = py_max(0.0, agi * or_zero(numeric_column(df, "synthetic_cg_share")))
+    return _hawaii_tax_arrays(agi, status_column(df), deps, cg_income, tax_year, deduction_params)
 
 
 def _hawaii_tax_arrays(
@@ -707,10 +694,10 @@ def _hawaii_tax_arrays(
     cg_income: np.ndarray,
     tax_year: int,
     deduction_params: Optional[dict],
-    params: HawaiiTaxParameters = HAWAII_2023,
 ) -> dict[str, np.ndarray]:
-    """:func:`calculate_hawaii_tax` over arrays: its result keys, in its
-    order, each with the dtype a frame of its dicts infers."""
+    """:func:`calculate_hawaii_tax` (with the default ``HAWAII_2023``
+    parameters) over arrays: its result keys, in its order."""
+    params = HAWAII_2023
     n = len(agi)
     num_exemptions = np.where(status == "married_filing_jointly", 2, 1) + num_dependents
     per_exemption = (_personal_exemption_for_year(tax_year) if tax_year >= 2024
@@ -733,7 +720,6 @@ def _hawaii_tax_arrays(
         if deduction_params is not None:
             itemized = _expected_itemized_arrays(agi, status, deduction_params)
             effective = py_max(std, itemized)
-        effective_is_int = False
         taxable = py_max(0.0, agi - effective - exemption_amount)
         tax_before = _hawaii_tax_real_arrays(
             agi - exemption_amount - (effective - std), tax_year, real)
@@ -746,24 +732,18 @@ def _hawaii_tax_arrays(
             savings[cg] = uncapped - capped
             tax_before[cg] = ordinary_tax + capped
     else:
-        default = params.standard_deduction['single']
-        std = np.full(n, float(default))
-        std_is_int = np.full(n, is_py_int(default))
+        std = np.full(n, params.standard_deduction['single'])
         bracket_of = np.zeros(n, dtype=np.int64)       # index into ``schedules``
         schedules = [params.brackets['single']]
         for fs, amount in params.standard_deduction.items():
             std[status == fs] = amount
-            std_is_int[status == fs] = is_py_int(amount)
         for fs, brackets in params.brackets.items():
             schedules.append(brackets)
             bracket_of[status == fs] = len(schedules) - 1
         effective = std
-        effective_is_int = std_is_int
         if deduction_params is not None:
             itemized = _expected_itemized_arrays(agi, status, deduction_params)
-            wins = itemized > std
-            effective = np.where(wins, itemized, std)
-            effective_is_int = std_is_int & ~wins
+            effective = py_max(std, itemized)
         taxable = py_max(0.0, agi - effective - exemption_amount)
         tax_before = np.zeros(n)
         ordinary_taxable = py_max(0.0, agi - cg_income - effective - exemption_amount)
@@ -783,8 +763,7 @@ def _hawaii_tax_arrays(
     credit = _food_excise_arrays(agi, status, num_exemptions, tax_year)
     return {
         'hi_agi': agi,
-        'hi_standard_deduction': (effective.astype(np.int64) if np.all(effective_is_int)
-                                  else effective),
+        'hi_standard_deduction': effective,
         'hi_itemized_deduction': itemized,
         'hi_personal_exemptions': exemption_amount,
         'hi_taxable_income': taxable,
