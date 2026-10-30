@@ -56,10 +56,14 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install census-forecaster package
+      - name: Install workspace packages
         # --extra dotax pulls openpyxl, which refresh_dotax_collections
         # needs to read DOTAX's XLSX reports (it exits 2 without it).
-        run: uv sync --package census-forecaster --extra dev --extra markets --extra dotax --extra cor
+        # refresh_market_panel lives in the census-lab package (--extra
+        # markets adds yfinance there), which pulls in census-forecaster
+        # and tax-modeler; --all-packages applies each --extra to the
+        # members that declare it.
+        run: uv sync --all-packages --extra dev --extra markets --extra dotax --extra cor
 
       - name: Refresh BLS multi-MSA panel
         env:
@@ -135,7 +139,7 @@ jobs:
           # previously committed series for any ticker whose fetch fails
           # (yfinance breaks periodically) so a flaky source never fails
           # the whole refresh.
-          uv run python -m census_forecaster.scripts.refresh_market_panel \
+          uv run python -m lab.scripts.refresh_market_panel \
             --tolerate-failures --derive-signals
 
       - name: Refresh national-macro predictor series
@@ -333,10 +337,9 @@ jobs:
         # regressions). This gate confirms the pipeline still runs end-to-end.
         #
         # Scoped to tests/census_forecaster/, not the whole tests/ tree:
-        # this job only installs `--package census-forecaster`, so a
-        # collection-time import anywhere under tests/tax_modeler/ that
+        # a collection-time import anywhere under tests/tax_modeler/ that
         # needs a tax_modeler-only dependency (e.g. matplotlib, pulled in
-        # eagerly by tax_modeler.reporting.brief) fails the whole pytest
+        # eagerly by tax_modeler.reporting.brief) can fail the whole pytest
         # session before marker filtering ever runs — a real 2026-08-05
         # failure, not hypothetical. The full cross-package suite already
         # runs in the `tests` workflow, which installs the full workspace.

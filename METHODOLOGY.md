@@ -724,7 +724,7 @@ fit; the cache amortises that across many forecasts at the same cutoff.
 ### Reproducing the ablation
 
 ```bash
-python -m census_forecaster.scripts.compare_ml_ablation --output report.md
+python -m lab.scripts.compare_ml_ablation --output report.md
 ```
 
 Runs the v3 calibration twice (with `include_ml=True` and `False`),
@@ -1430,7 +1430,7 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
 
 ## Market signals (July 2026)
 
-The `census_forecaster.markets` subpackage tracks a pre-registered
+The `lab.markets` subpackage tracks a pre-registered
 universe of 12 exchange-traded securities and screens them as *leading
 indicators* for the Hawaii series the forecaster consumes. It is NOT
 part of the Housing-Affordability-Tracker cherry-pick.
@@ -2434,7 +2434,7 @@ screens run on revised LAUS/Zillow histories, so even these nulls are
 
 The markets subpackage now exposes a standalone multi-horizon stock
 forecaster (`forecast_board` / `python -m
-census_forecaster.markets.forecaster`): damped-drift point + calibrated
+lab.markets.forecaster`): damped-drift point + calibrated
 90% band per ticker × horizon, with diagnostics per row — 12-month
 momentum, a volatility-regime flag, and whether the ticker is itself a
 robust *forward*-screen survivor (the direction that works).
@@ -2642,7 +2642,7 @@ The bespoke param/sentinel/loader (`natl_unemp_data`, `_NATL_UNEMP`,
 written by `refresh_market_panel` (reference value; it does not anchor and
 no code consumes it). Scope for applying the registry pattern to the
 remaining bespoke channels (bps/saipe/laus, market reader):
-`REGISTRY_MIGRATION_SCOPE.md`.
+`docs/archive/REGISTRY_MIGRATION_SCOPE.md`.
 
 ### County-channel registry migration (2026-07-16)
 
@@ -2676,7 +2676,7 @@ The aux block is now fully generated from two registries (county, national)
 plus the small hardcoded `mkt_*` block, which stays bespoke by choice: the
 market channels are screen-gated (they appear/disappear with
 `selected_signals.json`), so their spec is dynamic where a registry is
-static. See `REGISTRY_MIGRATION_SCOPE.md` for the reusable recipe.
+static. See `docs/archive/REGISTRY_MIGRATION_SCOPE.md` for the reusable recipe.
 
 ### State-level UI claims channel (2026-08-22)
 

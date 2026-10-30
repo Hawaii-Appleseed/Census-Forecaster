@@ -48,7 +48,7 @@ WEB_FORMAT_VERSION = 3
 # and the page's endnote cites that commit.
 CODE_PATHS = ("packages/tax_modeler/src", "site/assets/simulator",
               "scripts/build_simulator_population.py", "scripts/_forecast_common.py",
-              "forecast_cg_rate_options.py")
+              "chain/forecast_cg_rate_options.py")
 
 # AGI classes of generate_quintile_report (right-open), for the kernel's table.
 AGI_CLASS_BREAKS = [10_000, 30_000, 60_000, 100_000, 175_000, 350_000, 500_000, 1_000_000]

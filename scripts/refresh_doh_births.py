@@ -7,7 +7,7 @@ deaths, marriages) for Statewide plus each of the four counties.
 
 Why this exists
 ---------------
-``forecast_rxkids_2028.py`` pins the DOH snapshot in-code
+``analyses/forecast_rxkids_2028.py`` pins the DOH snapshot in-code
 (``HI_DOH_BIRTHS_MONTHLY``, ``DOH_COUNTY_SHARE``, ``DOH_SNAPSHOT``) so runs stay
 byte-reproducible — the same discipline the anchor bundles follow. Pinning is
 right, but hand-transcribing nine years × twelve months × five geographies on
@@ -22,7 +22,7 @@ Usage
     python scripts/refresh_doh_births.py
     python scripts/refresh_doh_births.py --json      # machine-readable dump
 
-After pasting, in ``forecast_rxkids_2028.py``:
+After pasting, in ``analyses/forecast_rxkids_2028.py``:
 
 * bump ``DOH_SNAPSHOT`` to the "As of" date the script reports;
 * DELETE any year NVSR has since finalised from ``HI_DOH_BIRTHS_MONTHLY``
@@ -188,7 +188,7 @@ def main(argv=None) -> int:
 
     as_of_dates = {rec["as_of"] for rec in scraped.values() if rec["as_of"]}
 
-    print("# --- paste into forecast_rxkids_2028.py ---")
+    print("# --- paste into analyses/forecast_rxkids_2028.py ---")
     print(f"# Scraped from {BASE}")
     print(f"# 'As of' lines seen: {sorted(as_of_dates) or '(none published)'}")
     print()

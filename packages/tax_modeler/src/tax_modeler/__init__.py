@@ -26,6 +26,9 @@ entry points:
 - :func:`run_pipeline` — end-to-end, returns :class:`PipelineResult`
 - :func:`enrich_for_credits` / :func:`compute_base_tax` / :func:`calibrate`
   — individual stages for advanced workflows
+- :func:`build_calibrated_base`, :func:`load_or_build_raw_units`,
+  :func:`build_tail_units` — the production population build
+  (:mod:`tax_modeler.base`) the forecast scripts share
 - :class:`TaxCalculator`, :class:`TaxSystemRegistry`, :func:`compare_systems`
   — bracket-comparison primitives
 - :class:`RevenueEstimator` — population-weighted aggregation
@@ -75,12 +78,6 @@ _LAZY = {
     "hawaii_eitc_parameters": ".credits",
     "hawaii_food_excise_parameters": ".credits",
     "hawaii_renters_credit_parameters": ".credits",
-    "HawaiiTaxCalculator": ".brackets",
-    "load_tax_data": ".brackets",
-    "DeductionPolicy": ".deductions",
-    "TaxableIncomeCalculator": ".deductions",
-    "parse_deduction_benchmarks": ".deductions",
-    "parse_exemption_benchmarks": ".deductions",
     # --- Tax-system orchestration ------------------------------------------------
     "HAWAII": ".config",
     "StateConfig": ".config",
@@ -90,7 +87,6 @@ _LAZY = {
     "compare_systems": ".config",
     # --- Calibration -------------------------------------------------------------
     "AdminCaseload": ".calibration",
-    "CalibrationOrchestrator": ".calibration",
     "CaseloadTarget": ".calibration",
     "DOTAXSOIParser": ".calibration",
     "Dimension": ".calibration",
@@ -101,7 +97,6 @@ _LAZY = {
     "JointIpfResult": ".calibration",
     "apply_ipf_calibration": ".calibration",
     "apply_ipf_calibration_via_rake": ".calibration",
-    "apply_systematic_calibration": ".calibration",
     "calibrate_benefits": ".calibration",
     "impute_childcare_expense": ".calibration",
     "impute_moop": ".calibration",
@@ -117,19 +112,18 @@ _LAZY = {
     "scale_deduction_params_for_target_year": ".adjustments",
     "scale_eitc_for_poverty": ".adjustments",
     "HawaiiTaxCredits": ".adjustments.hawaii_credits",
-    "ParetoIncomeCalibrator": ".adjustments.pareto_calibration",
-    "UltraHighIncomeSynthesizer": ".adjustments.ultra_high_income_synthesizer",
-    # --- Validation --------------------------------------------------------------
-    "DotaxTable12AValidator": ".validation",
-    "apply_hybrid_tax_calibration": ".validation",
-    "validate_against_table_12a": ".validation",
-    "validate_hybrid_calibration": ".validation",
     # --- Revenue / analysis ------------------------------------------------------
     "RevenueEstimator": ".revenue",
     "estimate_revenue": ".revenue",
     "GeographicAnalyzer": ".analysis",
     "assign_geography": ".analysis",
     "load_crosswalk": ".analysis",
+    # --- Production population build (PUMS -> raw units -> calibrated base -> tail)
+    "build_calibrated_base": ".base",
+    "build_raw_units": ".base",
+    "build_tail_units": ".base",
+    "load_or_build_raw_units": ".base",
+    "validate_calibrated_base": ".base",
     # --- End-to-end pipeline -----------------------------------------------------
     "PipelineResult": ".pipeline",
     "calibrate": ".pipeline",
@@ -196,11 +190,8 @@ _LAZY = {
     "hawaii_liheap_parameters": ".benefits",
     "hawaii_medicaid_parameters": ".benefits",
     "hawaii_wic_parameters": ".benefits",
-    # --- PUMS / projection (two entry points each) ------------------------------
-    # Simple "scalar / DataFrame" helpers — bridge to monorepo workspace packages.
-    "load_hawaii_pums": ".pums_adapter",
-    "project_income_growth": ".projection_adapter",
-    # Full-fat loaders kept from the original ctc-and-eitc — needed for batched
+    # --- PUMS / projection -------------------------------------------------------
+    # Loaders kept from the original ctc-and-eitc — needed for batched
     # population loading and tax-unit-vectorized income projection.
     "PUMSDataLoader": ".loaders.pums_loader",
     "load_pums_data": ".loaders.pums_loader",
@@ -265,6 +256,12 @@ PUBLIC_API = (
     "enrich_with_spm_unit_id",
     "compute_base_tax",
     "calibrate",
+    # Production population build (tax_modeler.base)
+    "build_raw_units",
+    "load_or_build_raw_units",
+    "build_calibrated_base",
+    "validate_calibrated_base",
+    "build_tail_units",
     # Tax math primitives
     "TaxUnitConstructor",
     "TaxCalculator",
@@ -388,14 +385,6 @@ __all__ = [
     "calculate_hawaii_tax_for_units",
     "calculate_eitc",
     "calculate_eitc_for_tax_units",
-    "HawaiiTaxCalculator",
-    "load_tax_data",
-    "DeductionPolicy",
-    "TaxableIncomeCalculator",
-    "parse_deduction_benchmarks",
-    "parse_exemption_benchmarks",
-    "CalibrationOrchestrator",
-    "apply_systematic_calibration",
     "IPFCalibrationOrchestrator",
     "apply_ipf_calibration",
     "apply_ipf_calibration_via_rake",
@@ -407,20 +396,12 @@ __all__ = [
     "scale_deduction_params_for_target_year",
     "scale_eitc_for_poverty",
     "HawaiiTaxCredits",
-    "ParetoIncomeCalibrator",
-    "UltraHighIncomeSynthesizer",
-    "DotaxTable12AValidator",
-    "validate_against_table_12a",
-    "apply_hybrid_tax_calibration",
-    "validate_hybrid_calibration",
     "estimate_revenue",
     "GeographicAnalyzer",
     "assign_geography",
     "load_crosswalk",
-    "load_hawaii_pums",
     "PUMSDataLoader",
     "load_pums_data",
-    "project_income_growth",
     "EnsembleProjector",
     "OccupationMatcher",
     "project_tax_units_forward",

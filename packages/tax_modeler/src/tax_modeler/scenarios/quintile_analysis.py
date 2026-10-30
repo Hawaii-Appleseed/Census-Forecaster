@@ -98,7 +98,7 @@ def per_unit_tax(
     differ between the systems being compared. Scoring a frozen baseline on a
     frame rebuilt with TY2026 params (TY-yr incomes, TY2026 mortgage
     interest), as this note once advised, put about -$346M of spurious
-    SD-expansion cost into ``forecast_sb3125_vs_fy26base.py``'s CD2 table.
+    SD-expansion cost into ``chain/forecast_sb3125_vs_fy26base.py``'s CD2 table.
 
     If ``hi_itemized_deduction`` is missing (legacy data, pre-Act-46 backtests),
     falls back to scenario SD only; a NaN in it raises (see

@@ -21,8 +21,8 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(REPO / "chain"))
 
 
 def working_family(tmp: Path) -> tuple:
@@ -50,7 +50,7 @@ CHECKS = {"working_family": working_family, "golden": golden}
 
 
 def run_one(name: str) -> int:
-    import _forecast_common as fc
+    import common.fingerprint as fc
 
     with tempfile.TemporaryDirectory() as tmp:
         code = CHECKS[name](Path(tmp))
@@ -59,8 +59,8 @@ def run_one(name: str) -> int:
         print(f"{name}: closure untraceable, the key hashes the whole packages")
         return 0
     # This file and the scripts it calls into; their own source is in the key as a Path part.
-    harness = {Path(__file__).resolve(), REPO / "_forecast_common.py",
-               REPO / "forecast_working_family_credits.py", REPO / "scripts" / "build_simulator_population.py"}
+    harness = {Path(__file__).resolve(), REPO / "scripts" / "_forecast_common.py",
+               REPO / "chain" / "forecast_working_family_credits.py", REPO / "scripts" / "build_simulator_population.py"}
     allowed = set(closure) | harness
     loaded = {Path(f).resolve() for m in list(sys.modules.values())
               if (f := getattr(m, "__file__", None))}

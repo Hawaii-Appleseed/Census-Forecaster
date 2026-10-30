@@ -11,6 +11,12 @@ Chains six stages into a single callable:
      liability + credits.
   5. **Calibrate** — apply_ipf_calibration_via_rake adjusts unit weights to
      match DOTAX aggregate benchmarks.
+
+  Stages 3-5 run as :func:`tax_modeler.base.build_calibrated_base`, the same
+  sequence the forecast chain uses: the canonical itemized-deduction params at
+  tax year 2023, with the base scored again after the rake. (Until 2026-10-30
+  this pipeline scored with no deduction params at the default year, which did
+  not match production.)
   6. **Project** — project_tax_units_forward scales income to target year,
      recalculates Hawaii tax + federal credits + poverty correction.
   7. **Estimate** — RevenueEstimator wraps the projected units for revenue
@@ -116,16 +122,10 @@ def _load_pums(data_dir: Path, state: str, pums_type: str) -> tuple[pd.DataFrame
 
 
 def _construct_units(person_df: pd.DataFrame, hh_df: pd.DataFrame) -> pd.DataFrame:
-    """Stage 2: build tax filing units."""
-    from tax_modeler.units.constructor import TaxUnitConstructor
+    """Stage 2: build tax filing units (``tax_modeler.base.build_raw_units``)."""
+    from tax_modeler.base import build_raw_units
 
-    constructor = TaxUnitConstructor(
-        person_df,
-        hh_df,
-        use_soi_calibration=False,  # defer calibration to explicit IPF step
-        progress_bar=False,
-    )
-    units = constructor.create_rule_based_units(parallel=True)
+    units = build_raw_units(person_df, hh_df, parallel=True)
     logger.info("Tax units constructed: %d units", len(units))
     return units
 
@@ -586,8 +586,10 @@ def run_pipeline(
         ``earned_income``, ``investment_income``, ``dependents``, and
         ``num_qualifying_children`` are present.
     skip_calibration:
-        When ``True``, skip the IPF rake step even when building from PUMS.
-        Useful for debugging the construction and projection stages in isolation.
+        When ``True``, skip the IPF rake step (and the re-score after it) even
+        when building from PUMS: the units are enriched and scored on the
+        canonical deduction params only. Useful for debugging the construction
+        and projection stages in isolation.
     reform:
         Optional :class:`tax_modeler.reform.Reform`. When supplied, the
         comparison between baseline and reform is computed on the projected
@@ -639,17 +641,14 @@ def run_pipeline(
         units = _construct_units(person_df, hh_df)
         timings["construct"] = time.perf_counter() - t0
 
-        t0 = time.perf_counter()
-        units = enrich_for_credits(units)
-        timings["enrich"] = time.perf_counter() - t0
+        # Stages 3-5 are the production sequence (tax_modeler.base): canonical
+        # itemized-deduction params, TY2023, rake, then score again.
+        from tax_modeler.base import build_calibrated_base
 
         t0 = time.perf_counter()
-        units = compute_base_tax(units)
-        timings["base_tax"] = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        calibrated = calibrate(units) if not skip_calibration else units
-        timings["calibrate"] = time.perf_counter() - t0
+        calibrated, _ = build_calibrated_base(
+            units, skip_calibration=skip_calibration, log=lambda *a, **k: None)
+        timings["calibrated_base"] = time.perf_counter() - t0
 
     # ------------------------------------------------------------------ #
     # Stage 6: project forward                                             #

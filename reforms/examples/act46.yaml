@@ -1,6 +1,6 @@
 # Tax simulator preset (Act 46's brackets (undo Act 24's rate changes)), scored against current law (Act 24).
 # Generated from tax_modeler.simulator.presets; run with
-#   python forecast_custom.py --spec reforms/examples/act46.yaml
+#   python analyses/forecast_custom.py --spec reforms/examples/act46.yaml
 name: act46
 label: Act 46's brackets (undo Act 24's rate changes)
 first_year: 2027

@@ -23,7 +23,7 @@ and re-computes them under one or more counterfactual scenarios:
       EITC falls from 40% to 20% of federal and the food/excise credit
       returns to its pre-2023 table. Subtracts the precomputed
       ``act163_sunset_loss`` column (dollars per tax unit, take-up
-      adjusted; see ``forecast_working_family_credits.py``).
+      adjusted; see ``chain/forecast_working_family_credits.py``).
 
   Expansion / new-credit scenarios:
     * ``expanded_ctc_2021`` — federal CTC replaced with the ARPA 2021

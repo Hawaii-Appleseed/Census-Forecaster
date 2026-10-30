@@ -7,7 +7,7 @@ Reads the 2020-2024 five-year housing file (packages/data/raw/pums_2020_2024/
 psam_h15.csv, gitignored; from https://www2.census.gov/programs-surveys/acs/
 data/pums/2024/5-Year/csv_hhi.zip) and writes
 packages/tax_modeler/src/tax_modeler/data/raw/conveyance/
-pums_owner_value_tail_2020_2024.csv, which forecast_conveyance_sb3028.py reads.
+pums_owner_value_tail_2020_2024.csv, which analyses/forecast_conveyance_sb3028.py reads.
 
 PUMS has no county field. Hawaii's 2020 PUMAs nest in counties except that
 Maui, Kalawao and Kauai share one (Census 2020 tract-to-PUMA relationship

@@ -1,7 +1,7 @@
 """User-defined income tax changes: the tax simulator's policy spec.
 
 One JSON/YAML shape serves the estimates-site simulator, its share links, and
-the Python pipeline (``forecast_custom.py --spec``, ``Reform.from_dict``). See
+the Python pipeline (``analyses/forecast_custom.py --spec``, ``Reform.from_dict``). See
 TAX_SIMULATOR_SCOPE.md, "The policy spec". Example::
 
     name: top_14_over_1m

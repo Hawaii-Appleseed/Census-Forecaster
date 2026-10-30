@@ -7,7 +7,7 @@ Usage:
 Writes, under packages/tax_modeler/src/tax_modeler/data/raw/conveyance/:
   - parcel_stock_by_value.csv (county, group, value_lo, owner_occupied,
     improved, condo, count, sum_value) for Honolulu, Hawaii and Kauai, which
-    forecast_conveyance_sb3028.py reads;
+    analyses/forecast_conveyance_sb3028.py reads;
   - parcel_stock_by_value_hawaii_capped.csv, the same for Hawaiʻi County at
     its as-assessed (capped) homeowner values, for a sensitivity;
   - hawaii_homeowner_cap_factors.csv (zone, pittcode, factor, weight), the
@@ -55,7 +55,7 @@ government, charitable) are dropped; "improved" = building value > 0
   - "ag_dwelling": an agricultural parcel with a home (building value of
     $100,000 or more; Kauaʻi: a dwelling card). Kept as its own group, but
     the stock method counts these as homes on Hawaiʻi Island and Kauaʻi
-    (STOCK_GROUPS in forecast_conveyance_sb3028.py), scored at Maui's
+    (STOCK_GROUPS in analyses/forecast_conveyance_sb3028.py), scored at Maui's
     residential rates; Oʻahu's stay out, as Maui's own ag-land homes do;
   - "condo_unit": Hawaiʻi's apartment-class project parcels split into units
     (split_condo_masters);

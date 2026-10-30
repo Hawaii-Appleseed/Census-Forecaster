@@ -30,7 +30,7 @@ Notes
   at the real Hawaii PUMS for production runs.
 * PUMA→HD/SD assignment uses a deterministic SERIALNO hash; PUMA-level
   signal is preserved but within-PUMA variance is uniform.  See "Out of
-  scope" in EITC_CTC_GEO_PLAN.md for a note on raking to IRS ZIP data.
+  scope" in docs/archive/EITC_CTC_GEO_PLAN.md for a note on raking to IRS ZIP data.
 """
 from __future__ import annotations
 

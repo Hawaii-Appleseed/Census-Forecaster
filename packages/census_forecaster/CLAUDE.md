@@ -48,4 +48,4 @@ The full suite must pass — no regressions, no new skips. (The literal count dr
 
 ## Market signals
 
-`src/census_forecaster/markets/` (tracker, causal screen, signal derivation) ships in the package like everything else; downstream repos get it or not according to their pinned commit (see the cherry-pick note above — there is no per-module sync). Market-signal methodology lives in `METHODOLOGY.md` §Market signals; signals are screen-gated (BH-FDR + 2020-robustness) and ablation-gated before touching any forecast path.
+`packages/lab/src/lab/markets/` (tracker, causal screen, signal derivation) lives in the `census-lab` package, not in `census_forecaster`; its data stays in `census_forecaster/data/markets/` and `data/leading_indicators/`. Market-signal methodology lives in `METHODOLOGY.md` §Market signals; signals are screen-gated (BH-FDR + 2020-robustness) and ablation-gated before touching any forecast path.

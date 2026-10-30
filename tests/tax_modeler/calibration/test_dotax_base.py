@@ -12,7 +12,6 @@ from tax_modeler.calibration import (
     forward_agi_targets,
     forward_targets,
     ipf_orchestrator,
-    orchestrator,
     simultaneous_calibrator,
 )
 
@@ -192,7 +191,7 @@ def test_consumers_share_one_copy():
     assert simultaneous_calibrator.DOTAX_FILER_TARGETS == dotax_base.filer_targets()
     assert simultaneous_calibrator.DOTAX_TAX_TARGETS == dotax_base.tax_targets_M()
     assert simultaneous_calibrator.DOTAX_STATUS_TARGETS == dotax_base.status_targets()
-    for orch in (orchestrator.CalibrationOrchestrator, ipf_orchestrator.IPFCalibrationOrchestrator):
+    for orch in (ipf_orchestrator.IPFCalibrationOrchestrator,):
         assert orch.DOTAX_FILER_TARGETS == dotax_base.filer_targets()
         assert orch.DOTAX_TAX_TARGETS == dotax_base.tax_targets_M()
         assert orch.DOTAX_FILING_STATUS_TARGETS == dotax_base.status_targets()

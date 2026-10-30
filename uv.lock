@@ -15,6 +15,7 @@ resolution-markers = [
 members = [
     "census-common",
     "census-forecaster",
+    "census-lab",
     "pums-estimator",
     "tax-modeler",
 ]
@@ -114,11 +115,6 @@ dev = [
 dotax = [
     { name = "openpyxl" },
 ]
-markets = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "yfinance" },
-]
 ml = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -129,7 +125,6 @@ ml = [
 [package.metadata]
 requires-dist = [
     { name = "census-common", editable = "packages/common" },
-    { name = "numpy", marker = "extra == 'markets'", specifier = ">=1.21" },
     { name = "numpy", marker = "extra == 'ml'", specifier = ">=1.21" },
     { name = "openpyxl", marker = "extra == 'dotax'", specifier = ">=3.1" },
     { name = "pdfplumber", marker = "extra == 'cor'", specifier = ">=0.11" },
@@ -137,9 +132,33 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "requests", specifier = ">=2.28" },
     { name = "scikit-learn", marker = "extra == 'ml'", specifier = ">=1.1" },
+]
+provides-extras = ["dev", "ml", "dotax", "cor"]
+
+[[package]]
+name = "census-lab"
+version = "0.1.0"
+source = { editable = "packages/lab" }
+dependencies = [
+    { name = "census-forecaster" },
+    { name = "tax-modeler" },
+]
+
+[package.optional-dependencies]
+markets = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "yfinance" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "census-forecaster", editable = "packages/census_forecaster" },
+    { name = "numpy", marker = "extra == 'markets'", specifier = ">=1.21" },
+    { name = "tax-modeler", editable = "packages/tax_modeler" },
     { name = "yfinance", marker = "extra == 'markets'", specifier = ">=0.2" },
 ]
-provides-extras = ["dev", "ml", "markets", "dotax", "cor"]
+provides-extras = ["markets"]
 
 [[package]]
 name = "certifi"

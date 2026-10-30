@@ -112,10 +112,28 @@ proposals. Self-contained analyses with their own entry guides:
 | Analysis | Start here |
 |---|---|
 | **RxKids Hawaiʻi** — cost of a prenatal/infant cash program | **[`RXKIDS_GUIDE.md`](RXKIDS_GUIDE.md)** → [`RXKIDS_METHODOLOGY.md`](RXKIDS_METHODOLOGY.md) |
-| SB 3125 CD1 — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) |
-| Act 163 EITC and food/excise expansions expiring after TY2027 | [`forecast_working_family_credits.py`](forecast_working_family_credits.py) · published on the estimates site |
-| Capital-gains rate options on Act 24 brackets | [`forecast_cg_rate_options.py`](forecast_cg_rate_options.py) · published on the estimates site |
-| Conveyance tax restructuring (SB 3028 HD2, 2026) | [`CONVEYANCE_TAX_SCOPE.md`](CONVEYANCE_TAX_SCOPE.md) → [`forecast_conveyance_sb3028.py`](forecast_conveyance_sb3028.py) · published on the estimates site |
+| SB 3125 CD1/CD2 (Act 24) — EITC/CTC reform | [`SB3125_CD1_FORECAST.md`](SB3125_CD1_FORECAST.md) · its "Current results" tables are generated from `runs/` by `scripts/render_results.py` |
+| Act 163 EITC and food/excise expansions expiring after TY2027 | [`chain/forecast_working_family_credits.py`](chain/forecast_working_family_credits.py) · published on the estimates site |
+| Capital-gains rate options on Act 24 brackets | [`chain/forecast_cg_rate_options.py`](chain/forecast_cg_rate_options.py) · published on the estimates site |
+| Conveyance tax restructuring (SB 3028 HD2, 2026) | [`CONVEYANCE_TAX_SCOPE.md`](CONVEYANCE_TAX_SCOPE.md) → [`analyses/forecast_conveyance_sb3028.py`](analyses/forecast_conveyance_sb3028.py) · published on the estimates site |
+
+### Running the models
+
+Scripts live in three places: `chain/` (the five steps that make the published
+Act 24, capital-gains and working-family-credits numbers), `analyses/` (every
+other forecast and report script) and `scripts/` (tooling, the shared
+`_forecast_common.py`, and `run_scenario.py`). Run them from the repo root with
+`.venv/bin/python`; there is no Makefile. Its targets are replaced by:
+
+| Was | Now |
+|---|---|
+| `make sb3125_cd2` / `make enhanced` / `make distributional` | `python scripts/rerun_models.py` (the whole chain, independent steps in parallel); one step: `python chain/forecast_sb3125_enhanced.py --cd 2`, `python chain/forecast_sb3125_vs_fy26base.py --cd 2` |
+| publishing the results | `python scripts/publish.py` (rerun, import, rebuild the site) |
+| `make report` | `python analyses/generate_itep_report.py` |
+| `make clean` | delete `runs/<step>/` directories (and `data/artifacts/*.key` to drop the caches) |
+
+`python scripts/run_scenario.py --list` shows the registered scenarios and the
+analysis each one can be put through.
 
 ### Estimates site
 
@@ -124,14 +142,14 @@ Published estimates are served from `site/` by GitHub Pages
 or refresh one after a model run:
 
 ```bash
-python forecast_cg_rate_options.py                        # writes runs/cg_rate_options/ (gitignored)
+python chain/forecast_cg_rate_options.py                   # writes runs/cg_rate_options/ (gitignored)
 python scripts/build_site.py --import-runs capital-gains  # copies outputs to site/data/, regenerates pages
 ```
 
-The Act 24 page (`act-24`) imports from `forecast_sb3125_enhanced.py --cd 2`
-and `forecast_act24_vs_pre_act46.py`; the working-family credits page
-(`working-family-credits`) from `forecast_working_family_credits.py`; the
-conveyance tax page (`conveyance-tax`) from `forecast_conveyance_sb3028.py`,
+The Act 24 page (`act-24`) imports from `chain/forecast_sb3125_enhanced.py --cd 2`
+and `chain/forecast_act24_vs_pre_act46.py`; the working-family credits page
+(`working-family-credits`) from `chain/forecast_working_family_credits.py`; the
+conveyance tax page (`conveyance-tax`) from `analyses/forecast_conveyance_sb3028.py`,
 whose inputs are built by the scripts in `scripts/conveyance/` (see each
 header): Maui's sales and assessment listing by `maui_sales_extract.py`; the
 Oʻahu, Hawaiʻi County and Kauaʻi housing stock by `fetch_parcel_stock.py`;

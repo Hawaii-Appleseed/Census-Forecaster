@@ -20,7 +20,7 @@ families. Assumption band ~**$12M–$26M**. Design: **$1,500 one-time prenatal +
 *specification* uncertainty, not sampling — see §6.
 
 **Which scenario is "the headline" matters — it is `statutory_3mo`**
-(`DEFAULT_SCENARIO_KEY` in `forecast_rxkids_2028.py`): Medicaid OR ≤300% FPL,
+(`DEFAULT_SCENARIO_KEY` in `analyses/forecast_rxkids_2028.py`): Medicaid OR ≤300% FPL,
 **3-month** postnatal window. The model also prices a 6-month variant and two
 **universal** designs (no income or Medicaid test), which all cost more but —
 for the 6-month variant — serve exactly the same births:
@@ -72,19 +72,19 @@ uv sync --package census-forecaster --extra dev   # creates .venv with all deps
 
 ```bash
 # Statutory default — statutory_3mo, $1,500 + 3x$500 (real PUMS, committed):
-uv run python forecast_rxkids_2028.py \
+uv run python analyses/forecast_rxkids_2028.py \
     --tax-year 2028 \
     --pums-data-dir packages/data/raw/pums_2024_1yr \
     --out reports/rxkids_2028/
 
 # Flint-equivalent scenario:
-uv run python forecast_rxkids_2028.py --tax-year 2028 \
+uv run python analyses/forecast_rxkids_2028.py --tax-year 2028 \
     --pums-data-dir packages/data/raw/pums_2024_1yr \
     --takeup-rate 0.98 --fertility-response 0.10 \
     --out reports/rxkids_2028_flint/
 
 # No PUMS download needed for a smoke run — synthetic fixture:
-uv run python forecast_rxkids_2028.py --use-fixture --out /tmp/rxkids_smoke
+uv run python analyses/forecast_rxkids_2028.py --use-fixture --out /tmp/rxkids_smoke
 ```
 
 Each run writes a workbook, a one-page PDF, CSVs, and the SPM-unit parquet to
@@ -96,7 +96,7 @@ launch-year ramp, 12-month-extension, etc.).
 | File | What it is |
 |---|---|
 | **[`RXKIDS_METHODOLOGY.md`](RXKIDS_METHODOLOGY.md)** | The full methodology — sourcing, eligibility, every parameter, limitations, cross-checks, MOE. **Read this for the substance.** |
-| **[`forecast_rxkids_2028.py`](forecast_rxkids_2028.py)** | The runnable end-to-end script (the *process*): load PUMS → project to 2028 → eligibility → cost + impact → workbook/PDF. |
+| **[`analyses/forecast_rxkids_2028.py`](analyses/forecast_rxkids_2028.py)** | The runnable end-to-end script (the *process*): load PUMS → project to 2028 → eligibility → cost + impact → workbook/PDF. |
 | `packages/tax_modeler/src/tax_modeler/programs/rxkids_hi.py` | Core eligibility + benefit math (`compute_rxkids_for_units`). The two clauses and both arms. (Also holds the *legacy* birth proxy — `--use-proxy-births` only; the default drives off observed age-0 dependents.) |
 | `packages/tax_modeler/src/tax_modeler/benefits/medicaid_hi_quest.py` | Clause 1 — Medicaid eligibility (`medicaid_receives`). |
 | `packages/tax_modeler/src/tax_modeler/benefits/_fpl.py` | HHS Hawaiʻi FPL tables (2024–2025 published; 2026–2028 projected). |
@@ -113,7 +113,7 @@ uv run pytest tests/tax_modeler/programs/test_rxkids.py -v
 uv run pytest tests/ -m "not requires_dotax_raw and not requires_irs_external"
 
 # Reproduce the headline: re-run §3 and diff the CSV against the committed one:
-uv run python forecast_rxkids_2028.py --tax-year 2028 \
+uv run python analyses/forecast_rxkids_2028.py --tax-year 2028 \
     --pums-data-dir packages/data/raw/pums_2024_1yr --out /tmp/check
 diff /tmp/check/cost_by_state.csv reports/rxkids_2028/cost_by_state.csv
 ```
@@ -128,7 +128,7 @@ Every methodology choice is a separate git commit with a full explanation of
 *why*. To read the evolution of the model:
 
 ```bash
-git log --oneline -- forecast_rxkids_2028.py \
+git log --oneline -- analyses/forecast_rxkids_2028.py \
     packages/tax_modeler/src/tax_modeler/programs/rxkids_hi.py \
     RXKIDS_METHODOLOGY.md
 ```

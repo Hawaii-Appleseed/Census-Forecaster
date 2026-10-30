@@ -12,7 +12,7 @@ steps at once (``scripts/rerun_models.py``) can share the cores between them.
 
 :func:`process_pool` is the pool for callers that submit picklable top-level
 functions and do other work while they run (the scenario workers of
-``forecast_sb3125_enhanced.py``, the simulator's population build).
+``chain/forecast_sb3125_enhanced.py``, the simulator's population build).
 """
 from __future__ import annotations
 

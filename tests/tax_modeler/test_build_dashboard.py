@@ -39,7 +39,7 @@ def fake_runs(tmp_path):
         "metric": ["total_impact_$M"] * 4,
         "value": [124.9, 139.5, 100.0, 110.0],
     }).to_csv(run / "fiscal_tidy.csv", index=False)
-    write_run_manifest(run, script="forecast_sb3125_enhanced.py --cd 2",
+    write_run_manifest(run, script="chain/forecast_sb3125_enhanced.py --cd 2",
                        params={"cd": "2"})
     return runs
 
@@ -64,7 +64,7 @@ def test_index_shape(fake_runs, fake_reports):
     assert len(index["runs"]) == 1
     run = index["runs"][0]
     assert run["id"] == "sb3125_cd2_enhanced"
-    assert run["script"] == "forecast_sb3125_enhanced.py --cd 2"
+    assert run["script"] == "chain/forecast_sb3125_enhanced.py --cd 2"
     assert len(run["fiscal"]) == 4
     assert index["poverty"]["id"] == "poverty_impact_2025_tier3"
     assert len(index["poverty"]["rows"]) == 2

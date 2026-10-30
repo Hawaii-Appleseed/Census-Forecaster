@@ -10,9 +10,8 @@ Use :class:`PUMSDataLoader` when you need:
   - Explicit person-vs-household column splits
   - PUMS vintage column-rename handling (``STATE`` → ``ST``)
 
-For one-off DataFrame loads, prefer the simpler API in
-:func:`tax_modeler.pums_adapter.load_hawaii_pums`, which delegates to
-``pums_estimator.fetch_pums`` (Census API, no local files required).
+For one-off DataFrame loads that need no local files, use
+``pums_estimator.fetch_pums`` (Census API).
 
 For constructing tax units from loaded person/household data, use
 :class:`tax_modeler.units.base.TaxUnitConstructor` rather than any
@@ -171,7 +170,7 @@ class PUMSDataLoader:
         to load. Say where the files go and how to redirect the search,
         rather than a bare path — this is the same guidance
         ``pipeline._load_pums`` gives, made available to the direct
-        callers of this loader (forecast_sb3125.py, poverty_impact_report,
+        callers of this loader (analyses/forecast_sb3125.py, poverty_impact_report,
         eitc_ctc_geo_report) that bypass the pipeline wrapper.
         """
         return MissingDataError(

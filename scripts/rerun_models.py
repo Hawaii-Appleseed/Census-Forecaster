@@ -4,13 +4,13 @@
 
 The order the steps depend on:
 
-1. ``forecast_sb3125_enhanced.py --cd 2`` rebuilds the calibrated base every
+1. ``chain/forecast_sb3125_enhanced.py --cd 2`` rebuilds the calibrated base every
    later step reads, and writes the enhanced run that
-   ``forecast_act24_vs_pre_act46.py`` compares against.
+   ``chain/forecast_act24_vs_pre_act46.py`` compares against.
 2. Then, at the same time (each reads only step 1's outputs and writes only its
-   own ``runs/`` directory): ``forecast_act24_vs_pre_act46.py``,
-   ``forecast_sb3125_vs_fy26base.py --cd 2``, ``forecast_cg_rate_options.py``
-   and ``forecast_working_family_credits.py``.
+   own ``runs/`` directory): ``chain/forecast_act24_vs_pre_act46.py``,
+   ``chain/forecast_sb3125_vs_fy26base.py --cd 2``, ``chain/forecast_cg_rate_options.py``
+   and ``chain/forecast_working_family_credits.py``.
    ``scripts/build_simulator_population.py --population-only`` builds the
    simulator's population beside them, since it too needs only step 1.
 3. ``scripts/build_simulator_population.py --from-saved``, which prices its
@@ -44,11 +44,11 @@ REPO = Path(__file__).resolve().parent.parent
 LOGS = REPO / "runs" / "chain_logs"
 
 STAGES: list[list[list[str]]] = [
-    [["forecast_sb3125_enhanced.py", "--cd", "2"]],
-    [["forecast_act24_vs_pre_act46.py"],
-     ["forecast_sb3125_vs_fy26base.py", "--cd", "2"],
-     ["forecast_cg_rate_options.py"],
-     ["forecast_working_family_credits.py"],
+    [["chain/forecast_sb3125_enhanced.py", "--cd", "2"]],
+    [["chain/forecast_act24_vs_pre_act46.py"],
+     ["chain/forecast_sb3125_vs_fy26base.py", "--cd", "2"],
+     ["chain/forecast_cg_rate_options.py"],
+     ["chain/forecast_working_family_credits.py"],
      ["scripts/build_simulator_population.py", "--population-only"]],
     [["scripts/build_simulator_population.py", "--from-saved"]],
 ]
@@ -101,4 +101,13 @@ def main(stages: list[list[list[str]]] = STAGES) -> int:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--list", action="store_true", help="print the stages and exit without running")
+    if ap.parse_args().list:
+        for i, stage in enumerate(STAGES, 1):
+            print(f"stage {i}: " + "; ".join(" ".join(cmd) for cmd in stage))
+        sys.exit(0)
     sys.exit(main())

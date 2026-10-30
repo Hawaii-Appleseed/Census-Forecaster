@@ -1,4 +1,4 @@
-"""forecast_conveyance_sb3028.py: the statewide housing-stock method."""
+"""analyses/forecast_conveyance_sb3028.py: the statewide housing-stock method."""
 from __future__ import annotations
 
 import importlib.util
@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("forecast_conveyance_sb3028", REPO / "forecast_conveyance_sb3028.py")
+spec = importlib.util.spec_from_file_location("forecast_conveyance_sb3028", REPO / "analyses/forecast_conveyance_sb3028.py")
 fc = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = fc
 spec.loader.exec_module(fc)

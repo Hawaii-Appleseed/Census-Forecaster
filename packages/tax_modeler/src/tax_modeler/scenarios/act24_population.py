@@ -1,6 +1,6 @@
 """The population the Act 24 estimates are scored on.
 
-``forecast_sb3125_enhanced.py`` (the Act 24 page) and the tax simulator's
+``chain/forecast_sb3125_enhanced.py`` (the Act 24 page) and the tax simulator's
 scoring population (``tax_modeler.simulator.population``) both build their
 tax units here, so the simulator scores exactly the population the published
 estimates use.
@@ -81,19 +81,11 @@ def build_units(
 
 
 def _build_units(base_calibrated, *, alpha, top_premium, enrich, score):
-    from tax_modeler.calibration.cg_imputation import impute_capital_gains_from_soi
-    from tax_modeler.pipeline import enrich_for_credits
-    from tax_modeler.scenarios.top_income_synthesis import (
-        age_synthetic_tail,
-        calibrate_synthetic_tail_to_tax_target,
-        synthesize_top_filers,
-    )
+    from tax_modeler.base import synthesize_calibrated_tail
+    from tax_modeler.scenarios.top_income_synthesis import age_synthetic_tail
 
-    units = synthesize_top_filers(base_calibrated, pareto_alpha=alpha)
-    if enrich:
-        units = enrich_for_credits(units)
-    units = impute_capital_gains_from_soi(units)    # CG rate cap for $100K-$1M filers
-    units, tail_k = calibrate_synthetic_tail_to_tax_target(score(units), score=score)
+    units, tail_k = synthesize_calibrated_tail(
+        base_calibrated, alpha=alpha, score=score, enrich=enrich)
     units = score(age_synthetic_tail(units, top_premium=top_premium))
     return units, tail_k
 

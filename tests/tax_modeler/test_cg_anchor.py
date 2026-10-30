@@ -97,10 +97,10 @@ def test_gains_never_exceed_income():
 
 
 def test_the_page_imports_the_package_code():
-    """forecast_cg_rate_options.py takes these names from the package rather
+    """chain/forecast_cg_rate_options.py takes these names from the package rather
     than defining its own (checked on the source: importing the script turns
     warnings and logging off for the whole process)."""
-    tree = ast.parse((REPO / "forecast_cg_rate_options.py").read_text())
+    tree = ast.parse((REPO / "chain/forecast_cg_rate_options.py").read_text())
     imported = {a.name for n in tree.body if isinstance(n, ast.ImportFrom)
                 and n.module == "tax_modeler.calibration.cg_anchor" for a in n.names}
     assert imported == MOVED

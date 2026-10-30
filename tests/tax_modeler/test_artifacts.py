@@ -121,14 +121,36 @@ def test_artifact_version_recorded(tmp_path, units_df):
 def test_sidecar_round_trip(tmp_path, units_df):
     cache = tmp_path / "cache.parquet"
     units_df.to_parquet(cache, index=False)
-    sidecar = write_cache_sidecar(cache, extra={"built_by": "test", "n_units": 2})
+    sidecar = write_cache_sidecar(cache, extra={"built_by": "test", "n_units": 2}, code_key="k1")
     assert sidecar == tmp_path / "cache.meta.json"
 
-    meta = check_cache_sidecar(cache)
+    meta = check_cache_sidecar(cache, code_key="k1")
     assert meta is not None
     assert meta["built_by"] == "test"
     assert meta["n_units"] == 2
+    assert meta["code_key"] == "k1"
     assert "git_sha" in meta and "created_at" in meta
+
+
+def test_sidecar_defaults_to_the_construction_code_key(tmp_path, units_df, capsys):
+    from tax_modeler.artifacts import construction_code_key
+
+    cache = tmp_path / "cache.parquet"
+    units_df.to_parquet(cache, index=False)
+    write_cache_sidecar(cache)
+    assert json.loads((tmp_path / "cache.meta.json").read_text())["code_key"] == construction_code_key()
+    check_cache_sidecar(cache)
+    assert capsys.readouterr().out == ""
+
+
+def test_construction_code_key_is_a_fingerprint_of_tax_modeler_base():
+    from common.fingerprint import code_closure, fingerprint
+    from tax_modeler.artifacts import CONSTRUCTION_CODE, construction_code_key
+
+    assert CONSTRUCTION_CODE == ("tax_modeler.base",)
+    assert construction_code_key() == fingerprint(code=CONSTRUCTION_CODE)
+    closure = {f.name for f in code_closure(*CONSTRUCTION_CODE) or []}
+    assert {"base.py", "constructor.py", "pums_loader.py", "artifacts.py"} <= closure
 
 
 def test_missing_sidecar_warns_and_returns_none(tmp_path, units_df, capsys, caplog):
@@ -144,19 +166,41 @@ def test_missing_sidecar_warns_and_returns_none(tmp_path, units_df, capsys, capl
     assert any("no provenance sidecar" in r.message for r in caplog.records)
 
 
-def test_git_sha_mismatch_warns_but_returns_meta(tmp_path, units_df, capsys):
+def test_code_key_mismatch_warns_but_returns_meta(tmp_path, units_df, capsys):
     cache = tmp_path / "cache.parquet"
     units_df.to_parquet(cache, index=False)
-    sidecar = tmp_path / "cache.meta.json"
-    sidecar.write_text(json.dumps({
+    write_cache_sidecar(cache, code_key="old-key-0000000000")
+
+    meta = check_cache_sidecar(cache, code_key="new-key-1111111111")
+    assert meta is not None  # never aborts — warning only
+    assert meta["code_key"] == "old-key-0000000000"
+    assert "different construction code" in capsys.readouterr().out
+
+
+def test_git_sha_is_provenance_not_a_staleness_check(tmp_path, units_df, capsys):
+    cache = tmp_path / "cache.parquet"
+    units_df.to_parquet(cache, index=False)
+    (tmp_path / "cache.meta.json").write_text(json.dumps({
         "created_at": "2026-01-01T00:00:00+00:00",
         "git_sha": "deadbeef",  # never the current HEAD
+        "code_key": "same",
     }))
 
-    meta = check_cache_sidecar(cache)
-    assert meta is not None  # never aborts — warning only
+    meta = check_cache_sidecar(cache, code_key="same")
     assert meta["git_sha"] == "deadbeef"
-    assert "was built at git deadbeef" in capsys.readouterr().out
+    assert capsys.readouterr().out == ""
+
+
+def test_sidecar_without_a_code_key_warns(tmp_path, units_df, capsys):
+    cache = tmp_path / "cache.parquet"
+    units_df.to_parquet(cache, index=False)
+    (tmp_path / "cache.meta.json").write_text(json.dumps({
+        "created_at": "2026-01-01T00:00:00+00:00", "git_sha": "deadbeef",
+    }))
+
+    meta = check_cache_sidecar(cache, code_key="k")
+    assert meta is not None and "code_key" not in meta
+    assert "no code key" in capsys.readouterr().out
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")

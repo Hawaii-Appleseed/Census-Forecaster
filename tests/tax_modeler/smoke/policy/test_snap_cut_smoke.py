@@ -1,6 +1,6 @@
 """Phase 6 policy-level smoke test: SNAP cut → poverty rate increases.
 
-Mirrors what ``forecast_snap_10pct_cut.py`` does, but in <1s on the
+Mirrors the removed ``forecast_snap_10pct_cut.py`` demo, but in <1s on the
 synthetic fixture and with assertions on the qualitative shape.
 """
 from __future__ import annotations

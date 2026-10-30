@@ -6,7 +6,8 @@ on:
     paths:
       - 'packages/**'
       - 'tests/**'
-      - 'forecast_*.py'
+      - 'chain/**'
+      - 'analyses/**'
       - 'site/**'
       - 'scripts/build_site.py'
       - 'pyproject.toml'

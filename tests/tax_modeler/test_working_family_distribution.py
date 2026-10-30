@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "forecast_working_family_credits.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "chain/forecast_working_family_credits.py"
 
 
 @pytest.fixture(scope="module")

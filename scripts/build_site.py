@@ -30,7 +30,7 @@ import json
 import math
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -59,6 +59,8 @@ class Estimate:
     # repo-relative destination -> source under runs/, copied on import too
     # (the simulator's golden fixtures, which must match its published data)
     extra: tuple[tuple[str, str], ...] = ()
+    # published name -> source under runs/, copied only if the run wrote it
+    optional: dict[str, str] = field(default_factory=dict)
 
 
 CAPITAL_GAINS = Estimate(
@@ -80,11 +82,13 @@ ACT24 = Estimate(
         "distribution_quintile.csv": "sb3125_cd2_enhanced/quintile.csv",
         "distribution_income_class.csv": "sb3125_cd2_enhanced/bracket.csv",
         "manifest.json": "sb3125_cd2_enhanced/manifest.json",
-        # forecast_act24_vs_pre_act46.py writes no manifest; its provenance is
-        # the script itself and SB3125_CD1_FORECAST.md's reconciliation section.
         "vs_pre_act46.csv": "act24_vs_pre_act46/decomposition.csv",
     },
     stamp=("manifest.json",),
+    # chain/forecast_act24_vs_pre_act46.py writes its own manifest; runs made before
+    # it did have none, and then the script and SB3125_CD1_FORECAST.md's
+    # reconciliation section are its provenance.
+    optional={"vs_pre_act46_manifest.json": "act24_vs_pre_act46/manifest.json"},
 )
 WORKING_FAMILIES = Estimate(
     slug="working-family-credits",
@@ -147,6 +151,11 @@ def import_runs(est: Estimate) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     for name, src in est.files.items():
         shutil.copy2(runs / src, dst / name)
+    for name, src in est.optional.items():
+        if (runs / src).exists():
+            shutil.copy2(runs / src, dst / name)
+        else:
+            (dst / name).unlink(missing_ok=True)   # not a stale copy from an older run
     for dest, src in est.extra:
         (REPO / dest).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(runs / src, REPO / dest)
@@ -478,8 +487,8 @@ def build_capital_gains() -> tuple[str, dict]:
         'Its figures were produced by the Institute on Taxation and Economic Policy.')
     T_dotax = T_DOTAX_STATS
     T_code = (
-        f'Hawaiʻi Appleseed, <code>forecast_cg_rate_options.py</code>, Census-Forecaster model, commit '
-        f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_cg_rate_options.py">github.com</a>')
+        f'Hawaiʻi Appleseed, <code>chain/forecast_cg_rate_options.py</code>, Census-Forecaster model, commit '
+        f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_cg_rate_options.py">github.com</a>')
     T_cbo = (
         f'Congressional Budget Office, economic projections, {esc(p["cbo_vintage"])} vintage, capital gains realizations, '
         'adjusted to Hawaiʻi. <a href="https://www.cbo.gov/topics/budget/economic-projections">cbo.gov</a>')
@@ -697,14 +706,14 @@ def build_act24() -> tuple[str, dict]:
                'energy technologies income tax credit, 2026. <a href="https://tax.hawaii.gov/">tax.hawaii.gov</a>')
     T_claims = ('Hawaiʻi Department of Taxation, “Tax Credits Claimed by Hawaiʻi Taxpayers,” Tax Year 2023, '
                 'Tables 2, A-5 and A-6. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_sb3125_enhanced.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>chain/forecast_sb3125_enhanced.py --cd 2</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_sb3125_enhanced.py">github.com</a>')
     T_doc = (f'Hawaiʻi Appleseed, “SB 3125 (enacted as Act 24, SLH 2026) — Hawaii Income Tax Fiscal Impact Forecast,” '
              f'methodology and results, Census-Forecaster model. <a href="{REPO_URL}/blob/main/SB3125_CD1_FORECAST.md">github.com</a>')
     T_cor = ('Council on Revenues, General Fund forecast letter, May 21, 2026. '
              '<a href="https://tax.hawaii.gov/useful/a9_1cor/">tax.hawaii.gov</a>')
-    T_pre = (f'Hawaiʻi Appleseed, <code>forecast_act24_vs_pre_act46.py</code>, Census-Forecaster model. '
-             f'<a href="{REPO_URL}/blob/main/forecast_act24_vs_pre_act46.py">github.com</a>')
+    T_pre = (f'Hawaiʻi Appleseed, <code>chain/forecast_act24_vs_pre_act46.py</code>, Census-Forecaster model. '
+             f'<a href="{REPO_URL}/blob/main/chain/forecast_act24_vs_pre_act46.py">github.com</a>')
 
     src_model = "Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; middle scenario."
 
@@ -786,6 +795,10 @@ def build_act24() -> tuple[str, dict]:
 """, "context")
 
     base = manifest["inputs"]["tax_units_cache"]
+    pre_manifest_li = (
+        '\n<li><a href="../data/act-24/vs_pre_act46_manifest.json"><code>vs_pre_act46_manifest.json</code></a>: '
+        'run parameters and code version for the pre-Act 46 comparison</li>'
+        if (d / "vs_pre_act46_manifest.json").exists() else "")
     s5 = section("How These Estimates Are Calculated", f"""
 {lead("The model builds", f"a synthetic population of about {base['n_units']:,} Hawaiʻi tax units from the Census Bureau’s American Community Survey microdata ({esc(base['pums'])}), calibrated to Department of Taxation statistics, and computes each unit’s tax under both laws for every year. Filers with income above $1 million, whom survey data miss, are added from IRS and state tax statistics. Each income class holds the capital gains the Department of Taxation reports for it, and those gains are taxed with the statute’s alternative tax, which caps their rate at 7.25 percent.{notes.ref(T_DOTAX_STATS)}{notes.ref(T_HRS_ALT_TAX)}")}
 <p>High earners are assumed to report less taxable income when their rates rise, and a few to move away; those responses are in the bracket figures. Each filer who moves costs the state all of the income tax they would have paid, not just the increase. The credit changes are scored against projected claims under the old rules, and the share falling on individual filers is assigned to households by the Department of Taxation’s claim rates by income, and of the three scenarios the middle one is recommended. The full method, every parameter and each revision are documented with the code.{notes.ref(T_doc)}</p>
@@ -795,7 +808,7 @@ def build_act24() -> tuple[str, dict]:
 <li><a href="../data/act-24/distribution_quintile.csv"><code>distribution_quintile.csv</code></a>: change by fifth of households, {Y} to {last}, with shares paying more and less and credit claimants</li>
 <li><a href="../data/act-24/distribution_income_class.csv"><code>distribution_income_class.csv</code></a>: change by income class, {Y} to {last}</li>
 <li><a href="../data/act-24/vs_pre_act46.csv"><code>vs_pre_act46.csv</code></a>: Act 46 and Act 24 compared with pre-Act 46 law</li>
-<li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>
+<li><a href="../data/act-24/manifest.json"><code>manifest.json</code></a>: run parameters, input vintages and code version</li>{pre_manifest_li}
 </ul>
 """, "method")
 
@@ -865,8 +878,8 @@ def build_working_families() -> tuple[str, dict]:
                'Tables A-1 and A-2. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
     T_eitc_report = ('Hawaiʻi Department of Taxation, “Earned Income Tax Credit Report, Tax Year 2024” (Act 107, SLH 2017), '
                      'December 2025, Tables 1 to 4. <a href="https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf">files.hawaii.gov</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_working_family_credits.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>chain/forecast_working_family_credits.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/chain/forecast_working_family_credits.py">github.com</a>')
 
     src_model = f"Source: Hawaiʻi Appleseed estimates, Census-Forecaster tax model; tax year {Y}."
 
@@ -1182,8 +1195,8 @@ def build_conveyance() -> tuple[str, dict]:
     T_gis = ('County of Hawaiʻi parcels with assessed values and homeowner status, April 27, 2026, and dwelling units by '
              'parcel, June 2025, State of Hawaiʻi Statewide GIS Program. '
              '<a href="https://geodata.hawaii.gov/arcgis/rest/services/ParcelsZoning/MapServer/5">geodata.hawaii.gov</a>')
-    T_code = (f'Hawaiʻi Appleseed, <code>forecast_conveyance_sb3028.py</code>, Census-Forecaster model, commit '
-              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/forecast_conveyance_sb3028.py">github.com</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>analyses/forecast_conveyance_sb3028.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>. <a href="{REPO_URL}/blob/main/analyses/forecast_conveyance_sb3028.py">github.com</a>')
 
     src_maui = (f"Source: Hawaiʻi Appleseed estimates from County of Maui sales, fiscal years {min(p['maui_base_fy'])} to "
                 f"{max(p['maui_base_fy'])}, at fiscal year {Y} prices. Tax due at the sale, before any change in the number of sales.")
@@ -1407,7 +1420,7 @@ def build_conveyance() -> tuple[str, dict]:
     H, D = "HB2049 HD3", "SB3028 HD2"
     # The comparison's HD2 rows must be the page's own estimate: otherwise it
     # was run on another model version (rerun bill_comparison.py after
-    # forecast_conveyance_sb3028.py).
+    # analyses/forecast_conveyance_sb3028.py).
     stale = [(y, k) for y in years for k in ("static", "behavioral")
              if abs(BC[(y, D, k)]["state_change_$M"] - rev[(y, k)]["state_change_$M"]) > 1e-6]
     if stale:

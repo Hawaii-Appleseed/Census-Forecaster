@@ -1,4 +1,4 @@
-"""Regression tests for ``forecast_sb3125_vs_fy26base.py``'s regime scoring
+"""Regression tests for ``chain/forecast_sb3125_vs_fy26base.py``'s regime scoring
 (pipeline audit, September 29, 2026).
 
 The TY2026-frozen baseline was scored on a frame rebuilt with
@@ -35,17 +35,17 @@ def fy26():
     """The script as a module. It silences warnings and logging at import;
     that is undone here so it cannot leak into the rest of the session."""
     saved_disable = logging.root.manager.disable
-    sys.path.insert(0, str(REPO))  # for _forecast_common
+    sys.path.insert(0, str(REPO / "scripts"))  # for _forecast_common
     try:
         with warnings.catch_warnings():
             spec = importlib.util.spec_from_file_location(
-                "forecast_sb3125_vs_fy26base", REPO / "forecast_sb3125_vs_fy26base.py",
+                "forecast_sb3125_vs_fy26base", REPO / "chain/forecast_sb3125_vs_fy26base.py",
             )
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
     finally:
         logging.disable(saved_disable)
-        sys.path.remove(str(REPO))
+        sys.path.remove(str(REPO / "scripts"))
     return mod
 
 

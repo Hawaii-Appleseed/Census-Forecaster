@@ -1,5 +1,5 @@
 """SB 3028 HD2 next to HB 2049 HD3's rates, year by year, on the conveyance
-model (forecast_conveyance_sb3028.py), for the conveyance page's comparison.
+model (analyses/forecast_conveyance_sb3028.py), for the conveyance page's comparison.
 
 Usage:
   python scripts/conveyance/bill_comparison.py
@@ -28,7 +28,7 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "analyses"))
 
 import forecast_conveyance_sb3028 as f  # noqa: E402
 

@@ -105,7 +105,7 @@ def _build_units_production(
 ) -> pd.DataFrame:
     """Reproduce the production forecast build sequence through EITC take-up.
 
-    Mirrors forecast_hi_eitc_revert_20.py: load -> project/base-tax ->
+    Mirrors analyses/forecast_hi_eitc_revert_20.py: load -> project/base-tax ->
     IRS-anchored credit take-up -> HI EITC. Unlike _build_units this applies
     the pooled IRS take-up truncation + dollar scaling exactly as the real
     forecast does, so the by-children mix here is the *production* mix, not a

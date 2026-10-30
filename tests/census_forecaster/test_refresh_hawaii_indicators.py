@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from census_forecaster.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
+from lab.markets.screen import HAWAII_PREDICTORS, HYPOTHESIS_PAIRS
 from census_forecaster.scripts import refresh_hawaii_indicators as hi
 
 
@@ -125,7 +125,7 @@ def test_jet_fuel_and_business_formation_wired():
     """Both ride this keyless FRED fetcher rather than
     refresh_national_macro, which is driven by ml_features.
     NATIONAL_SERIES and would inject an ungated feature channel."""
-    from census_forecaster.markets.screen import NATIONAL_PREDICTORS
+    from lab.markets.screen import NATIONAL_PREDICTORS
     assert "MJFUELUSGULF" in hi.FRED_SERIES
     assert "BABATOTALSAHI" in hi.FRED_SERIES
     assert NATIONAL_PREDICTORS["US_JETFUEL"] == "MJFUELUSGULF"

@@ -128,7 +128,7 @@ class BehavioralParams:
     # Capital-gains realization semi-elasticity: gains fall by exp(-cg_beta x
     # the rise in the marginal rate on gains). The capital-gains page's
     # 0.5-0.8 long-run elasticity range over the ~31% combined top rate
-    # (forecast_cg_rate_options.py): 1.6 / 2.0 (its BETA) / 2.6.
+    # (chain/forecast_cg_rate_options.py): 1.6 / 2.0 (its BETA) / 2.6.
     cg_beta: float = 0.0
 
     @classmethod
@@ -886,7 +886,7 @@ def score_with_response(
     responded population, Σ w′(T_scen − T_base)(y′), which charged a migrant
     only the rate increase (BEHAVIORAL_ACCOUNTING_REVIEW.md).
 
-    The one implementation for ``forecast_sb3125_enhanced.py`` and the tax
+    The one implementation for ``chain/forecast_sb3125_enhanced.py`` and the tax
     simulator's reference scorer (``tax_modeler.simulator.score``), which
     ``site/assets/simulator/kernel.js`` mirrors.
 

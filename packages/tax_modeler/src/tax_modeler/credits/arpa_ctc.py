@@ -31,7 +31,7 @@ LIMITATIONS (intentional v1 approximations):
         expected_max_per_child = 0.334 × $3,600 + 0.666 × $3,000 ≈ $3,200
 
    Precision better than this requires re-imputing dependent ages from
-   PUMS persons; see ``CBO_COMPONENT_AGING_SCOPE.md`` for that scope.
+   PUMS persons; see ``docs/archive/CBO_COMPONENT_AGING_SCOPE.md`` for that scope.
 
 2. **Phase-out scope**: applied to filing-status-derived MAGI proxy
    (``total_cash_income`` from ``enrich_for_credits``). Modified AGI

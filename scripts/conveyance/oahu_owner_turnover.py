@@ -111,7 +111,7 @@ def _load(name: str, path: Path):
 
 
 fps = _load("fetch_parcel_stock", REPO / "scripts" / "conveyance" / "fetch_parcel_stock.py")
-fc = _load("forecast_conveyance_sb3028", REPO / "forecast_conveyance_sb3028.py")     # read-only: RATE_EDGES, maui_rates
+fc = _load("forecast_conveyance_sb3028", REPO / "analyses/forecast_conveyance_sb3028.py")     # read-only: RATE_EDGES, maui_rates
 mx = _load("maui_sales_extract", REPO / "scripts" / "conveyance" / "maui_sales_extract.py")    # Maui's sales, cached
 
 ARCGIS = "https://services.arcgis.com/tNJpAOha4mODLkXz/arcgis/rest/services"

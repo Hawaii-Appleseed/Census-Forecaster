@@ -4,7 +4,7 @@ Usage:
   python scripts/conveyance/maui_sales_extract.py            # cached downloads
   python scripts/conveyance/maui_sales_extract.py --refresh  # re-download
 
-Writes the Maui inputs of forecast_conveyance_sb3028.py (listed below) to
+Writes the Maui inputs of analyses/forecast_conveyance_sb3028.py (listed below) to
 packages/tax_modeler/src/tax_modeler/data/raw/conveyance/, with
 maui_sources.json: each raw file's URL, how it was obtained, retrieval time,
 SHA-256 and row count. Raw files are cached under

@@ -8,7 +8,7 @@ result in a file the first time a step computes it, and later calls with the
 same arguments load it.
 
 A store's key is the caller's fingerprint of the calibrated-base pickle and
-the model code (``_forecast_common.fingerprint``). Step 1 rewrites that
+the model code (``common.fingerprint.fingerprint``). Step 1 rewrites that
 pickle on every run, so a store never outlives the run that filled it, and
 opening a store removes the directories of other keys.
 

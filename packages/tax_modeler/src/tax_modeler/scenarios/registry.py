@@ -1,4 +1,4 @@
-"""Data-driven scenario registry (Phase 2 of DASHBOARD_PIPELINE_SCOPE.md).
+"""Data-driven scenario registry (Phase 2 of docs/archive/DASHBOARD_PIPELINE_SCOPE.md).
 
 ``TaxSystemRegistry`` exposes one classmethod per bill variant, so nothing
 could *enumerate* the modeled scenarios — every runner hardcoded its own
@@ -12,7 +12,7 @@ Scope: domain facts only — which tax system, which baseline, which credit
 overlay, which years are supported. Presentation (chart colors, output
 filenames, report subtitles) stays with the calling script.
 
-Follows the registry recipe proven in REGISTRY_MIGRATION_SCOPE.md: the
+Follows the registry recipe proven in docs/archive/REGISTRY_MIGRATION_SCOPE.md: the
 spec is the single source of truth, and the existing callables are
 referenced, never reimplemented, so scenario math cannot drift.
 """
