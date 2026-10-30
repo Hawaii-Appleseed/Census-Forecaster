@@ -59,7 +59,14 @@ from typing import TYPE_CHECKING
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from _forecast_common import ARTIFACT_DIR, CALIBRATED_PKL, RUNS_DIR, cache_provenance, fingerprint  # noqa: E402
+from _forecast_common import (  # noqa: E402
+    ARTIFACT_DIR,
+    CALIBRATED_PKL,
+    RUNS_DIR,
+    cache_provenance,
+    closure_guard,
+    fingerprint,
+)
 
 if TYPE_CHECKING:
     from tax_modeler.simulator.population import Population
@@ -362,6 +369,12 @@ def write_preset_results(golden_path: Path, out: Path) -> None:
                                for p in presets()}) + "\n")
 
 
+# The code the golden fixtures are scored with, for their key
+# (_forecast_common.code_closure): write_golden, and the methods of the
+# Population it is handed.
+GOLDEN_CODE = ("tax_modeler.simulator.golden", "tax_modeler.simulator.population")
+
+
 def golden_key(pop: Population, credit_table: dict) -> str:
     """The golden fixtures' inputs, hashed (:func:`_forecast_common.fingerprint`).
 
@@ -381,7 +394,7 @@ def golden_key(pop: Population, credit_table: dict) -> str:
                                if k not in stamps}
     credits = {**credit_table, "source": {k: v for k, v in credit_table["source"].items()
                                           if k not in stamps}}
-    return fingerprint(arrays, meta, credits, Path(__file__))
+    return fingerprint(arrays, meta, credits, Path(__file__), code=GOLDEN_CODE)
 
 
 def main() -> int:
@@ -494,7 +507,8 @@ def main() -> int:
         print("  golden fixtures: inputs unchanged, kept golden.json.gz", flush=True)
     else:
         key_path.unlink(missing_ok=True)
-        golden = write_golden(pop, golden_path, credit_table=credit_table)
+        with closure_guard(GOLDEN_CODE):
+            golden = write_golden(pop, golden_path, credit_table=credit_table)
         key_path.write_text(saved() + "\n")
         print(f"  golden fixtures: {golden}", flush=True)
     write_preset_results(OUT / "golden.json.gz", OUT / "web" / "presets_results.json")
