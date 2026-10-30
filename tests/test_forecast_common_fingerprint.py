@@ -185,3 +185,58 @@ def test_narrow_key_is_on_unless_switched_off():
     assert on(env)
     assert on({**env, "CF_NARROW_FINGERPRINT": "1"})
     assert not on({**env, "CF_NARROW_FINGERPRINT": "0"})
+
+
+def _lazy_pkg(tmp_path, monkeypatch, step_source):
+    """``lazypkg`` exports ``Thing`` lazily (a ``_LAZY`` map read by
+    ``__getattr__``), as tax_modeler's ``__init__`` does."""
+    import _forecast_common
+
+    src = tmp_path / "packages" / "lazypkg" / "src" / "lazypkg"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text(
+        "import importlib\n"
+        "_LAZY = {'Thing': '.thing'}\n"
+        "def __getattr__(name):\n"
+        "    if name in _LAZY:\n"
+        "        return getattr(importlib.import_module(_LAZY[name], __name__), name)\n"
+        "    return importlib.import_module(f'.{name}', __name__)\n")
+    (src / "thing.py").write_text("class Thing:\n    pass\n")
+    (src / "other.py").write_text("X = 1\n")
+    (src / "sub.py").write_text("Y = 1\n")
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "step.py").write_text(step_source)
+    monkeypatch.setattr(_forecast_common, "REPO", tmp_path)
+    return {f.name for f in _forecast_common.code_closure(tmp_path / "step.py") or []}
+
+
+def test_closure_follows_a_lazy_export(tmp_path, monkeypatch):
+    names = _lazy_pkg(tmp_path, monkeypatch, "from lazypkg import Thing\n")
+    assert names == {"step.py", "__init__.py", "thing.py"}
+
+
+def test_closure_follows_a_lazy_export_by_attribute(tmp_path, monkeypatch):
+    names = _lazy_pkg(tmp_path, monkeypatch, "import lazypkg as lp\n\ndef f():\n    return lp.Thing, lp.sub.Y\n")
+    assert names == {"step.py", "__init__.py", "thing.py", "sub.py"}
+
+
+def test_closure_star_import_takes_every_lazy_export(tmp_path, monkeypatch):
+    names = _lazy_pkg(tmp_path, monkeypatch, "from lazypkg import *\n")
+    assert "thing.py" in names and "other.py" not in names
+
+
+def test_lazy_getattr_is_not_an_untraceable_import(tmp_path, monkeypatch):
+    """The ``import_module`` in a lazy package's own ``__getattr__`` is
+    covered by its ``_LAZY`` map, so the closure still traces."""
+    assert _lazy_pkg(tmp_path, monkeypatch, "import lazypkg\n")
+
+
+def test_chain_closures_skip_the_lazy_init_exports():
+    """With tax_modeler's and its calibration's ``__init__`` lazy, the chain's
+    keys leave out calibration modules neither build uses."""
+    import _forecast_common
+
+    sys.path.insert(0, str(REPO / "scripts"))
+    closure = {f.name for f in _forecast_common.code_closure(
+        "tax_modeler.simulator.golden", "tax_modeler.simulator.population")}
+    assert "irs_bracket_calibration.py" not in closure
