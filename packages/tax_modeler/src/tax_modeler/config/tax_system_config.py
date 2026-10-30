@@ -1057,7 +1057,7 @@ class TaxCalculator:
         for i, (income, status, num_ex) in enumerate(zip(
             tax_units[income_col],
             tax_units[filing_status_col],
-            num_exemptions
+            num_exemptions, strict=False
         )):
             try:
                 ded = float(deductions[i])
@@ -1082,7 +1082,7 @@ class TaxCalculator:
             tax_units[income_col],
             tax_units[filing_status_col],
             liabilities,
-            num_dependents
+            num_dependents, strict=False
         )):
             try:
                 cr = credit_calc.calculate_total_credits(

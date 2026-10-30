@@ -192,7 +192,7 @@ def _extract_data(tier_dir: Path) -> dict:
 
 def _render_html(data: dict) -> str:
     state = data["state"]
-    counties = data["counties"]
+    _counties = data["counties"]
     hh = data["household_types"]
     hoh = hh.get("head_of_household", {})
 

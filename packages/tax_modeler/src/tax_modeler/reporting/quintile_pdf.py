@@ -125,7 +125,7 @@ def make_quintile_pdf(
             ax.text(0, 1.0, title, transform=ax.transAxes,
                     fontsize=11.5, fontweight="bold", color=NAVY, va="top")
             rows = []
-            for ql, qn, qr in zip(q_labels, Q_NAMES, Q_RANGES):
+            for ql, qn, qr in zip(q_labels, Q_NAMES, Q_RANGES, strict=False):
                 row = [qn, qr]
                 for yr in years:
                     v = _cell(yr, ql, col)
@@ -183,7 +183,7 @@ def make_quintile_pdf(
         ax.barh(yp, vals, height=0.55, color=bar_color, edgecolor="none")
         vmax = max(abs(min(vals)), abs(max(vals))) or 1.0
         pad = vmax * 0.04
-        for y, v in zip(yp, vals):
+        for y, v in zip(yp, vals, strict=False):
             lbl = fmt_value(v, fmt)
             if v >= 0:
                 ax.text(v + pad, y, lbl, va="center", ha="left",
@@ -193,7 +193,7 @@ def make_quintile_pdf(
                         fontsize=10, fontweight="bold", color="#2d3748")
         ax.set_yticks(yp)
         ax.set_yticklabels([])
-        for y, name, rng in zip(yp, Q_NAMES, Q_RANGES):
+        for y, name, rng in zip(yp, Q_NAMES, Q_RANGES, strict=False):
             ax.text(-0.01, y + 0.12, name, transform=ax.get_yaxis_transform(),
                     ha="right", va="center", fontsize=9.5, fontweight="bold",
                     color=PILL_FG,

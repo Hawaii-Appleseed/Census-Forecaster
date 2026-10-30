@@ -189,8 +189,8 @@ def _enumerate_factorial(params: tuple[SweepParam, ...]) -> list[Cell]:
     levels = ("low", "mid", "high")
     cells: list[Cell] = []
     for combo in itertools.product(levels, repeat=len(params)):
-        vals = {p.name: p.values()[level] for p, level in zip(params, combo)}
-        label = "__".join(f"{p.name}={level}" for p, level in zip(params, combo))
+        vals = {p.name: p.values()[level] for p, level in zip(params, combo, strict=False)}
+        label = "__".join(f"{p.name}={level}" for p, level in zip(params, combo, strict=False))
         cells.append(Cell(label=label, values=vals))
     return cells
 

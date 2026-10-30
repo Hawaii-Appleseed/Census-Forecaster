@@ -111,7 +111,7 @@ def _build_with_ml_residuals(
         by_key[key][r.method] = r
 
     out: list[FoldResidual] = []
-    for key, methods in by_key.items():
+    for _key, methods in by_key.items():
         trend = methods.get("trend_ensemble")
         anchor = methods.get("multi_anchor")
         ml = methods.get(ML_METHOD)
@@ -559,7 +559,7 @@ def _build_ensemble_v3_residuals(
         by_key[key][r.method] = r
 
     out: list[FoldResidual] = []
-    for key, methods in by_key.items():
+    for _key, methods in by_key.items():
         trend = methods.get("trend_ensemble")
         anchor = methods.get("multi_anchor")
         if trend is not None and anchor is not None:

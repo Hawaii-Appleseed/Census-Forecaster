@@ -90,7 +90,7 @@ def fetch_pums(
     records: list[PumsRecord] = []
 
     for row in rows[1:]:
-        d = dict(zip(headers, row))
+        d = dict(zip(headers, row, strict=False))
 
         # PUMA may appear as "PUMA" or as the geo field "public use microdata area"
         puma_raw = d.get("PUMA") or d.get("public use microdata area", "")
@@ -198,7 +198,7 @@ def fetch_pums_with_replicates(
         resp.raise_for_status()
         rows = resp.json()
         headers = rows[0]
-        return [dict(zip(headers, row)) for row in rows[1:]]
+        return [dict(zip(headers, row, strict=False)) for row in rows[1:]]
 
     # Chunk 1: base fields + replicates 1-40 (43 vars total, under 50-var cap)
     chunk1_vars = ["SERIALNO", "PUMA", main_weight] + list(variables) + [

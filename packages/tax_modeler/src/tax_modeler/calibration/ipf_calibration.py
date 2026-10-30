@@ -82,7 +82,7 @@ class IPFCalibrator:
         if not (has_filing_status or has_income_brackets):
             warnings.warn(
                 "No filing status or income bracket constraints provided. "
-                "IPF will only adjust to total returns."
+                "IPF will only adjust to total returns.", stacklevel=2
             )
     
     def calibrate(self, 

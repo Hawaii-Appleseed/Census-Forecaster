@@ -104,7 +104,7 @@ def check_reproduces_act24(pop, out_dir: Path) -> list[str]:
     else:
         anchor = pop.meta["cg_anchor"]
         for y in pop.years:
-            ours = dict(zip(anchor["classes"], anchor["k"]["mid"][str(y)]))
+            ours = dict(zip(anchor["classes"], anchor["k"]["mid"][str(y)], strict=False))
             for c, k in ran[str(y)].items():
                 if ours[c] != k:
                     problems.append(f"TY{y} gains factor {c}: {ours[c]!r} vs the Act 24 run's {k!r}")

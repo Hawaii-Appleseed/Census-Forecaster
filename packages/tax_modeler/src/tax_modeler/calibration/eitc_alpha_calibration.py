@@ -139,7 +139,7 @@ def _build_year_pairs(
         & set(int(y) for y in s1701.index)
     )
     pairs: list[dict] = []
-    irs_by_year = dict(zip(irs["year"].astype(int), irs["eitc_returns"]))
+    irs_by_year = dict(zip(irs["year"].astype(int), irs["eitc_returns"], strict=False))
     for i in range(len(common) - 1):
         y0, y1 = common[i], common[i + 1]
         if y1 - y0 != 1:

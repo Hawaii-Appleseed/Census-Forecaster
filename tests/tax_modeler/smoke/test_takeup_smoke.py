@@ -564,7 +564,7 @@ def test_reform_path_does_not_apply_baseline_takeup(taxed_units):
     column equal to fresh eligibility-based computation, not zeroed-out."""
     # Manually apply take-up imputation to baseline first
     baseline = compute_snap_for_units(taxed_units)
-    cl = AdminCaseload.load()
+    _cl = AdminCaseload.load()
     # Use a tiny target so most eligible units have benefit_col == 0 in baseline
     tiny_target = CaseloadTarget(
         program="snap", year=2024, unit="household",

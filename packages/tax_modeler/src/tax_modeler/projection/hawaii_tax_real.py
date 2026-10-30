@@ -260,7 +260,7 @@ def _marginal_rate_schedule(
     taxable = max(income - deduction, 0.0)
     if taxable <= 0.0:
         return 0.0
-    for lo, hi, rate, base_tax, base_income in brackets:
+    for lo, hi, rate, _base_tax, _base_income in brackets:
         if lo < taxable <= hi:
             return rate
     # If taxable equals exactly a bracket boundary (lo), fall through to

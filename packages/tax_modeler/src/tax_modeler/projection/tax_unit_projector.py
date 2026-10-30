@@ -72,7 +72,7 @@ _STATE_PROXY_GEOID = "15003"
 # Default anchor year when base_year is not supplied. This is the dollar-year
 # of the input PUMS incomes (2024 for the 2020-2024 5-year file) — aging grows
 # FROM here, so it must match the data vintage, not a hardcoded 2022.
-from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
+from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR  # noqa: E402 - sits with the constant it sets
 
 _DEFAULT_BASE_YEAR = PUMS_INCOME_DOLLAR_YEAR
 

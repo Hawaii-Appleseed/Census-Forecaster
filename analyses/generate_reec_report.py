@@ -121,7 +121,7 @@ def _load_historical():
 def _compute_scenarios(cd: str, compute_fn, agi_elig_share: float):
     import pandas as pd
     rows = []
-    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT):
+    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT, strict=False):
         for year in TARGET_YEARS:
             cd2_kw: dict = {}
             if cd == "2":
@@ -144,7 +144,7 @@ def _compute_scenarios(cd: str, compute_fn, agi_elig_share: float):
 def _compute_demand_projection(compute_fn):
     import pandas as pd
     rows = []
-    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT):
+    for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT, strict=False):
         for year in DEMAND_YEARS:
             result = compute_fn(
                 year,
@@ -872,7 +872,7 @@ def _page_quintile_burden(pdf, results_df, agi_bins: list, cd: str):
             q_income_limit[q] += income_limit_loss * w
             q_cap_loss[q]     += cap_loss * w
 
-    q_total_loss = [il + cl for il, cl in zip(q_income_limit, q_cap_loss)]
+    q_total_loss = [il + cl for il, cl in zip(q_income_limit, q_cap_loss, strict=False)]
     hh_per_q     = _HI_HOUSEHOLDS / n_q
     q_avg_per_hh = [loss * 1e6 / hh_per_q for loss in q_total_loss]
 
@@ -1403,7 +1403,7 @@ def _page_summary_table(pdf, results_df, cd: str):
     years = sorted(results_df["tax_year"].unique())
 
     # Key metrics only — plain-English labels, MID scenario only
-    col_sample = results_df.columns.tolist()
+    _col_sample = results_df.columns.tolist()
     metrics = [
         ("reec_baseline_$M",   "Projected RETITC claims (no bill)"),
         ("reec_after_bill_$M", "State cost with SB 3125"),
@@ -1422,7 +1422,7 @@ def _page_summary_table(pdf, results_df, cd: str):
         ),
     )
 
-    n_scen        = len(SHOW_SCENARIOS)
+    _n_scen        = len(SHOW_SCENARIOS)
     top, bot, gap = 0.85, 0.08, 0.0
     panel_h       = top - bot   # one panel, full height
     col_labels    = ["Metric"] + [f"Tax Year {y}" for y in years]

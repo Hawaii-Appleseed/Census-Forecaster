@@ -89,6 +89,7 @@ import logging
 import math
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from importlib.resources import files
 
 logger = logging.getLogger(__name__)
@@ -209,8 +210,6 @@ def _load_bls_panel() -> dict[str, list]:
         d = json.load(f)
     return d.get("series", {})
 
-
-from dataclasses import dataclass
 
 # Z-score for symmetric 90% intervals (mirrors census_forecaster.bls._Z_90).
 _Z_90 = 1.6448536269514722
@@ -588,7 +587,7 @@ def _compute_real_growth_detail(
         logger.warning("Non-positive total weight for aggregation: %s", total_w)
         return None
     log_ratio_combined = sum(
-        w * math.log(ratio) for w, (_, ratio, _) in zip(weights, per_county)
+        w * math.log(ratio) for w, (_, ratio, _) in zip(weights, per_county, strict=False)
     ) / total_w
     nominal_growth = math.exp(log_ratio_combined)
 
@@ -602,7 +601,7 @@ def _compute_real_growth_detail(
         mean_lv = sum(finite_lvs) / len(finite_lvs)
         var_num = sum(
             (w ** 2) * (lv if (math.isfinite(lv) and lv > 0) else mean_lv)
-            for w, (_, _, lv) in zip(weights, per_county)
+            for w, (_, _, lv) in zip(weights, per_county, strict=False)
         )
         se_log_nominal = math.sqrt(var_num) / total_w
 

@@ -131,7 +131,8 @@ class TestExpectedRevenuePerFiler:
     def test_custom_tax_fn_respected(self):
         """Custom tax_fn is applied instead of default."""
         # A flat-rate tax fn (no concentration effect from distribution)
-        flat_fn = lambda income: income * 0.05
+        def flat_fn(income):
+            return income * 0.05
         rev = expected_revenue_per_filer(DOTAX_2022_MEDIAN_INCOME, tax_fn=flat_fn)
         # Should be 5% of weighted-average income level, not 5% of median
         default_rev = expected_revenue_per_filer(DOTAX_2022_MEDIAN_INCOME)
@@ -193,7 +194,8 @@ class TestConcentrationMultiplier:
         the ACS median household income ($83.7k).  A flat-rate tax preserves
         this ratio exactly, giving a multiplier ≈ 0.78.
         """
-        flat_fn = lambda y: y * 0.05  # flat 5% — linear, no progressivity
+        def flat_fn(y):
+            return y * 0.05  # flat 5% — linear, no progressivity
         mult = concentration_multiplier(DOTAX_2022_MEDIAN_INCOME, tax_fn=flat_fn)
         # For a flat rate: mult = mean(rep_income) / median
         total_w = sum(b.n_returns * b.rep_income for b in DOTAX_2022_BRACKETS)
@@ -595,7 +597,8 @@ class TestConcentrationMarginalFn:
         # For a flat rate, d(rate × income × growth)/d(income) = rate × (mean_rep/base)
         # which is a constant independent of income (given fixed base).
         flat_rate = 0.05
-        flat_fn = lambda y: flat_rate * y
+        def flat_fn(y):
+            return flat_rate * y
         mr = concentration_marginal_fn(DOTAX_2022_MEDIAN_INCOME, tax_fn=flat_fn)
         # For flat tax: marginal = flat_rate × mean(rep_income) / base_median
         total_w = sum(b.n_returns * b.rep_income for b in DOTAX_2022_BRACKETS)

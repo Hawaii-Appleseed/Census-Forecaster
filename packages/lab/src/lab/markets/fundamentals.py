@@ -149,7 +149,7 @@ def run_reverse_screen(
             x = _drop_2020(x_full) if drop2020 else x_full
             y = _drop_2020(y_full) if drop2020 else y_full
             lcs = cross_correlation_lead(x, y, max_lead=18)
-            best = max(lcs, key=lambda l: abs(l.r)) if lcs else None
+            best = max(lcs, key=lambda lead: abs(lead.r)) if lcs else None
             for lag in lags:
                 gr = granger_f_test(y, x, lags=lag)
                 tests.append({
@@ -167,7 +167,7 @@ def run_reverse_screen(
     # the exclusion rerun is a robustness annotation, not extra budget.
     base = [t for t in tests if not t["exclude_2020"] and t["granger_p"] is not None]
     flags = benjamini_hochberg([t["granger_p"] for t in base], q=q_fdr)
-    for t, ok in zip(base, flags):
+    for t, ok in zip(base, flags, strict=False):
         t["bh_pass"] = bool(ok)
     for t in tests:
         t.setdefault("bh_pass", False)
@@ -218,7 +218,8 @@ def walkforward_return_ablation(
             errs_mean.append((r_actual - float(r_train.mean())) ** 2)
             errs_signal.append((r_actual - pred_signal) ** 2)
         n = len(errs_signal)
-        rmse = lambda e: float(math.sqrt(sum(e) / len(e))) if e else float("nan")
+        def rmse(e):
+            return float(math.sqrt(sum(e) / len(e))) if e else float("nan")
         rz, rm, rs = rmse(errs_zero), rmse(errs_mean), rmse(errs_signal)
         out.append({
             "fundamental": fund_name,

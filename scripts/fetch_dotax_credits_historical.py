@@ -126,7 +126,7 @@ def parse_year(year: int) -> dict:
         "financial_corp_$M":   round(fin_corp * scale, 3),
         "fiduciaries_$M":      round(fid_total * scale, 3),
         "exempt_orgs_$M":      round(exempt * scale, 3),
-        **{f"individual_{label}_$M": round(b * scale, 3) for label, b in zip(AGI_BIN_LABELS, bins)},
+        **{f"individual_{label}_$M": round(b * scale, 3) for label, b in zip(AGI_BIN_LABELS, bins, strict=False)},
         "suppressed_cells":    suppressed,
     }
 

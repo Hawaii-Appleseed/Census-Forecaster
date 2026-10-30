@@ -147,7 +147,7 @@ if __name__ == "__main__":
                 base_results = []
                 scen_results = []
                 for inc, fs, ndep in zip(proj["income"], proj["filing_status"],
-                                         proj.get("num_dependents", [0]*len(proj))):
+                                         proj.get("num_dependents", [0]*len(proj)), strict=False):
                     b = calc.calculate_tax(inc, baseline_cfg, fs, num_exemptions=int(ndep)+1)
                     s = calc.calculate_tax(inc, scenario_cfg, fs, num_exemptions=int(ndep)+1)
                     base_results.append(b["tax_liability"])

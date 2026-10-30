@@ -38,8 +38,8 @@ def is_head_of_household(
     logger = logging.getLogger(__name__)
     
     person_id = person.name
-    person_age = person.get('AGEP', 0)
-    person_rel = person.get('RELSHIPP', 0)
+    _person_age = person.get('AGEP', 0)
+    _person_rel = person.get('RELSHIPP', 0)
     
     # Must be unmarried or considered unmarried on the last day of the year
     if not _is_unmarried(person, person_data):

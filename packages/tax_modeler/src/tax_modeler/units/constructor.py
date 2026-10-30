@@ -1444,7 +1444,7 @@ class TaxUnitConstructor:
             logger.warning(f"Primary filer ID {primary_filer_id} not found in household members")
             return False
             
-        primary_filer = hh_members.loc[primary_filer_id]
+        _primary_filer = hh_members.loc[primary_filer_id]
         
         # Check relationship using correct PUMS codes
         rel_to_primary = dependent.get('RELSHIPP', 0)

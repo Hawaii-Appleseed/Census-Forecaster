@@ -149,7 +149,7 @@ def compute_moop_for_units(
     moop = np.full(len(out), global_mean, dtype=float)
 
     # Step 1: age × hh × income cell.
-    key3 = list(zip(age_bin, hh_bin, inc_bin))
+    key3 = list(zip(age_bin, hh_bin, inc_bin, strict=False))
     cell_lookup = cell_mean.to_dict()
     for i, k in enumerate(key3):
         v = cell_lookup.get(k)

@@ -77,7 +77,7 @@ def _rmse_cov(records: list[dict], method: str) -> dict[str, dict]:
         ind = r["indicator"]
         actual = r["actual"]
         point = r["point"]
-        se = r["se_total"]
+        _se = r["se_total"]
         if actual <= 0:
             continue
         rel = (point - actual) / actual

@@ -144,7 +144,7 @@ def _parse_yahoo_chart(payload: dict, start_year: int) -> list[MonthlyBar]:
         quote = result["indicators"]["quote"][0]
     except (KeyError, IndexError, TypeError) as exc:
         err = (payload.get("chart") or {}).get("error")
-        raise MarketDataError(f"yahoo chart payload malformed: {err or exc}")
+        raise MarketDataError(f"yahoo chart payload malformed: {err or exc}") from exc
     adj = (result["indicators"].get("adjclose") or [{}])[0].get("adjclose")
     closes = adj if adj else quote.get("close", [])
     volumes = quote.get("volume", [])

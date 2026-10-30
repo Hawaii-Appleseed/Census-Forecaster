@@ -113,7 +113,7 @@ def estimate_county_distribution(
     target_cats = controls.margins.get(variable, {})
     category_totals: dict[str, float] = {}
     category_sq_w: dict[str, float] = {}
-    for rec, w in zip(allocated, raked_weights):
+    for rec, w in zip(allocated, raked_weights, strict=False):
         val = rec.variables.get(variable)
         if val is None:
             continue

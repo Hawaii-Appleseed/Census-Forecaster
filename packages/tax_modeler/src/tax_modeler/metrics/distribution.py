@@ -11,14 +11,13 @@ to arbitrary ``n`` (deciles, percentiles, etc.) without code duplication.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Union
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
 
-ArrayLike = Union[np.ndarray, pd.Series, Sequence[float]]
+ArrayLike = np.ndarray | pd.Series | Sequence[float]
 
 
 # ---------------------------------------------------------------------------

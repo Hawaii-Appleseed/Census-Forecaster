@@ -852,7 +852,7 @@ class TestPopulationScoring:
             np.testing.assert_array_equal(back.arrays[k], v)
 
     def test_web_pack_round_trip(self, calc):
-        pop = _synthetic_population()
+        _pop = _synthetic_population()
         arrays = {"x": ("f8", np.array([1.5, -2.0])), "c": ("u1", np.array([3, 4, 5])),
                   "i": ("u4", np.array([7, 70000]))}
         blob, index = pack(arrays)

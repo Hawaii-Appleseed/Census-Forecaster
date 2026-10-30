@@ -85,8 +85,8 @@ class DistrictNearestNeighborImputer:
         X_weighted = X_scaled * weights
         
         # Store scaled features
-        for (district_id, district), features in zip(self.districts.items(), X_weighted):
-            district.features = dict(zip(feature_names, features))
+        for (_district_id, district), features in zip(self.districts.items(), X_weighted, strict=False):
+            district.features = dict(zip(feature_names, features, strict=False))
     
     def find_nearest_neighbors(self, target_district_id: str) -> list[tuple[str, float]]:
         """Find nearest neighbors for a target district."""
@@ -171,7 +171,7 @@ class DistrictNearestNeighborImputer:
         
         # Impute each SOI metric
         result = {}
-        for metric in neighbor_soi[0].keys():
+        for metric in neighbor_soi[0]:
             if metric == 'metadata':
                 continue
                 

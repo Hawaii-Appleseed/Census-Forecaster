@@ -972,8 +972,8 @@ def compute_credit_overlay(
     if model_carryforward_pool:
         # Vintage simulation: derive util rates per pool from the same
         # refundable/nonrefundable split logic as the static overlay.
-        util_ind  = _effective_claim_share_individual(reec_effective_claim_share)
-        util_corp = _effective_claim_share_corporate(reec_effective_claim_share)
+        _util_ind  = _effective_claim_share_individual(reec_effective_claim_share)
+        _util_corp = _effective_claim_share_corporate(reec_effective_claim_share)
 
         # The util_rate in the simulation is the *nonrefundable* utilization
         # rate (the rate at which stock is drawn down). Refundable claims

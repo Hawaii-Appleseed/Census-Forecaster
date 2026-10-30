@@ -421,8 +421,8 @@ def _parse_args(argv: list | None = None) -> argparse.Namespace:
                         "in the launch year. Default 12 (gradual). Lower = faster.")
     p.add_argument("--admin-load", type=float, default=DEFAULT_ADMIN_LOAD,
                    help="Administrative overhead as a fraction of benefit cost "
-                        "(enrollment/disbursement/eligibility). Default %.2f; "
-                        "reported as a separate appropriation line." % DEFAULT_ADMIN_LOAD)
+                        f"(enrollment/disbursement/eligibility). Default {DEFAULT_ADMIN_LOAD:.2f}; "
+                        "reported as a separate appropriation line.")
     p.add_argument("--no-birth-projection", action="store_true", default=False,
                    help="Hold the birth cohort at the base-year level instead of "
                         "projecting it to --tax-year with the damped-trend ensemble. "
@@ -458,9 +458,8 @@ def _parse_args(argv: list | None = None) -> argparse.Namespace:
                         "For backward-comparison only; the proxy overstates births.")
     p.add_argument("--scenarios", type=str, default=",".join(s["key"] for s in SCENARIOS),
                    help="Comma-separated scenario keys to price. Default: all "
-                        "(%s). The %r scenario always drives the detailed Summary "
-                        "tab / cost_by_state.csv / cost_by_county.csv."
-                        % (", ".join(s["key"] for s in SCENARIOS), DEFAULT_SCENARIO_KEY))
+                        "({}). The {!r} scenario always drives the detailed Summary "
+                        "tab / cost_by_state.csv / cost_by_county.csv.".format(", ".join(s["key"] for s in SCENARIOS), DEFAULT_SCENARIO_KEY))
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -1906,7 +1905,7 @@ def _pdf_table(pdf, *, headers, widths_frac, rows) -> None:
     # render squeezed into a sliver at the right margin instead of spanning
     # the table width.
     pdf.set_x(pdf.l_margin)
-    for h, w in zip(headers, widths):
+    for h, w in zip(headers, widths, strict=False):
         pdf.cell(w, 6, _ascii(h), fill=True, align="C")
     pdf.ln()
     pdf.set_text_color(0, 0, 0)
@@ -1915,7 +1914,7 @@ def _pdf_table(pdf, *, headers, widths_frac, rows) -> None:
     for row in rows:
         pdf.set_x(pdf.l_margin)
         pdf.set_fill_color(*_LIGHT)
-        for j, (val, w) in enumerate(zip(row, widths)):
+        for j, (val, w) in enumerate(zip(row, widths, strict=False)):
             pdf.cell(w, 6, _ascii(val), border="B", fill=fill,
                      align="L" if j == 0 else "R")
         pdf.ln()
@@ -2134,8 +2133,8 @@ def main(argv: list | None = None) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     p = hawaii_rxkids_parameters()
     ty = args.tax_year
-    pre_payment = p.prenatal_monthly * p.prenatal_months
-    post_payment = p.postnatal_monthly_per_child * p.postnatal_months
+    _pre_payment = p.prenatal_monthly * p.prenatal_months
+    _post_payment = p.postnatal_monthly_per_child * p.postnatal_months
 
     LOG.info("Loading PUMS (real PUMS=%s)", not args.use_fixture)
     base_units, persons = _load(pir, args)
@@ -2185,8 +2184,8 @@ def main(argv: list | None = None) -> int:
     #      Summary tab, PDF, cost_by_state.csv and cost_by_county.csv (unchanged
     #      outputs). Unpack it into the locals the rest of main() consumes. ----
     base_res = results[DEFAULT_SCENARIO_KEY]
-    frame, units = base_res["frame"], base_res["units"]
-    pre_payment, post_payment = base_res["pre_payment"], base_res["post_payment"]
+    frame, _units = base_res["frame"], base_res["units"]
+    _pre_payment, _post_payment = base_res["pre_payment"], base_res["post_payment"]
     total_cost, total_se, moe = base_res["cost_total"], base_res["cost_se"], base_res["moe"]
     prenatal_cost, postnatal_cost = base_res["cost_prenatal"], base_res["cost_postnatal"]
     eligible_families = base_res["eligible_families"]

@@ -77,7 +77,7 @@ def _horizontal_bar(
         ax.set_xlabel(xlabel)
     ax.set_title(title, loc="left", pad=12)
     max_v = max(values) if values else 1.0
-    for bar, v in zip(bars, values):
+    for bar, v in zip(bars, values, strict=False):
         ax.text(
             bar.get_width() + max_v * 0.01,
             bar.get_y() + bar.get_height() / 2,
@@ -113,7 +113,7 @@ def _vertical_bar(
         ax.set_ylabel(ylabel)
     ax.set_title(title, loc="left", pad=12)
     max_v = max(values) if values else 1.0
-    for bar, v in zip(bars, values):
+    for bar, v in zip(bars, values, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + max_v * 0.02,
@@ -157,7 +157,7 @@ def _stacked_vertical_bar(
             label=label,
             width=0.55,
         )
-        for bar, v in zip(bars, values):
+        for bar, v in zip(bars, values, strict=False):
             if v < max_total * 0.04:
                 continue
             ax.text(
@@ -170,9 +170,9 @@ def _stacked_vertical_bar(
                 color="white",
                 fontweight="bold",
             )
-        bottoms = [b + v for b, v in zip(bottoms, values)]
+        bottoms = [b + v for b, v in zip(bottoms, values, strict=False)]
     # Totals on top
-    for xi, total in zip(x, totals):
+    for xi, total in zip(x, totals, strict=False):
         ax.text(
             xi,
             total + max_total * 0.02,
@@ -223,7 +223,7 @@ def _grouped_vertical_bar(
             label=label,
             edgecolor="white",
         )
-        for bar, v in zip(bars, values):
+        for bar, v in zip(bars, values, strict=False):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + max_v * 0.02,
@@ -393,7 +393,7 @@ def _make_figures(data: BriefData, charts_dir: Path) -> dict[str, Path]:
         fig_bg1 = charts_dir / "fig_bg1_poverty_by_household_type.png"
         fig_b, ax_b = plt.subplots(figsize=(7.5, 3.8))
         bars = ax_b.barh(labels_bg, values_bg, color=colors_bg, edgecolor="white")
-        for bar, v in zip(bars, values_bg):
+        for bar, v in zip(bars, values_bg, strict=False):
             ax_b.text(v + 0.3, bar.get_y() + bar.get_height() / 2, f"{v:.1f}%",
                       va="center", fontsize=9, color=CHARCOAL)
         ax_b.set_xlabel("SPM Poverty Rate (%)")
@@ -417,7 +417,7 @@ def _make_figures(data: BriefData, charts_dir: Path) -> dict[str, Path]:
         ]
         bars_r = ax_r.barh(list(rs["race"]), list(rs["poverty_rate"] * 100),
                            color=bar_colors, edgecolor="white")
-        for bar, v in zip(bars_r, rs["poverty_rate"] * 100):
+        for bar, v in zip(bars_r, rs["poverty_rate"] * 100, strict=False):
             ax_r.text(v + 0.3, bar.get_y() + bar.get_height() / 2, f"{v:.1f}%",
                       va="center", fontsize=9, color=CHARCOAL)
         ax_r.set_xlabel("Official Poverty Rate (%)")

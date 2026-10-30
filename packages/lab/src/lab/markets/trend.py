@@ -57,7 +57,7 @@ class TickerForecast:
 
 def _monthly_log_returns(bars: Sequence[MonthlyBar]) -> list[float]:
     out = []
-    for prev, cur in zip(bars, bars[1:]):
+    for prev, cur in zip(bars, bars[1:], strict=False):
         gap = (cur.year * 12 + cur.month) - (prev.year * 12 + prev.month)
         if gap == 1 and prev.adj_close > 0 and cur.adj_close > 0:
             out.append(math.log(cur.adj_close / prev.adj_close))

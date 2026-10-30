@@ -335,7 +335,7 @@ def aggregate_to_spm_units(
     # ---- 7. Derive spm-unit filing status proxy (for by_household_type)
     out["filing_status"] = [
         _classify_spm_household_type(int(a), int(c))
-        for a, c in zip(out["n_adults"].fillna(0), out["n_children"].fillna(0))
+        for a, c in zip(out["n_adults"].fillna(0), out["n_children"].fillna(0), strict=False)
     ]
     out["is_multi_tax_unit_spm"] = out["n_tax_units_pooled"] > 1
 

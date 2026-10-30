@@ -85,13 +85,13 @@ def _interp_year(table: dict, year: int) -> float | tuple:
         return table[years_sorted[0]]
     if year >= years_sorted[-1]:
         return table[years_sorted[-1]]
-    for lo, hi in zip(years_sorted, years_sorted[1:]):
+    for lo, hi in zip(years_sorted, years_sorted[1:], strict=False):
         if lo <= year <= hi:
             t = (year - lo) / (hi - lo)
             v_lo = table[lo]
             v_hi = table[hi]
             if isinstance(v_lo, tuple):
-                return tuple(a + t * (b - a) for a, b in zip(v_lo, v_hi))
+                return tuple(a + t * (b - a) for a, b in zip(v_lo, v_hi, strict=False))
             return v_lo + t * (v_hi - v_lo)
     raise ConfigError(f"_interp_year: {year} not interpolable")
 
@@ -127,7 +127,7 @@ def hawaii_senior_share(year: int) -> float:
     if year >= max(_HI_SENIOR_SHARE):
         return _HI_SENIOR_SHARE[max(_HI_SENIOR_SHARE)]
     years_sorted = sorted(_HI_SENIOR_SHARE)
-    for lo, hi in zip(years_sorted, years_sorted[1:]):
+    for lo, hi in zip(years_sorted, years_sorted[1:], strict=False):
         if lo <= year <= hi:
             t = (year - lo) / (hi - lo)
             return _HI_SENIOR_SHARE[lo] + t * (_HI_SENIOR_SHARE[hi] - _HI_SENIOR_SHARE[lo])
@@ -553,7 +553,7 @@ def project_demographics_forward(
     df = units.copy()
     if senior_share_target is None:
         senior_share_target = hawaii_senior_share(target_year)
-    senior_share_baseline_in = hawaii_senior_share(base_year)
+    _senior_share_baseline_in = hawaii_senior_share(base_year)
 
     is_senior = df[age_col].fillna(0).astype(float).to_numpy() >= age_threshold
     w = df[weight_col].fillna(0).astype(float).to_numpy()

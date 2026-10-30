@@ -731,7 +731,7 @@ def transform_series(values: dict[int, float], how: str,
     out: dict[int, float] = {}
     if how in ("diff", "log_diff"):
         keys = sorted(values)
-        for prev_k, cur_k in zip(keys, keys[1:]):
+        for prev_k, cur_k in zip(keys, keys[1:], strict=False):
             gap = cur_k - prev_k
             if gap > 3:
                 continue
@@ -969,7 +969,7 @@ def run_screen(
     # BH across every Granger test actually run.
     report.n_tests = len(granger_ps)
     for slot, passed in zip(granger_slots,
-                            benjamini_hochberg(granger_ps, q=q)):
+                            benjamini_hochberg(granger_ps, q=q), strict=False):
         c = report.candidates[slot]
         report.candidates[slot] = ScreenCandidate(
             ticker=c.ticker, transform=c.transform, target=c.target,

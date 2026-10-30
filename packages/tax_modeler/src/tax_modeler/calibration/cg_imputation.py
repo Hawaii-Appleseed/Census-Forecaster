@@ -97,7 +97,7 @@ def impute_capital_gains_from_soi(
         out["synthetic_cg_share"] = out["synthetic_cg_share"].fillna(0.0)
 
     incomes  = out["income"].to_numpy(dtype=float)
-    weights  = out["weight"].to_numpy(dtype=float)
+    _weights  = out["weight"].to_numpy(dtype=float)
     cg_arr   = out["synthetic_cg_share"].to_numpy(dtype=float).copy()
 
     # Rows already assigned by Pareto synthesis — do not overwrite.
@@ -106,7 +106,7 @@ def impute_capital_gains_from_soi(
     # Look up the actual bin tuples from SOI_AGI_BINS to avoid float/int
     # mismatch in MultiIndex lookup.
     bin_100_200 = next(b for b in SOI_AGI_BINS if b[0] == 100_000)
-    bin_200_plus = next(b for b in SOI_AGI_BINS if b[0] == 200_000)
+    _bin_200_plus = next(b for b in SOI_AGI_BINS if b[0] == 200_000)
 
     # ── $100K–$200K bin ──────────────────────────────────────────────────────
     row_100_200 = soi_df.loc[bin_100_200]

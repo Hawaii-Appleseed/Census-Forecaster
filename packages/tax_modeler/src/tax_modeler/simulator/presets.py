@@ -35,7 +35,7 @@ def _schedules(calc: TaxCalculator, config: TaxSystemConfig) -> dict:
     out = {}
     for spec_fs, csv_fs in SPEC_STATUSES.items():
         b = calc.brackets_for(config, csv_fs)
-        out[spec_fs] = [[float(f), float(r)] for f, r in zip(b["income_min"], b["rate"])]
+        out[spec_fs] = [[float(f), float(r)] for f, r in zip(b["income_min"], b["rate"], strict=False)]
     return out
 
 

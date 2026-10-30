@@ -184,7 +184,7 @@ def _sample_variance(values: Sequence[float]) -> float:
 
 def _weighted_median(values: Sequence[float], weights: Sequence[float]) -> float:
     pairs = sorted(
-        [(v, w) for v, w in zip(values, weights) if w > 0],
+        [(v, w) for v, w in zip(values, weights, strict=False) if w > 0],
         key=lambda x: x[0],
     )
     if not pairs:

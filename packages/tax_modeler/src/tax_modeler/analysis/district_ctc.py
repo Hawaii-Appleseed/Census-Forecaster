@@ -226,9 +226,9 @@ class DistrictCTCAnalyzer:
             
             # Create mapping
             if district_type == 'county':
-                mapping = dict(zip(crosswalk['PUMA'], crosswalk['county']))
+                mapping = dict(zip(crosswalk['PUMA'], crosswalk['county'], strict=False))
             else:
-                mapping = dict(zip(crosswalk['PUMA'], crosswalk[f'{district_type}_district'].astype(str)))
+                mapping = dict(zip(crosswalk['PUMA'], crosswalk[f'{district_type}_district'].astype(str), strict=False))
                 
             logger.info(f"Created {district_type} mapping for {len(mapping)} PUMAs")
             return mapping

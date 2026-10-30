@@ -94,7 +94,7 @@ def _puma_district_options() -> dict[int, list[tuple[int, int]]]:
     result: dict[int, list[tuple[int, int]]] = {}
     for puma, grp in xwalk.groupby("PUMA"):
         pairs = sorted(
-            set(zip(grp["house_district"], grp["senate_district"]))
+            set(zip(grp["house_district"], grp["senate_district"], strict=False))
         )
         result[int(puma)] = pairs
     return result

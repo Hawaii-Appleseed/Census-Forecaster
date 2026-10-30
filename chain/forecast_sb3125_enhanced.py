@@ -257,9 +257,12 @@ def run_one_scenario(
     if ded_params is None:
         from tax_modeler.artifacts import load_canonical_deduction_params
         ded_params = load_canonical_deduction_params()
+    import logging
     import time
-    import warnings; warnings.filterwarnings("ignore")
-    import logging; logging.disable(logging.WARNING)
+    import warnings
+
+    warnings.filterwarnings("ignore")
+    logging.disable(logging.WARNING)
 
     from tax_modeler.calibration.cg_anchor import apply_anchor_factors
     from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
@@ -551,8 +554,11 @@ if __name__ == "__main__":
 
         # ---- Distributional quintile analysis (MID scenario, all years) -----
         print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
-        import warnings; warnings.filterwarnings("ignore")
-        import logging; logging.disable(logging.WARNING)
+        import logging
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        logging.disable(logging.WARNING)
         from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
         from tax_modeler.scenarios.quintile_analysis import (
             compute_quintile_breaks,

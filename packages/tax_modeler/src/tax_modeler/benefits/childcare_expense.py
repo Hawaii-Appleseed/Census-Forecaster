@@ -116,7 +116,7 @@ def compute_childcare_expense_for_units(
     amt = np.full(len(out), global_mean, dtype=float)
     cell_lookup = cell.to_dict()
     kid_lookup = kid_mean.to_dict()
-    for i, (kb, ib) in enumerate(zip(kid_bin, inc_bin)):
+    for i, (kb, ib) in enumerate(zip(kid_bin, inc_bin, strict=False)):
         v = cell_lookup.get((kb, ib))
         if v is not None and not pd.isna(v):
             amt[i] = v

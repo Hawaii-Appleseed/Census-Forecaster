@@ -82,7 +82,7 @@ def load_panel(panel_dir: Path | None = None) -> tuple[
         series_by_key[(obs.geoid, obs.indicator)].append(obs)
 
     # Sort each series by effective year for downstream consistency.
-    for key, obs_list in series_by_key.items():
+    for _key, obs_list in series_by_key.items():
         obs_list.sort(key=lambda o: (o.year, o.vintage))
 
     populations: dict[str, int] = {

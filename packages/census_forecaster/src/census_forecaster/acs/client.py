@@ -207,7 +207,7 @@ class AcsClient:
             self._cache[key] = []
         else:
             header, *data = rows
-            self._cache[key] = [dict(zip(header, r)) for r in data]
+            self._cache[key] = [dict(zip(header, r, strict=False)) for r in data]
 
         self._unsaved_writes += 1
         if self._unsaved_writes >= self._CACHE_WRITE_INTERVAL:

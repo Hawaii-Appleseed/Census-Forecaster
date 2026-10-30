@@ -94,7 +94,7 @@ class GeographicAnalyzer:
         
         for name, group in self.tax_units_df.groupby(group_cols):
             if isinstance(name, tuple):
-                geo_dict = dict(zip(group_cols, name))
+                geo_dict = dict(zip(group_cols, name, strict=False))
             else:
                 geo_dict = {group_cols[0]: name}
             

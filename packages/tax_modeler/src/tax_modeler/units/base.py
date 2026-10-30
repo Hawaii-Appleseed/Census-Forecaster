@@ -89,7 +89,7 @@ class TaxUnitConstructor:
         tax_units = []
         
         # Process each household
-        for hh_id, hh_group in self.person_df.groupby('SERIALNO'):
+        for _hh_id, hh_group in self.person_df.groupby('SERIALNO'):
             # Skip households with no adults
             if not hh_group['is_adult'].any():
                 continue

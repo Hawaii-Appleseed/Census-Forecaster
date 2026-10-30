@@ -146,8 +146,8 @@ def combined_level_anchor(
     else:
         weights = [w / total_inv for w in inv_vars]
 
-    point = sum(w * lv for w, (lv, _, _) in zip(weights, items))
-    se = math.sqrt(sum((w * se) ** 2 for w, (_, se, _) in zip(weights, items)))
+    point = sum(w * lv for w, (lv, _, _) in zip(weights, items, strict=False))
+    se = math.sqrt(sum((w * se) ** 2 for w, (_, se, _) in zip(weights, items, strict=False)))
     # Ensure combined SE >= any single source's floor.
     max_floor = max(s.level_se_floor for s in level_sources if s.level_se_floor > 0) if level_sources else 0.0
     se = max(se, max_floor)
@@ -221,7 +221,7 @@ def level_anchor_as_forecast(
 
     source_str = "+".join(
         f"{name}={w:.2f}"
-        for name, w in zip(level_anchor.source_names, level_anchor.weights)
+        for name, w in zip(level_anchor.source_names, level_anchor.weights, strict=False)
     )
     notes = (
         f"level_anchor(sources=[{source_str}], "
@@ -280,7 +280,7 @@ def _inverse_variance_weights(
     if len(source_names) != len(rates):
         raise ValueError("source_names and rates must align")
     raw_inv: list[float] = []
-    for name, r in zip(source_names, rates):
+    for name, r in zip(source_names, rates, strict=False):
         if indicator_rmse is not None and name in indicator_rmse:
             v = max(indicator_rmse[name], rmse_floor) ** 2
         else:
@@ -407,7 +407,7 @@ def combined_anchor_rate(
     # own time-series suggests.
     horizon = max(int(calibration_horizon), 1)
     rates_calibrated: list[AnnualRate] = []
-    for name, r in zip(source_names, rates):
+    for name, r in zip(source_names, rates, strict=False):
         if name in per_source_rmse:
             cal_se = per_source_rmse[name] / horizon
             new_se = max(r.se_log_rate, cal_se)
@@ -420,7 +420,7 @@ def combined_anchor_rate(
         indicator_rmse=per_source_rmse if per_source_rmse else None,
     )
 
-    point = sum(w * r.log_rate for w, r in zip(weights, rates_calibrated))
+    point = sum(w * r.log_rate for w, r in zip(weights, rates_calibrated, strict=False))
 
     # Variance of weighted sum with cross-source correlation rho.
     n = len(weights)

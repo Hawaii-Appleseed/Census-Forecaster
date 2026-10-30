@@ -225,8 +225,8 @@ class IPFCalibrationOrchestrator:
         # Initial validation
         logger.info("\nInitial state:")
         filer_dev = self._validate_filer_counts(result)
-        tax_dev = self._validate_tax_totals(result)
-        status_dev = self._validate_filing_status(result)
+        _tax_dev = self._validate_tax_totals(result)
+        _status_dev = self._validate_filing_status(result)
         
         # IPF iteration loop
         for iteration in range(self.max_iterations):
@@ -268,8 +268,8 @@ class IPFCalibrationOrchestrator:
             
             # Validate current state
             filer_dev = self._validate_filer_counts(result)
-            tax_dev = self._validate_tax_totals(result)
-            status_dev = self._validate_filing_status(result)
+            _tax_dev = self._validate_tax_totals(result)
+            _status_dev = self._validate_filing_status(result)
             
             # Calculate convergence metrics
             if self.convergence_criterion == 'chi_squared':

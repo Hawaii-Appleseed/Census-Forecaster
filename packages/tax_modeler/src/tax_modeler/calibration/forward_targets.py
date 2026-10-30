@@ -40,10 +40,14 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from tax_modeler.calibration import dotax_base
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-from pums_estimator import CountyControls, PumsRecord, SyntheticEstimatePoint
 from pums_estimator.models import CountyControls, PumsRecord, SyntheticEstimatePoint
 
 

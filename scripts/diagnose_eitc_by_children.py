@@ -178,7 +178,7 @@ def _report(units: pd.DataFrame, scale_to_irs_total: bool) -> None:
     buckets = ["0", "1", "2", "3+"]
     model_w = {b: 0.0 for b in buckets}
     model_n = {b: 0 for b in buckets}
-    for is_claimer, n, wt in zip(claimers, nqc, w):
+    for is_claimer, n, wt in zip(claimers, nqc, w, strict=False):
         if not is_claimer:
             continue
         b = _bucket(int(n))

@@ -212,7 +212,7 @@ def combine_forecasts(
             "combine_forecasts: forecasts must share geoid, indicator, target_year"
         )
     weights = _inverse_variance_weights(forecasts)
-    point = sum(w * f.point for w, f in zip(weights, forecasts))
+    point = sum(w * f.point for w, f in zip(weights, forecasts, strict=False))
 
     # Variance of weighted sum, treating component forecasts as
     # *correlated*. The two component models (damped trend + AR(1) on
@@ -238,15 +238,15 @@ def combine_forecasts(
     # Decompose into sample + forecast components by the same weighting
     # for audit; the values won't sum exactly to se_total under the
     # correlation assumption but they show the relative contribution.
-    se_sample = math.sqrt(sum((w * f.se_sample) ** 2 for w, f in zip(weights, forecasts)))
-    se_forecast = math.sqrt(sum((w * f.se_forecast) ** 2 for w, f in zip(weights, forecasts)))
+    se_sample = math.sqrt(sum((w * f.se_sample) ** 2 for w, f in zip(weights, forecasts, strict=False)))
+    se_forecast = math.sqrt(sum((w * f.se_forecast) ** 2 for w, f in zip(weights, forecasts, strict=False)))
 
     ci_lo, ci_hi = ci_from_se(point, se_total)
     horizons = {f.horizon for f in forecasts}
     horizon = horizons.pop() if len(horizons) == 1 else max(horizons)
 
     component_notes = "; ".join(
-        f"{f.method}={w:.2f}" for f, w in zip(forecasts, weights)
+        f"{f.method}={w:.2f}" for f, w in zip(forecasts, weights, strict=False)
     )
     cap_notes = [f.notes for f in forecasts if f.notes]
     notes = f"weights[{component_notes}]"

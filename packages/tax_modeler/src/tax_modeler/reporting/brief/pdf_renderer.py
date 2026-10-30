@@ -568,7 +568,7 @@ def _background_page(pdf: BriefPDF, data: BriefData, charts: dict[str, Path]) ->
     pdf.add_page()
     _add_section_title(pdf, "Background", "WHO BEARS THE BURDEN OF POVERTY IN HAWAIʻI?")
 
-    state = data.state
+    _state = data.state
     hht = data.household_types
     rs = data.racial_stats
 

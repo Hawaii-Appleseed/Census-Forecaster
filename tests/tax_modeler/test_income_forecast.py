@@ -366,7 +366,8 @@ def test_2022_to_2024_nominal_growth_within_published_range():
     """
     # Use a stub CPI loader that returns a constant 100 — so the "real"
     # factor returned by _compute_real_growth_factor IS the nominal_growth.
-    flat_cpi = lambda: {y: 100.0 for y in range(2010, 2027)}
+    def flat_cpi():
+        return {y: 100.0 for y in range(2010, 2027)}
     f = _compute_real_growth_factor(
         geoids=_NATIONAL_GEOIDS,
         base_year=2022,
@@ -489,7 +490,8 @@ def test_compute_inverse_variance_weighting_dominance(monkeypatch):
         stubbed,
     )
     # Use a flat CPI loader so the real factor equals nominal.
-    flat_cpi = lambda: {y: 100.0 for y in range(2010, 2027)}
+    def flat_cpi():
+        return {y: 100.0 for y in range(2010, 2027)}
 
     f = _compute_real_growth_factor(
         geoids=_NATIONAL_GEOIDS, base_year=2022, target_year=2026,
@@ -517,7 +519,8 @@ def test_compute_population_weighting_alternative(monkeypatch):
         "tax_modeler.projection.income_forecast._forecast_one_county",
         stubbed,
     )
-    flat_cpi = lambda: {y: 100.0 for y in range(2010, 2027)}
+    def flat_cpi():
+        return {y: 100.0 for y in range(2010, 2027)}
 
     # Inverse-variance: equal SE across all 8 → equal weights → geometric mean ~ 1.122
     f_iv = _compute_real_growth_factor(
@@ -547,7 +550,8 @@ def test_compute_geometric_aggregation_log_ratios(monkeypatch):
         "tax_modeler.projection.income_forecast._forecast_one_county",
         stubbed,
     )
-    flat_cpi = lambda: {y: 100.0 for y in range(2010, 2027)}
+    def flat_cpi():
+        return {y: 100.0 for y in range(2010, 2027)}
 
     import math
     expected = math.exp(
@@ -588,7 +592,8 @@ def test_compute_handles_se_total_none(monkeypatch):
         "tax_modeler.projection.income_forecast._forecast_one_county",
         stubbed,
     )
-    flat_cpi = lambda: {y: 100.0 for y in range(2010, 2027)}
+    def flat_cpi():
+        return {y: 100.0 for y in range(2010, 2027)}
 
     f = _compute_real_growth_factor(
         geoids=tuple(geoid_to_stub.keys()),

@@ -511,7 +511,7 @@ def _verify_post_override_coverage(
     from .ensemble import _apply_se_override
 
     coverage: dict[str, dict[str, list[int]]] = {}
-    for (geoid, indicator), full in series_by_key.items():
+    for (_geoid, indicator), full in series_by_key.items():
         full_sorted = sorted(full, key=lambda o: (effective_year(o), o.vintage))
         for anchor in anchor_years:
             target_year = anchor + horizon
@@ -835,7 +835,7 @@ def _estimate_bias_records(
         else:
             wsum = sum(weights)
             b_raw = (
-                sum(w * lr for w, lr in zip(weights, log_ratios)) / wsum
+                sum(w * lr for w, lr in zip(weights, log_ratios, strict=False)) / wsum
                 if wsum > 0 else 0.0
             )
         # Apply n-threshold gate, then clamp.

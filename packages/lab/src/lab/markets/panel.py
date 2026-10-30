@@ -123,7 +123,7 @@ class PricesPanel:
         """
         bars = self.bars(symbol)
         out: list[tuple[int, int, float]] = []
-        for prev, cur in zip(bars, bars[1:]):
+        for prev, cur in zip(bars, bars[1:], strict=False):
             if _month_index(cur.year, cur.month) - _month_index(prev.year, prev.month) != 1:
                 continue
             out.append((cur.year, cur.month,

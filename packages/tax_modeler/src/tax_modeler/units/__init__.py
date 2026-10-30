@@ -7,13 +7,6 @@ and analyzing their characteristics for tax policy modeling.
 
 from __future__ import annotations
 
-"""
-Tax unit construction and analysis module.
-
-This package provides functionality for constructing tax units from PUMS data
-and analyzing their characteristics for tax policy modeling.
-"""
-
 # Import key classes and functions to make them available at package level
 from .base import FILING_STATUS, TaxUnitConstructor
 from .dependencies import identify_dependents

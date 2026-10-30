@@ -221,8 +221,8 @@ def build_html(q_df: pd.DataFrame, e_df: pd.DataFrame) -> str:
 
     # ---------- REEC incidence table HTML ----------
     reec_inc_rows = ""
-    for i, (lbl, claimed, lost_cap, lost_agi) in enumerate(
-        zip(reec_inc["labels"], reec_inc["claimed"], reec_inc["lost_cap"], reec_inc["lost_agi"])
+    for _i, (lbl, claimed, lost_cap, lost_agi) in enumerate(
+        zip(reec_inc["labels"], reec_inc["claimed"], reec_inc["lost_cap"], reec_inc["lost_agi"], strict=False)
     ):
         total_bin = claimed + lost_cap + lost_agi
         reec_inc_rows += (

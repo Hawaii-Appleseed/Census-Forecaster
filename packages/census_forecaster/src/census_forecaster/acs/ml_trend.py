@@ -198,7 +198,7 @@ def train_ml_model(
     preds = est.predict(X)
     residuals = y - preds  # shape (n_train,)
     by_h: dict[int, list[float]] = {}
-    for resid, (_g, _a, _t, h) in zip(residuals, matrix.meta):
+    for resid, (_g, _a, _t, h) in zip(residuals, matrix.meta, strict=False):
         by_h.setdefault(int(h), []).append(float(resid))
 
     std_by_h: dict[int, float] = {}

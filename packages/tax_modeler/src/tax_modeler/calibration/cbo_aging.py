@@ -189,7 +189,7 @@ def load_cbo_rates(
     for component, group in df.groupby("component"):
         factors[component] = dict(zip(
             group["year"].astype(int),
-            group["growth_factor_from_2022"].astype(float),
+            group["growth_factor_from_2022"].astype(float), strict=False,
         ))
         # Sanity: base_year factor should be 1.0
         if base_year in factors[component]:
@@ -273,7 +273,7 @@ def _component_amounts_for_filer(
     which ``income`` excludes (see :func:`transfers_outside_income`).
     """
     inc = df["income"].astype(float).to_numpy()
-    n = len(df)
+    _n = len(df)
 
     def _col(name: str) -> np.ndarray:
         return _numeric_col(df, name)

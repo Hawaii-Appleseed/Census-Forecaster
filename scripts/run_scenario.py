@@ -110,7 +110,7 @@ def print_listing() -> None:
     """Show every registry scenario and the analyses available for it."""
     print("Scenarios (tax_modeler.scenarios.registry):\n")
     for spec in list_scenarios():
-        years = "TY%d only" % spec.fixed_year if not spec.takes_year else "TY2027-2031"
+        years = f"TY{spec.fixed_year} only" if not spec.takes_year else "TY2027-2031"
         names = [r.name for r in runners_for(spec.slug)]
         print(f"  {spec.slug:26} {spec.label:28} {years:12} overlay={spec.overlay}")
         if spec.statute:

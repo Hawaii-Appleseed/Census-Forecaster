@@ -378,7 +378,8 @@ class TestRunHawaiiRevenueBacktestParams:
 
     def test_custom_tax_fn_changes_revenue_mape(self):
         """Custom tax_fn produces different MAPE than default concentration model."""
-        flat_fn = lambda y: y * 0.05
+        def flat_fn(y):
+            return y * 0.05
         result_default = run_hawaii_revenue_backtest(use_conformal=False)
         result_flat = run_hawaii_revenue_backtest(
             tax_fn=flat_fn,

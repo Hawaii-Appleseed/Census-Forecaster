@@ -90,7 +90,7 @@ def compute_quintile_breakdown(projected, baseline_cfg, scenario_cfg, calc, *, c
     base_tax, scen_tax = [], []
     ndep_col = proj.get("num_dependents") if hasattr(proj, "get") else proj["num_dependents"]
     for inc, fs, ndep, cg_share in zip(
-        proj["income"], proj["filing_status"], ndep_col, cg_shares
+        proj["income"], proj["filing_status"], ndep_col, cg_shares, strict=False
     ):
         cg_inc = float(inc) * float(cg_share)
         # Filer, spouse on a joint return, dependents (was dependents + 1,
@@ -280,9 +280,9 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
         ax.barh(yp, lost_cap, height=0.55, color=ORANGE, edgecolor="none",
                 left=retained, label="Lost to cap (pro-rata)")
         ax.barh(yp, lost_agi, height=0.55, color=NAVY,   edgecolor="none",
-                left=[r + c for r, c in zip(retained, lost_cap)], label="Lost to AGI filter")
+                left=[r + c for r, c in zip(retained, lost_cap, strict=False)], label="Lost to AGI filter")
 
-        for ypos, row in zip(yp, rows):
+        for ypos, row in zip(yp, rows, strict=False):
             ax.text(
                 row["baseline"] + 0.4, ypos,
                 f"-${row['total_lost']:.1f}M  ({row['pct_lost']:.0f}%)",
@@ -291,7 +291,7 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
 
         ax.set_yticks(yp)
         ax.set_yticklabels([])
-        for ypos, row in zip(yp, rows):
+        for ypos, row in zip(yp, rows, strict=False):
             is_corp = row["group"] == "Corporate / Other"
             ax.text(
                 -0.01, ypos, row["group"],
@@ -361,12 +361,12 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
         n_s     = len(scenarios)
         width   = 0.22
         offsets = np.linspace(-(n_s - 1) / 2 * width, (n_s - 1) / 2 * width, n_s)
-        for scen, offset in zip(scenarios, offsets):
+        for scen, offset in zip(scenarios, offsets, strict=False):
             sub  = df_enh[df_enh["scenario"] == scen].set_index("tax_year")
             vals = [sub.loc[y, "reec_savings_$M"] for y in yr_list]
             bars = ax_top.bar(x + offset, vals, width=width * 0.92,
                               color=colors[scen], edgecolor="none", label=scen)
-            for bar, val in zip(bars, vals):
+            for bar, val in zip(bars, vals, strict=False):
                 ax_top.text(
                     bar.get_x() + bar.get_width() / 2, val + 1.0,
                     f"${val:.0f}M", ha="center", va="bottom",

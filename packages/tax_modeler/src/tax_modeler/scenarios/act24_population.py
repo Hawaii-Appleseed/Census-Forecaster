@@ -28,8 +28,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from tax_modeler.config.tax_system_config import TaxSystemConfig
 
 
 def build_units(

@@ -298,7 +298,8 @@ class TestProjectRevenuePerFilerParams:
 
     def test_custom_tax_fn_respected(self):
         """Custom tax_fn changes per_filer_revenue but not income_se."""
-        flat_fn = lambda y: y * 0.05
+        def flat_fn(y):
+            return y * 0.05
         p_conc = project_revenue_per_filer(target_year=2026)
         p_flat = project_revenue_per_filer(target_year=2026, tax_fn=flat_fn)
         assert p_conc is not None and p_flat is not None
