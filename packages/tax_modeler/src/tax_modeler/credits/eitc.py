@@ -25,12 +25,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cache
-from typing import Dict, List, Optional
+from typing import Dict, List
 import numpy as np
 import pandas as pd
 
 from tax_modeler.per_unit import (
-    apply_per_unit,
+    NotVectorizable,
+    apply_columns,
     first_present,
     numeric_column,
     or_zero,
@@ -38,7 +39,6 @@ from tax_modeler.per_unit import (
     py_min,
     py_round,
     status_column,
-    with_unit_columns,
 )
 from tax_modeler.units.relshipp_codes import EITC_QUALIFYING_CHILD_RELS
 
@@ -523,36 +523,24 @@ def calculate_eitc_for_tax_units(
 
     Every unit is computed at once (:func:`_eitc_arrays`), with the same float
     operations in the same order as :func:`calculate_eitc`, so each gets the
-    same bits. Frames the array path does not handle (empty, repeated column
-    names, non-numeric income columns, a ``pd.NA`` filing status, an age that
-    ``int()`` would reject) are handed to :func:`calculate_eitc` one unit at a
-    time, which treats them as it always has.
+    same bits. Frames the array path does not handle (``per_unit.apply_columns``,
+    or an age that ``int()`` would reject) go through :func:`calculate_eitc`
+    one unit at a time.
     """
-    columns = _eitc_arrays(tax_units_df, tax_year, extrapolate)
-    if columns is None:
-        return apply_per_unit(
-            tax_units_df, lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
-    return with_unit_columns(tax_units_df, columns)
+    return apply_columns(
+        tax_units_df, lambda df: _eitc_arrays(df, tax_year, extrapolate),
+        lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
 
 
-def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional[Dict[str, np.ndarray]]:
-    """:func:`calculate_eitc`'s result keys for every unit, or None where the
-    per-unit path is needed."""
+def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Dict[str, np.ndarray]:
+    """:func:`calculate_eitc`'s result keys for every unit (raises
+    ``per_unit.NotVectorizable`` where the per-unit path is needed)."""
     n = len(df)
-    if n == 0 or not df.columns.is_unique:
-        return None
     params = _cached_eitc_parameters(tax_year, extrapolate)
-    earned = first_present(df, ('federal_earned_income', 'earned_income'), 0.0)
-    agi = first_present(df, ('federal_agi', 'income'), 0.0)
-    investment = np.zeros(n)
-    if 'investment_income' in df.columns:
-        investment = numeric_column(df, 'investment_income')
-        if investment is None:
-            return None
-        investment = or_zero(investment)
+    earned = first_present(df, ('federal_earned_income', 'earned_income'))
+    agi = first_present(df, ('federal_agi', 'income'))
+    investment = or_zero(numeric_column(df, 'investment_income', default=0.0))
     status = status_column(df)
-    if earned is None or agi is None or status is None:
-        return None
 
     alive = ((status != 'married_filing_separately') & ~(earned <= 0)
              & ~(investment > params.investment_income_limit))
@@ -570,8 +558,8 @@ def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Optional
         age = np.full(n, 40.0)
         if 'primary_agep' in df.columns:
             raw = numeric_column(df, 'primary_agep')
-            if raw is None or not np.isfinite(raw[childless]).all():
-                return None
+            if not np.isfinite(raw[childless]).all():          # int() raises per unit
+                raise NotVectorizable("primary_agep")
             age = np.where(raw == 0, 40.0, np.trunc(raw))
         alive &= ~(childless & ~((age >= 25) & (age <= 64)))
 

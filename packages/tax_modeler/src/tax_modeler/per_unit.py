@@ -8,7 +8,8 @@ frame for a fraction of the cost.
 
 The same three calculators also have array versions, which compute every
 unit at once and return what :func:`apply_per_unit` would have, bit for bit:
-:func:`with_unit_columns` assembles their frame the same way, and
+:func:`apply_columns` runs them (falling back to the scalar calculator) and
+assembles their frame the same way, and
 :func:`py_max`, :func:`py_min`, :func:`py_round`, :func:`or_zero` and
 :func:`first_present` are the scalar code's builtins and idioms over arrays,
 with the same results for NaN, signed zeros and ties.
@@ -134,20 +135,36 @@ def _assemble(df: pd.DataFrame, computed: pd.DataFrame,
     return pd.DataFrame(out, index=index)
 
 
-def with_unit_columns(df: pd.DataFrame, columns: Mapping[str, np.ndarray]) -> pd.DataFrame:
-    """What :func:`apply_per_unit` returns when its function gives every unit
-    ``columns``' values, for an array version of a per-unit calculator.
+#: True sends every apply_columns call to the scalar calculator: the reference
+#: run the parity tests compare the array versions with.
+FORCE_PER_UNIT = False
 
-    ``columns`` maps each computed column, in the order the scalar function's
-    dict lists them, to an array holding the dtype a frame built from those
-    dicts would infer (int64 where every value is a Python int, bool, else
-    float64). ``df`` must have unique column names and at least one row (the
-    array versions hand anything else to the per-unit path).
+
+class NotVectorizable(Exception):
+    """Raised by an array calculator (or the column readers below) for a
+    frame it does not handle; :func:`apply_columns` then runs the scalar
+    calculator on each unit instead."""
+
+
+def apply_columns(df: pd.DataFrame, arrays: Callable[[pd.DataFrame], Mapping[str, np.ndarray]],
+                  fn: Callable[[Mapping], Mapping]) -> pd.DataFrame:
+    """:func:`apply_per_unit` (``df``, ``fn``), computed by ``arrays`` when it can.
+
+    ``arrays(df)`` returns the columns ``fn`` computes, for every unit at once,
+    in the order ``fn``'s dict lists them, each with the dtype a frame of those
+    dicts infers (int64 counts, bool flags, float64 amounts), or raises
+    :class:`NotVectorizable`. An empty frame, or one with repeated column
+    names, goes straight to ``fn``, which treats it as it always has. The
+    frame is assembled exactly as :func:`apply_per_unit` assembles it.
     """
-    if not len(df) or not df.columns.is_unique:
-        raise ValueError("with_unit_columns needs a non-empty frame with unique column names")
-    computed = pd.DataFrame(dict(columns))
-    return _assemble(df, computed, lambda c: df[c].tolist())
+    if len(df) and df.columns.is_unique and not FORCE_PER_UNIT:
+        try:
+            columns = arrays(df)
+        except NotVectorizable:
+            pass
+        else:
+            return _assemble(df, pd.DataFrame(dict(columns)), lambda c: df[c].tolist())
+    return apply_per_unit(df, fn)
 
 
 # ---------------------------------------------------------------------------
@@ -191,19 +208,16 @@ def or_zero(values: np.ndarray) -> np.ndarray:
     return np.where(values == 0.0, 0.0, values)
 
 
-def first_present(df: pd.DataFrame, keys, default: float) -> np.ndarray | None:
+def first_present(df: pd.DataFrame, keys, default: float = 0.0) -> np.ndarray:
     """The scalar ``_first_present``: per unit, the first of ``keys`` whose
-    value is not missing (NaN), as a float, else ``default``. None when a
-    column is not float, int or bool, where missing values and the float
-    conversion would need the per-unit path."""
+    value is not missing (NaN), as a float, else ``default``. Raises
+    :class:`NotVectorizable` for a column that is not float, int or bool."""
     out = np.full(len(df), default, dtype=float)
     todo = np.ones(len(df), dtype=bool)
     for key in keys:
         if key not in df.columns:
             continue
         values = numeric_column(df, key)
-        if values is None:
-            return None
         take = todo & ~np.isnan(values)
         out[take] = values[take]
         todo &= ~take
@@ -211,33 +225,31 @@ def first_present(df: pd.DataFrame, keys, default: float) -> np.ndarray | None:
 
 
 def status_column(df: pd.DataFrame, key: str = "filing_status",
-                  default: str = "single") -> np.ndarray | None:
+                  default: str = "single") -> np.ndarray:
     """Column ``key`` as an object array (every unit ``default`` when the
-    frame has no such column), or None when it holds ``pd.NA``: comparing
-    that raises, and the scalar code compares it only on the units it
-    reaches, so those frames take the per-unit path."""
+    frame has no such column). Raises :class:`NotVectorizable` when it holds
+    ``pd.NA``: comparing that raises, and the scalar code compares it only
+    on the units it reaches."""
     if key not in df.columns:
         return np.full(len(df), default, dtype=object)
     values = df[key].to_numpy(dtype=object)
     if df[key].hasnans and any(v is pd.NA for v in values):
-        return None
+        raise NotVectorizable(f"pd.NA in {key}")
     return values
 
 
-def is_py_int(value) -> bool:
-    """A Python (or numpy) int but not a bool: what a frame built from the
-    scalar calculators' dicts stores as int64 when every unit has one."""
-    return isinstance(value, (int, np.integer)) and not isinstance(value, bool)
-
-
-def numeric_column(df: pd.DataFrame, key) -> np.ndarray | None:
+def numeric_column(df: pd.DataFrame, key, default: float | None = None) -> np.ndarray:
     """Column ``key`` as float64 if it holds a numpy float, int or bool dtype
     (whose values convert exactly, as ``tolist`` converts them for the scalar
-    code), else None: pandas' nullable dtypes hold ``pd.NA``, which the scalar
-    code treats differently from NaN."""
+    code); ``default`` for every unit when the frame has no such column and a
+    default is given. Raises :class:`NotVectorizable` otherwise: pandas'
+    nullable dtypes hold ``pd.NA``, which the scalar code treats differently
+    from NaN."""
+    if default is not None and key not in df.columns:
+        return np.full(len(df), default, dtype=float)
     dtype = df[key].dtype
     if not isinstance(dtype, np.dtype) or dtype.kind not in "iufb":
-        return None
+        raise NotVectorizable(f"{key} is {dtype}")
     return df[key].to_numpy(dtype=float)
 
 
