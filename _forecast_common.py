@@ -52,7 +52,8 @@ def cache_provenance() -> dict | None:
         return json.load(f)
 
 
-NARROW_FINGERPRINT = os.environ.get("CF_NARROW_FINGERPRINT") == "1"
+# The narrow cache key (fingerprint(code=...)); CF_NARROW_FINGERPRINT=0 hashes the whole packages.
+NARROW_FINGERPRINT = os.environ.get("CF_NARROW_FINGERPRINT", "1") != "0"
 
 
 def _workspace_modules() -> dict[str, Path]:
@@ -158,8 +159,8 @@ def _is_workspace_file(f: Path) -> bool:
 def closure_guard(code: tuple):
     """Around a cached step's computation (a cache miss): fail if it imports
     a workspace module that ``code_closure(*code)`` left out, since a change
-    there would not have changed the key. Off unless the narrow key is
-    (``CF_NARROW_FINGERPRINT=1``); a module loaded before the step began is
+    there would not have changed the key. Off with the narrow key
+    (``CF_NARROW_FINGERPRINT=0``); a module loaded before the step began is
     not seen, so ``scripts/check_code_closure.py`` runs each step in a fresh
     process."""
     files = code_closure(*code) if NARROW_FINGERPRINT else None
@@ -191,11 +192,12 @@ def fingerprint(*parts, code: tuple | None = None) -> str:
     was hashed, so a change in the packages it imports kept a stale cache;
     until the narrow key, ``packages/*/config`` was left out.)
 
-    With ``CF_NARROW_FINGERPRINT=1`` and *code* (the step's entry modules,
-    see :func:`code_closure`), the Python files are only those *code* can
+    Given *code* (the step's entry modules, see :func:`code_closure`), the
+    Python files are only those *code* can
     import, so an edit elsewhere keeps the cache; every non-Python file
     under ``src`` and ``config`` is still hashed. If the closure cannot be
-    traced, it hashes the whole packages as above.
+    traced, or ``CF_NARROW_FINGERPRINT=0``, it hashes the whole packages
+    as above.
     """
     import hashlib
     import json

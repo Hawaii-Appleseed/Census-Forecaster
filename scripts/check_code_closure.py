@@ -3,8 +3,7 @@
     python scripts/check_code_closure.py            # every cache, ~2 min of CPU
     python scripts/check_code_closure.py golden     # one
 
-A cache keyed with ``fingerprint(..., code=ENTRIES)`` under
-``CF_NARROW_FINGERPRINT=1`` hashes only the workspace modules
+A cache keyed with ``fingerprint(..., code=ENTRIES)`` hashes only the workspace modules
 ``code_closure(*ENTRIES)`` finds by reading the source. This runs each cached
 build in a fresh process, with nothing of the model loaded beforehand, writing
 to a temporary directory, and fails if the build imported a workspace module

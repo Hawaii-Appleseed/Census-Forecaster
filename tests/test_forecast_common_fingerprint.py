@@ -53,7 +53,7 @@ def test_every_workspace_package_is_hashed(monkeypatch):
         assert src.relative_to(REPO).as_posix() in hashed
 
 
-# -- the narrow key (CF_NARROW_FINGERPRINT=1, code=...) ------------------------
+# -- the narrow key (fingerprint(code=...); CF_NARROW_FINGERPRINT=0 turns it off)
 
 def _fake_repo(tmp_path, monkeypatch):
     """A workspace with one package: ``pkg.used`` imports ``pkg.helper``;
@@ -122,7 +122,7 @@ def test_untraceable_import_falls_back_to_the_whole_packages(tmp_path, monkeypat
     assert fingerprint(b"x", code=("pkg.used",)) != before
 
 
-def test_narrow_key_off_by_default_hashes_whole_packages(tmp_path, monkeypatch):
+def test_narrow_key_switched_off_hashes_whole_packages(tmp_path, monkeypatch):
     import _forecast_common
 
     src = _fake_repo(tmp_path, monkeypatch)
@@ -170,3 +170,18 @@ def test_chain_closures_trace():
                  ("tax_modeler.simulator.golden", "tax_modeler.simulator.population")):
         closure = _forecast_common.code_closure(*code)
         assert closure is not None and len(closure) > 50
+
+
+def test_narrow_key_is_on_unless_switched_off():
+    import os
+    import subprocess
+
+    def on(env):
+        out = subprocess.run([sys.executable, "-c", "import _forecast_common as c; print(c.NARROW_FINGERPRINT)"],
+                             cwd=REPO, env=env, capture_output=True, text=True, check=True)
+        return out.stdout.strip() == "True"
+
+    env = {k: v for k, v in os.environ.items() if k != "CF_NARROW_FINGERPRINT"}
+    assert on(env)
+    assert on({**env, "CF_NARROW_FINGERPRINT": "1"})
+    assert not on({**env, "CF_NARROW_FINGERPRINT": "0"})
