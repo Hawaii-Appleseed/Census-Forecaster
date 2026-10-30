@@ -16,17 +16,16 @@ reported as "contradicting", burying real violations in noise).
 from __future__ import annotations
 
 import pytest
-
 from lab.markets.screen import (
+    _AMBIGUOUS_SIGNS,
     EXPECTED_SIGN,
     HYPOTHESIS_PAIRS,
     LeadCorr,
-    _AMBIGUOUS_SIGNS,
     assert_sign_coverage,
     expected_sign,
     mean_lead_corr,
-    sign_materiality,
     sign_matches,
+    sign_materiality,
 )
 
 

@@ -26,8 +26,8 @@ Reform DSL (``Reform.benefit_overrides["childcare"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,7 +35,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 _CCSP_PER_CHILD_ANNUAL_2024 = 8_000.0
 # 85% SMI for HI family of 3 (FY2024) ~ $89,000 — about 250% of FPL
@@ -57,7 +56,7 @@ def hawaii_childcare_parameters() -> ChildcareParameters:
 
 
 def with_childcare_overrides(
-    base: ChildcareParameters, overrides: Optional[Mapping[str, object]]
+    base: ChildcareParameters, overrides: Mapping[str, object] | None
 ) -> ChildcareParameters:
     if not overrides:
         return base
@@ -75,8 +74,8 @@ def compute_childcare_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[ChildcareParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: ChildcareParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "childcare_amount",
 ) -> pd.DataFrame:
     """Compute net annual childcare-subsidy value per tax unit.

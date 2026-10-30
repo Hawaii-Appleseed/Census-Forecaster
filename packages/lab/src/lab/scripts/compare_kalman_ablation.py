@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 
 def main() -> int:
     print("[ablation] loading panel ...", file=sys.stderr)
-    from census_forecaster.scripts.load_calibration_panel import load_panel, PanelMissingError
     from census_forecaster.acs.calibration import run_stratified_calibration
+    from census_forecaster.scripts.load_calibration_panel import PanelMissingError, load_panel
     try:
         series_by_key, populations, manifest = load_panel()
     except PanelMissingError as exc:

@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-
 from tax_modeler.errors import MissingDataError
 from tax_modeler.loaders.pums_loader import PUMSDataLoader
 

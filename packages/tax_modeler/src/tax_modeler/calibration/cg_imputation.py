@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -58,7 +57,7 @@ _UPPER_BOUND = 1_000_000.0  # at/above this: handled by synthesis
 
 def impute_capital_gains_from_soi(
     df: pd.DataFrame,
-    soi_df: Optional[pd.DataFrame] = None,
+    soi_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Set ``synthetic_cg_share`` for PUMS filers in the $100K–$1M range.
 
@@ -78,7 +77,8 @@ def impute_capital_gains_from_soi(
     two mid-tier income bins.
     """
     from tax_modeler.calibration.irs_soi_state_targets import (
-        load_soi_state_targets, SOI_AGI_BINS,
+        SOI_AGI_BINS,
+        load_soi_state_targets,
     )
 
     out = df.copy()
@@ -156,7 +156,7 @@ def impute_capital_gains_from_soi(
 def _national_subbin_shares_with_hi_calibration(
     soi_state_df: pd.DataFrame,
     *,
-    national_csv: Optional[Path] = None,
+    national_csv: Path | None = None,
 ) -> tuple[float, float, float]:
     """Return (national_200K-500K_share, national_500K-1M_share, HI_calib_ratio).
 

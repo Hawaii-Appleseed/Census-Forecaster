@@ -12,10 +12,9 @@ Key difference from bracket_calibration.py:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Tuple
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ def assign_agi_bracket(agi: float) -> int:
 
 
 def calculate_agi_calibration_factors(tax_units: pd.DataFrame,
-                                      weight_col: str = 'weight') -> Dict[int, float]:
+                                      weight_col: str = 'weight') -> dict[int, float]:
     """
     Calculate calibration factors for each AGI bracket.
     
@@ -133,7 +132,7 @@ def apply_agi_calibration(tax_units: pd.DataFrame,
     df['agi_bracket_idx'] = df['agi'].apply(assign_agi_bracket)
     
     # Calculate calibration factors
-    logger.info(f"\nCalculating AGI calibration factors...")
+    logger.info("\nCalculating AGI calibration factors...")
     factors = calculate_agi_calibration_factors(df, weight_col)
     
     # Apply factors
@@ -141,7 +140,7 @@ def apply_agi_calibration(tax_units: pd.DataFrame,
     df[output_col] = df[weight_col] * df['agi_calibration_factor']
     
     # Report results
-    logger.info(f"\nAGI Bracket Calibration Results:")
+    logger.info("\nAGI Bracket Calibration Results:")
     logger.info(f"{'Bracket':<15} {'Before':>12} {'After':>12} {'Target':>12} {'Factor':>8}")
     logger.info("-"*65)
     
@@ -223,7 +222,7 @@ def apply_two_layer_calibration(tax_units: pd.DataFrame,
 
 
 def validate_agi_calibration(tax_units: pd.DataFrame,
-                             weight_col: str = 'weight_final') -> Dict:
+                             weight_col: str = 'weight_final') -> dict:
     """
     Validate AGI calibration results.
     

@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.errors import ConfigError
 from tax_modeler.poverty.impact import compute_poverty_impact
@@ -14,7 +13,6 @@ from tax_modeler.programs import (
     compute_rxkids_for_units,
     hawaii_rxkids_parameters,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

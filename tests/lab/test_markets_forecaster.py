@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from lab.markets.forecaster import (
     DEFAULT_HORIZONS,
     forecast_board,

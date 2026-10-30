@@ -8,13 +8,10 @@ smoothed annual rates.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
-
-from census_forecaster.bea.client import BeaApiError, BeaClient
 from census_forecaster.acs.sources import available_sources, load_source
-
+from census_forecaster.bea.client import BeaApiError, BeaClient
 
 # -----------------------------------------------------------------------------
 # BeaClient — cache + offline
@@ -146,8 +143,8 @@ class TestBeaRefreshScript:
 
     def test_anchor_filenames_match_registry(self):
         # Each spec's filename must be registered in `_REGISTRY_SPEC`
-        from census_forecaster.scripts.refresh_bea_anchors import BEA_ANCHOR_SPECS
         from census_forecaster.acs.sources.base import _REGISTRY_SPEC
+        from census_forecaster.scripts.refresh_bea_anchors import BEA_ANCHOR_SPECS
         registry_filenames = {entry[0] for entry in _REGISTRY_SPEC}
         for spec in BEA_ANCHOR_SPECS:
             assert spec["filename"] in registry_filenames, (

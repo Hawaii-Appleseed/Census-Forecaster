@@ -7,11 +7,12 @@ misclassifications in tax unit filing statuses (Single, HoH, Joint).
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Any, Optional, Union
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class MLTaxUnitValidator:
     machine learning models to identify potential misclassifications.
     """
     
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: str | None = None):
         """Initialize the ML validator.
         
         Args:
@@ -64,7 +65,7 @@ class MLTaxUnitValidator:
                 logger.error(f"Failed to load model from {model_path}: {e}")
                 self.model = None
         
-    def extract_features(self, tax_units: List[Dict[str, Any]]) -> pd.DataFrame:
+    def extract_features(self, tax_units: list[dict[str, Any]]) -> pd.DataFrame:
         """Extract features from tax units for ML validation.
         
         Args:
@@ -140,7 +141,7 @@ class MLTaxUnitValidator:
                 
         return feature_df[self.features]  # Ensure consistent column order
     
-    def predict(self, tax_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def predict(self, tax_units: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Predict potential misclassifications.
         
         Args:
@@ -228,8 +229,8 @@ class MLTaxUnitValidator:
             return self._rule_based_validation(tax_units, features)
     
     def _rule_based_validation(self, 
-                             tax_units: List[Dict[str, Any]], 
-                             features: pd.DataFrame) -> List[Dict[str, Any]]:
+                             tax_units: list[dict[str, Any]], 
+                             features: pd.DataFrame) -> list[dict[str, Any]]:
         """Apply rule-based validation to all tax units."""
         return [
             self._apply_rule_based_validation(unit, features.iloc[i])
@@ -237,8 +238,8 @@ class MLTaxUnitValidator:
         ]
     
     def _apply_rule_based_validation(self, 
-                                   unit: Dict[str, Any], 
-                                   features: pd.Series) -> Dict[str, Any]:
+                                   unit: dict[str, Any], 
+                                   features: pd.Series) -> dict[str, Any]:
         """Apply rule-based validation to a single tax unit."""
         unit = unit.copy()
         validation_flags = []
@@ -329,7 +330,7 @@ class MLTaxUnitValidator:
         pass
 
 
-def validate_tax_units(tax_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def validate_tax_units(tax_units: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convenience function to validate tax units using the ML validator.
     
     Args:

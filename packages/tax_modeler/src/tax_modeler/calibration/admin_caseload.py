@@ -24,14 +24,13 @@ a sibling ``admin_caseload_csv`` field below for clarity).
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional
 
 import pandas as pd
 
 from tax_modeler.errors import ConfigError, MissingDataError
-
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_CASELOAD_CSV = _PACKAGE_ROOT / "data" / "admin_caseload" / "hawaii_caseload.csv"
@@ -80,7 +79,7 @@ class AdminCaseload:
             )
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "AdminCaseload":
+    def load(cls, path: Path | None = None) -> AdminCaseload:
         """Load the caseload table from CSV. Falls back to the bundled file."""
         p = Path(path) if path else _DEFAULT_CASELOAD_CSV
         if not p.exists():

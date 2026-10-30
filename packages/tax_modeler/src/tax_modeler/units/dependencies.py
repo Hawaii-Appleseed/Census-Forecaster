@@ -7,17 +7,15 @@ qualifying relatives for tax purposes.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple, Union
 import pandas as pd
-import numpy as np
 
 from tax_modeler.units.relshipp_codes import (
+    FOSTER_CHILD,
     GRANDCHILD,
     OWN_CHILD,
-    FOSTER_CHILD,
+    QUALIFYING_RELATIVE_RELS,
     REFERENCE_PERSON,
     SPOUSE,
-    QUALIFYING_RELATIVE_RELS,
 )
 
 # IRS qualifying-relative gross-income limit by tax year (Rev. Proc. inflation
@@ -53,7 +51,7 @@ def _self_support_floor(age: float) -> int:
 
 def identify_dependents(
     household: pd.DataFrame, tax_year: int = _DEFAULT_DEP_TAX_YEAR
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Identify all potential dependents in a household.
     
@@ -155,7 +153,7 @@ def _find_potential_guardians(
     child: pd.Series, 
     potential_guardians: pd.DataFrame,
     household: pd.DataFrame
-) -> List[str]:
+) -> list[str]:
     """
     Find potential guardians for a child or student.
     
@@ -262,7 +260,7 @@ def _is_foster_parent(guardian: pd.Series, child: pd.Series, household: pd.DataF
 
     return False
 
-def _find_spouse(person: pd.Series, household: pd.DataFrame) -> Optional[str]:
+def _find_spouse(person: pd.Series, household: pd.DataFrame) -> str | None:
     """Find the spouse of a person in the household."""
     if person.get('MAR') != 1:  # Not married
         return None

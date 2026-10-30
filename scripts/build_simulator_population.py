@@ -86,11 +86,10 @@ CG_RESPONSE_RATIO_TOL = 0.005
 
 def check_reproduces_act24(pop, out_dir: Path) -> list[str]:
     """Score Act 24 vs Act 46 on the population; compare with the Act 24 run."""
-    import numpy as np
-    import pandas as pd
-
     import json
 
+    import numpy as np
+    import pandas as pd
     from tax_modeler.config.tax_system_config import TaxSystemRegistry
     from tax_modeler.scenarios.act24_population import statute
     from tax_modeler.simulator.score import REPORT_NAMES, score_systems
@@ -164,8 +163,13 @@ def check_gains_anchor(pop) -> list[str]:
     """
     import numpy as np
     import pandas as pd
-
-    from tax_modeler.calibration.cg_anchor import BASE_YEAR, _CLASSES, DOTAX_NLTCG_RES, cg_growth, rank_classes
+    from tax_modeler.calibration.cg_anchor import (
+        _CLASSES,
+        BASE_YEAR,
+        DOTAX_NLTCG_RES,
+        cg_growth,
+        rank_classes,
+    )
     from tax_modeler.simulator.gains import CLASSES, ensure_gains_anchor, gains_classes
     from tax_modeler.simulator.population import frame_for, unit_arrays
     from tax_modeler.simulator.scenarios import SCENARIOS
@@ -262,7 +266,6 @@ def check_cg_page_parity(pop, out_dir: Path) -> list[str]:
 
     import numpy as np
     import pandas as pd
-
     from tax_modeler.config.tax_system_config import TaxCalculator
     from tax_modeler.reform.income_tax_spec import IncomeTaxSpec
     from tax_modeler.scenarios.behavioral_response import apply_behavioral_response, top_rate_path
@@ -479,8 +482,8 @@ def main() -> int:
         return 0
 
     from tax_modeler.simulator.credits import load_credit_table
-    from tax_modeler.simulator.web import write_web_files
     from tax_modeler.simulator.golden import write_golden
+    from tax_modeler.simulator.web import write_web_files
 
     wfc = RUNS_DIR / "working_family_credits"
     if not (wfc / "revenue_by_year.csv").exists():

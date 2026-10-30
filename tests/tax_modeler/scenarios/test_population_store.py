@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.scenarios.population_store import PopulationStore
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"

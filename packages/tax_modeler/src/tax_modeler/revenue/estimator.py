@@ -30,9 +30,9 @@ Hawaii has no state CTC as of 2026.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class RevenueEstimator:
     # Public API
     # ------------------------------------------------------------------
 
-    def state_summary(self) -> Dict[str, float]:
+    def state_summary(self) -> dict[str, float]:
         """
         Aggregate revenue estimates for the entire state of Hawaii.
 
@@ -189,7 +189,7 @@ class RevenueEstimator:
                 self.df[col] = default
                 logger.debug(f"Added missing column '{col}' with default {default}")
 
-    def _aggregate_by(self, group_col: str, df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    def _aggregate_by(self, group_col: str, df: pd.DataFrame | None = None) -> pd.DataFrame:
         """
         Produce a weighted revenue summary grouped by a single column.
 
@@ -244,7 +244,7 @@ class RevenueEstimator:
 # Convenience function
 # ---------------------------------------------------------------------------
 
-def estimate_revenue(tax_units_df: pd.DataFrame) -> Dict:
+def estimate_revenue(tax_units_df: pd.DataFrame) -> dict:
     """
     Run the full revenue estimation pipeline on a tax-unit DataFrame.
 

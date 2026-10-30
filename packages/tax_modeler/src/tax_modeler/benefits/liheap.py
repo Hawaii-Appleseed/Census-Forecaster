@@ -23,8 +23,8 @@ Reform DSL (``Reform.benefit_overrides["liheap"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 _LIHEAP_BENEFIT_ANNUAL_2024 = 250.0
 
@@ -50,7 +49,7 @@ def hawaii_liheap_parameters() -> LiheapParameters:
 
 
 def with_liheap_overrides(
-    base: LiheapParameters, overrides: Optional[Mapping[str, object]]
+    base: LiheapParameters, overrides: Mapping[str, object] | None
 ) -> LiheapParameters:
     if not overrides:
         return base
@@ -67,8 +66,8 @@ def compute_liheap_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[LiheapParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: LiheapParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "liheap_amount",
 ) -> pd.DataFrame:
     """Compute LIHEAP annual benefit per tax unit (flat amount if eligible).

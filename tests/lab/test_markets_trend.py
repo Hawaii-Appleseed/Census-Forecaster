@@ -6,7 +6,6 @@ import random
 from datetime import date
 
 import pytest
-
 from census_forecaster.bls.projection import PROJ_DAMPING
 from lab.markets.client import MonthlyBar
 from lab.markets.trend import (

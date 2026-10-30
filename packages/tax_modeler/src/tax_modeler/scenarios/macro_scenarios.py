@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Moderate recession: trough 2027, gradual recovery through 2031
 #

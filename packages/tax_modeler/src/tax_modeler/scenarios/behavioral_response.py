@@ -70,9 +70,9 @@ References:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, Mapping, Optional, Tuple
 import logging
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -132,14 +132,14 @@ class BehavioralParams:
     cg_beta: float = 0.0
 
     @classmethod
-    def low(cls) -> "BehavioralParams":
+    def low(cls) -> BehavioralParams:
         # Weak response: weak ETI; migration at the low end of the US
         # evidence (Young & Varner 2011: ~0.04% per effective pp a year).
         # PTE=0 (Act 58). Realization at the low end (elasticity ~0.5).
         return cls(eti=0.15, migration_elast=0.001, pte_capture=0.0, cg_beta=1.6)
 
     @classmethod
-    def mid(cls) -> "BehavioralParams":
+    def mid(cls) -> BehavioralParams:
         # MID ETI within Saez/Slemrod/Giertz. Migration near the middle of
         # the US state-tax studies, rebased to the statutory top rate (Act 24
         # raises $1M+ filers' average rate ~0.9 pp for its 2 pp): Rauh/Shyu
@@ -149,7 +149,7 @@ class BehavioralParams:
         return cls(eti=0.40, migration_elast=0.0025, pte_capture=0.0, cg_beta=2.0)
 
     @classmethod
-    def high(cls) -> "BehavioralParams":
+    def high(cls) -> BehavioralParams:
         # Strong response. Migration at the upper end: New Jersey filers
         # earning all their income in-state (Young & Varner 2011, not
         # significant) and Young et al.'s flow cumulated over five years.
@@ -157,12 +157,12 @@ class BehavioralParams:
         return cls(eti=0.60, migration_elast=0.01, pte_capture=0.0, cg_beta=2.6)
 
     @classmethod
-    def static(cls) -> "BehavioralParams":
+    def static(cls) -> BehavioralParams:
         """All zeros — replicates the original static-scoring estimate."""
         return cls(eti=0.0, migration_elast=0.0, pte_capture=0.0, cg_beta=0.0)
 
     @classmethod
-    def named(cls, name: str) -> "BehavioralParams":
+    def named(cls, name: str) -> BehavioralParams:
         m = {"low": cls.low, "mid": cls.mid, "high": cls.high, "static": cls.static}
         if name not in m:
             raise ValueError(f"Unknown behavioral scenario {name!r}; "
@@ -192,7 +192,7 @@ def _per_filer_marginal_rate(
     calculator,
     income_col: str,
     fs_col: str,
-    exemption_count_col: Optional[str],
+    exemption_count_col: str | None,
 ) -> np.ndarray:
     """Vectorized marginal-rate lookup per filer under ``config``.
 
@@ -257,7 +257,7 @@ def apply_eti_response(
     calculator,
     income_col: str = "income",
     fs_col: str = "filing_status",
-    exemption_count_col: Optional[str] = None,
+    exemption_count_col: str | None = None,
     inplace: bool = False,
 ) -> pd.DataFrame:
     """Apply per-filer ETI shrinkage based on actual baseline → scenario MTR.
@@ -323,7 +323,7 @@ _FRAME_STATUSES = ("single", "married_filing_jointly", "head_of_household",
 MIGRATION_FULL_TIER = 1_000_000   # AGI where the top-1% migration estimates apply
 
 
-def top_rate_changes(baseline_cfg, scenario_cfg, calculator) -> Dict[str, Tuple[float, float, float]]:
+def top_rate_changes(baseline_cfg, scenario_cfg, calculator) -> dict[str, tuple[float, float, float]]:
     """Per filing status: (change in the top statutory rate in points,
     scenario's top-bracket floor, baseline's top-bracket floor). Used to
     generalize the migration and PTE responses beyond SB 3125's 11% -> 13%
@@ -341,7 +341,7 @@ def top_rate_changes(baseline_cfg, scenario_cfg, calculator) -> Dict[str, Tuple[
     return out
 
 
-def _phased_rate_change(path: Mapping[int, Mapping[str, Tuple[float, ...]]], fs: str,
+def _phased_rate_change(path: Mapping[int, Mapping[str, tuple[float, ...]]], fs: str,
                         target_year: int, phase_in_years: int) -> float:
     """Top-rate change (points) in effect for migration in ``target_year``:
     each year's increment phases in from the year it takes effect, so a
@@ -370,7 +370,7 @@ def apply_migration_response(
     baseline_cfg=None,
     scenario_cfg=None,
     calculator=None,
-    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
+    top_rate_path: Mapping[int, Mapping[str, tuple[float, ...]]] | None = None,
 ) -> pd.DataFrame:
     """Reduce weights of $1M+ filers per migration elasticity, phased in.
 
@@ -535,7 +535,7 @@ def estimate_pte_election_shift_M(
     baseline_cfg=None,
     scenario_cfg=None,
     calculator=None,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Estimate revenue *reduction* from PTE election under SB 3125 CD1.
 
     With the two configs, the top-bracket floors and the gap to the PTE rate
@@ -736,8 +736,8 @@ ITEMIZED_PREMIUM_DEFAULTS = {
 def apply_itemized_deduction_adjustment(
     df: pd.DataFrame,
     *,
-    premium_by_status: Optional[Dict[str, float]] = None,
-    threshold_by_status: Optional[Dict[str, float]] = None,
+    premium_by_status: dict[str, float] | None = None,
+    threshold_by_status: dict[str, float] | None = None,
     income_col: str = "income",
     fs_col: str = "filing_status",
     inplace: bool = False,
@@ -786,8 +786,8 @@ def apply_behavioral_response(
     income_col: str = "income",
     fs_col: str = "filing_status",
     weight_col: str = "weight",
-    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
-) -> Tuple[pd.DataFrame, Dict[str, float]]:
+    top_rate_path: Mapping[int, Mapping[str, tuple[float, ...]]] | None = None,
+) -> tuple[pd.DataFrame, dict[str, float]]:
     """Apply ETI, migration and capital-gains realization adjustments, in
     that order, and report the PTE shift.
 
@@ -852,7 +852,7 @@ def apply_behavioral_response(
     return out, diag
 
 
-def top_rate_path(baseline_for, scenario_for, years, calculator) -> Dict[int, Dict[str, Tuple[float, float, float]]]:
+def top_rate_path(baseline_for, scenario_for, years, calculator) -> dict[int, dict[str, tuple[float, float, float]]]:
     """``top_rate_changes`` for each of ``years`` ({year: {status: ...}}),
     for ``apply_migration_response``'s ``top_rate_path``: each change in the
     top rate phases in from the year it takes effect. ``years`` must start
@@ -868,9 +868,9 @@ def score_with_response(
     baseline_cfg,
     scenario_cfg,
     calculator,
-    top_rate_path: Optional[Mapping[int, Mapping[str, Tuple[float, ...]]]] = None,
+    top_rate_path: Mapping[int, Mapping[str, tuple[float, ...]]] | None = None,
     bill_effective_year: int = 2027,
-) -> Tuple[Dict[str, float], pd.DataFrame, Dict[str, float]]:
+) -> tuple[dict[str, float], pd.DataFrame, dict[str, float]]:
     """Revenue under both systems, static and after the behavioral response.
 
     The counterfactual is the baseline with nobody responding: the responses

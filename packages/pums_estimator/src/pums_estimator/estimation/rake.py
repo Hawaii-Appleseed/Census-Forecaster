@@ -27,7 +27,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from ..models import PumsRecord, CountyControls
+from ..models import CountyControls, PumsRecord
 
 
 def rake(

@@ -13,10 +13,8 @@ Validates that:
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 
 import pytest
-
 from census_forecaster.acs.ensemble import (
     _apply_bias_correction,
     _apply_se_override,
@@ -25,7 +23,6 @@ from census_forecaster.acs.ensemble import (
 from census_forecaster.acs.projection import EMPIRICAL_SE_INFLATOR
 from census_forecaster.acs.strata import WILDCARD
 from census_forecaster.models import AcsObservation, ForecastPoint
-
 
 # -----------------------------------------------------------------------------
 # Fixtures

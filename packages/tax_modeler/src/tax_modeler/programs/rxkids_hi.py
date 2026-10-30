@@ -103,8 +103,8 @@ parameter values and the Hawaii calibration.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -196,7 +196,7 @@ class RxKidsHIParams:
     Also the prenatal rate unless ``prenatal_takeup_rate`` is set.
     """
 
-    prenatal_takeup_rate: Optional[float] = None
+    prenatal_takeup_rate: float | None = None
     """Prenatal-arm take-up; falls back to ``takeup_rate`` when ``None``.
 
     Mothers enroll prenatally at a lower rate than newborns are enrolled
@@ -233,7 +233,7 @@ def hawaii_rxkids_parameters() -> RxKidsHIParams:
 
 
 def with_rxkids_overrides(
-    base: RxKidsHIParams, overrides: Optional[Mapping[str, object]]
+    base: RxKidsHIParams, overrides: Mapping[str, object] | None
 ) -> RxKidsHIParams:
     """Apply Reform-DSL-style overrides to a parameter set."""
     if not overrides:
@@ -252,13 +252,13 @@ def compute_rxkids_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[RxKidsHIParams] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: RxKidsHIParams | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "rxkids_amount",
     medicaid_col: str = "medicaid_receives",
-    family_income_col: Optional[str] = None,
-    family_size_col: Optional[str] = None,
-    birth_count_col: Optional[str] = None,
+    family_income_col: str | None = None,
+    family_size_col: str | None = None,
+    birth_count_col: str | None = None,
 ) -> pd.DataFrame:
     """Compute the annual RxKids Hawaiʻi benefit amount per tax unit.
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-
 from tax_modeler.runs import (
     list_runs,
     read_run_manifest,

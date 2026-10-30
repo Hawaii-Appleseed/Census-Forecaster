@@ -27,8 +27,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Optional
-
 
 BEA_API_URL = "https://apps.bea.gov/api/data"
 
@@ -66,7 +64,7 @@ class BeaClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         cache_path: Path = DEFAULT_CACHE_PATH,
         offline: bool = False,
         sleep_seconds: float = _DEFAULT_SLEEP_SECONDS,
@@ -207,7 +205,7 @@ class BeaClient:
     def get_parameter_values(
         self,
         target_parameter: str,
-        table_name: Optional[str] = None,
+        table_name: str | None = None,
     ) -> list[dict]:
         """Fetch the valid values for a parameter (used to verify LineCodes).
 

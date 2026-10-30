@@ -388,7 +388,7 @@ _SWEEP = {
 }
 
 
-def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def _parse_args(argv: list | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--tax-year", type=int, default=2028,
                    help="Target year for the analysis. Default 2028.")
@@ -1269,8 +1269,8 @@ RXKIDS_CLAUSE_SPLIT_COLS: tuple[str, ...] = (
 
 
 def _apply_rxkids(
-    units: pd.DataFrame, *, tax_year: int, overrides: Optional[dict] = None,
-    birth_count_col: Optional[str] = "observed_births",
+    units: pd.DataFrame, *, tax_year: int, overrides: dict | None = None,
+    birth_count_col: str | None = "observed_births",
 ) -> pd.DataFrame:
     """Medicaid flag (clause 1) then RxKids expected benefit on a tax-unit frame.
 
@@ -1315,7 +1315,7 @@ def _apply_rxkids(
 def _assumption_band(
     units, persons, *, tax_year: int, base_cost: float,
     central_takeup: float, fertility: float = 0.0, use_observed: bool = True,
-    scenario_overrides: Optional[dict] = None,
+    scenario_overrides: dict | None = None,
 ) -> dict:
     """Joint (factorial-corner) assumption band over the two soft parameters.
 
@@ -2121,7 +2121,7 @@ def _write_pdf(path: Path, *, ctx: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

@@ -19,14 +19,17 @@ import argparse
 import json
 import math
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
+
+import census_forecaster
+from census_forecaster.scripts.refresh_zillow_laus_anchors import _atomic_write_json
 
 from ..markets.panel import load_prices_panel
 from ..markets.screen import (
-    HYPOTHESIS_PAIRS,
     HAWAII_PREDICTORS,
+    HYPOTHESIS_PAIRS,
     MONTHLY_TARGETS,
     NATIONAL_PREDICTORS,
     ScreenReport,
@@ -37,8 +40,6 @@ from ..markets.screen import (
     run_screen,
     series_to_monthly_dict,
 )
-import census_forecaster
-from census_forecaster.scripts.refresh_zillow_laus_anchors import _atomic_write_json
 
 _PKG_DATA = Path(census_forecaster.__file__).resolve().parent / "data"
 _MARKETS_DIR = _PKG_DATA / "markets"
@@ -334,7 +335,7 @@ def build_selected_signals(base: ScreenReport,
     }
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run the pre-registered market→Hawaii causal screen "
                     "(offline).",

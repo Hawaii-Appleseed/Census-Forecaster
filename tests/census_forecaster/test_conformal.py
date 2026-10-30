@@ -2,16 +2,15 @@
 from __future__ import annotations
 
 import math
-import pytest
 
+import pytest
 from census_forecaster.acs.conformal import (
-    _conformal_quantile,
-    compute_conformal_quantiles,
-    build_conformal_lookup,
     ConformalRecord,
+    _conformal_quantile,
+    build_conformal_lookup,
+    compute_conformal_quantiles,
 )
 from census_forecaster.acs.strata import WILDCARD
-
 
 # ---------------------------------------------------------------------------
 # _conformal_quantile

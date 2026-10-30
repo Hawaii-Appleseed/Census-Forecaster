@@ -13,16 +13,13 @@ from __future__ import annotations
 
 import json
 import math
-import statistics
 from datetime import date
-from pathlib import Path
 
 import pytest
-
+from census_forecaster.acs.strata import WILDCARD, StrataRecord
 from census_forecaster.bls.calibration import (
     DEFAULT_BIAS_CLAMP_LOG,
     BlsFoldResidual,
-    H_BUCKETS_BLS,
     _apply_bias_to_residual,
     _bisect_se_factor,
     _coverage_at_factor,
@@ -40,8 +37,6 @@ from census_forecaster.bls.projection import (
     _Z_90,
     compute_cpi_ratio,
 )
-from census_forecaster.acs.strata import StrataRecord, WILDCARD
-
 
 # -----------------------------------------------------------------------------
 # Bucket classifiers

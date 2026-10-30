@@ -7,10 +7,9 @@ Validates model tax liability against DOTAX Table 12A:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Tuple
 import logging
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class DotaxTable12AValidator:
         self.total_tax_millions = 3029
         self.average_tax = 4770
         
-    def assign_agi_bracket(self, agi: float) -> Tuple[float, float]:
+    def assign_agi_bracket(self, agi: float) -> tuple[float, float]:
         """Assign AGI to a bracket, returning (min, max)."""
         for min_agi, max_agi, _, _, _ in self.agi_brackets:
             if min_agi <= agi < max_agi:
@@ -233,7 +232,7 @@ class DotaxTable12AValidator:
         brackets_within_10pct_tax = (non_total['tax_pct_diff'].abs() < 10).sum()
         total_brackets = len(non_total)
         
-        print(f"\n📊 Summary:")
+        print("\n📊 Summary:")
         print(f"   Brackets within ±10% (tax liability): {brackets_within_10pct_tax}/{total_brackets} ({brackets_within_10pct_tax/total_brackets*100:.1f}%)")
         print(f"   Total returns accuracy: {results_df[results_df['agi_bracket']=='TOTAL']['returns_pct_diff'].values[0]:+.2f}%")
         print(f"   Total tax accuracy: {results_df[results_df['agi_bracket']=='TOTAL']['tax_pct_diff'].values[0]:+.2f}%")

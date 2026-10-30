@@ -12,12 +12,10 @@ import matplotlib.pyplot as plt
 from .data import (
     CHARCOAL,
     GOLD,
-    LIGHT_TEAL,
     SLATE,
     TEAL,
     BriefData,
 )
-
 
 # ---------------------------------------------------------------------------
 # Global style

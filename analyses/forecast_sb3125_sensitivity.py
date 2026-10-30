@@ -31,7 +31,10 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
 from _forecast_common import (  # noqa: E402
-    TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
+    TARGET_YEARS,
+    load_cached_units,
+    parse_cd_args,
+    silence_noise,
 )
 
 SCENARIOS = [
@@ -109,19 +112,23 @@ if __name__ == "__main__":
 
     try:
         import time
+
         import pandas as pd
 
         print(f"SB 3125 CD{CD} sensitivity analysis", flush=True)
         print("Importing modules...", flush=True)
         from tax_modeler.base import build_calibrated_base
+        from tax_modeler.config.tax_system_config import (
+            TaxCalculator,
+            TaxSystemRegistry,
+            compare_systems,
+        )
         from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
-        from tax_modeler.config.tax_system_config import (
-            TaxCalculator, TaxSystemRegistry, compare_systems,
-        )
         from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
         from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers, validate_top_synthesis,
+            synthesize_top_filers,
+            validate_top_synthesis,
         )
 
         wall_start = time.perf_counter()

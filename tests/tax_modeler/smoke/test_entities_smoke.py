@@ -7,10 +7,8 @@ preserve identifiers.
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler import EntityGraph, Household, Person, SPMUnit, TaxUnit
 from tax_modeler.errors import DataValidationError
-
 
 pytestmark = pytest.mark.smoke
 

@@ -40,7 +40,6 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -66,7 +65,7 @@ logger = logging.getLogger(__name__)
 # file is missing; it is the March 10, 2026 vintage
 # (files.hawaii.gov/tax/useful/cor/2026gf03-10_attach_1.pdf). Do not hand-edit
 # it to refresh — run the script.
-_COR_FALLBACK_M: Dict[int, float] = {
+_COR_FALLBACK_M: dict[int, float] = {
     2025: 2_986.920,   # FY 2026
     2026: 2_900.330,   # FY 2027
     2027: 2_825.329,   # FY 2028
@@ -77,7 +76,7 @@ _COR_FALLBACK_M: Dict[int, float] = {
 }
 
 
-def _load_cor_projections() -> Dict[int, float]:
+def _load_cor_projections() -> dict[int, float]:
     try:
         from census_forecaster.cor import load_cor_iit_projections
 
@@ -93,7 +92,7 @@ def _load_cor_projections() -> Dict[int, float]:
         return dict(_COR_FALLBACK_M)
 
 
-DEFAULT_COR_IIT_PROJECTIONS_M: Dict[int, float] = _load_cor_projections()
+DEFAULT_COR_IIT_PROJECTIONS_M: dict[int, float] = _load_cor_projections()
 
 # The DOTAX baseline (Table A-8 filer counts and tax, Table 4 filing status) comes
 # from ``dotax_base``, which holds one copy for every module that anchors on it.
@@ -135,17 +134,17 @@ class ForwardTargets:
         gap between the two and should be reported alongside every level.
     """
     year: int
-    filer_targets: Dict[Tuple[float, float], int]
-    tax_targets:   Dict[Tuple[float, float], float]
-    status_targets: Dict[str, int]
+    filer_targets: dict[tuple[float, float], int]
+    tax_targets:   dict[tuple[float, float], float]
+    status_targets: dict[str, int]
     aggregate_tax_M: float
-    agi_mass_targets: Optional[Dict[Tuple[float, float], float]] = None
-    tier_agi_targets: Optional[Dict[Tuple[float, float], float]] = None
-    statutory_tax_M: Optional[float] = None
-    statute_vs_cor_wedge: Optional[float] = None
+    agi_mass_targets: dict[tuple[float, float], float] | None = None
+    tier_agi_targets: dict[tuple[float, float], float] | None = None
+    statutory_tax_M: float | None = None
+    statute_vs_cor_wedge: float | None = None
 
 
-def _back_cast_cor(year: int, cor_projections_M: Dict[int, float]) -> float:
+def _back_cast_cor(year: int, cor_projections_M: dict[int, float]) -> float:
     """Return the COR aggregate tax target for *year*.
 
     For years already in the table, return the value directly. For years
@@ -165,13 +164,13 @@ def _back_cast_cor(year: int, cor_projections_M: Dict[int, float]) -> float:
 
 
 def _migrate_filer_counts(
-    base_counts: Dict[Tuple[float, float], int],
+    base_counts: dict[tuple[float, float], int],
     g_low: float,
     g_high: float,
     threshold: float = 200_000.0,
     *,
-    empirical_density: Optional[Dict[Tuple[float, float], "np.ndarray"]] = None,
-) -> Dict[Tuple[float, float], int]:
+    empirical_density: dict[tuple[float, float], np.ndarray] | None = None,
+) -> dict[tuple[float, float], int]:
     """Migrate baseline filer counts to a forward year via bracket-shift.
 
     Each baseline bracket ``(lo, hi)`` is treated as having ``count`` filers
@@ -195,7 +194,7 @@ def _migrate_filer_counts(
         uniform density assumption.
     """
     nominal_brackets = sorted(base_counts.keys())
-    forward: Dict[Tuple[float, float], float] = {b: 0.0 for b in nominal_brackets}
+    forward: dict[tuple[float, float], float] = {b: 0.0 for b in nominal_brackets}
 
     for (lo, hi), count in base_counts.items():
         g = g_low if lo < threshold else g_high
@@ -247,12 +246,12 @@ def _migrate_filer_counts(
 
 
 def empirical_density_from_pums(
-    units: "pd.DataFrame",
-    base_counts: Dict[Tuple[float, float], int],
+    units: pd.DataFrame,
+    base_counts: dict[tuple[float, float], int],
     n_subbins: int = 20,
     income_col: str = "income",
     weight_col: str = "weight",
-) -> Dict[Tuple[float, float], "np.ndarray"]:
+) -> dict[tuple[float, float], np.ndarray]:
     """Build within-bracket density histograms from PUMS-projected units.
 
     For each DOTAX bracket, computes a normalized density vector (length
@@ -262,8 +261,8 @@ def empirical_density_from_pums(
     incomes = units[income_col].to_numpy(dtype=float)
     weights = units[weight_col].to_numpy(dtype=float)
 
-    out: Dict[Tuple[float, float], "np.ndarray"] = {}
-    for (lo, hi) in base_counts.keys():
+    out: dict[tuple[float, float], np.ndarray] = {}
+    for (lo, hi) in base_counts:
         if hi == np.inf:
             # Top bracket — use point mass at lo, no sub-bin distribution
             out[(lo, hi)] = np.zeros(n_subbins)
@@ -289,19 +288,19 @@ def empirical_density_from_pums(
 def build_targets(
     year: int,
     *,
-    cor_projections_M: Optional[Dict[int, float]] = None,
+    cor_projections_M: dict[int, float] | None = None,
     low_growth: float = 0.025,
     top_differential: float = 0.010,
     rate_drift: float = 0.005,
     population_growth_rate: float = 0.005,
-    base_counts: Optional[Dict[Tuple[float, float], int]] = None,
-    base_tax: Optional[Dict[Tuple[float, float], float]] = None,
-    base_status: Optional[Dict[str, int]] = None,
+    base_counts: dict[tuple[float, float], int] | None = None,
+    base_tax: dict[tuple[float, float], float] | None = None,
+    base_status: dict[str, int] | None = None,
     base_year: int = dotax_base.BASE_YEAR,
     include_agi_targets: bool = True,
     cbo_vintage: str = "2025-01",
-    hawaii_factors: Optional[Dict[str, float]] = None,
-    empirical_density: Optional[Dict[Tuple[float, float], "np.ndarray"]] = None,
+    hawaii_factors: dict[str, float] | None = None,
+    empirical_density: dict[tuple[float, float], np.ndarray] | None = None,
 ) -> ForwardTargets:
     """Construct ``ForwardTargets`` for the given year.
 
@@ -357,7 +356,7 @@ def build_targets(
     forward_counts = {b: int(round(c * pop_factor)) for b, c in forward_counts.items()}
 
     # ── 2. Tax targets: per-filer effective rate × new counts × drift ─────────
-    raw_tax: Dict[Tuple[float, float], float] = {}
+    raw_tax: dict[tuple[float, float], float] = {}
     for bracket, base_n in bc.items():
         base_t = bt[bracket]
         eff_rate = base_t / base_n if base_n > 0 else 0.0
@@ -380,8 +379,8 @@ def build_targets(
     forward_status = {s: int(round(v * status_scale)) for s, v in bs.items()}
 
     # ── 4. Forward AGI mass per bracket (stage-2 reweighting target) ────────
-    agi_mass_targets: Optional[Dict[Tuple[float, float], float]] = None
-    tier_agi_targets: Optional[Dict[Tuple[float, float], float]] = None
+    agi_mass_targets: dict[tuple[float, float], float] | None = None
+    tier_agi_targets: dict[tuple[float, float], float] | None = None
     if include_agi_targets:
         try:
             from tax_modeler.calibration.forward_agi_targets import build_agi_targets

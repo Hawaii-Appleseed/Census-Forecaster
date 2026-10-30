@@ -40,8 +40,8 @@ Reform DSL (``Reform.benefit_overrides["housing"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -49,7 +49,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 # 2024 HUD Honolulu MSA 2BR Fair Market Rent annualized.
 # Source: HUD Office of Policy Development & Research FMR tables.
@@ -73,7 +72,7 @@ def hawaii_housing_parameters() -> HousingParameters:
 
 
 def with_housing_overrides(
-    base: HousingParameters, overrides: Optional[Mapping[str, object]]
+    base: HousingParameters, overrides: Mapping[str, object] | None
 ) -> HousingParameters:
     if not overrides:
         return base
@@ -91,8 +90,8 @@ def compute_housing_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[HousingParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: HousingParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "housing_subsidy_amount",
 ) -> pd.DataFrame:
     """Compute imputed housing-assistance annual benefit per tax unit.

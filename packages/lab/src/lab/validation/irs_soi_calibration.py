@@ -11,10 +11,10 @@ finding a balanced solution that minimizes total deviation from both targets.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import logging
-from typing import Dict, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ DOTAX_AGI_BRACKETS = {
 }
 
 
-def assign_agi_bracket(agi: float) -> Tuple[float, float]:
+def assign_agi_bracket(agi: float) -> tuple[float, float]:
     """
     Assign AGI to DOTAX bracket.
     
@@ -53,7 +53,7 @@ def assign_agi_bracket(agi: float) -> Tuple[float, float]:
     Returns:
         Tuple of (min_agi, max_agi) for the bracket
     """
-    for (min_agi, max_agi) in DOTAX_AGI_BRACKETS.keys():
+    for (min_agi, max_agi) in DOTAX_AGI_BRACKETS:
         if max_agi == float('inf'):
             if agi >= min_agi:
                 return (min_agi, max_agi)
@@ -213,7 +213,7 @@ def apply_irs_soi_calibration(
 def validate_irs_soi_calibration(
     tax_units: pd.DataFrame,
     weight_col: str = 'weight_irs_calibrated'
-) -> Dict:
+) -> dict:
     """
     Validate IRS SOI calibration results.
     

@@ -7,13 +7,13 @@ using demographic and economic similarity metrics to find comparable districts.
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-import logging
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,8 @@ class DistrictMetadata:
     """Container for district metadata and features."""
     district_id: str
     has_soi_data: bool
-    features: Dict[str, float]  # Normalized feature values
-    raw_data: Dict[str, float]  # Original feature values
+    features: dict[str, float]  # Normalized feature values
+    raw_data: dict[str, float]  # Original feature values
     
     @property
     def feature_vector(self) -> np.ndarray:
@@ -44,7 +44,7 @@ class DistrictNearestNeighborImputer:
         self.min_similarity = min_similarity
         self.n_neighbors = n_neighbors
         self.scaler = StandardScaler()
-        self.districts: Dict[str, DistrictMetadata] = {}
+        self.districts: dict[str, DistrictMetadata] = {}
         self.feature_weights = {
             # Higher weights for more important features
             'median_income': 1.5,
@@ -56,7 +56,7 @@ class DistrictNearestNeighborImputer:
             'urban_percentage': 0.8
         }
         
-    def add_district(self, district_id: str, features: Dict[str, float], has_soi_data: bool = True) -> None:
+    def add_district(self, district_id: str, features: dict[str, float], has_soi_data: bool = True) -> None:
         """Add a district to the imputation dataset."""
         self.districts[district_id] = DistrictMetadata(
             district_id=district_id,
@@ -88,7 +88,7 @@ class DistrictNearestNeighborImputer:
         for (district_id, district), features in zip(self.districts.items(), X_weighted):
             district.features = dict(zip(feature_names, features))
     
-    def find_nearest_neighbors(self, target_district_id: str) -> List[Tuple[str, float]]:
+    def find_nearest_neighbors(self, target_district_id: str) -> list[tuple[str, float]]:
         """Find nearest neighbors for a target district."""
         if target_district_id not in self.districts:
             raise ValueError(f"District {target_district_id} not found in imputer")
@@ -121,7 +121,7 @@ class DistrictNearestNeighborImputer:
         
         return results[:self.n_neighbors]
     
-    def impute_district(self, target_district_id: str, soi_data: Dict[str, Dict]) -> Dict:
+    def impute_district(self, target_district_id: str, soi_data: dict[str, dict]) -> dict:
         """
         Impute SOI data for a target district using nearest neighbors.
         
@@ -196,11 +196,11 @@ class DistrictNearestNeighborImputer:
 
 def impute_missing_districts(
     districts_df: pd.DataFrame,
-    soi_data: Dict[str, Dict],
-    feature_columns: List[str],
+    soi_data: dict[str, dict],
+    feature_columns: list[str],
     min_similarity: float = 0.7,
     n_neighbors: int = 3
-) -> Dict[str, Dict]:
+) -> dict[str, dict]:
     """
     Impute SOI data for districts without direct data using nearest neighbors.
     

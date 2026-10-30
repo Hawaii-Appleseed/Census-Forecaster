@@ -22,11 +22,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Regenerate ACS v3 stratified calibration from the bundled panel.",
     )
@@ -88,9 +88,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     # Import here so import errors surface cleanly.
-    from .load_calibration_panel import load_panel, PanelMissingError
-    from ..acs.calibration import run_stratified_calibration, write_calibration
     from ..acs.anchors import DEFAULT_CALIBRATION_PATH
+    from ..acs.calibration import run_stratified_calibration, write_calibration
+    from .load_calibration_panel import PanelMissingError, load_panel
 
     # --- Load panel ---
     try:

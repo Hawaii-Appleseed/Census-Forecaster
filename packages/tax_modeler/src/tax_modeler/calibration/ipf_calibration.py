@@ -21,11 +21,10 @@ Key Features:
 from __future__ import annotations
 
 import logging
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 import warnings
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class IPFCalibrator:
     """
     
     def __init__(self, 
-                 benchmarks: Dict,
+                 benchmarks: dict,
                  max_iterations: int = 100,
                  tolerance: float = 0.001,
                  damping_factor: float = 0.7):
@@ -173,7 +172,7 @@ class IPFCalibrator:
     def _prepare_constraints(self, 
                             df: pd.DataFrame,
                             filing_status_col: str,
-                            income_col: str) -> Dict:
+                            income_col: str) -> dict:
         """
         Prepare constraint dimensions for IPF.
         
@@ -211,7 +210,7 @@ class IPFCalibrator:
         
         return constraints
     
-    def _normalize_filing_status_targets(self) -> Dict[str, float]:
+    def _normalize_filing_status_targets(self) -> dict[str, float]:
         """Normalize filing status target names to match PUMS conventions."""
         raw_targets = self.benchmarks['filing_status_distribution']
         normalized = {}
@@ -256,7 +255,7 @@ class IPFCalibrator:
     def _apply_constraint(self,
                          df: pd.DataFrame,
                          constraint_name: str,
-                         constraint_data: Dict,
+                         constraint_data: dict,
                          iteration: int) -> pd.DataFrame:
         """
         Apply a single constraint dimension using IPF.
@@ -327,7 +326,7 @@ class IPFCalibrator:
         
         return rel_changes.max()
     
-    def validate_calibration(self, df: pd.DataFrame) -> Dict:
+    def validate_calibration(self, df: pd.DataFrame) -> dict:
         """
         Validate calibrated weights against benchmarks.
         
@@ -390,21 +389,21 @@ class IPFCalibrator:
         
         return validation
     
-    def _log_validation(self, validation: Dict):
+    def _log_validation(self, validation: dict):
         """Log validation results."""
         logger.info("\n" + "="*80)
         logger.info("IPF CALIBRATION VALIDATION RESULTS")
         logger.info("="*80)
         
         # Overall total
-        logger.info(f"\nTotal Tax Units:")
+        logger.info("\nTotal Tax Units:")
         logger.info(f"  Calibrated: {validation['total_weight']:,.0f}")
         logger.info(f"  Target:     {validation['target_total']:,.0f}")
         logger.info(f"  Difference: {validation['total_difference']:+,.0f} ({validation['total_pct_difference']:+.2f}%)")
         
         # Filing status
         if 'filing_status' in validation['dimensions']:
-            logger.info(f"\nFiling Status Distribution:")
+            logger.info("\nFiling Status Distribution:")
             logger.info(f"  {'Status':<30} {'Actual':>12} {'Target':>12} {'Diff %':>10}")
             logger.info(f"  {'-'*30} {'-'*12} {'-'*12} {'-'*10}")
             
@@ -416,7 +415,7 @@ class IPFCalibrator:
         
         # Income brackets
         if 'income_bracket' in validation['dimensions']:
-            logger.info(f"\nIncome Bracket Distribution:")
+            logger.info("\nIncome Bracket Distribution:")
             logger.info(f"  {'Bracket':<20} {'Actual':>12} {'Target':>12} {'Diff %':>10}")
             logger.info(f"  {'-'*20} {'-'*12} {'-'*12} {'-'*10}")
             
@@ -429,7 +428,7 @@ class IPFCalibrator:
         logger.info("="*80)
 
 
-def create_benchmarks_from_dotax(dotax_parser=None) -> Dict:
+def create_benchmarks_from_dotax(dotax_parser=None) -> dict:
     """
     Create IPF benchmarks from DOTAX SOI 2022 data.
     
@@ -518,7 +517,7 @@ def create_benchmarks_from_dotax(dotax_parser=None) -> Dict:
 
 
 def calibrate_pums_with_ipf(tax_units: pd.DataFrame,
-                            benchmarks: Optional[Dict] = None,
+                            benchmarks: dict | None = None,
                             max_iterations: int = 100,
                             tolerance: float = 0.001) -> pd.DataFrame:
     """

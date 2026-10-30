@@ -45,8 +45,8 @@ call :func:`rake_biproportional` directly with explicit targets.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -169,8 +169,8 @@ def rake_weights_to_irs_zip(
     units: pd.DataFrame,
     *,
     tax_year: int,
-    irs_zip_path: Optional[Path] = None,
-    zip_to_hd_path: Optional[Path] = None,
+    irs_zip_path: Path | None = None,
+    zip_to_hd_path: Path | None = None,
     weight_col: str = "weight",
     puma_col: str = "PUMA",
     hd_col: str = "house_district",

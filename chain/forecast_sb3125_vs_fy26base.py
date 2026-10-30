@@ -49,16 +49,17 @@ sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_r
 
 import numpy as np
 import pandas as pd
-
-from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
-from tax_modeler.base import build_tail_units
-from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
-from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
-from tax_modeler.scenarios.quintile_analysis import (
-    generate_quintile_report, compute_quintile_breaks, per_unit_tax,
-)
 from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
+from tax_modeler.base import build_tail_units
+from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
+from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
 from tax_modeler.liability.hawaii import NO_ITEMIZING
+from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
+from tax_modeler.scenarios.quintile_analysis import (
+    compute_quintile_breaks,
+    generate_quintile_report,
+    per_unit_tax,
+)
 
 MID_ALPHA       = 1.5
 MID_TOP_PREMIUM = 0.010
@@ -245,8 +246,8 @@ def main(cd: str) -> None:
     all_brackets.to_csv(B_CSV, index=False)
 
     # ---- Manifested run output (canonical; /tmp copies kept above) ---------
-    from tax_modeler.runs import tidy_long, write_run_manifest
     from _forecast_common import RUNS_DIR, cache_provenance
+    from tax_modeler.runs import tidy_long, write_run_manifest
     run_dir = RUNS_DIR / f"sb3125_cd{cd}_fy26base"
     run_dir.mkdir(parents=True, exist_ok=True)
     all_quintiles.to_csv(run_dir / "quintile.csv", index=False)
@@ -312,7 +313,7 @@ def main(cd: str) -> None:
         "pct_pay_more", "pct_pay_less",
     ]].to_string(index=False), flush=True)
 
-    print(f"\n\nComparison to ITEP — annual snapshots vs TY2026-frozen baseline (residents, $M):", flush=True)
+    print("\n\nComparison to ITEP — annual snapshots vs TY2026-frozen baseline (residents, $M):", flush=True)
     print(
         f"{'Year':<6} {'Ours (total)':>14} {'Ours (bracket)':>16} "
         f"{'ITEP':>10} {'Gap (total-ITEP)':>18}",

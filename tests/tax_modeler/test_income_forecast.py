@@ -5,17 +5,13 @@ Covers :mod:`tax_modeler.projection.income_forecast` and the
 """
 from __future__ import annotations
 
-import os
-
 import pytest
-
 from tax_modeler.config.income_growth import (
     NONRESIDENT_GROWTH,
     RESIDENT_GROWTH,
     apply_income_growth,
 )
 from tax_modeler.projection.income_forecast import (
-    _COUNTY_POP_2020,
     _ENV_VAR,
     _NATIONAL_GEOIDS,
     _compute_real_growth_factor,
@@ -26,7 +22,6 @@ from tax_modeler.projection.income_forecast import (
     get_hawaii_real_growth_factor,
     get_national_real_growth_factor,
 )
-
 
 # -----------------------------------------------------------------------------
 # Bridge core: get_hawaii_real_growth_factor

@@ -56,26 +56,23 @@ Module layout
 """
 from __future__ import annotations
 
-import math
 import logging
-from typing import Callable, Sequence
+import math
+from collections.abc import Callable, Sequence
 
+from census_forecaster.acs.projection import effective_year
 from census_forecaster.backtest.acs import (
+    DEFAULT_METHODS,
     BacktestRow,
     BacktestSummary,
     ProjectorFn,
     _summarise_rows,
-    DEFAULT_METHODS,
     run_backtest,
 )
-from census_forecaster.acs.projection import effective_year
-from tax_modeler.projection.hawaii_tax_real import (
-    hawaii_tax_weighted,
-    hawaii_marginal_weighted,
-)
+
 from tax_modeler.projection.revenue_concentration import (
-    make_concentration_adjusted_fn,
     concentration_marginal_fn,
+    make_concentration_adjusted_fn,
 )
 
 logger = logging.getLogger(__name__)

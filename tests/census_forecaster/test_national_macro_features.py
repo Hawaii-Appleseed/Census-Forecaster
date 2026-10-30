@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from census_forecaster.acs.ml_features import (
     _AUX_COLUMNS,
     _BASE_COLUMNS,

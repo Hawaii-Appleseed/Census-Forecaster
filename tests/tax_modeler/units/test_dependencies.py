@@ -4,10 +4,14 @@ Tests for the dependencies module.
 
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import numpy as np
-from tax_modeler.units.dependencies import identify_dependents, _is_qualifying_child, _is_qualifying_relative
+import pytest
+from tax_modeler.units.dependencies import (
+    _is_qualifying_child,
+    _is_qualifying_relative,
+    identify_dependents,
+)
+
 
 # Test data — RELSHIPP uses canonical Census 2019+ PUMS integer codes:
 #   20 = Reference person, 21 = Spouse, 25 = Biological child,

@@ -8,9 +8,9 @@ and Head of Household statuses.
 
 from __future__ import annotations
 
+from .hoh import is_head_of_household
 from .mfj import is_married_filing_jointly
 from .mfs import is_married_filing_separately
-from .hoh import is_head_of_household
 
 __all__ = [
     'is_married_filing_jointly',

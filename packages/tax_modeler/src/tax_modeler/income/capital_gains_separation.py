@@ -8,10 +8,11 @@ into regular income and capital gains components.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +145,11 @@ def apply_capital_gains_separation(
     
     cap_gains_pct = (total_cap_gains / total_income * 100) if total_income > 0 else 0
     
-    logger.info(f"✅ Capital gains separation complete:")
+    logger.info("✅ Capital gains separation complete:")
     logger.info(f"   Total income:        ${total_income/1e9:.2f}B")
     logger.info(f"   Regular income:      ${total_regular/1e9:.2f}B ({100-cap_gains_pct:.1f}%)")
     logger.info(f"   Capital gains:       ${total_cap_gains/1e9:.2f}B ({cap_gains_pct:.1f}%)")
-    logger.info(f"   Expected cap gains:  7.4% (DOTAX SOI 2022)")
+    logger.info("   Expected cap gains:  7.4% (DOTAX SOI 2022)")
     
     return tax_units
 

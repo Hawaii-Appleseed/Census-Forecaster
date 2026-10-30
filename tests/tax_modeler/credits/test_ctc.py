@@ -4,18 +4,13 @@ Tests for Child Tax Credit (CTC) calculations.
 
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import os
-
-
+import pytest
 from tax_modeler.credits.ctc import (
-    calculate_ctc, 
-    _get_qualifying_children, 
-    _is_qualifying_child_ctc,
-    _apply_income_phaseout,
     CTCParameters,
-    calculate_ctc_for_tax_units
+    _is_qualifying_child_ctc,
+    calculate_ctc,
+    calculate_ctc_for_tax_units,
 )
 
 

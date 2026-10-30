@@ -73,11 +73,12 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Mapping, Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
+
 from .projection import effective_year
 
 METHOD_NAME = "mean_reversion"
@@ -99,7 +100,7 @@ _FALLBACK_MAP_SD = 1.5   # pp; mirrors the level anchor's level_se_floor
 
 
 @lru_cache(maxsize=1)
-def load_laus_values() -> "dict[str, dict[int, float]]":
+def load_laus_values() -> dict[str, dict[int, float]]:
     """Bundled LAUS county unemployment rates: {geoid: {year: rate_pp}}."""
     raw = json.loads(_LAUS_PATH.read_text())
     out: dict[str, dict[int, float]] = {}
@@ -109,7 +110,7 @@ def load_laus_values() -> "dict[str, dict[int, float]]":
 
 
 @lru_cache(maxsize=32)
-def _pooled_phi_sigma(end_year: int) -> "tuple[float, float]":
+def _pooled_phi_sigma(end_year: int) -> tuple[float, float]:
     """Pooled AR(1) coefficient and residual SD on LAUS deviations, years ≤ end_year."""
     laus = load_laus_values()
     sxy = 0.0
@@ -139,9 +140,9 @@ def _pooled_phi_sigma(end_year: int) -> "tuple[float, float]":
 def project_mean_reversion(
     series_observations: Sequence[AcsObservation],
     target_year: int,
-    end_year: Optional[int] = None,
-    laus_values: Optional[Mapping[str, Mapping[int, float]]] = None,
-) -> Optional[ForecastPoint]:
+    end_year: int | None = None,
+    laus_values: Mapping[str, Mapping[int, float]] | None = None,
+) -> ForecastPoint | None:
     """AR(1)-toward-mean forecast of ACS S2301 from the LAUS state.
 
     Returns None when the indicator is unsupported, the county has no

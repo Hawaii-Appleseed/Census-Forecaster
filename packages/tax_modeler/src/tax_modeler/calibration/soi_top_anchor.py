@@ -43,9 +43,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from tax_modeler.calibration.cbo_aging import net_growth_factor
@@ -53,21 +51,21 @@ from tax_modeler.calibration.cbo_aging import net_growth_factor
 logger = logging.getLogger(__name__)
 
 # DOTAX A8 high-income filing status mix (matches existing synthesizer).
-HIGH_INCOME_STATUS_SHARES: Dict[str, float] = {
+HIGH_INCOME_STATUS_SHARES: dict[str, float] = {
     "married_filing_jointly":     0.69,
     "single":                     0.22,
     "head_of_household":          0.05,
     "married_filing_separately":  0.04,
 }
 
-FILING_STATUS_HAWAII_MAP: Dict[str, str] = {
+FILING_STATUS_HAWAII_MAP: dict[str, str] = {
     "married_filing_jointly":     "Joint_Surviving_Spouse",
     "single":                     "Single_Married_Separate",
     "married_filing_separately":  "Single_Married_Separate",
     "head_of_household":          "Head_of_Household",
 }
 
-HAWAII_STD_DEDUCTIONS: Dict[str, int] = {
+HAWAII_STD_DEDUCTIONS: dict[str, int] = {
     "married_filing_jointly":     4_400,
     "head_of_household":          3_212,
     "single":                     2_200,
@@ -103,9 +101,9 @@ def _default_soi_csv_path(year: int) -> Path:
 
 def load_soi_top_anchors(
     year: int = 2022,
-    csv_path: Optional[Path] = None,
+    csv_path: Path | None = None,
     min_lo: float = 1_000_000.0,
-) -> List[SOITierAnchor]:
+) -> list[SOITierAnchor]:
     """Load SOI Table 1.4 tiers with ``agi_lo >= min_lo``.
 
     Defaults to $1M+ tiers (5 rows: $1-$1.5M, $1.5-$2M, $2-$5M, $5-$10M,
@@ -121,7 +119,7 @@ def load_soi_top_anchors(
     df = df[df["agi_lo"] >= min_lo].copy()
     df = df.sort_values("agi_lo").reset_index(drop=True)
 
-    anchors: List[SOITierAnchor] = []
+    anchors: list[SOITierAnchor] = []
     for _, row in df.iterrows():
         n = float(row["n_returns"])
         agi_M = float(row["agi_less_deficit_M"])
@@ -147,7 +145,7 @@ def _aged_tier_avg_agi(
     anchor: SOITierAnchor,
     target_year: int,
     cbo_rates,
-    hawaii_factors: Dict[str, float],
+    hawaii_factors: dict[str, float],
 ) -> float:
     """Age an SOI tier's average AGI forward via CBO components × HI factors.
 
@@ -185,7 +183,7 @@ def _aged_tier_capgain_share(
     anchor: SOITierAnchor,
     target_year: int,
     cbo_rates,
-    hawaii_factors: Dict[str, float],
+    hawaii_factors: dict[str, float],
     hawaii_capgain_adjustment: float,
 ) -> float:
     """Recompute the tier's CG share after component aging.
@@ -226,13 +224,13 @@ def synthesize_top_filers_from_soi(
     df: pd.DataFrame,
     *,
     target_filer_count: int,
-    target_tax_M: Optional[float] = None,
-    soi_anchors: Optional[List[SOITierAnchor]] = None,
+    target_tax_M: float | None = None,
+    soi_anchors: list[SOITierAnchor] | None = None,
     soi_year: int = 2022,
     hawaii_capgain_adjustment: float = 0.95,
-    target_year: Optional[int] = None,
-    cbo_vintage: Optional[str] = None,
-    cbo_hawaii_factors: Optional[Dict[str, float]] = None,
+    target_year: int | None = None,
+    cbo_vintage: str | None = None,
+    cbo_hawaii_factors: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """Replace existing $1M+ filers with SOI-Table-1.4-anchored synthetic rows.
 
@@ -318,7 +316,7 @@ def synthesize_top_filers_from_soi(
 
     # Distribute target_filer_count across SOI tiers using national tier shares
     total_national = sum(a.n_returns_national for a in soi_anchors)
-    tier_filer_counts: List[Tuple[SOITierAnchor, float]] = [
+    tier_filer_counts: list[tuple[SOITierAnchor, float]] = [
         (a, target_filer_count * a.n_returns_national / total_national)
         for a in soi_anchors
     ]
@@ -332,7 +330,7 @@ def synthesize_top_filers_from_soi(
     work.loc[mask_1m, "weight"] = 0.0
 
     # Build synthetic rows: one per (tier × filing_status)
-    synthetic_rows: List[Dict] = []
+    synthetic_rows: list[dict] = []
     for anchor, tier_filers in tier_filer_counts:
         # Hawaii-adjusted CG share, capped at 1.0
         if cbo_rates is not None:

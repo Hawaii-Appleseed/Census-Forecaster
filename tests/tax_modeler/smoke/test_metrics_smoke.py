@@ -13,9 +13,7 @@ Validates that:
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
-
 from tax_modeler import (
     atkinson,
     decile_summary,
@@ -27,7 +25,6 @@ from tax_modeler import (
     weighted_ntile_labels,
 )
 from tax_modeler.errors import DataValidationError
-
 
 pytestmark = pytest.mark.smoke
 

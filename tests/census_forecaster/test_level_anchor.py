@@ -9,11 +9,8 @@ Covers:
 """
 from __future__ import annotations
 
-import math
 import pytest
-
 from common.models import AcsObservation
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -77,9 +74,12 @@ def test_latest_level_returns_none_for_unknown_geoid(laus_source):
 
 def test_latest_level_allows_zero_rate():
     """A 0.0 rate value must not be filtered (unlike load_series which drops v<=0)."""
-    from census_forecaster.acs.sources.base import AnchorSource
+    import json
+    import os
+    import tempfile
     from pathlib import Path
-    import json, tempfile, os
+
+    from census_forecaster.acs.sources.base import AnchorSource
 
     data = {"values_by_geoid_year": {"15003": {"2020": 0.0, "2021": 2.5}}}
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -185,8 +185,8 @@ def _minimal_series(geoid, indicator, n_years=10, base=4.5, vintage="1y"):
 
 def test_ensemble_includes_level_anchor_for_poverty():
     """S1701 level anchor RMSE is best → should appear in notes."""
-    from census_forecaster.acs.ensemble import project_ensemble_multi
     from census_forecaster.acs.anchors import load_calibration
+    from census_forecaster.acs.ensemble import project_ensemble_multi
     series = _minimal_series("15003", "S1701_C03_001E", base=12.0)
     cal = load_calibration()
     fp = project_ensemble_multi(
@@ -231,9 +231,10 @@ def test_ensemble_excludes_level_anchor_when_rmse_too_high(monkeypatch):
 
 def test_ensemble_includes_level_anchor_when_rmse_slightly_worse(monkeypatch):
     """level_anchor within 25% of best → should be included."""
+    import copy
+
     from census_forecaster.acs import ensemble as ens_mod
     from census_forecaster.acs.anchors import load_calibration
-    import copy
 
     cal = load_calibration() or {}
     cal_patched = copy.deepcopy(cal)

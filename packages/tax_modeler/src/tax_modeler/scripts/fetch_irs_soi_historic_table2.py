@@ -53,7 +53,6 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -82,7 +81,7 @@ def _fetch_one_year(year: int, cache_dir: Path) -> Path:
     return out
 
 
-def _extract_eitc_row(xlsx_path: Path) -> tuple[float, Optional[float]]:
+def _extract_eitc_row(xlsx_path: Path) -> tuple[float, float | None]:
     """Return ``(eitc_returns, eitc_dollars_thousands)`` from one IRS XLSX.
 
     Walks the first sheet looking for the rows labeled "Earned income
@@ -91,8 +90,8 @@ def _extract_eitc_row(xlsx_path: Path) -> tuple[float, Optional[float]]:
     1; subsequent columns are AGI-band breakdowns and are ignored.
     """
     df = pd.read_excel(xlsx_path, sheet_name=0, header=None)
-    count_val: Optional[float] = None
-    amt_val: Optional[float] = None
+    count_val: float | None = None
+    amt_val: float | None = None
     for r in range(len(df)):
         v = df.iloc[r, 0]
         if pd.isna(v):
@@ -119,7 +118,7 @@ def _extract_eitc_row(xlsx_path: Path) -> tuple[float, Optional[float]]:
 def fetch_panel(
     years: list[int],
     *,
-    cache_dir: Optional[Path] = None,
+    cache_dir: Path | None = None,
 ) -> pd.DataFrame:
     """Build the multi-year HI EITC panel.
 
@@ -167,7 +166,7 @@ def _parse_year_range(spec: str) -> list[int]:
     return [int(spec)]
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--years", type=str, default="2018-2022",
                    help="Range like 2018-2022 (default) or single year.")

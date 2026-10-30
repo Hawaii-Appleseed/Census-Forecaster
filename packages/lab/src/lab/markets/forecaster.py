@@ -33,10 +33,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 from .panel import PricesPanel, load_prices_panel
 from .trend import _monthly_vol, calibrate_band_multiplier, forecast_ticker
@@ -72,7 +72,7 @@ class BoardRow:
     band_multiplier: float
     band_calibrated: bool
     cap_hit: bool
-    mom12: Optional[float]          # trailing 12m log change
+    mom12: float | None          # trailing 12m log change
     vol_regime: str                 # 'elevated' | 'normal' | 'calm'
     leading_indicator: bool         # ticker survives the forward screen
 
@@ -104,7 +104,7 @@ def _vol_regime(bars, vol_method: str) -> str:
 
 
 def forecast_board(
-    panel: Optional[PricesPanel] = None,
+    panel: PricesPanel | None = None,
     *,
     horizons: Sequence[int] = DEFAULT_HORIZONS,
     vol_method: str = DEFAULT_VOL_METHOD,
@@ -164,7 +164,7 @@ def print_board(rows: Sequence[BoardRow], out=sys.stdout) -> None:
               file=out)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Per-ticker damped-drift forecast board (offline, "
                     "bundled panel). Not trading advice.")

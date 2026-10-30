@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.liability.federal import compute_federal_income_tax_for_units
 
 
@@ -125,7 +124,8 @@ def test_taxable_social_security_tiers():
 
 def test_add_federal_income_columns_w2_wages_and_ss():
     from tax_modeler.liability.federal import (
-        FEDERAL_W2_WAGE_FACTOR, add_federal_income_columns,
+        FEDERAL_W2_WAGE_FACTOR,
+        add_federal_income_columns,
     )
     df = pd.DataFrame([
         {"filing_status": "single", "income": 50_000.0, "earned_income": 50_000.0,

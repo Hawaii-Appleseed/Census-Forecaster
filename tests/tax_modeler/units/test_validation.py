@@ -4,11 +4,8 @@ Tests for the tax unit validation module.
 
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import os
-
-
+import pytest
 from tax_modeler.units.validation import TaxUnitValidator, ValidationIssue, ValidationSeverity
 
 

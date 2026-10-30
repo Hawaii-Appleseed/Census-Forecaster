@@ -34,12 +34,11 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
-from ..bea.client import BeaClient, BeaApiError
-
+from ..bea.client import BeaApiError, BeaClient
 
 SourceSpec = dict
 
@@ -177,7 +176,7 @@ def verify_schema(client: BeaClient) -> None:
               file=sys.stderr)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch the three BEA anchors and write to bundled disk.",
     )

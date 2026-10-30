@@ -24,7 +24,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from tax_modeler.projection.hawaii_tax_real import (
     ALL_FILING_STATUSES,
     DEFAULT_WEIGHTS,
@@ -40,7 +39,6 @@ from tax_modeler.projection.hawaii_tax_real import (
     hawaii_tax_real,
     hawaii_tax_weighted,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -505,6 +503,7 @@ class TestRevenueBacktestIntegration:
         hawaii_tax_weighted's $5,609 (15% over-estimate).
         """
         import inspect
+
         from tax_modeler.projection.revenue_backtest import run_revenue_backtest
         from tax_modeler.projection.revenue_concentration import expected_revenue_per_filer
         sig = inspect.signature(run_revenue_backtest)

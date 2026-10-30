@@ -39,7 +39,6 @@ import csv
 import warnings
 from functools import cache
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -147,7 +146,8 @@ def reec_individual_credit_loss(
     - eligible_cap_reduction: pro-rata cap reduction for eligible filers
     """
     from tax_modeler.scenarios.sb3125_cd1_credits import (
-        _reec_baseline_M, REEC_CAP_2027_2030_M, REEC_CAP_2031_PLUS_M,
+        REEC_CAP_2027_2030_M,
+        _reec_baseline_M,
     )
 
     reec = _reec_baseline_M(
@@ -409,7 +409,7 @@ DEFAULT_COR_IIT_PROJECTIONS_M = _load_cor_projections()
 def cor_scale_factor_for_year(
     year: int,
     microsim_baseline_M: float,
-    cor_projections_M: Optional[dict[int, float]] = None,
+    cor_projections_M: dict[int, float] | None = None,
 ) -> float:
     """Return COR scale = (official COR IIT projection) / (microsim Act 46 baseline).
 
@@ -433,9 +433,9 @@ def generate_quintile_report(
     scenario_cfg,
     credit_overlay: dict,
     calc,
-    scenario_params: Optional[dict] = None,
-    quintile_breaks: Optional[np.ndarray] = None,
-    cor_scale_factor: Optional[float] = None,
+    scenario_params: dict | None = None,
+    quintile_breaks: np.ndarray | None = None,
+    cor_scale_factor: float | None = None,
     no_change_tolerance: float = 0.0,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Produce per-filer quintile and bracket-breakdown analysis.

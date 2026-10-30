@@ -10,7 +10,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.scenarios.quintile_analysis import (
     _change_shares,
     _claim_profile,

@@ -241,8 +241,8 @@ def _text_width_axes(text: str, fontsize: float, fig_w_in: float = 8.5) -> float
     Uses TextPath for a deterministic measurement (no draw cycle needed) so
     header badges can be sized to fit their text exactly.
     """
-    from matplotlib.textpath import TextPath
     from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextPath
     fp = FontProperties(family="sans-serif", size=fontsize)
     tp = TextPath((0, 0), text, prop=fp)
     return tp.get_extents().width / (fig_w_in * 72.0)
@@ -255,7 +255,7 @@ def _text_width_axes(text: str, fontsize: float, fig_w_in: float = 8.5) -> float
 def _page_cover(pdf, cd: str, total_ty23: float):
     """Page 1 — Cover (portrait)."""
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle, FancyBboxPatch
+    from matplotlib.patches import FancyBboxPatch, Rectangle
 
     fig = plt.figure(figsize=PAGE)
     fig.patch.set_facecolor("white")
@@ -1586,19 +1586,24 @@ def main(cd: str = "1") -> Path:
 
     try:
         from tax_modeler.scenarios.sb3125_cd1_credits import (
-            compute_credit_overlay,
             REEC_INDIVIDUAL_BY_AGI_BIN as RETITC_INDIVIDUAL_BY_AGI_BIN,
+        )
+        from tax_modeler.scenarios.sb3125_cd1_credits import (
             REEC_INDIVIDUAL_TOTAL_M as RETITC_INDIVIDUAL_TOTAL_M,
+        )
+        from tax_modeler.scenarios.sb3125_cd1_credits import (
             _reec_eligible_individual_M,
+            compute_credit_overlay,
         )
     except ImportError as exc:
         print(f"ERROR: Could not import tax_modeler: {exc}", file=sys.stderr)
         print("Run `uv sync --all-packages` to install the venv.", file=sys.stderr)
         sys.exit(1)
 
+    import shutil as _shutil
+
     import matplotlib
     import matplotlib.font_manager as _fm
-    import shutil as _shutil
 
     # ------------------------------------------------------------------ #
     # Font setup — Source Sans 3, all four weights                        #

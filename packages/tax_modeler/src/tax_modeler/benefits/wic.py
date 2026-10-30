@@ -25,8 +25,8 @@ Reform DSL (``Reform.benefit_overrides["wic"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 _WIC_PER_PARTICIPANT_ANNUAL_2024 = 720.0    # ~$60/month USDA-FNS food cost
 
@@ -52,7 +51,7 @@ def hawaii_wic_parameters() -> WicParameters:
 
 
 def with_wic_overrides(
-    base: WicParameters, overrides: Optional[Mapping[str, object]]
+    base: WicParameters, overrides: Mapping[str, object] | None
 ) -> WicParameters:
     if not overrides:
         return base
@@ -69,8 +68,8 @@ def compute_wic_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[WicParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: WicParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "wic_amount",
 ) -> pd.DataFrame:
     """Compute approximate WIC annual food-package value per tax unit.

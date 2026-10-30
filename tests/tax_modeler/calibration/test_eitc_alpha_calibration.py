@@ -16,14 +16,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.calibration.eitc_alpha_calibration import (
     AlphaCalibration,
     _build_year_pairs,
     calibrate_eitc_poverty_alpha,
     write_calibration_artifact,
 )
-
 
 # ---------------------------------------------------------------------------
 # Synthetic-panel recovery

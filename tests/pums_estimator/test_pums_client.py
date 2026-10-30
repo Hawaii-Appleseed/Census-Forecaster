@@ -6,8 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-
-from pums_estimator.pums.client import fetch_pums, CENSUS_API_BASE
+from pums_estimator.pums.client import CENSUS_API_BASE, fetch_pums
 
 _HEADERS = ["SERIALNO", "PUMA", "WGTP", "VEH", "state", "public use microdata area"]
 _ROWS = [

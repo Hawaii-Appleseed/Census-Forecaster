@@ -6,7 +6,6 @@ Validates basic shape and reform-DSL integration for ACA PTC, Medicaid
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler import (
     Reform,
     apply_reform,
@@ -19,7 +18,6 @@ from tax_modeler import (
     compute_wic_for_units,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

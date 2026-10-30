@@ -13,7 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.liability.hawaii import (
     NO_ITEMIZING,
     calculate_hawaii_tax,
@@ -102,7 +101,8 @@ class TestPerUnitTaxInvariant:
         when the SD policy diverged.
         """
         from tax_modeler.config.tax_system_config import (
-            TaxCalculator, TaxSystemRegistry,
+            TaxCalculator,
+            TaxSystemRegistry,
         )
         from tax_modeler.scenarios.quintile_analysis import per_unit_tax
 

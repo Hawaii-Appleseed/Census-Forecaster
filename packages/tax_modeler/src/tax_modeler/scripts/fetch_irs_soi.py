@@ -36,8 +36,8 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
 
 
 def _default_out_dir() -> Path:
@@ -108,7 +108,7 @@ def _print_manual_instructions(out_dir: Path) -> None:
     print(msg, file=sys.stderr)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Populate data/tax_modeler/external/ with IRS / BLS / CEX data.",
     )

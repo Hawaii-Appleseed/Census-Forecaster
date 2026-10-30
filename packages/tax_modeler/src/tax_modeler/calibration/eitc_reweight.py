@@ -40,7 +40,6 @@ regenerating all calibration goldens.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import pandas as pd
 
@@ -57,8 +56,8 @@ def reweight_eitc_eligibles_by_children(
     children_col: str = "eitc_qualifying_children",
     benefit_col: str = "eitc_amount",
     weight_col: str = "weight",
-    targets: Optional[dict[int, float]] = None,
-    max_factor: Optional[float] = None,
+    targets: dict[int, float] | None = None,
+    max_factor: float | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     """Up-weight EITC-eligible units in short by-children buckets to IRS targets.
 

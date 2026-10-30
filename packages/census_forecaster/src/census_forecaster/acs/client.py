@@ -27,11 +27,10 @@ from __future__ import annotations
 import json
 import os
 import sys
-import urllib.request
-import urllib.parse
 import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
-from typing import Optional
 
 from common.models import AcsObservation
 
@@ -80,7 +79,7 @@ class AcsClient:
     def __init__(
         self,
         cache_path: Path = DEFAULT_CACHE_PATH,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         offline: bool = False,
     ) -> None:
         self.cache_path = Path(cache_path)
@@ -223,7 +222,7 @@ class AcsClient:
         years: tuple[int, ...],
         vintage: str,
         state_fips: str,
-        county_fips: Optional[str] = None,
+        county_fips: str | None = None,
     ) -> list[AcsObservation]:
         """Fetch a multi-year time series for one indicator, one geography.
 

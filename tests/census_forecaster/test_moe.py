@@ -12,7 +12,6 @@ explicitly update the tests with the new formula.
 import math
 
 import pytest
-
 from census_forecaster.moe import (
     ACS_MOE_Z,
     ci_from_se,
@@ -25,7 +24,6 @@ from census_forecaster.moe import (
     relative_se,
     se_to_moe,
 )
-
 
 # ---------------------------------------------------------------------------
 # moe_to_se / se_to_moe

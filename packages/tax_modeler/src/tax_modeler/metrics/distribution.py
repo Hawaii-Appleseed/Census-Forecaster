@@ -10,7 +10,8 @@ to arbitrary ``n`` (deciles, percentiles, etc.) without code duplication.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -100,7 +101,7 @@ def decile_summary(
     weights: ArrayLike,
     *,
     n: int = 10,
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> pd.DataFrame:
     """Per-decile (or n-tile) weighted means, totals, and shares.
 

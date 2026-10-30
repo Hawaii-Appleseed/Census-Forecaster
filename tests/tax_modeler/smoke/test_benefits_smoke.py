@@ -5,26 +5,17 @@ overrides for SNAP / SSI / EITC / CTC.
 """
 from __future__ import annotations
 
-import numpy as np
-import pandas as pd
 import pytest
-
 from tax_modeler import (
     Reform,
-    SnapParameters,
-    SsiParameters,
     apply_reform,
     compute_snap_for_units,
     compute_spm_resources,
     compute_ssi_for_units,
     compute_ssi_hi_supplement_for_units,
-    federal_ssi_parameters,
-    hawaii_snap_parameters,
-    hawaii_ssi_supplement_parameters,
     poverty_rate,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

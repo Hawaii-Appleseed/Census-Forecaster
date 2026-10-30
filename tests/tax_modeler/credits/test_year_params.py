@@ -10,18 +10,16 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
-from tax_modeler.credits.eitc import (
-    EITCParameters,
-    calculate_eitc,
-    eitc_parameters_for_year,
-)
 from tax_modeler.credits.ctc import (
     CTCParameters,
     calculate_ctc,
     ctc_parameters_for_year,
 )
-
+from tax_modeler.credits.eitc import (
+    EITCParameters,
+    calculate_eitc,
+    eitc_parameters_for_year,
+)
 
 # Two qualifying children, valid PUMS-style relationship + citizenship codes.
 _TWO_KID_DEPS = [
@@ -259,8 +257,8 @@ def test_ctc_actc_uses_year_refundable_cap_2_kids():
 
 def test_compute_base_tax_extrapolates_credit_params_past_last_rev_proc():
     """TY2028 credits use CPI-extrapolated parameters, not a TY2023 fallback."""
-    from tax_modeler.pipeline import compute_base_tax
     from tax_modeler.liability.hawaii import NO_ITEMIZING
+    from tax_modeler.pipeline import compute_base_tax
 
     unit = pd.DataFrame([{
         'filing_status': 'married_filing_jointly', 'income': 22_000.0,

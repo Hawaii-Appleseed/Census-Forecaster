@@ -16,9 +16,10 @@ baseline and counterfactual unit frames plus aggregate deltas.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -90,7 +91,7 @@ def register_tax_system(name: str, factory: TaxSystemFactory) -> None:
     TAX_SYSTEM_FACTORY_REGISTRY[name] = factory
 
 
-def _factory_to_name(factory: TaxSystemFactory) -> Optional[str]:
+def _factory_to_name(factory: TaxSystemFactory) -> str | None:
     """Reverse lookup: callable → registry name (None if unregistered).
 
     Bound methods of the same underlying function compare ``==`` even
@@ -103,7 +104,7 @@ def _factory_to_name(factory: TaxSystemFactory) -> Optional[str]:
     return None
 
 
-def _frozen_metadata(meta: Optional[Mapping]) -> Mapping:
+def _frozen_metadata(meta: Mapping | None) -> Mapping:
     if meta is None:
         return MappingProxyType({})
     return MappingProxyType(dict(meta))
@@ -130,16 +131,16 @@ class Reform:
     """
 
     name: str
-    tax_system_factory: Optional[TaxSystemFactory] = None
-    benefit_overrides: Optional[BenefitOverrides] = None
+    tax_system_factory: TaxSystemFactory | None = None
+    benefit_overrides: BenefitOverrides | None = None
     metadata: Mapping = field(default_factory=lambda: MappingProxyType({}))
     #: A user-defined income tax change (``income_tax:`` block). Sets the
     #: scenario system and scores it against current law (Act 24), not Act 46
     #: (``__post_init__`` fills both factories from it).
-    income_tax: Optional["IncomeTaxSpec"] = None
+    income_tax: IncomeTaxSpec | None = None
     #: ``year -> TaxSystemConfig`` baseline this reform is scored against;
     #: ``None`` keeps apply_reform's default (Act 46).
-    baseline_factory: Optional[TaxSystemFactory] = None
+    baseline_factory: TaxSystemFactory | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -208,7 +209,7 @@ class Reform:
         return out
 
     @classmethod
-    def from_dict(cls, data: Mapping) -> "Reform":
+    def from_dict(cls, data: Mapping) -> Reform:
         """Reconstruct from a plain dict (output of :meth:`to_dict`).
 
         Maps ``tax_system`` string back to the factory via
@@ -260,15 +261,15 @@ class Reform:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
     @classmethod
-    def from_yaml(cls, path) -> "Reform":
+    def from_yaml(cls, path) -> Reform:
         """Read a reform from a YAML file."""
         import yaml
         with open(path) as f:
             return cls.from_dict(yaml.safe_load(f))
 
     @classmethod
-    def compose(cls, *reforms: "Reform", name: Optional[str] = None,
-                metadata: Optional[Mapping] = None) -> "Reform":
+    def compose(cls, *reforms: Reform, name: str | None = None,
+                metadata: Mapping | None = None) -> Reform:
         """Combine multiple reforms into one. Last-write-wins on conflicts.
 
         - If multiple reforms set ``tax_system_factory``, the last
@@ -290,9 +291,9 @@ class Reform:
         if not reforms:
             raise ConfigError("Reform.compose requires at least one reform")
         composed_name = name or "composed:" + "+".join(r.name for r in reforms)
-        merged_factory: Optional[TaxSystemFactory] = None
+        merged_factory: TaxSystemFactory | None = None
         merged_spec = None
-        merged_baseline: Optional[TaxSystemFactory] = None
+        merged_baseline: TaxSystemFactory | None = None
         merged_overrides: dict[str, dict] = {}
         for r in reforms:
             if r.tax_system_factory is not None:
@@ -349,7 +350,7 @@ class ReformResult:
     comparison: pd.DataFrame
     revenue_delta_millions: float
     avg_tax_delta: float
-    counterfactual_units: Optional[pd.DataFrame] = None
+    counterfactual_units: pd.DataFrame | None = None
     benefit_flow_deltas_millions: Mapping[str, float] = field(
         default_factory=lambda: MappingProxyType({})
     )
@@ -589,8 +590,8 @@ def apply_reform(
     reform: Reform,
     *,
     year: int,
-    baseline_factory: Optional[TaxSystemFactory] = None,
-    calculator: Optional[TaxCalculator] = None,
+    baseline_factory: TaxSystemFactory | None = None,
+    calculator: TaxCalculator | None = None,
 ) -> ReformResult:
     """Apply a reform to a tax-unit DataFrame and return the comparison.
 

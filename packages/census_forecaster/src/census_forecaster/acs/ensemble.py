@@ -43,15 +43,16 @@ Cleveland Fed WP 22-38r — anchor-blend pattern (used in the existing
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, combine_se, ci_from_se
+from common.moe import ci_from_se, moe_to_se
+
 from .projection import (
-    project_damped_trend,
-    project_ar1_log_diff,
     ANNUAL_RATE_CAP,
     effective_year,
+    project_ar1_log_diff,
+    project_damped_trend,
 )
 
 
@@ -531,7 +532,7 @@ def _v3_strata_lookup(
     raw = sr.get(kind)
     if not raw:
         return None
-    from .strata import index_records, record_from_dict, DEFAULT_N_THRESHOLD
+    from .strata import DEFAULT_N_THRESHOLD, index_records, record_from_dict
     records = [record_from_dict(d) for d in raw]
     return index_records(
         records=records,
@@ -899,8 +900,8 @@ def project_ensemble_multi(
     ml_populations: dict[str, int] | None = None,
     ml_model_cache: dict | None = None,
     ml_panel=None,
-    use_kalman: "bool | None" = None,
-) -> "ForecastPoint | None":
+    use_kalman: bool | None = None,
+) -> ForecastPoint | None:
     """Multi-source anchor ensemble.
 
     Pulls in CPI / PCE / QCEW / HUD FMR / FHFA HPI (whichever apply
@@ -988,9 +989,13 @@ def project_ensemble_multi(
     """
     # Local import to avoid a circular dependency between ensemble and anchors.
     from .anchors import (
-        combined_anchor_rate, anchor_as_forecast, load_calibration,
-        combined_level_anchor, level_anchor_as_forecast, METHOD_LEVEL_ANCHOR,
         ANCHOR_CALIBRATION_HORIZON,
+        METHOD_LEVEL_ANCHOR,
+        anchor_as_forecast,
+        combined_anchor_rate,
+        combined_level_anchor,
+        level_anchor_as_forecast,
+        load_calibration,
     )
     from .strata import classify_horizon
 
@@ -1018,7 +1023,8 @@ def project_ensemble_multi(
         use_kalman = indicator in KALMAN_PROMOTED_INDICATORS
     if use_kalman:
         try:
-            from ..kalman import project_kalman, METHOD_NAME as _KAL_METHOD
+            from ..kalman import METHOD_NAME as _KAL_METHOD
+            from ..kalman import project_kalman
             kal_fp = project_kalman(
                 series_observations=series_observations,
                 target_year=target_year,
@@ -1097,7 +1103,8 @@ def project_ensemble_multi(
                 ml_model_cache = _ML_DEFAULT_MODEL_CACHE
     if use_ml and ml_series_by_key is not None and ml_populations is not None:
         try:
-            from .ml_trend import project_ml_trend_one_shot, METHOD_NAME as _ML_METHOD
+            from .ml_trend import METHOD_NAME as _ML_METHOD
+            from .ml_trend import project_ml_trend_one_shot
             ml_fp = project_ml_trend_one_shot(
                 series_by_key=ml_series_by_key,
                 populations=ml_populations,
@@ -1201,7 +1208,7 @@ def project_ensemble_multi(
         or _level_rmse <= _best_other_rmse * _LEVEL_ANCHOR_RMSE_RATIO
     )
 
-    level_anchor_fp: "ForecastPoint | None" = None
+    level_anchor_fp: ForecastPoint | None = None
     if _level_anchor_ok:
         try:
             from .sources import available_sources as _avail_sources
@@ -1245,7 +1252,7 @@ def project_ensemble_multi(
 
     # Build the rate-anchor blend (inner + anchor_fp) first.
     if inner is None:
-        rate_blend: "ForecastPoint | None" = anchor_fp
+        rate_blend: ForecastPoint | None = anchor_fp
     elif anchor_fp is None:
         rate_blend = inner
     else:

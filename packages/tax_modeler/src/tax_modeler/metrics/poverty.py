@@ -13,7 +13,8 @@ units below the threshold weighted by the supplied population weights.
 """
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import numpy as np
 import pandas as pd

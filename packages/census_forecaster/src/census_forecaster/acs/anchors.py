@@ -45,16 +45,17 @@ from __future__ import annotations
 import json
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, ci_from_se, combine_se
+from common.moe import ci_from_se, combine_se, moe_to_se
+
 from .projection import (
     ANNUAL_RATE_CAP,
-    effective_year,
     EMPIRICAL_SE_INFLATOR,
+    effective_year,
 )
 from .sources import AnchorSource, AnnualRate, available_sources
 
@@ -98,7 +99,7 @@ class LevelAnchorPoint:
     se: float
     indicator: str
     end_year: int
-    geoid: Optional[str]
+    geoid: str | None
     source_names: tuple[str, ...]
     weights: tuple[float, ...]
 
@@ -106,10 +107,10 @@ class LevelAnchorPoint:
 def combined_level_anchor(
     indicator: str,
     end_year: int,
-    geoid: Optional[str] = None,
-    sources: Optional[list[AnchorSource]] = None,
-    calibration: Optional[dict] = None,
-) -> Optional[LevelAnchorPoint]:
+    geoid: str | None = None,
+    sources: list[AnchorSource] | None = None,
+    calibration: dict | None = None,
+) -> LevelAnchorPoint | None:
     """Combine all level-type anchor sources for this indicator at end_year.
 
     Inverse-variance combines the latest observed levels from all level-type
@@ -267,7 +268,7 @@ def _inverse_variance_weights(
     source_names: Sequence[str],
     rates: Sequence[AnnualRate],
     rmse_floor: float = 0.005,
-    indicator_rmse: Optional[dict[str, float]] = None,
+    indicator_rmse: dict[str, float] | None = None,
 ) -> list[float]:
     """Inverse-(variance + floor²) weighting across source/rate pairs.
 
@@ -297,7 +298,7 @@ def _inverse_variance_weights(
 
 def load_calibration(
     path: Path = DEFAULT_CALIBRATION_PATH,
-) -> Optional[dict]:
+) -> dict | None:
     """Load the full calibration payload.
 
     Returns the entire JSON object (not just one slice) so callers can
@@ -323,12 +324,12 @@ def load_calibration(
 def combined_anchor_rate(
     indicator: str,
     end_year: int,
-    sources: Optional[Sequence[AnchorSource]] = None,
-    calibration: Optional[dict[str, dict[str, float]]] = None,
+    sources: Sequence[AnchorSource] | None = None,
+    calibration: dict[str, dict[str, float]] | None = None,
     correlation_rho: float = 0.6,
     calibration_horizon: int = ANCHOR_CALIBRATION_HORIZON,
-    geoid: Optional[str] = None,
-) -> Optional[AnchorRate]:
+    geoid: str | None = None,
+) -> AnchorRate | None:
     """Compute the indicator-specific multi-source anchor rate at end_year.
 
     Process

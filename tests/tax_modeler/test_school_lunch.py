@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.benefits.school_lunch import (
     compute_school_lunch_for_units,
     hawaii_school_lunch_parameters,

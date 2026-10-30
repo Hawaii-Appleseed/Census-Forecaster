@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from pums_estimator.estimation.synthetic import estimate_county_distribution
 from pums_estimator.models import CountyControls, SyntheticEstimatePoint
 

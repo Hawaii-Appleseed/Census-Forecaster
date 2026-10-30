@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import math
 
-import pytest
-
 from census_forecaster.acs.calibration_common import (
     DEFAULT_COVERAGE_HIGH,
     DEFAULT_COVERAGE_LOW,

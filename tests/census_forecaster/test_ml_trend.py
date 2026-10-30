@@ -13,15 +13,13 @@ Coverage:
 from __future__ import annotations
 
 import math
-import sys
 from unittest import mock
 
 import pytest
-
 from census_forecaster.acs.ml_features import build_panel_index
 from census_forecaster.acs.ml_trend import (
-    METHOD_NAME,
     _MIN_TRAINING_ROWS,
+    METHOD_NAME,
     project_ml_trend,
     project_ml_trend_one_shot,
     train_ml_model,

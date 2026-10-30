@@ -25,13 +25,11 @@ Sources for the embedded HI senior-share trajectory:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import ConfigError
-
 
 # ---------------------------------------------------------------------------
 # DBEDT Series 2050 senior-share trajectory (HI residents 65+)
@@ -237,7 +235,7 @@ def _project_via_joint_ipf(
     weight_col: str,
     max_iter: int,
     tol: float,
-) -> tuple[pd.DataFrame, "DemographicProjectionResult"]:
+) -> tuple[pd.DataFrame, DemographicProjectionResult]:
     """Phase 10: route demographic projection through the joint IPF engine."""
     from tax_modeler.calibration.joint_ipf import joint_ipf
 
@@ -436,9 +434,9 @@ def project_demographics_forward(
     age_threshold: int = 65,
     age_col: str = "primary_agep",
     weight_col: str = "weight",
-    senior_share_target: Optional[float] = None,
-    dimensions: Optional[list] = None,
-    targets: Optional[dict] = None,
+    senior_share_target: float | None = None,
+    dimensions: list | None = None,
+    targets: dict | None = None,
     use_joint_ipf: bool = False,
     joint_ipf_max_iter: int = 50,
     joint_ipf_tol: float = 1e-3,

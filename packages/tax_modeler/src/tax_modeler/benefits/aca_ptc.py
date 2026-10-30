@@ -41,8 +41,8 @@ Reform DSL (``Reform.benefit_overrides["aca_ptc"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,6 @@ import pandas as pd
 from tax_modeler.errors import ConfigError
 
 from ._fpl import fpl_year_for, hawaii_fpl
-
 
 # 2024 HI Marketplace average silver-plan premium per individual (annual).
 # Approximate; actual benchmark varies by age + ZIP. HHS Marketplace Open
@@ -102,7 +101,7 @@ def aca_ptc_parameters() -> AcaPtcParameters:
 
 
 def with_ptc_overrides(
-    base: AcaPtcParameters, overrides: Optional[Mapping[str, object]]
+    base: AcaPtcParameters, overrides: Mapping[str, object] | None
 ) -> AcaPtcParameters:
     if not overrides:
         return base
@@ -119,8 +118,8 @@ def compute_aca_ptc_for_units(
     units: pd.DataFrame,
     *,
     tax_year: int = 2024,
-    params: Optional[AcaPtcParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: AcaPtcParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "aca_ptc_amount",
     medicaid_col: str = "medicaid_receives",
 ) -> pd.DataFrame:

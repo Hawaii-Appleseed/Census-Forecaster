@@ -14,9 +14,10 @@ rather than inventing a second provenance scheme.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -29,10 +30,10 @@ def write_run_manifest(
     run_dir: Path | str,
     *,
     script: str,
-    params: Optional[Dict[str, Any]] = None,
-    inputs: Optional[Dict[str, Any]] = None,
-    outputs: Optional[Sequence[str]] = None,
-    git_sha: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    inputs: dict[str, Any] | None = None,
+    outputs: Sequence[str] | None = None,
+    git_sha: str | None = None,
 ) -> Path:
     """Write ``manifest.json`` into ``run_dir`` (created if needed).
 
@@ -72,12 +73,12 @@ def write_run_manifest(
     return path
 
 
-def read_run_manifest(run_dir: Path | str) -> Dict[str, Any]:
+def read_run_manifest(run_dir: Path | str) -> dict[str, Any]:
     with open(Path(run_dir) / MANIFEST_NAME) as f:
         return json.load(f)
 
 
-def list_runs(runs_root: Path | str) -> List[Dict[str, Any]]:
+def list_runs(runs_root: Path | str) -> list[dict[str, Any]]:
     """Return every manifest under ``runs_root`` (one level deep),
     each augmented with its ``run_dir`` name — the dashboard's index."""
     runs_root = Path(runs_root)

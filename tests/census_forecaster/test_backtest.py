@@ -2,7 +2,6 @@
 import math
 
 import pytest
-
 from census_forecaster.backtest.acs import (
     DEFAULT_METHODS,
     project_carry_forward,

@@ -20,8 +20,8 @@ decide what to do with failures (warn, log, fail tests, etc.).
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 import pandas as pd
 from tax_modeler.calibration.admin_caseload import AdminCaseload, CaseloadTarget

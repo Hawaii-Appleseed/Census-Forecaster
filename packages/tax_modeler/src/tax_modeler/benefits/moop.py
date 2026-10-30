@@ -16,11 +16,9 @@ Public API: :func:`compute_moop_for_units`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-
 
 _DEFAULT_DONOR_PATH = (
     Path(__file__).resolve().parents[1]
@@ -75,7 +73,7 @@ def _cell_table(donors: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series, 
 def compute_moop_for_units(
     units: pd.DataFrame,
     *,
-    donor_path: Optional[Path] = None,
+    donor_path: Path | None = None,
     out_col: str = "moop_amount",
     age_col: str = "primary_agep",
     dependents_col: str = "num_dependents",

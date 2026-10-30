@@ -4,12 +4,11 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from census_forecaster.acs.ml_features import (
     _AUX_COLUMNS,
     _BASE_COLUMNS,
-    _MKT_GEOID,
     _HORIZON_COLUMN,
+    _MKT_GEOID,
     build_panel_index,
     load_market_signals_data,
     make_feature_spec,

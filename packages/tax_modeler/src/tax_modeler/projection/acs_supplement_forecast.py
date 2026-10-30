@@ -47,7 +47,6 @@ import json
 import logging
 from dataclasses import dataclass
 from importlib.resources import files
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +85,16 @@ class AcsSupplement:
     target_year: int
 
     # B25064_001E — median gross rent ($/month)
-    rent_level: Optional[float]
-    rent_growth_factor: Optional[float]
+    rent_level: float | None
+    rent_growth_factor: float | None
 
     # B25077_001E — median home value ($)
-    home_value_level: Optional[float]
-    home_value_growth_factor: Optional[float]
+    home_value_level: float | None
+    home_value_growth_factor: float | None
 
     # S1701_C03_001E — poverty rate (fraction, 0–1)
-    poverty_rate_level: Optional[float]
-    poverty_rate_growth_factor: Optional[float]
+    poverty_rate_level: float | None
+    poverty_rate_growth_factor: float | None
 
 
 # ---------------------------------------------------------------------------
@@ -150,9 +149,9 @@ def _project_one_indicator(
     geoid: str,
     indicator: str,
     target_year: int,
-    anchor_year: Optional[int],
+    anchor_year: int | None,
     calibration,
-) -> Optional[tuple[float, float, int]]:
+) -> tuple[float, float, int] | None:
     """Project one ACS indicator for ``geoid`` to ``target_year``.
 
     Returns ``(projected_level, growth_factor, actual_anchor_year)`` or
@@ -218,7 +217,7 @@ def _project_one_indicator(
 def project_acs_supplement(
     target_year: int,
     geoid: str,
-    anchor_year: Optional[int] = None,
+    anchor_year: int | None = None,
 ) -> AcsSupplement:
     """Project B25064, B25077, and S1701 for ``geoid`` to ``target_year``.
 
@@ -260,8 +259,8 @@ def project_acs_supplement(
         ("S1701_C03_001E", "poverty_rate"),
     )
 
-    levels: dict[str, Optional[float]] = {}
-    factors: dict[str, Optional[float]] = {}
+    levels: dict[str, float | None] = {}
+    factors: dict[str, float | None] = {}
     resolved_anchor: int = anchor_year or target_year - 1
 
     for indicator, key in _FIELDS:
@@ -302,7 +301,7 @@ def scale_mortgage_deductions(
     params: dict,
     target_year: int,
     geoid: str = "15003",
-    anchor_year: Optional[int] = None,
+    anchor_year: int | None = None,
 ) -> dict:
     """Return a copy of ``params`` with ``mortgage_interest_tiers`` scaled to ``target_year``.
 

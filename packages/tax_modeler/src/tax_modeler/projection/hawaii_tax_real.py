@@ -82,10 +82,9 @@ from __future__ import annotations
 
 import csv
 import functools
-import math
 import logging
+import math
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +353,7 @@ def hawaii_marginal_real(
 def hawaii_tax_weighted(
     income: float,
     tax_year: int = 2022,
-    weights: Optional[dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> float:
     """Filing-status-weighted Hawaii tax for a household income.
 
@@ -399,7 +398,7 @@ def hawaii_tax_weighted(
 def hawaii_marginal_weighted(
     income: float,
     tax_year: int = 2022,
-    weights: Optional[dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> float:
     """Filing-status-weighted marginal rate at ``income``.
 

@@ -12,9 +12,7 @@ Validates that:
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
-
 from tax_modeler import (
     compute_spm_resources,
     hawaii_spm_threshold,
@@ -22,7 +20,6 @@ from tax_modeler import (
     spm_threshold_table,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

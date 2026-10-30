@@ -8,8 +8,8 @@ Married Filing Jointly status.
 from __future__ import annotations
 
 import logging
+
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 

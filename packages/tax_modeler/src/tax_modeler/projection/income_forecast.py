@@ -88,8 +88,8 @@ import json
 import logging
 import math
 import os
+from collections.abc import Callable
 from importlib.resources import files
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -202,8 +202,8 @@ def _load_bls_panel() -> dict[str, list]:
     without network access. Its latest fetch date determines how far into the
     current year observed data extends (typically within 2-3 months of real-time).
     """
-    from importlib.resources import files
     import json
+    from importlib.resources import files
     panel_path = files("census_forecaster") / "data" / "bls_panel" / "cpi_panel.json"
     with panel_path.open() as f:
         d = json.load(f)
@@ -211,7 +211,6 @@ def _load_bls_panel() -> dict[str, list]:
 
 
 from dataclasses import dataclass
-
 
 # Z-score for symmetric 90% intervals (mirrors census_forecaster.bls._Z_90).
 _Z_90 = 1.6448536269514722
@@ -231,19 +230,19 @@ class RealGrowthDetail:
     real_factor: float
     nominal_factor: float
     inflation_factor: float
-    se_log_nominal: Optional[float]
-    se_log_inflation: Optional[float]
-    se_log_real: Optional[float]
-    real_ci90_low: Optional[float]
-    real_ci90_high: Optional[float]
+    se_log_nominal: float | None
+    se_log_inflation: float | None
+    se_log_real: float | None
+    real_ci90_low: float | None
+    real_ci90_high: float | None
     inflation_source: str          # 'bls_panel' | 'annual_json' | 'none'
-    kappa_used: Optional[float]
-    kappa_source: Optional[str]
-    horizon_months: Optional[int]
+    kappa_used: float | None
+    kappa_source: str | None
+    horizon_months: int | None
 
 
 @functools.lru_cache(maxsize=1)
-def _load_bls_calibration() -> Optional[dict]:
+def _load_bls_calibration() -> dict | None:
     """Load and cache the bundled BLS v3 stratified calibration.
 
     Returns None when the file is absent or unreadable, in which case
@@ -256,7 +255,7 @@ def _load_bls_calibration() -> Optional[dict]:
 
 def _bls_cpi_ratio_detail(
     series_id: str, base_year: int, target_year: int,
-) -> Optional[dict]:
+) -> dict | None:
     """Dec→Dec CPI ratio with the full v3 diagnostic surface.
 
     Preferred over the annual-JSON path because:
@@ -274,6 +273,7 @@ def _bls_cpi_ratio_detail(
     or either date is unavailable.
     """
     from datetime import date
+
     from census_forecaster.bls.projection import compute_cpi_ratio
 
     panel = _load_bls_panel()
@@ -306,7 +306,7 @@ def _bls_cpi_ratio_detail(
     return result
 
 
-def _bls_cpi_ratio(series_id: str, base_year: int, target_year: int) -> Optional[float]:
+def _bls_cpi_ratio(series_id: str, base_year: int, target_year: int) -> float | None:
     """Point-ratio wrapper over :func:`_bls_cpi_ratio_detail`."""
     detail = _bls_cpi_ratio_detail(series_id, base_year, target_year)
     return detail["ratio"] if detail is not None else None
@@ -371,8 +371,8 @@ def _project_cpi(cpi_by_year: dict[int, float], target_year: int) -> float:
         return cpi_by_year[prev] + frac * (cpi_by_year[nxt] - cpi_by_year[prev])
 
     # Forward projection: damped-trend over the entire history.
-    from common.models import AcsObservation
     from census_forecaster import project_damped_trend
+    from common.models import AcsObservation
 
     obs = [
         AcsObservation(
@@ -402,8 +402,8 @@ def _forecast_one_county(
     geoid: str,
     base_year: int,
     target_year: int,
-    calibration: Optional[dict],
-) -> Optional[tuple[float, float]]:
+    calibration: dict | None,
+) -> tuple[float, float] | None:
     """Run :func:`project_ensemble_multi` for one county and return
     ``(nominal_growth_ratio, log_variance_estimate)``.
 
@@ -464,7 +464,7 @@ def _compute_real_growth_detail(
     target_year: int,
     cpi_loader: Callable[[], dict[int, float]],
     weighting: str = "inverse_variance",
-) -> Optional[RealGrowthDetail]:
+) -> RealGrowthDetail | None:
     """Aggregate per-geoid B19013 forecasts into one real growth factor.
 
     For each ``geoid`` in ``geoids``:
@@ -597,7 +597,7 @@ def _compute_real_growth_detail(
     # was missing (matching the sentinel-weight convention above). For
     # pure inverse-variance weights this collapses to 1/Σw.
     finite_lvs = [lv for _, _, lv in per_county if math.isfinite(lv) and lv > 0]
-    se_log_nominal: Optional[float] = None
+    se_log_nominal: float | None = None
     if finite_lvs:
         mean_lv = sum(finite_lvs) / len(finite_lvs)
         var_num = sum(
@@ -612,12 +612,12 @@ def _compute_real_growth_detail(
     # over the annual-JSON path (ends at 2024). Fall back to the annual path if
     # the BLS panel returns None. For the PCE/national path there is no BLS
     # equivalent, so go directly to the annual-JSON path.
-    inflation_factor: Optional[float] = None
-    se_log_inflation: Optional[float] = None
+    inflation_factor: float | None = None
+    se_log_inflation: float | None = None
     inflation_source = "annual_json"
-    kappa_used: Optional[float] = None
-    kappa_source: Optional[str] = None
-    horizon_months: Optional[int] = None
+    kappa_used: float | None = None
+    kappa_source: str | None = None
+    horizon_months: int | None = None
     if cpi_loader is _load_cpi_honolulu_series:
         cpi_detail = _bls_cpi_ratio_detail(_HONOLULU_BLS_SERIES_ID, base_year, target_year)
         if cpi_detail is None:
@@ -665,9 +665,9 @@ def _compute_real_growth_detail(
 
     # log(real) = log(nominal) − log(inflation); legs assumed independent
     # (ACS microdata forecast vs BLS price projection), so variances add.
-    se_log_real: Optional[float] = None
-    real_ci90_low: Optional[float] = None
-    real_ci90_high: Optional[float] = None
+    se_log_real: float | None = None
+    real_ci90_low: float | None = None
+    real_ci90_high: float | None = None
     if se_log_nominal is not None and se_log_inflation is not None:
         se_log_real = math.sqrt(se_log_nominal ** 2 + se_log_inflation ** 2)
         real_ci90_low = real_growth * math.exp(-_Z_90 * se_log_real)
@@ -711,7 +711,7 @@ def _compute_real_growth_factor(
     target_year: int,
     cpi_loader: Callable[[], dict[int, float]],
     weighting: str = "inverse_variance",
-) -> Optional[float]:
+) -> float | None:
     """Point-factor wrapper over :func:`_compute_real_growth_detail`."""
     detail = _compute_real_growth_detail(
         geoids=geoids, base_year=base_year, target_year=target_year,
@@ -730,7 +730,7 @@ def get_hawaii_real_growth_factor(
     base_year: int,
     target_year: int,
     geoid: str = DEFAULT_HAWAII_GEOID,
-) -> Optional[float]:
+) -> float | None:
     """Return Hawaii median-income real growth factor from base→target year.
 
     "Real" means CPI-deflated (purchasing-power-adjusted). The factor
@@ -774,7 +774,7 @@ def get_hawaii_real_growth_detail(
     base_year: int,
     target_year: int,
     geoid: str = DEFAULT_HAWAII_GEOID,
-) -> Optional[RealGrowthDetail]:
+) -> RealGrowthDetail | None:
     """Hawaii real growth factor with its uncertainty decomposition.
 
     Same computation as :func:`get_hawaii_real_growth_factor`, but returns
@@ -798,7 +798,7 @@ def get_national_real_growth_factor(
     base_year: int,
     target_year: int,
     geoids: tuple[str, ...] = _NATIONAL_GEOIDS,
-) -> Optional[float]:
+) -> float | None:
     """Return national median-income real growth factor from base→target year.
 
     "Real" means PCE-deflated (purchasing-power-adjusted). The factor

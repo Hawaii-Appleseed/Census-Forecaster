@@ -2,14 +2,13 @@
 import math
 
 import pytest
-
 from census_forecaster.acs.ensemble import (
     combine_forecasts,
     macro_anchor_projection,
     project_ensemble,
 )
-from census_forecaster.models import AcsObservation, ForecastPoint
 from census_forecaster.acs.projection import ANNUAL_RATE_CAP
+from census_forecaster.models import AcsObservation, ForecastPoint
 
 
 def _obs(year, est, moe=1000.0, vintage="1y"):
@@ -201,6 +200,7 @@ class TestEnsembleMultiWithMl:
         """use_ml defaults to True since the 2026-08-21 ship-gate pass
         (see backtests/results/ml_default_ablation_2026-08-21.md)."""
         import inspect
+
         from census_forecaster.acs.ensemble import project_ensemble_multi
         sig = inspect.signature(project_ensemble_multi)
         assert sig.parameters["use_ml"].default is True
@@ -391,8 +391,10 @@ class TestAnchorSeFoldParity:
 
     def test_default_divisor_is_the_shared_constant(self):
         import inspect
+
         from census_forecaster.acs.anchors import (
-            ANCHOR_CALIBRATION_HORIZON, combined_anchor_rate,
+            ANCHOR_CALIBRATION_HORIZON,
+            combined_anchor_rate,
         )
         default = inspect.signature(combined_anchor_rate).parameters[
             "calibration_horizon"
@@ -404,7 +406,8 @@ class TestAnchorSeFoldParity:
     def test_production_anchor_se_matches_fold_se(self, monkeypatch, indicator, h):
         import census_forecaster.acs.anchors as anchors_mod
         from census_forecaster.acs.anchors import (
-            ANCHOR_CALIBRATION_HORIZON, combined_anchor_rate,
+            ANCHOR_CALIBRATION_HORIZON,
+            combined_anchor_rate,
         )
         from census_forecaster.acs.calibration import _project_anchor_only
         from census_forecaster.acs.ensemble import project_ensemble_multi

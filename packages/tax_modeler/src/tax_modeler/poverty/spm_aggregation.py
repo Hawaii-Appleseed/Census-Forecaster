@@ -26,13 +26,11 @@ is derived for the by-household-type disaggregation.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
-import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
-
 
 # Dollar columns + count columns to sum across tax units in the same SPM
 # unit. All SPM resource components plus the tax/credit columns the

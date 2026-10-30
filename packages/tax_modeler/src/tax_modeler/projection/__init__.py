@@ -9,10 +9,11 @@ This module provides income projection capabilities that combine:
 
 from __future__ import annotations
 
-from .ensemble import EnsembleProjector
-from .occupation_matcher import OccupationMatcher
-from .tax_unit_projector import project_tax_units_forward
-from .acs_supplement_forecast import AcsSupplement, project_acs_supplement, scale_mortgage_deductions
+from .acs_supplement_forecast import (
+    AcsSupplement,
+    project_acs_supplement,
+    scale_mortgage_deductions,
+)
 from .demographic import (
     DemographicProjectionResult,
     hawaii_demographic_targets,
@@ -21,6 +22,9 @@ from .demographic import (
     hawaii_senior_share,
     project_demographics_forward,
 )
+from .ensemble import EnsembleProjector
+from .occupation_matcher import OccupationMatcher
+from .tax_unit_projector import project_tax_units_forward
 
 __all__ = [
     'EnsembleProjector',

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import pandas as pd
 
@@ -64,7 +63,7 @@ def merge_sweep_param_ranges(
     by_house_district: pd.DataFrame,
     by_senate_district: pd.DataFrame,
     by_household_type: pd.DataFrame,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Read ``param_ranges.csv`` and splice ``*_param_*`` into each aggregate.
 
     Parameters

@@ -11,7 +11,7 @@ threshold columns rather than tax dollars.
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ def poverty_by_geography(
     weight_col: str = "weight",
     geo_col: str = "PUMA",
     person_weighted: bool = True,
-    persons_per_unit_col: Optional[str] = None,
+    persons_per_unit_col: str | None = None,
 ) -> pd.DataFrame:
     """Compute SPM-style poverty metrics broken down by a geographic column.
 

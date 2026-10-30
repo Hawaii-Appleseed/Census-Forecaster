@@ -7,9 +7,8 @@ that convert total income to AGI.
 
 from __future__ import annotations
 
-import pandas as pd
 import numpy as np
-from typing import Dict, Optional
+import pandas as pd
 
 
 class AGIAdjustmentEstimator:
@@ -60,7 +59,7 @@ class AGIAdjustmentEstimator:
         """Initialize with SOI-based rates"""
         self.total_adjustment_rate = 0.0165  # Target ~1.65% overall adjustments (increased to match DOTax taxable income)
     
-    def estimate_ira_contribution(self, income: float, age: Optional[int] = None,
+    def estimate_ira_contribution(self, income: float, age: int | None = None,
                                   filing_status: str = 'single') -> float:
         """
         Estimate IRA contribution deduction.
@@ -152,7 +151,7 @@ class AGIAdjustmentEstimator:
         return base
     
     def estimate_student_loan_interest(self, income: float,
-                                       age: Optional[int] = None) -> float:
+                                       age: int | None = None) -> float:
         """Estimate student loan interest deduction"""
         rates = self.ADJUSTMENT_RATES['student_loan_interest']
         
@@ -180,9 +179,9 @@ class AGIAdjustmentEstimator:
         return 0
     
     def estimate_total_adjustments(self, income: float, 
-                                   age: Optional[int] = None,
+                                   age: int | None = None,
                                    filing_status: str = 'single',
-                                   is_self_employed: bool = False) -> Dict[str, float]:
+                                   is_self_employed: bool = False) -> dict[str, float]:
         """
         Estimate all adjustments to income.
         
@@ -202,7 +201,7 @@ class AGIAdjustmentEstimator:
         return adjustments
     
     def calculate_agi(self, total_income: float,
-                     age: Optional[int] = None,
+                     age: int | None = None,
                      filing_status: str = 'single',
                      is_self_employed: bool = False) -> float:
         """
@@ -226,7 +225,7 @@ class AGIAdjustmentEstimator:
 
 
 def estimate_agi_from_total_income(total_income: float,
-                                   age: Optional[int] = None,
+                                   age: int | None = None,
                                    filing_status: str = 'single',
                                    is_self_employed: bool = False) -> float:
     """
@@ -247,7 +246,7 @@ def estimate_agi_from_total_income(total_income: float,
 
 def apply_agi_adjustments_to_dataframe(df: pd.DataFrame,
                                        income_col: str = 'income',
-                                       age_col: Optional[str] = None,
+                                       age_col: str | None = None,
                                        filing_status_col: str = 'filing_status') -> pd.DataFrame:
     """
     Apply AGI adjustments to a DataFrame of tax units.

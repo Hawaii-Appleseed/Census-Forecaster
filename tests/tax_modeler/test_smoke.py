@@ -3,14 +3,11 @@ Smoke tests for tax unit construction - focus on critical paths only.
 """
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import numpy as np
-from pathlib import Path
-
-
-from tax_modeler.units.constructor import TaxUnitConstructor
+import pytest
 from tax_modeler.units.base import FILING_STATUS
+from tax_modeler.units.constructor import TaxUnitConstructor
+
 
 def create_test_person(**overrides):
     """Create a test person with sensible defaults."""

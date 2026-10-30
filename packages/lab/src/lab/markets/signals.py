@@ -34,7 +34,7 @@ artifacts don't get to become features.
 from __future__ import annotations
 
 import math
-from typing import Mapping, Optional, Sequence
+from collections.abc import Mapping, Sequence
 
 from .panel import PricesPanel
 
@@ -64,7 +64,7 @@ def surviving_tickers(
 
 def _june_momentum(
     panel: PricesPanel, symbol: str, year: int, *, as_of_month: int,
-) -> Optional[float]:
+) -> float | None:
     """12-month log change ending at (year, as_of_month), exact endpoints."""
     return panel.momentum(symbol, 12, as_of=(year, as_of_month))
 

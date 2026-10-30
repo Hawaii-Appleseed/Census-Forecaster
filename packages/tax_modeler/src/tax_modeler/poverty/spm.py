@@ -12,13 +12,11 @@ columns and returns a new frame. No side effects on the input.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import DataValidationError
-
 
 # Employee-side FICA + Medicare rate (employer half is *not* counted in
 # SPM resources because it's already excluded from money income).
@@ -58,31 +56,31 @@ class SPMResourceMeta:
 def compute_spm_resources(
     units: pd.DataFrame,
     *,
-    money_income_col: Optional[str] = None,
+    money_income_col: str | None = None,
     state_tax_col: str = "hi_tax_liability",
     eitc_col: str = "eitc_amount",
     refundable_ctc_col: str = "ctc_refundable",
-    federal_tax_col: Optional[str] = "federal_tax_liability",
-    payroll_tax_col: Optional[str] = None,
-    snap_col: Optional[str] = "snap_amount",
-    ssi_col: Optional[str] = "ssi_amount",
-    ssi_hi_col: Optional[str] = "ssi_hi_amount",
-    aca_ptc_col: Optional[str] = "aca_ptc_amount",
-    wic_col: Optional[str] = "wic_amount",
-    housing_subsidy_col: Optional[str] = "housing_subsidy_amount",
-    liheap_col: Optional[str] = "liheap_amount",
-    childcare_subsidy_col: Optional[str] = "childcare_amount",
-    school_lunch_col: Optional[str] = "school_lunch_amount",
-    hi_eitc_col: Optional[str] = "hi_eitc_amount",
-    hi_food_excise_col: Optional[str] = "hi_food_excise_amount",
-    hi_renters_col: Optional[str] = "hi_renters_amount",
-    moop_col: Optional[str] = "moop_amount",
-    childcare_expense_col: Optional[str] = "childcare_expense_amount",
-    work_expense_col: Optional[str] = "work_expense_amount",
-    rxkids_col: Optional[str] = "rxkids_amount",
+    federal_tax_col: str | None = "federal_tax_liability",
+    payroll_tax_col: str | None = None,
+    snap_col: str | None = "snap_amount",
+    ssi_col: str | None = "ssi_amount",
+    ssi_hi_col: str | None = "ssi_hi_amount",
+    aca_ptc_col: str | None = "aca_ptc_amount",
+    wic_col: str | None = "wic_amount",
+    housing_subsidy_col: str | None = "housing_subsidy_amount",
+    liheap_col: str | None = "liheap_amount",
+    childcare_subsidy_col: str | None = "childcare_amount",
+    school_lunch_col: str | None = "school_lunch_amount",
+    hi_eitc_col: str | None = "hi_eitc_amount",
+    hi_food_excise_col: str | None = "hi_food_excise_amount",
+    hi_renters_col: str | None = "hi_renters_amount",
+    moop_col: str | None = "moop_amount",
+    childcare_expense_col: str | None = "childcare_expense_amount",
+    work_expense_col: str | None = "work_expense_amount",
+    rxkids_col: str | None = "rxkids_amount",
     # behavior knobs
     federal_tax_fallback: bool = True,
-    tax_year: Optional[int] = None,
+    tax_year: int | None = None,
     extrapolate: bool = False,
     filing_status_col: str = "filing_status",
     earned_income_col: str = "earned_income",
@@ -140,7 +138,7 @@ def compute_spm_resources(
     df = units.copy()
     n = len(df)
 
-    def _col(name: Optional[str]) -> np.ndarray:
+    def _col(name: str | None) -> np.ndarray:
         if name is None or name not in df.columns:
             return np.zeros(n)
         return df[name].fillna(0.0).to_numpy(dtype=float)

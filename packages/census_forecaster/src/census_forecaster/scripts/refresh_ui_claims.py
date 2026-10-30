@@ -49,9 +49,9 @@ import io
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional, Sequence
 
 import requests
 
@@ -92,7 +92,7 @@ POSTAL_TO_FIPS: dict[str, str] = {
 }
 
 
-def _parse_week_ending(raw: str) -> Optional[date]:
+def _parse_week_ending(raw: str) -> date | None:
     """c2 arrives as ISO (2026-07-18) or US (7/18/2026) depending on era."""
     raw = (raw or "").strip()
     for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
@@ -261,13 +261,13 @@ def merge_into_macro_monthly(rows: list[dict],
     return payload
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None):
+def _parse_args(argv: Sequence[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         resp = requests.get(ETA539_CSV, timeout=180)

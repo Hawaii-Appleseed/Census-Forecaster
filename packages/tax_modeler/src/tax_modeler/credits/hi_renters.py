@@ -60,14 +60,13 @@ Reform DSL (``Reform.benefit_overrides["hi_renters"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import ConfigError
-
 
 _DEFAULT_INCOME_CAP = {
     "single": 30_000,
@@ -96,7 +95,7 @@ def hawaii_renters_credit_parameters() -> HawaiiRentersCreditParameters:
 
 
 def with_renters_overrides(
-    base: HawaiiRentersCreditParameters, overrides: Optional[Mapping[str, object]]
+    base: HawaiiRentersCreditParameters, overrides: Mapping[str, object] | None
 ) -> HawaiiRentersCreditParameters:
     if not overrides:
         return base
@@ -113,8 +112,8 @@ def with_renters_overrides(
 def compute_hi_renters_for_units(
     units: pd.DataFrame,
     *,
-    params: Optional[HawaiiRentersCreditParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: HawaiiRentersCreditParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "hi_renters_amount",
 ) -> pd.DataFrame:
     """Compute the HI Low-Income Household Renters Credit per tax unit."""

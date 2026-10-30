@@ -18,7 +18,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 from tax_modeler.reporting.brief import build_html, build_pdf, make_figures
 from tax_modeler.reporting.brief.data import (
-    _resolve_data_dir, _resolve_rxkids_dir, load_brief_data,
+    _resolve_data_dir,
+    _resolve_rxkids_dir,
+    load_brief_data,
 )
 
 

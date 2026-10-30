@@ -50,13 +50,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
 from .panel import PricesPanel, load_prices_panel
 from .screen import (
-    MONTHLY_TARGETS,   # noqa: F401  (naming parity for readers)
+    MONTHLY_TARGETS,  # noqa: F401  (naming parity for readers)
     _drop_2020,
     benjamini_hochberg,
     cross_correlation_lead,
@@ -127,7 +126,7 @@ def _spec(name: str) -> FundamentalSpec:
 
 def run_reverse_screen(
     macro: dict,
-    panel: Optional[PricesPanel] = None,
+    panel: PricesPanel | None = None,
     *,
     lags: tuple[int, ...] = (3, 6, 12),
     q_fdr: float = 0.10,
@@ -177,7 +176,7 @@ def run_reverse_screen(
 
 def walkforward_return_ablation(
     macro: dict,
-    panel: Optional[PricesPanel] = None,
+    panel: PricesPanel | None = None,
     *,
     min_train: int = 48,
 ) -> list[dict]:

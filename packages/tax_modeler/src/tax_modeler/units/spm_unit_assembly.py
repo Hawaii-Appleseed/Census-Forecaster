@@ -49,7 +49,6 @@ from tax_modeler.units.relshipp_codes import (
     SPM_UNRELATED,
 )
 
-
 # Canonical Census 2019+ RELSHIPP grouping (see relshipp_codes). The
 # householder + spouses + unmarried partners + all blood/marriage relatives
 # + foster children share the primary SPM unit; roommates (34) and other

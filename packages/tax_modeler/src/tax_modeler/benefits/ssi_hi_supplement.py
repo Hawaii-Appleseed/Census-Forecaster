@@ -19,14 +19,13 @@ Reform DSL knobs (``Reform.benefit_overrides["ssi_hi_supplement"]``):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
 
 from tax_modeler.errors import ConfigError
-
 
 _HI_SSI_SUPPLEMENT_MONTHLY_2024 = 5.0
 
@@ -42,7 +41,7 @@ def hawaii_ssi_supplement_parameters() -> HawaiiSsiSupplementParameters:
 
 
 def with_hi_supp_overrides(
-    base: HawaiiSsiSupplementParameters, overrides: Optional[Mapping[str, object]]
+    base: HawaiiSsiSupplementParameters, overrides: Mapping[str, object] | None
 ) -> HawaiiSsiSupplementParameters:
     if not overrides:
         return base
@@ -59,8 +58,8 @@ def with_hi_supp_overrides(
 def compute_ssi_hi_supplement_for_units(
     units: pd.DataFrame,
     *,
-    params: Optional[HawaiiSsiSupplementParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    params: HawaiiSsiSupplementParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     federal_ssi_col: str = "ssi_amount",
     out_col: str = "ssi_hi_amount",
 ) -> pd.DataFrame:

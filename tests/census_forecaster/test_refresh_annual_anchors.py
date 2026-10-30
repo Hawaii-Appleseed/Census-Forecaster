@@ -12,7 +12,6 @@ from datetime import date
 
 import openpyxl
 import pytest
-
 from census_forecaster.acs.sources.base import AnchorSource
 from census_forecaster.scripts import refresh_annual_anchors as ra
 from census_forecaster.scripts import refresh_national_macro as nm

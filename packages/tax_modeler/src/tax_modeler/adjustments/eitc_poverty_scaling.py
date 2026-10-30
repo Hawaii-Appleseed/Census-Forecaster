@@ -68,7 +68,6 @@ scale_eitc_for_poverty(df, county_poverty_factors, default_factor, alpha) → df
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
 
 import pandas as pd
 
@@ -77,8 +76,8 @@ logger = logging.getLogger(__name__)
 
 def scale_eitc_for_poverty(
     df: pd.DataFrame,
-    county_poverty_factors: Dict[str, float],
-    default_factor: Optional[float] = None,
+    county_poverty_factors: dict[str, float],
+    default_factor: float | None = None,
     alpha: float = 0.5,
 ) -> pd.DataFrame:
     """Scale EITC and Hawaii LITC amounts using projected S1701 poverty rate factors.

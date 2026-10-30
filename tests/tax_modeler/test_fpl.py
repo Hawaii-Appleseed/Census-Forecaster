@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler.benefits._fpl import EARLIEST_FPL_YEAR, fpl_year_for, hawaii_fpl
 from tax_modeler.errors import ConfigError
 

@@ -4,15 +4,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.poverty.impact import (
-    PovertyImpactResult,
     _DEFAULT_SCENARIOS,
+    PovertyImpactResult,
     _persons_per_unit,
     compute_poverty_impact,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -876,17 +874,16 @@ def test_full_flag_stack_smoke():
     rate in [0, 1]. Does NOT assert a specific rate value — that's an
     integration check best done on real PUMS.
     """
-    from tax_modeler.analysis.puma_crosswalk import assign_geography
-    from tax_modeler.benefits.housing import compute_housing_for_units
     from tax_modeler.benefits.childcare import compute_childcare_for_units
     from tax_modeler.benefits.childcare_expense import (
         compute_childcare_expense_for_units,
     )
-    from tax_modeler.benefits.work_expense import compute_work_expense_for_units
+    from tax_modeler.benefits.housing import compute_housing_for_units
+    from tax_modeler.benefits.liheap import compute_liheap_for_units
     from tax_modeler.benefits.moop import compute_moop_for_units
     from tax_modeler.benefits.snap import compute_snap_for_units
     from tax_modeler.benefits.wic import compute_wic_for_units
-    from tax_modeler.benefits.liheap import compute_liheap_for_units
+    from tax_modeler.benefits.work_expense import compute_work_expense_for_units
     from tax_modeler.liability.federal import (
         compute_federal_income_tax_for_units,
     )

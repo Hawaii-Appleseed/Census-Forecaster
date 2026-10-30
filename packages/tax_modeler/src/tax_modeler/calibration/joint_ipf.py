@@ -33,8 +33,8 @@ already implements. The wrapper just iterates.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -74,9 +74,9 @@ class JointIpfResult:
     n_iterations: int
     converged: bool
     max_marginal_error: float
-    per_dim_final_shares: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    per_dim_target_shares: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    per_dim_skipped_cells: Dict[str, List[str]] = field(default_factory=dict)
+    per_dim_final_shares: dict[str, dict[str, float]] = field(default_factory=dict)
+    per_dim_target_shares: dict[str, dict[str, float]] = field(default_factory=dict)
+    per_dim_skipped_cells: dict[str, list[str]] = field(default_factory=dict)
     notes: tuple = ()
 
 
@@ -113,10 +113,10 @@ def _rake_to_cells(
 
 def _max_marginal_error(
     weights: np.ndarray,
-    dimensions: List[Dimension],
-    cell_arrays: Dict[str, np.ndarray],
-    effective_targets: Dict[str, Dict[str, float]],
-) -> tuple[float, Dict[str, Dict[str, float]]]:
+    dimensions: list[Dimension],
+    cell_arrays: dict[str, np.ndarray],
+    effective_targets: dict[str, dict[str, float]],
+) -> tuple[float, dict[str, dict[str, float]]]:
     """Largest absolute deviation from *effective* target across all cells.
 
     ``effective_targets`` holds the target shares that the rake actually
@@ -127,12 +127,12 @@ def _max_marginal_error(
     total = float(weights.sum())
     if total == 0:
         return 0.0, {}
-    final_shares: Dict[str, Dict[str, float]] = {}
+    final_shares: dict[str, dict[str, float]] = {}
     max_err = 0.0
     for dim in dimensions:
         cells = cell_arrays[dim.name]
         dim_targets = effective_targets[dim.name]
-        dim_shares: Dict[str, float] = {}
+        dim_shares: dict[str, float] = {}
         for cell, target_share in dim_targets.items():
             mask = cells == cell
             cell_w = float(weights[mask].sum())
@@ -148,7 +148,7 @@ def _max_marginal_error(
 def joint_ipf(
     units: pd.DataFrame,
     *,
-    dimensions: List[Dimension],
+    dimensions: list[Dimension],
     weight_col: str = "weight",
     max_iter: int = 50,
     tol: float = 1e-3,
@@ -188,10 +188,10 @@ def joint_ipf(
         raise ConfigError("joint_ipf: total weight is zero")
 
     # Pre-compute cell arrays (once) for efficiency
-    cell_arrays: Dict[str, np.ndarray] = {}
-    skipped_cells: Dict[str, List[str]] = {}
-    target_shares_resolved: Dict[str, Dict[str, float]] = {}
-    effective_targets: Dict[str, Dict[str, float]] = {}
+    cell_arrays: dict[str, np.ndarray] = {}
+    skipped_cells: dict[str, list[str]] = {}
+    target_shares_resolved: dict[str, dict[str, float]] = {}
+    effective_targets: dict[str, dict[str, float]] = {}
     for dim in dimensions:
         cells = np.asarray(dim.cell_fn(df))
         if len(cells) != len(df):
@@ -298,7 +298,7 @@ def validate_joint_distribution(
     baseline_units: pd.DataFrame,
     post_units: pd.DataFrame,
     *,
-    dimensions: List[Dimension],
+    dimensions: list[Dimension],
     weight_col: str = "weight",
     drift_threshold_rel: float = 0.10,
 ) -> tuple[bool, list[JointDistributionDrift]]:

@@ -22,10 +22,12 @@ Test organisation
 from __future__ import annotations
 
 import math
-from unittest.mock import patch
 
 import pytest
-
+from tax_modeler.projection.revenue_concentration import (
+    DOTAX_2022_MEDIAN_INCOME,
+    expected_revenue_per_filer,
+)
 from tax_modeler.projection.revenue_projection import (
     DEFAULT_GEOID,
     DEFAULT_METHOD,
@@ -34,12 +36,6 @@ from tax_modeler.projection.revenue_projection import (
     project_revenue_2026,
     project_revenue_per_filer,
 )
-from tax_modeler.projection.revenue_concentration import (
-    DOTAX_2022_MEDIAN_INCOME,
-    expected_revenue_per_filer,
-)
-from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -325,7 +321,7 @@ class TestProjectRevenuePerFilerParams:
         With a very large conformal quantile, the CI must be wider than
         without.  horizon = 2026 - anchor_year(2024) = 2 → "short" bucket.
         """
-        from tax_modeler.projection.revenue_conformal import RevenueConformalRecord, WILDCARD
+        from tax_modeler.projection.revenue_conformal import WILDCARD, RevenueConformalRecord
         # Artificial record with a large quantile (10×Z_90), wildcard horizon
         big_q = RevenueConformalRecord(
             method="ensemble", h_bucket=WILDCARD,

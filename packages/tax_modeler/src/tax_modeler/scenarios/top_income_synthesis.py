@@ -38,7 +38,7 @@ $1M AGI owing $441M before credits; TY2022 was 1,824 and $662.6M).
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -191,7 +191,7 @@ def synthesize_top_filers(
     return result
 
 
-def validate_top_synthesis(df: pd.DataFrame) -> Dict[str, float]:
+def validate_top_synthesis(df: pd.DataFrame) -> dict[str, float]:
     """Sanity-check $1M+ coverage after synthesis.
 
     Returns a dict of diagnostics:

@@ -6,7 +6,6 @@ synthetic fixture and with assertions on the qualitative shape.
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler import (
     Reform,
     apply_reform,
@@ -20,7 +19,6 @@ from tax_modeler import (
     hawaii_spm_threshold,
     poverty_rate,
 )
-
 
 pytestmark = pytest.mark.smoke
 

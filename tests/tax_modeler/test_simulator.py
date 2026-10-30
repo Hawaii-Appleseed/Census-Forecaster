@@ -16,11 +16,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.calibration.cg_anchor import TOP_SHARE_1M, anchor_nltcg
 from tax_modeler.config.tax_system_config import (
     TaxCalculator,
-    TaxSystemConfig,
     TaxSystemRegistry,
     compare_systems,
 )
@@ -42,14 +40,20 @@ from tax_modeler.scenarios.behavioral_response import (
     top_rate_changes,
 )
 from tax_modeler.simulator.gains import CLASSES, ensure_gains_anchor, gains_classes
-from tax_modeler.simulator.golden import (edge_specs, invalid_cg_specs, invalid_specs,
-                                         random_cg_specs, random_specs, valid_edge_specs)
+from tax_modeler.simulator.golden import (
+    edge_specs,
+    invalid_cg_specs,
+    invalid_specs,
+    random_cg_specs,
+    random_specs,
+    valid_edge_specs,
+)
 from tax_modeler.simulator.population import Population, frame_for, unit_arrays
 from tax_modeler.simulator.presets import current_law_vintages, presets
 from tax_modeler.simulator.scenarios import SCENARIOS
-from tax_modeler.simulator.score import score_spec, score_systems
+from tax_modeler.simulator.score import score_spec
 from tax_modeler.simulator.systems import system_to_json
-from tax_modeler.simulator.web import WEB_FORMAT_VERSION, pack, web_meta, write_web_files
+from tax_modeler.simulator.web import WEB_FORMAT_VERSION, pack, write_web_files
 
 REPO = Path(__file__).resolve().parents[2]
 YEARS = (2027, 2028, 2029, 2030, 2031)

@@ -11,23 +11,17 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.scenarios.sb3125_cd1_credits import (
-    REEC_AGI_THRESHOLD_INDIVIDUAL,
-    REEC_AGI_THRESHOLD_JOINT,
-    REEC_CAP_2027_2030_M,
-    REEC_INDIVIDUAL_TOTAL_M,
-    REEC_REFUNDABLE_SHARE_INDIVIDUAL,
     _DOTAX_HISTORICAL,
+    REEC_CAP_2027_2030_M,
+    REEC_REFUNDABLE_SHARE_INDIVIDUAL,
     _certified_credits_for_vintage,
-    _historical_reec_individual,
     _historical_reec_corporate,
+    _historical_reec_individual,
     _refundable_share_individual_for_eligibility,
     compute_credit_overlay,
     compute_dynamic_agi_eligibility_share,
-    simulate_reec_state_cost_path,
 )
-
 
 # --- Item 5: DOTAX historical loader ---------------------------------------
 

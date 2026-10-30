@@ -12,9 +12,9 @@ Major credits include:
 from __future__ import annotations
 
 import math
-import pandas as pd
+
 import numpy as np
-from typing import Dict, Optional
+import pandas as pd
 
 
 class HawaiiTaxCredits:
@@ -69,7 +69,7 @@ class HawaiiTaxCredits:
     
     def child_dependent_care_credit(self, agi: float, filing_status: str,
                                     num_dependents: int = 0,
-                                    credit_scenario: Optional[str] = None) -> float:
+                                    credit_scenario: str | None = None) -> float:
         """
         Hawaii Child and Dependent Care Tax Credit (HRS 235-55.6).
 
@@ -180,7 +180,7 @@ class HawaiiTaxCredits:
     def calculate_total_credits(self, agi: float, filing_status: str,
                                num_dependents: int = 0,
                                tax_before_credits: float = 0,
-                               credit_scenario: Optional[str] = None) -> Dict[str, float]:
+                               credit_scenario: str | None = None) -> dict[str, float]:
         """
         Calculate all Hawaii state tax credits.
 
@@ -224,7 +224,7 @@ class HawaiiTaxCredits:
 
     def total_credits_arrays(self, agi: np.ndarray, filing_status: np.ndarray,
                              num_dependents: np.ndarray, tax_before_credits: np.ndarray,
-                             credit_scenario: Optional[str] = None,
+                             credit_scenario: str | None = None,
                              ) -> tuple[np.ndarray, np.ndarray]:
         """:meth:`calculate_total_credits` for arrays of units: ``(total, child_care)``.
 
@@ -310,7 +310,7 @@ def calculate_hawaii_credits(agi: float, filing_status: str,
                              num_dependents: int = 0,
                              tax_before_credits: float = 0,
                              year: int = 2024,
-                             credit_scenario: Optional[str] = None) -> Dict[str, float]:
+                             credit_scenario: str | None = None) -> dict[str, float]:
     """
     Convenience function to calculate Hawaii state tax credits.
 
@@ -335,7 +335,7 @@ def apply_credits_to_dataframe(df: pd.DataFrame,
                                filing_status_col: str = 'filing_status',
                                dependents_col: str = 'num_dependents',
                                tax_col: str = 'tax_liability',
-                               credit_scenario: Optional[str] = None) -> pd.DataFrame:
+                               credit_scenario: str | None = None) -> pd.DataFrame:
     """
     Apply Hawaii tax credits to a DataFrame of tax units.
 

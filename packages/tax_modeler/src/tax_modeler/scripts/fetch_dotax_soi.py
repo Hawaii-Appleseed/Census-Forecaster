@@ -41,9 +41,8 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
-
 
 # Files we expect to populate ``data/tax_modeler/raw/`` with. Each entry
 # is a glob pattern that matches both the top-level "Dotax Soi 2022 - X"
@@ -127,7 +126,7 @@ def _print_manual_instructions(out_dir: Path) -> None:
     print(msg, file=sys.stderr)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Populate data/tax_modeler/raw/ with DOTAX SOI tables.",
     )

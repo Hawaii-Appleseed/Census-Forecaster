@@ -5,7 +5,6 @@ import math
 
 import numpy as np
 import pytest
-
 from tax_modeler.uncertainty import (
     ACS_REPLICATES,
     ACS_SDR_FACTOR,

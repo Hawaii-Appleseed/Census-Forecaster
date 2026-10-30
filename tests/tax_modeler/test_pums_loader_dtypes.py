@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.loaders.pums_loader import PUMSDataLoader
 
 

@@ -5,7 +5,6 @@ import math
 import random
 
 import pytest
-
 from lab.markets.screen import (
     benjamini_hochberg,
     cross_correlation_lead,

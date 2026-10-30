@@ -28,21 +28,19 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from common.models import AcsObservation
-from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted, hawaii_marginal_weighted
+from tax_modeler.projection.hawaii_tax_real import hawaii_marginal_weighted, hawaii_tax_weighted
 from tax_modeler.projection.revenue_backtest import (
+    _CONCENTRATION_TAX_FN,
     apply_hawaii_tax_brackets,
     marginal_rate,
     revenue_mape_vs_income_mape,
     run_revenue_backtest,
-    _CONCENTRATION_TAX_FN,
 )
 from tax_modeler.projection.revenue_concentration import (
-    expected_revenue_per_filer,
     concentration_marginal_fn,
+    expected_revenue_per_filer,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -212,7 +210,7 @@ class TestRunRevenueBacktest:
 
     def test_row_counts_match_income_backtest(self, panel_growing):
         """Revenue backtest should produce same number of folds as income backtest."""
-        from census_forecaster.backtest.acs import run_backtest, DEFAULT_METHODS
+        from census_forecaster.backtest.acs import DEFAULT_METHODS, run_backtest
 
         income_sums = run_backtest(
             panel_growing, anchors=[2018, 2020, 2022], horizon=2

@@ -3,32 +3,26 @@
 These cover the projection edge cases introduced in the P0 refactor — particularly
 the 'exact' vs 'projected' vs 'interpolated' vs 'unavailable' method disambiguation.
 """
-import sys
 from datetime import date
-from pathlib import Path
 
 import pytest
 
 # The grocery pipeline lives in its own package tree at pipelines/grocery/.
 # Inserting its root lets us import from src.price_adjuster directly.
 # Package import — no path injection needed.
-
-
-
 from census_forecaster.bls.projection import (  # noqa: E402
-    compute_cpi_ratio,
-    project_forward,
-    project_forward_full,
-    smoothed_monthly_rate,
-    damped_compound_factor,
-    residual_log_std,
-    forecast_se_log,
-    ProjectionResult,
+    _RESIDUAL_LOG_STD_PRIOR,
     PROJ_DAMPING,
     PROJ_MONTHLY_CAP,
-    _RESIDUAL_LOG_STD_PRIOR,
+    ProjectionResult,
+    compute_cpi_ratio,
+    damped_compound_factor,
+    forecast_se_log,
+    project_forward,
+    project_forward_full,
+    residual_log_std,
+    smoothed_monthly_rate,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -5,20 +5,18 @@ import math
 
 import numpy as np
 import pytest
-
 from census_forecaster.kalman.filter import (
-    KalmanState,
-    H_LEVEL,
     H_GROWTH,
+    H_LEVEL,
     PHI_DEFAULT,
+    KalmanState,
     kalman_predict,
     kalman_update,
-    make_transition,
     make_process_noise,
+    make_transition,
 )
-from census_forecaster.kalman.project import project_kalman, METHOD_NAME
+from census_forecaster.kalman.project import METHOD_NAME, project_kalman
 from census_forecaster.models import AcsObservation, ForecastPoint
-
 
 # ---------------------------------------------------------------------------
 # Helpers

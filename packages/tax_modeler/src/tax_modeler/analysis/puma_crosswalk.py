@@ -30,7 +30,6 @@ from __future__ import annotations
 import hashlib
 import logging
 from functools import cache, lru_cache
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -42,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Canonical 3-digit PUMA codes (leading zeros stripped).
 # PUMA 100 is listed as "Maui" here; the imputer overwrites it for Kauai rows.
-_PUMA_COUNTY: Dict[int, str] = {
+_PUMA_COUNTY: dict[int, str] = {
     100: "Maui",
     200: "Hawaii",
     301: "Honolulu",
@@ -58,7 +57,7 @@ _PUMA_COUNTY: Dict[int, str] = {
 _KNOWN_PUMAS = set(_PUMA_COUNTY)
 
 
-def _normalize_puma(val) -> Optional[int]:
+def _normalize_puma(val) -> int | None:
     """Return canonical 3-digit int PUMA code, or None if unrecognised."""
     try:
         code = int(str(val).strip().lstrip("0") or "0")
@@ -89,10 +88,10 @@ def load_crosswalk() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
-def _puma_district_options() -> Dict[int, List[Tuple[int, int]]]:
+def _puma_district_options() -> dict[int, list[tuple[int, int]]]:
     """Return dict mapping PUMA → sorted list of (house_district, senate_district) pairs."""
     xwalk = load_crosswalk()
-    result: Dict[int, List[Tuple[int, int]]] = {}
+    result: dict[int, list[tuple[int, int]]] = {}
     for puma, grp in xwalk.groupby("PUMA"):
         pairs = sorted(
             set(zip(grp["house_district"], grp["senate_district"]))
@@ -106,7 +105,7 @@ def _puma_district_options() -> Dict[int, List[Tuple[int, int]]]:
 # ---------------------------------------------------------------------------
 
 @cache
-def _pick_district(puma: int, row_key: str) -> Tuple[int, int]:
+def _pick_district(puma: int, row_key: str) -> tuple[int, int]:
     """Return a reproducible (house_district, senate_district) pair for a row.
 
     Uses MD5 of ``"puma_{puma}_{row_key}"`` to index into the sorted list of

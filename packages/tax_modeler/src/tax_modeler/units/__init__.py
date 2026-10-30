@@ -15,14 +15,10 @@ and analyzing their characteristics for tax policy modeling.
 """
 
 # Import key classes and functions to make them available at package level
-from .base import TaxUnitConstructor, FILING_STATUS
+from .base import FILING_STATUS, TaxUnitConstructor
 from .dependencies import identify_dependents
 from .income import calculate_tax_unit_income
-from .status import (
-    is_head_of_household,
-    is_married_filing_jointly,
-    is_married_filing_separately
-)
+from .status import is_head_of_household, is_married_filing_jointly, is_married_filing_separately
 
 # Import validation components directly to avoid circular imports
 MLTaxUnitValidator = None

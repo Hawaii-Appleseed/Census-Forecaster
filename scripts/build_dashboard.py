@@ -24,10 +24,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
-
 from tax_modeler.reporting.palette import CSS_VARS
 from tax_modeler.runs import list_runs
 from tax_modeler.scenarios.registry import SCENARIO_SPECS
@@ -52,13 +51,13 @@ TIER_PREFERENCE = [
 # Discovery
 # ---------------------------------------------------------------------------
 
-def _read_tidy(path: Path) -> List[Dict[str, Any]]:
+def _read_tidy(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     return pd.read_csv(path).to_dict(orient="records")
 
 
-def collect_runs(runs_dir: Path) -> List[Dict[str, Any]]:
+def collect_runs(runs_dir: Path) -> list[dict[str, Any]]:
     """Manifested runs, each with its tidy tables inlined."""
     out = []
     for manifest in list_runs(runs_dir):
@@ -83,7 +82,7 @@ def collect_runs(runs_dir: Path) -> List[Dict[str, Any]]:
     return out
 
 
-def _slug_from_run_id(run_id: str) -> Optional[str]:
+def _slug_from_run_id(run_id: str) -> str | None:
     """`sb3125_cd2_enhanced` -> `sb3125_cd2` (longest matching registry slug)."""
     for slug in sorted(SCENARIO_SPECS, key=len, reverse=True):
         if run_id.startswith(slug):
@@ -91,7 +90,7 @@ def _slug_from_run_id(run_id: str) -> Optional[str]:
     return None
 
 
-def collect_poverty(reports_dir: Path) -> Optional[Dict[str, Any]]:
+def collect_poverty(reports_dir: Path) -> dict[str, Any] | None:
     """Latest poverty tier report that has a tidy long table."""
     candidates = [reports_dir / n for n in TIER_PREFERENCE]
     candidates += sorted(reports_dir.glob("poverty_impact_*"), reverse=True)
@@ -102,7 +101,7 @@ def collect_poverty(reports_dir: Path) -> Optional[Dict[str, Any]]:
     return None
 
 
-def build_index(runs_dir: Path, reports_dir: Path) -> Dict[str, Any]:
+def build_index(runs_dir: Path, reports_dir: Path) -> dict[str, Any]:
     runs = collect_runs(runs_dir)
     poverty = collect_poverty(reports_dir)
     return {
@@ -120,7 +119,7 @@ def build_index(runs_dir: Path, reports_dir: Path) -> Dict[str, Any]:
 # Render
 # ---------------------------------------------------------------------------
 
-def render_html(index: Dict[str, Any]) -> str:
+def render_html(index: dict[str, Any]) -> str:
     payload = json.dumps(index, indent=None, separators=(",", ":"))
     css_vars = "\n      ".join(f"--{k}: {v};" for k, v in CSS_VARS.items())
     n_runs = len(index["runs"])

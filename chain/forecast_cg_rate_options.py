@@ -95,9 +95,9 @@ import pandas as pd
 from tax_modeler.calibration.cg_anchor import (
     _CLASSES,
     _TOP_SHARE_NOTE,
+    BASE_YEAR,
     DOTAX_NLTCG_NONRES,
     DOTAX_NLTCG_RES,
-    BASE_YEAR,
     DOTAX_RETURNS_2022,
     DOTAX_TOTAL_RETURNS_2022,
     TOP_SHARE_1M,
@@ -138,10 +138,9 @@ GRID = "#d4d4d4"
 
 def build_base() -> pd.DataFrame:
     """Calibrated base + $1M+ synthesis, identical to chain/forecast_act24_vs_pre_act46.py."""
+    from _forecast_common import CALIBRATED_PKL
     from tax_modeler.artifacts import load_calibrated_base
     from tax_modeler.base import build_tail_units
-
-    from _forecast_common import CALIBRATED_PKL
 
     if not CALIBRATED_PKL.exists():
         print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd 2 first.")
@@ -400,9 +399,8 @@ def run() -> None:
     _print_summary(rev, dists, nr)
     plot_figures()
 
-    from tax_modeler.runs import write_run_manifest
-
     from _forecast_common import cache_provenance
+    from tax_modeler.runs import write_run_manifest
     write_run_manifest(
         OUT_DIR, script="chain/forecast_cg_rate_options.py",
         params={"years": YEARS, "dist_years": DIST_YEARS, "beta": BETA,

@@ -66,7 +66,7 @@ class Population:
         return d
 
     @classmethod
-    def load(cls, directory) -> "Population":
+    def load(cls, directory) -> Population:
         d = Path(directory)
         with np.load(d / "population.npz", allow_pickle=False) as z:
             arrays = {k: z[k] for k in z.files}
@@ -131,9 +131,8 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     """Build the scoring population from the calibrated base (a few minutes).
     ``store_at``: a population store's (directory, key) to share MID with
     the Act 24 run (see ``_scenario_worker``)."""
-    from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
-
     from tax_modeler.parallel import forking, process_pool
+    from tax_modeler.scenarios.quintile_analysis import compute_quintile_breaks
 
     keys = list(SCENARIOS)
     # Forked where the platform allows: the workers start with this

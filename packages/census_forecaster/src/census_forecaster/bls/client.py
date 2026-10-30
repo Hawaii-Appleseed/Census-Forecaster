@@ -19,7 +19,6 @@ from pathlib import Path
 
 import requests
 
-
 BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 
 

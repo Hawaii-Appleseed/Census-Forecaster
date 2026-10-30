@@ -77,8 +77,8 @@ def _weight(df: pd.DataFrame) -> np.ndarray:
 def _build_units(
     persons: pd.DataFrame, households: pd.DataFrame, tax_year: int, apply_takeup: bool
 ) -> pd.DataFrame:
+    from tax_modeler.pipeline import compute_base_tax, enrich_for_credits
     from tax_modeler.units.constructor import TaxUnitConstructor
-    from tax_modeler.pipeline import enrich_for_credits, compute_base_tax
 
     ctor = TaxUnitConstructor(
         persons.copy(), households.copy(),

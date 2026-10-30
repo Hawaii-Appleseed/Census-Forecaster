@@ -31,7 +31,6 @@ def test_run_pipeline_validates_input() -> None:
     """run_pipeline must reject empty / malformed input with
     DataValidationError, not let it crash deep in projection code."""
     import pandas as pd
-
     from tax_modeler import run_pipeline
     from tax_modeler.errors import DataValidationError
 
@@ -63,7 +62,6 @@ def test_underscore_aliases_emit_deprecation_warning() -> None:
     import warnings
 
     import pandas as pd
-
     from tax_modeler.pipeline import _enrich_for_credits
 
     with warnings.catch_warnings(record=True) as caught:

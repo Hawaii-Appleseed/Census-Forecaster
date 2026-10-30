@@ -33,9 +33,9 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 import census_forecaster
 from census_forecaster.bls.client import fetch_cpi_data
@@ -75,7 +75,7 @@ HONOLULU_GEOID = "15003"
 # Prices panel
 # ---------------------------------------------------------------------------
 
-def _load_previous_panel(path: Path) -> Optional[PricesPanel]:
+def _load_previous_panel(path: Path) -> PricesPanel | None:
     if not path.exists():
         return None
     try:
@@ -91,7 +91,7 @@ def build_prices_panel(
     *,
     start_year: int,
     tolerate_failures: bool,
-    previous: Optional[PricesPanel],
+    previous: PricesPanel | None,
     source: str = "auto",
 ) -> PricesPanel:
     """Fetch every universe ticker; fall back to previous data on failure.
@@ -174,7 +174,7 @@ def build_manifest(panel: PricesPanel) -> dict:
 # ---------------------------------------------------------------------------
 
 def fetch_unemployment_monthly(
-    api_key: Optional[str], *, start_year: int, end_year: int,
+    api_key: str | None, *, start_year: int, end_year: int,
 ) -> dict[str, list[dict]]:
     """Fetch national + Hawaii monthly unemployment via the BLS API.
 
@@ -241,7 +241,7 @@ _MACRO_LIMITATIONS = [
 
 def build_macro_payload(series: dict[str, list[dict]],
                         sources: dict[str, str],
-                        existing_path: Optional[Path] = None) -> dict:
+                        existing_path: Path | None = None) -> dict:
     """Merge this run's series into the existing macro_monthly.json.
 
     MUST merge, never replace. This function used to return a payload
@@ -321,7 +321,7 @@ def build_national_unemployment_anchor(monthly: list[dict]) -> dict:
 # CLI
 # ---------------------------------------------------------------------------
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refresh the market prices panel, monthly macro series, "
                     "and the national-unemployment anchor.",

@@ -13,8 +13,8 @@ tax_modeler.reporting does not require it.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable, Sequence
 
 # ── Shared constants (previously duplicated in every _make_pdf) ────────────
 

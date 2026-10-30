@@ -14,23 +14,23 @@ uncertainty propagation).
 from __future__ import annotations
 
 import math
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import numpy as np
-
 from common.models import AcsObservation, ForecastPoint
-from common.moe import moe_to_se, combine_se, ci_from_se
+from common.moe import ci_from_se, combine_se, moe_to_se
+
 from ..acs.anchors import combined_anchor_rate
 from ..backtest.acs import effective_year
 from .filter import (
-    KalmanState,
-    H_LEVEL,
     H_GROWTH,
+    H_LEVEL,
     PHI_DEFAULT,
+    KalmanState,
     kalman_predict,
     kalman_update,
-    make_transition,
     make_process_noise,
+    make_transition,
 )
 
 METHOD_NAME: str = "kalman_state_space"
@@ -55,11 +55,11 @@ def _obs_r(obs: AcsObservation) -> float:
 def project_kalman(
     series_observations: Sequence[AcsObservation],
     target_year: int,
-    end_year: Optional[int] = None,
-    calibration: Optional[dict] = None,
+    end_year: int | None = None,
+    calibration: dict | None = None,
     phi: float = PHI_DEFAULT,
-    geoid: Optional[str] = None,
-) -> Optional[ForecastPoint]:
+    geoid: str | None = None,
+) -> ForecastPoint | None:
     """Kalman-filter projection of one (geoid, indicator) series.
 
     Parameters

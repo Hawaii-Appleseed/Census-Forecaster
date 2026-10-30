@@ -4,10 +4,10 @@ Tests for the TaxUnitConstructor class.
 
 from __future__ import annotations
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
 from tax_modeler.units.constructor import TaxUnitConstructor
+
 
 # Test data
 def create_test_data():

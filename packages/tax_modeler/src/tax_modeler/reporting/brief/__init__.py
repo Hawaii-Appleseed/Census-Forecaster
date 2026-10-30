@@ -13,9 +13,9 @@ Typical usage::
     )
 """
 
-from .data import BriefData, load_brief_data
 from .charts import make_figures
-from .pdf_renderer import build_pdf
+from .data import BriefData, load_brief_data
 from .html_renderer import build_html
+from .pdf_renderer import build_pdf
 
 __all__ = ["BriefData", "load_brief_data", "make_figures", "build_pdf", "build_html"]

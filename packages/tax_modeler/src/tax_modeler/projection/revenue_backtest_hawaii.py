@@ -71,8 +71,8 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -275,15 +275,15 @@ def _select_anchors(
 
 def run_hawaii_revenue_backtest(
     geoid: str = _DEFAULT_GEOID,
-    horizons: Optional[Sequence[int]] = None,
-    calibration_anchors: Optional[Sequence[int]] = None,
-    eval_anchors: Optional[Sequence[int]] = None,
+    horizons: Sequence[int] | None = None,
+    calibration_anchors: Sequence[int] | None = None,
+    eval_anchors: Sequence[int] | None = None,
     use_conformal: bool = True,
     min_train_years: int = _MIN_TRAIN_YEARS,
     conformal_n_threshold: int = _CONFORMAL_N_THRESHOLD,
-    tax_fn: Optional[Callable[[float], float]] = None,
-    marginal_fn: Optional[Callable[[float], float]] = None,
-) -> Optional[HawaiiBacktestResult]:
+    tax_fn: Callable[[float], float] | None = None,
+    marginal_fn: Callable[[float], float] | None = None,
+) -> HawaiiBacktestResult | None:
     """Run a full walk-forward revenue backtest on the bundled ACS panel.
 
     Steps
@@ -337,7 +337,8 @@ def run_hawaii_revenue_backtest(
         ``None`` if ``geoid`` is not in the bundled panel or no valid
         anchor/target pairs exist.
     """
-    from census_forecaster.backtest.acs import run_backtest, DEFAULT_METHODS
+    from census_forecaster.backtest.acs import DEFAULT_METHODS, run_backtest
+
     from tax_modeler.projection.revenue_backtest import (
         _CONCENTRATION_TAX_FN,
         run_revenue_backtest,

@@ -59,7 +59,6 @@ import logging
 import math
 import sys
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +137,7 @@ def _calibrate_bracket(
         ``residual_pct`` is ``|calibrated_tax / avg_tax - 1| * 100``.
     """
     from scipy.optimize import brentq
+
     from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
 
     target = bracket.avg_tax_before_credits

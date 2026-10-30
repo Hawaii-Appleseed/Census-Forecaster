@@ -41,7 +41,10 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
 from _forecast_common import (  # noqa: E402
-    TARGET_YEARS, load_cached_units, parse_cd_args, silence_noise,
+    TARGET_YEARS,
+    load_cached_units,
+    parse_cd_args,
+    silence_noise,
 )
 
 # MID scenario parameters (calibrated best-estimate)
@@ -184,7 +187,7 @@ def print_quintile_table(year: int, qt, *, cd: str = "1"):
           f"{'':>10}  {total_delta:>+10.1f}", flush=True)
 
 
-def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
+def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
     """Generate distributional PDF report. Only called for --cd 2.
 
     Table + three chart pages come from tax_modeler.reporting; the two
@@ -196,9 +199,15 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
     matplotlib.rcParams["font.family"] = ["DejaVu Sans"]
     import matplotlib.pyplot as plt
     import numpy as np
-
     from tax_modeler.reporting import (
-        BLUE, NAVY, ORANGE, PILL_BG, PILL_FG, RULE, TEAL, TXT_GREY,
+        BLUE,
+        NAVY,
+        ORANGE,
+        PILL_BG,
+        PILL_FG,
+        RULE,
+        TEAL,
+        TXT_GREY,
         make_quintile_pdf,
     )
     from tax_modeler.scenarios.sb3125_cd1_credits import (
@@ -330,7 +339,7 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-    def reec_time_series_page(pdf, df_enh: "pd.DataFrame"):
+    def reec_time_series_page(pdf, df_enh: pd.DataFrame):
         scenarios = ["LOW", "MID", "HIGH"]
         colors    = {"LOW": "#8fa8c8", "MID": TEAL, "HIGH": ORANGE}
         yr_list   = [2027, 2028, 2029, 2030, 2031]
@@ -343,7 +352,7 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
         )
         fig.text(
             0.5, 0.935,
-            f"§235-12.5 renewable energy credit  ·  TY2027–2031  ·  LOW / MID / HIGH scenarios",
+            "§235-12.5 renewable energy credit  ·  TY2027–2031  ·  LOW / MID / HIGH scenarios",
             ha="center", fontsize=10, style="italic", color=TXT_GREY,
         )
 
@@ -425,7 +434,7 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
         fig.text(
             0.05, 0.03,
             "Baseline: Act 46 (no cap, no AGI limit, no sunset). "
-            f"Bill: §235-12.5 — $40M cap TY2027–2029, $0 new certifications TY2030+ (§(p) sunset). "
+            "Bill: §235-12.5 — $40M cap TY2027–2029, $0 new certifications TY2030+ (§(p) sunset). "
             "Savings = baseline − bill state cost. "
             "LOW: interpretation A (TY2026 cap binds), η=0.5. "
             "MID/HIGH: interpretation B, η=0.3/0.15.",
@@ -456,8 +465,8 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
         q_labels=QUINTILE_LABELS,
         table_title=f"SB 3125 {cd_label} vs Act 46 — Distributional Impact (MID Scenario)",
         table_subtitle=(
-            f"Per-filer bracket-change impact by income quintile, TY 2027–2031  "
-            f"·  §235-51 only  ·  REEC/CGEC/TCRA shown separately on pages 5–6"
+            "Per-filer bracket-change impact by income quintile, TY 2027–2031  "
+            "·  §235-51 only  ·  REEC/CGEC/TCRA shown separately on pages 5–6"
         ),
         table_specs=[
             ("Avg Tax Change per Filer",        "avg_delta_per_filer_$",  "dollar"),
@@ -482,7 +491,7 @@ def _make_pdf(df: "pd.DataFrame", *, cd: str = "2") -> None:
         pdf_meta={
             "Title":   f"SB 3125 {cd_label} Distributional Analysis",
             "Author":  "Census-Forecaster",
-            "Subject": f"Per-quintile bracket impact + REEC credit incidence, TY 2027–2031, MID",
+            "Subject": "Per-quintile bracket impact + REEC credit incidence, TY 2027–2031, MID",
         },
     )
 
@@ -497,23 +506,27 @@ if __name__ == "__main__":
 
     try:
         import time
+
         import pandas as pd
 
         print(f"SB 3125 {cd_label} static quintile analysis", flush=True)
         print("Importing modules...", flush=True)
         from tax_modeler.base import build_calibrated_base
+        from tax_modeler.config.tax_system_config import (
+            TaxCalculator,
+            TaxSystemRegistry,
+        )
         from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
-        from tax_modeler.config.tax_system_config import (
-            TaxCalculator, TaxSystemRegistry,
+        from tax_modeler.scenarios.behavioral_response import (
+            apply_itemized_deduction_adjustment,
+            apply_top_income_growth_premium,
         )
         from tax_modeler.scenarios.top_income_synthesis import (
-            synthesize_top_filers, validate_top_synthesis,
-            calibrate_synthetic_tail_to_tax_target, age_synthetic_tail,
-        )
-        from tax_modeler.scenarios.behavioral_response import (
-            apply_top_income_growth_premium,
-            apply_itemized_deduction_adjustment,
+            age_synthetic_tail,
+            calibrate_synthetic_tail_to_tax_target,
+            synthesize_top_filers,
+            validate_top_synthesis,
         )
 
         get_scenario_system = (

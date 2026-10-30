@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import pytest
-
 from census_forecaster.acs.mean_reversion import (
     METHOD_NAME,
-    project_mean_reversion,
     load_laus_values,
+    project_mean_reversion,
 )
 from census_forecaster.models import AcsObservation
 

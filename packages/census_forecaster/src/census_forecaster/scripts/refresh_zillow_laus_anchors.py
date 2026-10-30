@@ -54,14 +54,13 @@ import io
 import json
 import os
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
 
 import requests
 
 from ..bls.client import fetch_cpi_data
-
 
 # ---------------------------------------------------------------------------
 # Zillow public CSV endpoints
@@ -112,7 +111,7 @@ def panel_geoids() -> tuple[str, ...]:
 # Zillow ingest
 # ---------------------------------------------------------------------------
 
-def _zillow_geoid_from_row(row: dict) -> Optional[str]:
+def _zillow_geoid_from_row(row: dict) -> str | None:
     """Combine Zillow's 2-digit StateCodeFIPS + 3-digit MunicipalCodeFIPS."""
     state_fips = (row.get("StateCodeFIPS") or "").strip()
     muni_fips = (row.get("MunicipalCodeFIPS") or "").strip()
@@ -351,7 +350,7 @@ def _default_anchors_dir() -> Path:
 # CLI
 # ---------------------------------------------------------------------------
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch Zillow ZHVI/ZORI and BLS LAUS as county-level anchors.",
     )

@@ -1,8 +1,7 @@
 """Verify common.models directly (not via census_forecaster shim)."""
 from __future__ import annotations
 
-import pytest
-from common.models import AcsObservation, BlsObservation, ForecastPoint, GeographySeries
+from common.models import AcsObservation, ForecastPoint, GeographySeries
 
 
 class TestAcsObservationDirect:

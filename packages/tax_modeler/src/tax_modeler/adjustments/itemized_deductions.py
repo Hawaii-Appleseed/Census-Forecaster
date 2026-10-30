@@ -24,10 +24,8 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +135,7 @@ class ItemizedDeductionEstimator:
     SOI 2022 values are used.
     """
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize with parameters from config or fallbacks."""
         params = _load_params(config_path or _CONFIG_PATH)
 
@@ -235,7 +233,7 @@ class ItemizedDeductionEstimator:
             return agi * giving_rate
         return 0
 
-    def estimate_medical_deduction(self, agi: float, age: Optional[int] = None) -> float:
+    def estimate_medical_deduction(self, agi: float, age: int | None = None) -> float:
         """
         Estimate medical and dental expense deduction.
 
@@ -298,7 +296,7 @@ class ItemizedDeductionEstimator:
 
     def estimate_total_itemized_deductions(self, agi: float,
                                           filing_status: str,
-                                          age: Optional[int] = None) -> Dict[str, float]:
+                                          age: int | None = None) -> dict[str, float]:
         """
         Estimate total itemized deductions after Hawaii's Pease limitation.
 
@@ -328,7 +326,7 @@ class ItemizedDeductionEstimator:
 
     def get_deduction(self, agi: float, filing_status: str,
                      standard_deduction: float,
-                     age: Optional[int] = None) -> Dict[str, float]:
+                     age: int | None = None) -> dict[str, float]:
         """
         Determine whether to use standard or itemized deduction.
 
@@ -421,7 +419,7 @@ def scale_deduction_params_for_target_year(
 
 def estimate_deduction(agi: float, filing_status: str,
                       standard_deduction: float,
-                      age: Optional[int] = None) -> Dict[str, float]:
+                      age: int | None = None) -> dict[str, float]:
     """
     Convenience function to estimate deduction (standard or itemized).
 

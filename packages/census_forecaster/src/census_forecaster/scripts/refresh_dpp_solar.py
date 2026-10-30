@@ -40,9 +40,9 @@ import json
 import sys
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 SOCRATA_BASE = "https://data.honolulu.gov/resource/4vab-c87q.json"
 DATASET_ID = "4vab-c87q"
@@ -155,7 +155,7 @@ def _default_out() -> Path:
             / "data" / "dpp_permits" / "solar_permits.json")
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch Honolulu DPP solar permit aggregates.")
     parser.add_argument("--out", type=Path, default=_default_out())

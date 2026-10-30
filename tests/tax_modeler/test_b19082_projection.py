@@ -27,7 +27,6 @@ import math
 from unittest.mock import patch
 
 import pytest
-
 from tax_modeler.projection.b19082_projection import (
     B19082_TOP_QUINTILE,
     _load_b19082_series,
@@ -35,7 +34,6 @@ from tax_modeler.projection.b19082_projection import (
     get_base_top_quintile_share,
     project_top_quintile_share,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

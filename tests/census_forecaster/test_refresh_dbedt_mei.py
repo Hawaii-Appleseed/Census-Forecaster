@@ -8,13 +8,12 @@ from datetime import datetime
 
 import openpyxl
 import pytest
-
+from census_forecaster.scripts import refresh_dbedt_mei as mei
 from lab.markets.screen import (
     HAWAII_PREDICTORS,
     HYPOTHESIS_PAIRS,
     MONTHLY_TARGETS,
 )
-from census_forecaster.scripts import refresh_dbedt_mei as mei
 
 
 def _workbook(headers, rows) -> bytes:

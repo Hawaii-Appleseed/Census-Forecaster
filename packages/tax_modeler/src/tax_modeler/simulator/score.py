@@ -11,7 +11,7 @@ figures and distribution tables; specs are scored the same way.
 """
 from __future__ import annotations
 
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import numpy as np
 import pandas as pd

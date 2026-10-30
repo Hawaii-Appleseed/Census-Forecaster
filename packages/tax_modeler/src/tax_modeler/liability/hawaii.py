@@ -27,7 +27,8 @@ Limitations / simplifications:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -42,7 +43,6 @@ from tax_modeler.per_unit import (
     py_round,
     status_column,
 )
-
 
 # ---------------------------------------------------------------------------
 # Itemizing-policy sentinel
@@ -69,7 +69,7 @@ from tax_modeler.per_unit import (
 class _NoItemizingSentinel:
     """Singleton sentinel for explicit "compute SD-only tax" requests."""
     __slots__ = ()
-    _instance: Optional["_NoItemizingSentinel"] = None
+    _instance: _NoItemizingSentinel | None = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -85,7 +85,7 @@ NO_ITEMIZING = _NoItemizingSentinel()
 
 def _normalize_deduction_params(
     deduction_params: Any, tax_year: int, caller: str,
-) -> Optional[dict]:
+) -> dict | None:
     """Validate and normalize ``deduction_params`` for tax-computation entry.
 
     Returns the dict to pass into the per-filer logic (or None for SD-only
@@ -122,7 +122,7 @@ class HawaiiTaxParameters:
     """Hawaii income tax parameters for tax year 2023."""
 
     # Standard deduction amounts by filing status
-    standard_deduction: Dict[str, float] = field(default_factory=lambda: {
+    standard_deduction: dict[str, float] = field(default_factory=lambda: {
         'single':                    2_200.0,
         'married_filing_jointly':    4_400.0,
         'married_filing_separately': 2_200.0,
@@ -135,7 +135,7 @@ class HawaiiTaxParameters:
     # Tax brackets: list of (upper_bound, marginal_rate) pairs, from lowest to highest.
     # The last bracket has upper_bound = infinity.
     # Brackets are keyed by filing status.
-    brackets: Dict[str, List[Tuple[float, float]]] = field(default_factory=lambda: {
+    brackets: dict[str, list[tuple[float, float]]] = field(default_factory=lambda: {
         'single': [
             (2_400,   0.014),
             (4_800,   0.032),
@@ -213,13 +213,13 @@ HAWAII_CG_CAP_RATE = 0.0725
 
 # Personal exemption per unit, step-function by effective tax year.
 # Matches TaxSystemRegistry.PERSONAL_EXEMPTIONS in config/tax_system_config.py.
-_PERSONAL_EXEMPTION_SCHEDULE: List[Tuple[int, float]] = [
+_PERSONAL_EXEMPTION_SCHEDULE: list[tuple[int, float]] = [
     (2018, 1_144.0),  # pre-Act-46 (applies for TY≤2024)
     (2025, 1_200.0),  # Act 46 phase-in (TY2025+)
 ]
 
 # Maps liability module filing-status strings → hawaii_tax_real module strings.
-_FS_REAL_MAP: Dict[str, str] = {
+_FS_REAL_MAP: dict[str, str] = {
     'single':                    'Single_Married_Separate',
     'married_filing_separately': 'Single_Married_Separate',
     'married_filing_jointly':    'Joint_Surviving_Spouse',
@@ -333,7 +333,7 @@ def _resolve_effective_deduction(
     agi: float,
     filing_status: str,
     standard_deduction: float,
-    deduction_params: Optional[dict],
+    deduction_params: dict | None,
 ) -> float:
     """Return the greater of the standard deduction and expected itemized deductions.
 
@@ -353,7 +353,7 @@ def _resolve_effective_deduction_pair(
     agi: float,
     filing_status: str,
     standard_deduction: float,
-    deduction_params: Optional[dict],
+    deduction_params: dict | None,
 ) -> tuple[float, float]:
     """Return ``(effective_deduction, itemized_raw)``.
 
@@ -378,12 +378,12 @@ def _resolve_effective_deduction_pair(
 # ---------------------------------------------------------------------------
 
 def calculate_hawaii_tax(
-    tax_unit: Dict,
+    tax_unit: dict,
     params: HawaiiTaxParameters = HAWAII_2023,
     tax_year: int = 2023,
     deduction_params: Any = None,
     cg_income: float = 0.0,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Calculate Hawaii state income tax liability for a single tax unit.
 
@@ -563,7 +563,7 @@ def exemption_counts(tax_units: pd.DataFrame) -> np.ndarray:
     return statutory_exemption_counts(tax_units["filing_status"].to_numpy(), deps)
 
 
-def _apply_brackets(taxable_income: float, brackets: List[Tuple[float, float]]) -> float:
+def _apply_brackets(taxable_income: float, brackets: list[tuple[float, float]]) -> float:
     """
     Apply progressive tax brackets to taxable income.
 
@@ -624,14 +624,14 @@ def calculate_hawaii_tax_for_units(
 
 
 def _calculate_hawaii_tax_per_unit(
-    tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional[dict],
+    tax_units_df: pd.DataFrame, tax_year: int, normalized: dict | None,
 ) -> pd.DataFrame:
     """:func:`calculate_hawaii_tax` on each unit: the reference the array
     version (:func:`_hawaii_tax_columns`) reproduces, and its fallback."""
     return apply_per_unit(tax_units_df, _per_unit_fn(tax_units_df, tax_year, normalized))
 
 
-def _per_unit_fn(tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional[dict]):
+def _per_unit_fn(tax_units_df: pd.DataFrame, tax_year: int, normalized: dict | None):
     """The per-unit call :func:`calculate_hawaii_tax_for_units` makes."""
     # Forward NO_ITEMIZING (not None) into the per-unit call so the inner
     # validation accepts it for tax_year ≥ 2024 without a redundant error.
@@ -670,7 +670,7 @@ def _per_unit_fn(tax_units_df: pd.DataFrame, tax_year: int, normalized: Optional
 # it always has.
 
 def _hawaii_tax_columns(
-    df: pd.DataFrame, tax_year: int, deduction_params: Optional[dict],
+    df: pd.DataFrame, tax_year: int, deduction_params: dict | None,
 ) -> dict[str, np.ndarray]:
     """:func:`calculate_hawaii_tax_for_units`'s columns for every unit at once
     (raises ``per_unit.NotVectorizable`` where the per-unit path is needed)."""
@@ -693,7 +693,7 @@ def _hawaii_tax_arrays(
     num_dependents: np.ndarray,
     cg_income: np.ndarray,
     tax_year: int,
-    deduction_params: Optional[dict],
+    deduction_params: dict | None,
 ) -> dict[str, np.ndarray]:
     """:func:`calculate_hawaii_tax` (with the default ``HAWAII_2023``
     parameters) over arrays: its result keys, in its order."""
@@ -830,7 +830,7 @@ def _first_tier(agi: np.ndarray, tiers: list, key: str, default) -> np.ndarray:
     return out
 
 
-def _apply_brackets_arrays(taxable_income: np.ndarray, brackets: List[Tuple[float, float]]) -> np.ndarray:
+def _apply_brackets_arrays(taxable_income: np.ndarray, brackets: list[tuple[float, float]]) -> np.ndarray:
     """:func:`_apply_brackets` for every unit: the same running sum, bracket
     by bracket, and the same ``round(total, 2)``."""
     total = np.zeros(len(taxable_income))

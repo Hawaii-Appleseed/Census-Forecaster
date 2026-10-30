@@ -18,12 +18,12 @@ Results are *model-based estimates*, not direct survey estimates.  They
 carry the uncertainty of both the PUMS sampling design and the raking
 assumptions.  Do not treat them as equivalent to published ACS tables.
 """
-from .models import PumsRecord, CountyControls, SyntheticEstimatePoint
-from .pums.client import fetch_pums
-from .pums.crosswalk import load_crosswalk, pumas_for_county
+from .controls import controls_from_acs_table, scale_margins
 from .estimation.rake import rake
 from .estimation.synthetic import estimate_county_distribution
-from .controls import controls_from_acs_table, scale_margins
+from .models import CountyControls, PumsRecord, SyntheticEstimatePoint
+from .pums.client import fetch_pums
+from .pums.crosswalk import load_crosswalk, pumas_for_county
 
 __version__ = "0.1.0"
 

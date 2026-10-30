@@ -17,15 +17,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.poverty.impact import (
-    _DEFAULT_SCENARIOS,
     _sdr_se_from_replicates,
     compute_poverty_impact,
     compute_poverty_impact_with_se,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixture builders

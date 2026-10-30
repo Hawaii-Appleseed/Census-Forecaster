@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -26,10 +25,20 @@ DEFAULT_OUT = REPO_ROOT / "dashboard" / "dist"
 # the poverty brief cannot drift apart.
 from tax_modeler.reporting.palette import (  # noqa: E402
     CHARCOAL as COLOR_CHARCOAL,
+)
+from tax_modeler.reporting.palette import (
     GOLD as COLOR_GOLD,
+)
+from tax_modeler.reporting.palette import (
     LIGHT_GRAY as COLOR_LIGHT,
+)
+from tax_modeler.reporting.palette import (
     LIGHT_TEAL as COLOR_CALLOUT,
+)
+from tax_modeler.reporting.palette import (
     SLATE as COLOR_SLATE,
+)
+from tax_modeler.reporting.palette import (
     TEAL as COLOR_TEAL,
 )
 

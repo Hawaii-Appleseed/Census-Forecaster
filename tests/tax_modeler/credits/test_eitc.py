@@ -6,7 +6,6 @@ for childless filers.
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler.credits.eitc import calculate_eitc
 
 

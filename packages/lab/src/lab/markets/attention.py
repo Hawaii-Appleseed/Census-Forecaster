@@ -49,7 +49,6 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Optional
 
 # Month-key convention matches screen.month_index (year*12 + month).
 
@@ -100,14 +99,14 @@ _BASE = "https://trends.google.com"
 DEFAULT_TIME_WINDOW = "2010-01-01 2026-07-01"
 
 
-def _get(url: str, cookie: Optional[str]) -> str:
+def _get(url: str, cookie: str | None) -> str:
     req = urllib.request.Request(url, headers={
         "User-Agent": _UA, **({"Cookie": cookie} if cookie else {})})
     with urllib.request.urlopen(req, timeout=30) as resp:
         return resp.read().decode("utf-8", "replace")
 
 
-def _session_cookie() -> Optional[str]:
+def _session_cookie() -> str | None:
     req = urllib.request.Request(_BASE + "/", headers={"User-Agent": _UA})
     with urllib.request.urlopen(req, timeout=30) as resp:
         for header, value in resp.headers.items():
@@ -124,7 +123,7 @@ def fetch_term(
     spec: TermSpec,
     *,
     time_window: str = DEFAULT_TIME_WINDOW,
-    cookie: Optional[str] = None,
+    cookie: str | None = None,
     pause_s: float = 2.0,
 ) -> dict[int, float]:
     """Fetch one term's monthly interest as {month_index: value}.

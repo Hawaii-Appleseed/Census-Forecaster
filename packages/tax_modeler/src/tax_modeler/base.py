@@ -21,8 +21,9 @@ too, so it matches production.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -104,11 +105,11 @@ def load_or_build_raw_units(
 def build_calibrated_base(
     units: pd.DataFrame,
     *,
-    deduction_params: Dict[str, Any] | None = None,
+    deduction_params: dict[str, Any] | None = None,
     tax_year: int = BASE_TAX_YEAR,
     skip_calibration: bool = False,
     log: Callable[..., None] = print,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Raw units -> the calibrated base every chain step starts from.
 
     enrich -> base tax on ``deduction_params`` at ``tax_year`` -> IPF rake to the
@@ -139,11 +140,11 @@ def build_calibrated_base(
 
 def validate_calibrated_base(
     base: pd.DataFrame,
-    deduction_params: Dict[str, Any],
+    deduction_params: dict[str, Any],
     tax_year: int = BASE_TAX_YEAR,
     *,
     pareto_alpha: float = 1.5,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Tie the base out to DOTAX after the $1M+ synthesis (diagnostic only).
 
     The IPF rake cannot reach the $1M+ bin (1.5x bin cap), so the calibration
@@ -185,7 +186,7 @@ def synthesize_calibrated_tail(
     score: Callable[[pd.DataFrame], pd.DataFrame],
     enrich: bool = True,
     redistribute: bool = False,
-) -> Tuple[pd.DataFrame, float]:
+) -> tuple[pd.DataFrame, float]:
     """The calibrated base with its $1M+ tail synthesized and calibrated; ``(units, tail_k)``.
 
     [``redistribute_mid_high_incomes``] -> ``synthesize_top_filers`` ->
@@ -216,10 +217,10 @@ def build_tail_units(
     base: pd.DataFrame,
     *,
     alpha: float,
-    ded_params: Dict[str, Any],
+    ded_params: dict[str, Any],
     cal_tax_year: int,
     redistribute: bool = True,
-) -> Tuple[pd.DataFrame, float]:
+) -> tuple[pd.DataFrame, float]:
     """The unaged $1M+ population the vs-FY26 and capital-gains steps project from.
 
     The $500K-$1M income redistribution (``redistribute``), the Pareto tail at

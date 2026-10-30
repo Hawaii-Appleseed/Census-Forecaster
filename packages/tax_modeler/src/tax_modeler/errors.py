@@ -19,8 +19,8 @@ without parsing the message string.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
 
 class TaxModelerError(Exception):
@@ -38,8 +38,8 @@ class MissingDataError(TaxModelerError, FileNotFoundError):
         self,
         message: str,
         *,
-        path: Optional[Path] = None,
-        env_var: Optional[str] = None,
+        path: Path | None = None,
+        env_var: str | None = None,
     ) -> None:
         self.path = Path(path) if path is not None else None
         self.env_var = env_var
@@ -58,7 +58,7 @@ class DataValidationError(TaxModelerError, ValueError):
         self,
         message: str,
         *,
-        missing_columns: Optional[Iterable[str]] = None,
+        missing_columns: Iterable[str] | None = None,
         empty: bool = False,
     ) -> None:
         self.missing_columns = tuple(missing_columns) if missing_columns else ()
@@ -78,7 +78,7 @@ class ConfigError(TaxModelerError, ValueError):
         self,
         message: str,
         *,
-        available: Optional[Iterable] = None,
+        available: Iterable | None = None,
     ) -> None:
         self.available = tuple(available) if available is not None else ()
         parts = [message]
@@ -94,8 +94,8 @@ class CalibrationError(TaxModelerError, RuntimeError):
         self,
         message: str,
         *,
-        iterations: Optional[int] = None,
-        residual: Optional[float] = None,
+        iterations: int | None = None,
+        residual: float | None = None,
     ) -> None:
         self.iterations = iterations
         self.residual = residual

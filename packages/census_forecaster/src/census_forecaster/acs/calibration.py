@@ -50,31 +50,30 @@ from __future__ import annotations
 
 import json
 import math
-import statistics
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Callable, Optional, Sequence
 
 from common.models import AcsObservation, ForecastPoint
+
+from .anchors import (
+    ANCHOR_CALIBRATION_HORIZON,
+    METHOD_LEVEL_ANCHOR,
+    AnchorRate,
+    anchor_as_forecast,
+    combined_anchor_rate,
+    combined_level_anchor,
+    level_anchor_as_forecast,
+)
+from .ensemble import combine_forecasts
 from .projection import (
     EMPIRICAL_SE_INFLATOR,
     effective_year,
     project_ar1_log_diff,
     project_damped_trend,
 )
-from .ensemble import combine_forecasts
-from .anchors import (
-    ANCHOR_CALIBRATION_HORIZON,
-    AnchorRate,
-    anchor_as_forecast,
-    combined_anchor_rate,
-    combined_level_anchor,
-    level_anchor_as_forecast,
-    METHOD_LEVEL_ANCHOR,
-)
 from .sources import available_sources
-
 
 # Coverage band: if 90% CI hits anything outside this, we adjust the
 # per-method inflator. 85% and 95% are textbook tolerances around 90%.
@@ -100,7 +99,7 @@ class HoldOutFold:
 def _truncate(
     series: Sequence[AcsObservation],
     anchor_year: int,
-    as_of_date: Optional[date] = None,
+    as_of_date: date | None = None,
 ) -> list[AcsObservation]:
     result = [o for o in series if effective_year(o) <= anchor_year]
     if as_of_date is not None:
@@ -110,8 +109,8 @@ def _truncate(
 
 def _project_trend_only(
     train: Sequence[AcsObservation], target_year: int,
-    phi: Optional[float] = None,
-) -> Optional[ForecastPoint]:
+    phi: float | None = None,
+) -> ForecastPoint | None:
     """Run the trend-only ensemble (damped + ar1, no anchor).
 
     `phi=None` projects at DEFAULT_PHI. Pass a per-cell phi only when the
@@ -139,8 +138,8 @@ def _project_anchor_only(
     target_year: int,
     anchor_year: int,
     indicator: str,
-    per_source_rmse: Optional[dict[str, dict[str, float]]] = None,
-) -> Optional[ForecastPoint]:
+    per_source_rmse: dict[str, dict[str, float]] | None = None,
+) -> ForecastPoint | None:
     """Project from the latest training observation using only the multi-source anchor.
 
     Uses `train[-1].geoid` so county-level anchors read the right per-county
@@ -175,7 +174,7 @@ def _per_source_anchor_forecast(
     anchor_year: int,
     indicator: str,
     source_name: str,
-) -> Optional[ForecastPoint]:
+) -> ForecastPoint | None:
     """Project at a *single* source's smoothed rate (for per-source RMSE calibration).
 
     For county-level sources, looks up the source's per-county series via
@@ -210,7 +209,7 @@ def _project_level_anchor_only(
     target_year: int,
     anchor_year: int,
     indicator: str,
-) -> Optional[ForecastPoint]:
+) -> ForecastPoint | None:
     """Project using only the level-type anchor for this indicator.
 
     Used in pass 2 to compute per-method RMSE for `level_anchor`.
@@ -782,7 +781,7 @@ def _estimate_bias_records(
     residuals: Sequence[FoldResidual],
     n_threshold: int,
     bias_clamp_log: float,
-    bias_half_life_years: "float | None" = None,
+    bias_half_life_years: float | None = None,
 ) -> list:
     """Compute geometric bias `b = mean(log(point/actual))` per cell.
 
@@ -807,7 +806,7 @@ def _estimate_bias_records(
         frozen. ``None`` (default) keeps the unweighted mean. The
         n-threshold gate stays count-based either way.
     """
-    from .strata import StrataRecord, WILDCARD
+    from .strata import StrataRecord
 
     max_anchor = max((r.anchor_year for r in residuals), default=0)
 
@@ -869,7 +868,7 @@ def _estimate_bias_records(
 def _build_bias_lookup(
     bias_records: Sequence,
     n_threshold: int,
-) -> "Callable[[str, str, str, str], float]":
+) -> Callable[[str, str, str, str], float]:
     """Build a fallback lookup over bias records → applied bias `b`.
 
     Mirrors the strata fallback chain (exact → h-marginalised → global)
@@ -1052,19 +1051,19 @@ def run_stratified_calibration(
     series_by_key: dict[tuple[str, str], Sequence[AcsObservation]],
     anchor_years: Sequence[int],
     horizons: Sequence[int] = (1, 2, 3, 4, 5),
-    populations: Optional[dict[str, int]] = None,
+    populations: dict[str, int] | None = None,
     n_threshold: int = 20,
     bias_clamp_log: float = DEFAULT_BIAS_CLAMP_LOG,
     as_of_mode: str = "instant",
     include_ml: bool = False,
-    county_data: Optional[dict] = None,
-    market_data: Optional[dict] = None,
-    national_data: Optional[dict] = None,
-    state_data: Optional[dict] = None,
+    county_data: dict | None = None,
+    market_data: dict | None = None,
+    national_data: dict | None = None,
+    state_data: dict | None = None,
     include_kalman: bool = False,
     include_conformal: bool = False,
     enable_phi: bool = False,
-    bias_half_life_years: "float | None" = None,
+    bias_half_life_years: float | None = None,
 ) -> dict:
     """v3/v4 stratified hold-out calibration.
 
@@ -1121,13 +1120,14 @@ def run_stratified_calibration(
     both strata records and marginalised v2-style tables for backwards
     compatibility.
     """
-    from .strata import classify_pop, classify_horizon, WILDCARD, record_to_dict
     from common.publication import acs_1y_release_date as _acs_pub
+
+    from .strata import WILDCARD, classify_horizon, classify_pop, record_to_dict
 
     if as_of_mode not in ("instant", "publication"):
         raise ValueError(f"as_of_mode must be 'instant' or 'publication', got {as_of_mode!r}")
 
-    def _as_of(anchor: int) -> Optional[date]:
+    def _as_of(anchor: int) -> date | None:
         return _acs_pub(anchor) if as_of_mode == "publication" else None
 
     populations = populations or {}
@@ -1158,10 +1158,19 @@ def run_stratified_calibration(
     phi_strata_records: list = []
     _phi_pass_run = False
     try:
-        from .acs_volatility import decompose_series, cell_phi, PHI_LO, PHI_HI
+        from .acs_volatility import PHI_HI, PHI_LO, cell_phi, decompose_series
         from .strata import (
-            StrataRecord as _SR, WILDCARD as _WC, classify_pop as _cp,
-            PHI_DEFAULT, PHI_N_THRESHOLD, H_BUCKET_BOUNDS,
+            H_BUCKET_BOUNDS,
+            PHI_N_THRESHOLD,
+        )
+        from .strata import (
+            WILDCARD as _WC,
+        )
+        from .strata import (
+            StrataRecord as _SR,
+        )
+        from .strata import (
+            classify_pop as _cp,
         )
         # Decompose each (geoid, indicator) series
         decomps_by_key: dict[tuple[str, str], object] = {}
@@ -1234,8 +1243,9 @@ def run_stratified_calibration(
     # folds are built under exactly the phi the consumer will apply.
     _phi_for_cell = None
     if enable_phi and phi_strata_records:
-        from .strata import index_records as _phi_index_records, PHI_N_THRESHOLD
         from .projection import DEFAULT_PHI as _DEFAULT_PHI
+        from .strata import PHI_N_THRESHOLD
+        from .strata import index_records as _phi_index_records
 
         _phi_lookup_fn = _phi_index_records(
             records=phi_strata_records,
@@ -1361,15 +1371,27 @@ def run_stratified_calibration(
     if include_ml:
         from .ml_features import (
             build_panel_index as _build_panel_index,
+        )
+        from .ml_features import (
             load_county_data as _load_cty,
+        )
+        from .ml_features import (
             load_market_signals_data as _load_mkt,
+        )
+        from .ml_features import (
             load_national_macro_data as _load_nm,
+        )
+        from .ml_features import (
             load_state_data as _load_st,
         )
         from .ml_trend import (
-            train_ml_model as _train_ml_model,
-            project_ml_trend as _project_ml_trend,
             METHOD_NAME as _ML_METHOD,
+        )
+        from .ml_trend import (
+            project_ml_trend as _project_ml_trend,
+        )
+        from .ml_trend import (
+            train_ml_model as _train_ml_model,
         )
 
         _cty = county_data if county_data is not None else _load_cty()
@@ -1440,7 +1462,8 @@ def run_stratified_calibration(
     # Runs the Kalman filter per (geoid, indicator, anchor, h). Substantially
     # faster than ML (no model training — forward filter is O(n_years) per fold).
     if include_kalman:
-        from ..kalman.project import project_kalman as _project_kalman, METHOD_NAME as _KAL_METHOD
+        from ..kalman.project import METHOD_NAME as _KAL_METHOD
+        from ..kalman.project import project_kalman as _project_kalman
         for (geoid, indicator), full in series_by_key.items():
             full_sorted = sorted(full, key=lambda o: (effective_year(o), o.vintage))
             pop_bucket = classify_pop(populations.get(geoid)) or WILDCARD
@@ -1528,9 +1551,13 @@ def run_stratified_calibration(
     # in the fold cache so the null is reproducible; the ensemble does
     # NOT consume this method.
     from .mean_reversion import (
-        project_mean_reversion as _project_mr,
         METHOD_NAME as _MR_METHOD,
+    )
+    from .mean_reversion import (
         SUPPORTED_INDICATORS as _MR_INDICATORS,
+    )
+    from .mean_reversion import (
+        project_mean_reversion as _project_mr,
     )
     for (geoid, indicator), full in series_by_key.items():
         if indicator not in _MR_INDICATORS:
@@ -1601,7 +1628,7 @@ def run_stratified_calibration(
     conformal_records: list = []
     evaluation_coverage: dict = {}
     if include_conformal and conformal_residuals:
-        from .conformal import compute_conformal_quantiles, build_conformal_lookup
+        from .conformal import build_conformal_lookup, compute_conformal_quantiles
         # Apply bias correction to calibration residuals using tuning-fold bias.
         conformal_bc: list[FoldResidual] = []
         for r in conformal_residuals:

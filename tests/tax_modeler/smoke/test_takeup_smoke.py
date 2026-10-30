@@ -16,7 +16,6 @@ import logging
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler import (
     AdminCaseload,
     CaseloadTarget,
@@ -28,13 +27,12 @@ from tax_modeler import (
     compute_ssi_hi_supplement_for_units,
     impute_takeup,
 )
+from tax_modeler.calibration.eitc_reweight import reweight_eitc_eligibles_by_children
 from tax_modeler.calibration.takeup_imputation import (
     impute_takeup_eitc_by_children,
     scale_benefit_to_dollar_target,
 )
-from tax_modeler.calibration.eitc_reweight import reweight_eitc_eligibles_by_children
 from tax_modeler.errors import ConfigError, DataValidationError
-
 
 pytestmark = pytest.mark.smoke
 

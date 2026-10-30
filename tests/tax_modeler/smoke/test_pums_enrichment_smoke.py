@@ -14,7 +14,6 @@ Validates that:
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler import (
     EntityGraph,
     compute_aca_ptc_for_units,
@@ -24,7 +23,6 @@ from tax_modeler import (
     enrich_for_credits,
     threshold_for_units,
 )
-
 
 pytestmark = pytest.mark.smoke
 

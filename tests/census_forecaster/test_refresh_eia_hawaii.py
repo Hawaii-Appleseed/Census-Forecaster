@@ -11,9 +11,8 @@ from __future__ import annotations
 import json
 
 import pytest
-
-from lab.markets.screen import MONTHLY_TARGETS
 from census_forecaster.scripts import refresh_eia_hawaii as eia
+from lab.markets.screen import MONTHLY_TARGETS
 
 
 class _FakeResp:

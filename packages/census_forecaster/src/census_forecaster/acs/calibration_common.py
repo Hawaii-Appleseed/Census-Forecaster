@@ -23,7 +23,7 @@ v3 layer was first); a future refactor could lift it to a top-level
 from __future__ import annotations
 
 import math
-from typing import Callable
+from collections.abc import Callable
 
 # Default coverage band for the per-cell bisection. Both ACS and BLS
 # target the same [85%, 95%] band — wider than ±2.5pp would admit too

@@ -44,11 +44,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 
 from tax_modeler.calibration import dotax_base
 from tax_modeler.calibration.cbo_aging import net_growth_factor
@@ -66,7 +63,7 @@ logger = logging.getLogger(__name__)
 # just bracket-level composition averages used to derive an AGI growth factor.
 #
 # Components: wages, business, capital_gains, dividends, interest, retirement, other
-_BRACKET_COMPOSITIONS: Dict[Tuple[float, float], Dict[str, float]] = {
+_BRACKET_COMPOSITIONS: dict[tuple[float, float], dict[str, float]] = {
     (0,         10_000):    {"wages": 0.45, "business": 0.05, "capital_gains": 0.00,
                              "dividends": 0.01, "interest": 0.02, "retirement": 0.30, "other": 0.17},
     (10_000,    20_000):    {"wages": 0.50, "business": 0.05, "capital_gains": 0.00,
@@ -100,7 +97,7 @@ _BRACKET_COMPOSITIONS: Dict[Tuple[float, float], Dict[str, float]] = {
 }
 
 # SOI Table 1.4 tier compositions ($1M+) — finer than the bracket aggregate
-_SOI_TIER_COMPOSITIONS: Dict[Tuple[float, float], Dict[str, float]] = {
+_SOI_TIER_COMPOSITIONS: dict[tuple[float, float], dict[str, float]] = {
     (1_000_000, 1_500_000):  {"wages": 0.46, "business": 0.15, "capital_gains": 0.16,
                               "dividends": 0.05, "interest": 0.01, "retirement": 0.04, "other": 0.13},
     (1_500_000, 2_000_000):  {"wages": 0.40, "business": 0.18, "capital_gains": 0.18,
@@ -118,16 +115,16 @@ _SOI_TIER_COMPOSITIONS: Dict[Tuple[float, float], Dict[str, float]] = {
 class ForwardAGITargets:
     """Year-parameterized aggregate-AGI targets for stage-2 reweighting."""
     year: int
-    bracket_agi_targets: Dict[Tuple[float, float], float]   # $M per AGI bracket
-    tier_agi_targets:    Dict[Tuple[float, float], float]   # $M per SOI tier
+    bracket_agi_targets: dict[tuple[float, float], float]   # $M per AGI bracket
+    tier_agi_targets:    dict[tuple[float, float], float]   # $M per SOI tier
     aggregate_agi_M: float
 
 
 def _component_growth_factor(
-    composition: Dict[str, float],
+    composition: dict[str, float],
     year: int,
     cbo_rates,
-    hawaii_factors: Dict[str, float],
+    hawaii_factors: dict[str, float],
     base_year: int = dotax_base.BASE_YEAR,
 ) -> float:
     """Composition-weighted CBO growth factor for one bracket/tier.
@@ -157,11 +154,11 @@ def build_agi_targets(
     year: int,
     *,
     cbo_vintage: str = "2025-01",
-    hawaii_factors: Optional[Dict[str, float]] = None,
-    base_agi: Optional[Dict[Tuple[float, float], float]] = None,
+    hawaii_factors: dict[str, float] | None = None,
+    base_agi: dict[tuple[float, float], float] | None = None,
     base_year: int = dotax_base.BASE_YEAR,
     include_soi_tiers: bool = True,
-    soi_tier_total_filers: Optional[int] = None,
+    soi_tier_total_filers: int | None = None,
     soi_year: int = 2022,
 ) -> ForwardAGITargets:
     """Construct ``ForwardAGITargets`` for the given year.
@@ -189,8 +186,8 @@ def build_agi_targets(
         national TY2022 dollars, so they age from this year, not ``base_year``.
     """
     from tax_modeler.calibration.cbo_aging import (
-        load_cbo_rates,
         DEFAULT_HAWAII_FACTORS,
+        load_cbo_rates,
     )
 
     cbo_rates = load_cbo_rates(cbo_vintage)
@@ -200,7 +197,7 @@ def build_agi_targets(
         soi_tier_total_filers = dotax_base.filer_targets(base_year)[(1_000_000, np.inf)]
 
     # ── Per-bracket AGI mass ──────────────────────────────────────────────────
-    bracket_targets: Dict[Tuple[float, float], float] = {}
+    bracket_targets: dict[tuple[float, float], float] = {}
     for bracket, base_M in bagi.items():
         comp = _BRACKET_COMPOSITIONS.get(bracket, {"wages": 1.0})
         gf = _component_growth_factor(comp, year, cbo_rates, hi, base_year)
@@ -209,7 +206,7 @@ def build_agi_targets(
     # ── Per-tier AGI mass within $1M+ ────────────────────────────────────────
     # Use SOI anchor tier compositions directly (same source the synthesis
     # reads) so target growth factors match synthesis-produced tier averages.
-    tier_targets: Dict[Tuple[float, float], float] = {}
+    tier_targets: dict[tuple[float, float], float] = {}
     if include_soi_tiers:
         from tax_modeler.calibration.soi_top_anchor import load_soi_top_anchors
 

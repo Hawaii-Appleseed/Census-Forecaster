@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -45,7 +45,7 @@ def canonical_deduction_params_path() -> Path:
     return _PKG_ROOT / "config" / "deduction_params.json"
 
 
-def load_canonical_deduction_params() -> Dict[str, Any]:
+def load_canonical_deduction_params() -> dict[str, Any]:
     path = canonical_deduction_params_path()
     if not path.exists():
         raise FileNotFoundError(
@@ -114,7 +114,7 @@ def save_calibrated_base(
     *,
     deduction_params: Any,
     tax_year: int,
-    extra_meta: Optional[Dict[str, Any]] = None,
+    extra_meta: dict[str, Any] | None = None,
 ) -> None:
     """Persist a calibrated base with the deduction params it was scored under.
 
@@ -149,7 +149,7 @@ def load_calibrated_base(
     path: Path | str,
     *,
     expected_params: Any = None,
-) -> Tuple[pd.DataFrame, Any, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, Any, dict[str, Any]]:
     """Load a calibrated base; returns ``(units, deduction_params, meta)``.
 
     Legacy bare-DataFrame pickles are accepted with a loud warning — their
@@ -223,9 +223,9 @@ def _sidecar_path(cache_path: Path | str) -> Path:
 
 def write_cache_sidecar(
     cache_path: Path | str,
-    extra: Optional[Dict[str, Any]] = None,
+    extra: dict[str, Any] | None = None,
     *,
-    code_key: Optional[str] = None,
+    code_key: str | None = None,
 ) -> Path:
     """Write a ``.meta.json`` sidecar recording who built a parquet cache:
     ``code_key`` (default :func:`construction_code_key`) is what
@@ -245,8 +245,8 @@ def write_cache_sidecar(
 def check_cache_sidecar(
     cache_path: Path | str,
     *,
-    code_key: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    code_key: str | None = None,
+) -> dict[str, Any] | None:
     """Warn (loudly, to stdout AND the log) if a cache predates current code.
 
     Returns the sidecar metadata, or ``None`` when no sidecar exists. A

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cache
-from typing import Dict, List
+
 import numpy as np
 import pandas as pd
 
@@ -65,7 +65,7 @@ class EITCParameters:
 
     investment_income_limit: float = 11_000  # TY 2023 default
 
-    by_children: Dict[int, EITCChildParameters] = field(default_factory=lambda: {
+    by_children: dict[int, EITCChildParameters] = field(default_factory=lambda: {
         0: EITCChildParameters(
             max_credit=600,
             phase_in_rate=0.0765,
@@ -116,10 +116,10 @@ _EITC_PHASEOUT_RATES = {0: 0.0765, 1: 0.1598, 2: 0.2106, 3: 0.2106}
 def _build_eitc_params(
     *,
     investment_income_limit: float,
-    max_credits: Dict[int, float],
-    phase_in_ends: Dict[int, float],
-    phaseout_start_single: Dict[int, float],
-    phaseout_start_joint: Dict[int, float],
+    max_credits: dict[int, float],
+    phase_in_ends: dict[int, float],
+    phaseout_start_single: dict[int, float],
+    phaseout_start_joint: dict[int, float],
 ) -> EITCParameters:
     by_children = {
         n: EITCChildParameters(
@@ -208,7 +208,7 @@ _EITC_PARAMS_BY_YEAR = {
 CREDIT_PARAM_CPI_GROWTH = 0.021
 
 
-def _first_present(tax_unit: Dict, *keys: str) -> float:
+def _first_present(tax_unit: dict, *keys: str) -> float:
     for key in keys:
         val = tax_unit.get(key)
         if val is not None and not pd.isna(val):
@@ -330,11 +330,11 @@ def classify_eitc_region(
 
 
 def calculate_eitc(
-    tax_unit: Dict,
+    tax_unit: dict,
     tax_year: int = 2023,
     *,
     extrapolate: bool = False,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Calculate the EITC for a single tax unit.
 
@@ -418,7 +418,7 @@ def calculate_eitc(
     return result
 
 
-def _count_qualifying_children_eitc(dependents: List[Dict]) -> int:
+def _count_qualifying_children_eitc(dependents: list[dict]) -> int:
     """
     Count dependents who qualify as EITC qualifying children.
 
@@ -532,7 +532,7 @@ def calculate_eitc_for_tax_units(
         lambda unit: calculate_eitc(unit, tax_year=tax_year, extrapolate=extrapolate))
 
 
-def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Dict[str, np.ndarray]:
+def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> dict[str, np.ndarray]:
     """:func:`calculate_eitc`'s result keys for every unit (raises
     ``per_unit.NotVectorizable`` where the per-unit path is needed)."""
     n = len(df)
@@ -587,7 +587,7 @@ def _eitc_arrays(df: pd.DataFrame, tax_year: int, extrapolate: bool) -> Dict[str
     }
 
 
-def get_eitc_summary_stats(tax_units_df: pd.DataFrame) -> Dict[str, float]:
+def get_eitc_summary_stats(tax_units_df: pd.DataFrame) -> dict[str, float]:
     """Summary statistics for EITC across tax units (weighted by 'weight' column)."""
     if 'eitc_amount' not in tax_units_df.columns:
         tax_units_df = calculate_eitc_for_tax_units(tax_units_df)

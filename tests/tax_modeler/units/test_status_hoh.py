@@ -4,10 +4,14 @@ Tests for the Head of Household status determination.
 
 from __future__ import annotations
 
-import pytest
 import pandas as pd
-import numpy as np
-from tax_modeler.units.status.hoh import is_head_of_household, _is_unmarried, _has_qualifying_person, _paid_half_home_cost
+from tax_modeler.units.status.hoh import (
+    _has_qualifying_person,
+    _is_unmarried,
+    _paid_half_home_cost,
+    is_head_of_household,
+)
+
 
 # Test data — RELSHIPP uses canonical Census 2019+ PUMS integer codes:
 #   20 = Reference person, 21 = Spouse, 25 = Biological child,

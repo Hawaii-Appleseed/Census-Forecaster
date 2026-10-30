@@ -10,13 +10,12 @@ Covers:
 from __future__ import annotations
 
 import math
-import pytest
-import pandas as pd
 from pathlib import Path
 
+import pytest
 import tax_modeler as _tm
-from tax_modeler.config import TaxSystemConfig, TaxSystemRegistry, TaxCalculator
 from tax_modeler.adjustments.hawaii_credits import HawaiiTaxCredits
+from tax_modeler.config import TaxCalculator, TaxSystemRegistry
 
 # `TaxCalculator(project_root)` reads `project_root/data/raw/*.csv`. The
 # small bracket + deduction master CSVs that the calculator needs ship

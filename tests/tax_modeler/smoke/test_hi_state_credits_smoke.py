@@ -10,11 +10,7 @@ Covers:
 from __future__ import annotations
 
 import pytest
-
 from tax_modeler import (
-    HawaiiEitcParameters,
-    HawaiiFoodExciseParameters,
-    HawaiiRentersCreditParameters,
     Reform,
     apply_reform,
     compute_hi_eitc_for_units,
@@ -23,7 +19,6 @@ from tax_modeler import (
     compute_spm_resources,
 )
 from tax_modeler.errors import ConfigError
-
 
 pytestmark = pytest.mark.smoke
 

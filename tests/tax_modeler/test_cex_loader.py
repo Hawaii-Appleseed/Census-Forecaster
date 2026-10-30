@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import logging
-import pandas as pd
-import numpy as np
+
 import pytest
-from pathlib import Path
 
 # Skip the whole module if pyreadstat (extras: cex) is not installed.
 pytest.importorskip("pyreadstat", reason="install with `tax-modeler[cex]`")
@@ -17,7 +14,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import the loader
-from tax_modeler.loaders.cex_loader import CEXLoader, CEXIncomeProfile
+from tax_modeler.loaders.cex_loader import CEXLoader
+
 
 def test_cex_loader(requires_irs_external):
     """Test the CEX loader with real data.

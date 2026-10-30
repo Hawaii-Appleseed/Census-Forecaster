@@ -14,12 +14,10 @@ from __future__ import annotations
 import warnings
 
 import pytest
-
 from tax_modeler import Reform, ReformResult, TaxSystemRegistry, apply_reform
 from tax_modeler.benefits.medicaid_hi_quest import compute_medicaid_for_units
-from tax_modeler.reform.reform import _ensure_baseline_benefits
 from tax_modeler.errors import ConfigError
-
+from tax_modeler.reform.reform import _ensure_baseline_benefits
 
 pytestmark = pytest.mark.smoke
 

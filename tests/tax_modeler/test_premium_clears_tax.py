@@ -12,9 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-
 from tax_modeler.scenarios.behavioral_response import apply_top_income_growth_premium
-
 
 _STALE_COLS = (
     "hi_tax_liability",

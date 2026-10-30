@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from pums_estimator.pums.crosswalk import load_crosswalk, pumas_for_county
 
 

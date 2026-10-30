@@ -16,9 +16,9 @@ history only).
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional, Sequence
 
 from census_forecaster.bls.projection import PROJ_DAMPING, project_forward_full
 
@@ -66,7 +66,7 @@ def _monthly_log_returns(bars: Sequence[MonthlyBar]) -> list[float]:
 
 def _monthly_vol(bars: Sequence[MonthlyBar],
                  window: int = _VOL_WINDOW,
-                 method: str = "rolling") -> Optional[float]:
+                 method: str = "rolling") -> float | None:
     """Monthly σ estimate: 'rolling' (trailing-window sample SD, the
     original default) or 'ewma' (RiskMetrics recursion, λ=0.97 —
     bake-off winner; see `_EWMA_LAMBDA`)."""
@@ -101,7 +101,7 @@ def forecast_ticker(
     target_date: date,
     *,
     phi: float = PROJ_DAMPING,
-    band_multiplier: Optional[float] = None,
+    band_multiplier: float | None = None,
     vol_method: str = "rolling",
 ) -> TickerForecast:
     """Damped-drift point forecast + empirical-vol 90% band.
@@ -141,7 +141,7 @@ def calibrate_band_multiplier(
     phi: float = PROJ_DAMPING,
     coverage: float = 0.90,
     vol_method: str = "rolling",
-) -> Optional[float]:
+) -> float | None:
     """Walk-forward empirical band multiplier hitting ``coverage``.
 
     For every pseudo-anchor ``t`` and horizon ``h``: forecast from

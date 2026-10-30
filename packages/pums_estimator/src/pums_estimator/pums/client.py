@@ -22,7 +22,6 @@ Variables commonly requested
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import requests
 
@@ -36,7 +35,7 @@ def fetch_pums(
     variables: list[str],
     year: int = 2022,
     vintage: str = "1",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: int = 60,
 ) -> list[PumsRecord]:
     """Fetch PUMS microdata records for a state.
@@ -132,7 +131,7 @@ def fetch_pums_with_replicates(
     variables: list[str],
     year: int = 2022,
     vintage: str = "1",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     timeout: int = 120,
     weight_type: str = "housing",
 ) -> tuple[list[PumsRecord], list[list[float]]]:
@@ -257,7 +256,7 @@ def fetch_pums_with_replicates(
     return records, replicate_matrix
 
 
-def _safe_float(val: Optional[str], default: float = 0.0) -> float:
+def _safe_float(val: str | None, default: float = 0.0) -> float:
     if val is None:
         return default
     try:

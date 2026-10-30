@@ -17,10 +17,10 @@ Filing status shares derived from DOTAX $400k+ data:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
 import logging
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ HIGH_INCOME_STATUS_SHARES = {
 }
 
 # Income tiers with Pareto-derived boundaries
-INCOME_TIERS: List[Tuple[float, float]] = [
+INCOME_TIERS: list[tuple[float, float]] = [
     (1_000_000, 2_000_000),
     (2_000_000, 5_000_000),
     (5_000_000, 10_000_000),
@@ -47,7 +47,7 @@ INCOME_TIERS: List[Tuple[float, float]] = [
 # DOTAX Table 21: $400K+ residents have 20.9% CG share (residents)
 # National IRS SOI 2022: $5M–$10M = 31.6%; $10M+ = 47%; $25M+ = 49.4%; $50M+ = 51.7%
 # Hawaii adjustment: 95% of national (Hawaii skews toward wage/investment over capital gains)
-SYNTHETIC_CG_SHARES: Dict[Tuple[float, float], float] = {
+SYNTHETIC_CG_SHARES: dict[tuple[float, float], float] = {
     (1_000_000, 2_000_000):      0.209,  # DOTAX Table 21 $400K+ baseline
     (2_000_000, 5_000_000):      0.250,  # Graduated: between $1M baseline and $5M tier
     (5_000_000, 10_000_000):     0.300,  # National: 31.6% × 95% ≈ 30%
@@ -116,7 +116,7 @@ class UltraHighIncomeSynthesizerV2:
         self.pareto_alpha = pareto_alpha
         self.total_1m_filers = total_1m_filers
 
-    def _derive_tier_specs(self) -> List[Dict]:
+    def _derive_tier_specs(self) -> list[dict]:
         """Derive filer counts and representative AGIs per tier from Pareto."""
         specs = []
         alpha = self.pareto_alpha
@@ -167,7 +167,7 @@ class UltraHighIncomeSynthesizerV2:
         current_filers = df.loc[mask_1m, 'weight'].sum()
         current_tax_m = (df.loc[mask_1m, 'hi_state_tax'] * df.loc[mask_1m, 'weight']).sum() / 1e6
 
-        logger.info(f"Current $1M+ bracket:")
+        logger.info("Current $1M+ bracket:")
         logger.info(f"  Filers: {current_filers:,.0f}")
         logger.info(f"  Tax: ${current_tax_m:,.1f}M")
         logger.info("")

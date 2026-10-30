@@ -9,33 +9,33 @@ parallel execution, and memory efficiency.
 from __future__ import annotations
 
 import logging
-import time
-import os
 import multiprocessing as mp
-from typing import Dict, List, Optional, Tuple, Union, Any, Generator, Set
+import time
+from typing import Any
+
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 
-# Import modular components
-from .status import is_married_filing_jointly, is_married_filing_separately, is_head_of_household
-from .income import calculate_persons_income, extract_person_income_components
 from .dependencies import identify_dependents
-from .utils import setup_logging, validate_input_data, create_person_id
 from .fixes import apply_overcounting_fixes
+from .income import calculate_persons_income, extract_person_income_components
+
+# Import modular components
+from .status import is_head_of_household
+from .utils import create_person_id, setup_logging, validate_input_data
 
 # Import base validation components
 from .validation import (
-    TaxUnitValidator, 
-    ValidationIssue, 
-    ValidationSeverity,
     MLTaxUnitValidator,
-    ML_VALIDATOR_AVAILABLE
+    TaxUnitValidator,
 )
 
 # Import IRS-based methods
 try:
-    from tax_modeler.units.status.irs_based import should_file_jointly_irs_method, calibrate_to_soi_totals
+    from tax_modeler.units.status.irs_based import (
+        calibrate_to_soi_totals,
+        should_file_jointly_irs_method,
+    )
 except ImportError:
     should_file_jointly_irs_method = None
     calibrate_to_soi_totals = None
@@ -67,8 +67,8 @@ class TaxUnitConstructor:
                  progress_bar: bool = True, ml_model_path: str = None,
                  use_soi_calibration: bool = True,
                  soi_calibration_method: str = 'filing_status',
-                 dotax_benchmarks: Optional[Dict] = None,
-                 irs_benchmarks: Optional[Dict] = None,
+                 dotax_benchmarks: dict | None = None,
+                 irs_benchmarks: dict | None = None,
                  include_replicate_weights: bool = True):
         """
         Initialize the TaxUnitConstructor.
@@ -174,7 +174,7 @@ class TaxUnitConstructor:
         # Restore the original index
         self.person_df.index = original_index
     
-    def _process_household_batch(self, batch: List[Tuple[str, pd.DataFrame]]) -> Tuple[List[dict], List[dict]]:
+    def _process_household_batch(self, batch: list[tuple[str, pd.DataFrame]]) -> tuple[list[dict], list[dict]]:
         """
         Process a batch of households.
         
@@ -240,7 +240,7 @@ class TaxUnitConstructor:
         
         return batch_units, batch_issues
     
-    def _create_batches(self, data: pd.DataFrame) -> List[List[Tuple[str, pd.DataFrame]]]:
+    def _create_batches(self, data: pd.DataFrame) -> list[list[tuple[str, pd.DataFrame]]]:
         """
         Split data into batches for parallel processing.
         
@@ -488,7 +488,7 @@ class TaxUnitConstructor:
         logger.info(f"Optimized DataFrame memory usage: {mem_before:.2f}MB -> {mem_after:.2f}MB "
                   f"({((mem_before - mem_after) / mem_before * 100):.1f}% reduction)")
     
-    def _log_validation_issues(self, issues: List[Dict[str, Any]]) -> None:
+    def _log_validation_issues(self, issues: list[dict[str, Any]]) -> None:
         """
         Log validation issues at appropriate severity levels.
         
@@ -549,7 +549,7 @@ class TaxUnitConstructor:
         except KeyError:
             raise IndexError(f"household {hh_id} not in hh_df") from None
 
-    def _process_household(self, hh_group: pd.DataFrame) -> List[dict]:
+    def _process_household(self, hh_group: pd.DataFrame) -> list[dict]:
         """
         Process a single household and return a list of tax units using vectorized operations.
         
@@ -844,7 +844,7 @@ class TaxUnitConstructor:
         
         return tax_units
     
-    def _identify_joint_filers(self, adults: pd.DataFrame, hh_members: pd.DataFrame) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    def _identify_joint_filers(self, adults: pd.DataFrame, hh_members: pd.DataFrame) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
         """
         Identify potential joint filers and married filing separately couples within a household.
         
@@ -1191,7 +1191,7 @@ class TaxUnitConstructor:
 
     def _create_joint_filer(self, adult1: pd.Series, adult2: pd.Series, 
                            hh_members: pd.DataFrame, hh_data: pd.Series, 
-                           available_deps: List[str] = None) -> Optional[dict]:
+                           available_deps: list[str] = None) -> dict | None:
         """
         Create a tax unit for a joint filer.
         
@@ -1305,7 +1305,7 @@ class TaxUnitConstructor:
 
         return total_income
         
-    def _calculate_hybrid_weight(self, hh_weight: float, person_weights: List[float], 
+    def _calculate_hybrid_weight(self, hh_weight: float, person_weights: list[float], 
                                filing_status: str) -> float:
         """
         Calculate hybrid weight using person weights only (not household weight).
@@ -1359,7 +1359,7 @@ class TaxUnitConstructor:
         primary_person: pd.Series,
         filing_status: str,
         n_members: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Per-replicate tax-unit weight dict, mirroring _calculate_hybrid_weight.
 
         For each of WGTP1..WGTP80, compute the same hybrid-weight formula
@@ -1405,7 +1405,7 @@ class TaxUnitConstructor:
         # the per-person weight; 0 or ≥2 members use the household weight.
         use_person_weight = n_members == 1
 
-        out: Dict[str, float] = {}
+        out: dict[str, float] = {}
         for r_idx, wgtp_col in enumerate(self._wgtp_replicate_cols, start=1):
             hh_w_r = float(hh_data.get(wgtp_col, 1.0))
             if use_person_weight:
@@ -1467,7 +1467,7 @@ class TaxUnitConstructor:
         return False
 
     @staticmethod
-    def _build_dependent_details(dep_ids: List[str], hh_members: pd.DataFrame) -> List[dict]:
+    def _build_dependent_details(dep_ids: list[str], hh_members: pd.DataFrame) -> list[dict]:
         """Build per-dependent records (real age/relationship/citizenship/etc.).
 
         Credit code (EITC ``_count_qualifying_children_eitc`` and CTC
@@ -1484,7 +1484,7 @@ class TaxUnitConstructor:
             except (TypeError, ValueError):
                 return default
 
-        details: List[dict] = []
+        details: list[dict] = []
         for dep_id in dep_ids:
             dep_id_str = str(dep_id)
             if dep_id_str not in hh_members.index:
@@ -1512,8 +1512,8 @@ class TaxUnitConstructor:
         return details
 
     def _create_single_filer(self, adult: pd.Series, hh_members: pd.DataFrame,
-                           hh_data: pd.Series, available_deps: List[str] = None,
-                           filing_status: str = None) -> Optional[dict]:
+                           hh_data: pd.Series, available_deps: list[str] = None,
+                           filing_status: str = None) -> dict | None:
         """
         Create a tax unit for a single filer.
         

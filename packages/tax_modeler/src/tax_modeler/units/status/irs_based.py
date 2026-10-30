@@ -10,13 +10,14 @@ If the config file is missing, hardcoded fallbacks matching the original SOI val
 
 from __future__ import annotations
 
-import json
-import random
 import hashlib
+import json
 import logging
+import random
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
-from typing import Optional, Dict, Any, List, Tuple, Set
 
 from tax_modeler.units.relshipp_codes import PARENT, PARENT_IN_LAW
 
@@ -69,7 +70,7 @@ def _load_fs_params(config_path: Path = _CONFIG_PATH) -> dict:
     return _FS_PARAMS
 
 
-def income_based_joint_probability(adult1: Dict[str, Any], adult2: Optional[Dict[str, Any]] = None) -> float:
+def income_based_joint_probability(adult1: dict[str, Any], adult2: dict[str, Any] | None = None) -> float:
     """
     Determine joint filing probability based on income patterns from IRS SOI data.
 
@@ -120,7 +121,7 @@ def income_based_joint_probability(adult1: Dict[str, Any], adult2: Optional[Dict
     return 0.75
 
 
-def get_marital_duration_factor(adult1: Dict[str, Any], adult2: Optional[Dict[str, Any]] = None, current_year: int = 2023) -> float:
+def get_marital_duration_factor(adult1: dict[str, Any], adult2: dict[str, Any] | None = None, current_year: int = 2023) -> float:
     """
     Calculate joint filing probability factor based on likely duration of marriage using age as proxy.
     
@@ -152,7 +153,7 @@ def get_marital_duration_factor(adult1: Dict[str, Any], adult2: Optional[Dict[st
     return 0.75
 
 
-def dependent_based_rules(household: List[Dict[str, Any]], adult1: Dict[str, Any], adult2: Optional[Dict[str, Any]] = None) -> Optional[float]:
+def dependent_based_rules(household: list[dict[str, Any]], adult1: dict[str, Any], adult2: dict[str, Any] | None = None) -> float | None:
     """
     Apply IRS-observed patterns related to dependents.
     
@@ -213,8 +214,8 @@ def hawaii_specific_adjustment(base_probability: float) -> float:
     return adjusted
 
 
-def should_file_jointly_irs_method(adult1: Dict[str, Any], adult2: Optional[Dict[str, Any]], 
-                                  household: List[Dict[str, Any]], use_stable_random: bool = True) -> bool:
+def should_file_jointly_irs_method(adult1: dict[str, Any], adult2: dict[str, Any] | None, 
+                                  household: list[dict[str, Any]], use_stable_random: bool = True) -> bool:
     """
     Final determination using IRS-recommended approach combining all factors.
     
@@ -268,7 +269,7 @@ def should_file_jointly_irs_method(adult1: Dict[str, Any], adult2: Optional[Dict
 
 
 def calibrate_to_soi_totals(tax_units: pd.DataFrame, 
-                           target_distributions: Optional[Dict[str, float]] = None,
+                           target_distributions: dict[str, float] | None = None,
                            weight_col: str = 'weight') -> pd.DataFrame:
     """
     Adjust filing status distribution to match SOI targets using weighted post-processing calibration.
@@ -285,7 +286,6 @@ def calibrate_to_soi_totals(tax_units: pd.DataFrame,
     Returns:
         pd.DataFrame: Calibrated tax units with 'calibrated' flag
     """
-    import pandas as pd
     
     # Default to Hawaii DOTAX 2022 benchmarks
     if target_distributions is None:
@@ -314,7 +314,7 @@ def calibrate_to_soi_totals(tax_units: pd.DataFrame,
     logger.info("SOI CALIBRATION - Adjusting Filing Status Distribution")
     logger.info("="*80)
     logger.info(f"\nTotal weighted tax units: {total_weight:,.0f}")
-    logger.info(f"\nCurrent vs Target Distribution:")
+    logger.info("\nCurrent vs Target Distribution:")
     logger.info(f"{'Status':<30} {'Current':>10} {'Target':>10} {'Gap':>10}")
     logger.info("-"*80)
     
@@ -441,7 +441,7 @@ def calibrate_to_soi_totals(tax_units: pd.DataFrame,
     logger.info("\n" + "="*80)
     logger.info("CALIBRATION COMPLETE")
     logger.info("="*80)
-    logger.info(f"\nFinal Distribution:")
+    logger.info("\nFinal Distribution:")
     logger.info(f"{'Status':<30} {'Current':>10} {'Target':>10} {'Gap':>10}")
     logger.info("-"*80)
     
@@ -483,7 +483,7 @@ def _convert_to_status(df: pd.DataFrame, from_status: str, to_status: str,
     candidates.loc[~candidates['agi_band'].isin(labels), 'agi_band'] = 'mid'
 
     converted_weight = 0.0
-    converted_indices: Set[int] = set()
+    converted_indices: set[int] = set()
     remaining = target_weight
 
     for band in band_order:
@@ -530,10 +530,10 @@ def _convert_to_status(df: pd.DataFrame, from_status: str, to_status: str,
 
 
 def _apply_conversions(df: pd.DataFrame, candidates: pd.DataFrame, target_weight: float,
-                       to_status: str, weight_col: str) -> Tuple[pd.DataFrame, float, List[int]]:
+                       to_status: str, weight_col: str) -> tuple[pd.DataFrame, float, list[int]]:
     """Apply conversions for a set of candidates with fractional splitting."""
     converted_weight = 0.0
-    converted_indices: List[int] = []
+    converted_indices: list[int] = []
 
     if target_weight <= 0 or candidates.empty:
         return df, converted_weight, converted_indices
@@ -618,7 +618,7 @@ def adjust_high_income_statuses(df: pd.DataFrame, weight_col: str = 'weight',
     
     # Current distribution in high-income segment
     hi_dist = high_income_units.groupby('filing_status')[weight_col].sum()
-    logger.info(f"\nHigh-income filing status distribution:")
+    logger.info("\nHigh-income filing status distribution:")
     for status, weight in hi_dist.items():
         pct = weight / hi_dist.sum() * 100
         logger.info(f"  {status}: {weight:,.0f} ({pct:.1f}%)")
@@ -632,7 +632,7 @@ def adjust_high_income_statuses(df: pd.DataFrame, weight_col: str = 'weight',
         high_income_units['filing_status'] == 'single'
     ].sort_values('agi', ascending=False)  # Start with highest AGI single filers
     
-    logger.info(f"\nConversion candidates:")
+    logger.info("\nConversion candidates:")
     logger.info(f"  Joint filers available: {len(joint_candidates):,} ({joint_candidates[weight_col].sum():,.0f} weighted)")
     logger.info(f"  Single filers available: {len(single_candidates):,} ({single_candidates[weight_col].sum():,.0f} weighted)")
     
@@ -684,16 +684,16 @@ def adjust_high_income_statuses(df: pd.DataFrame, weight_col: str = 'weight',
                 result_df = pd.concat([result_df, pd.DataFrame([new_record])], ignore_index=True)
                 converted_weight += take_weight
     
-    logger.info(f"\nConversion completed:")
+    logger.info("\nConversion completed:")
     logger.info(f"  Units converted: {len(converted_indices):,}")
     logger.info(f"  Weight converted: {converted_weight:,.0f}")
-    logger.info(f"  Conversion: married_filing_jointly → married_filing_separately")
+    logger.info("  Conversion: married_filing_jointly → married_filing_separately")
     
     # Final distribution check
     final_dist = result_df.groupby('filing_status')[weight_col].sum()
     total_adjusted = result_df[result_df['high_income_adjusted']][weight_col].sum()
     
-    logger.info(f"\nFinal adjustment summary:")
+    logger.info("\nFinal adjustment summary:")
     logger.info(f"  Total adjusted weight: {total_adjusted:,.0f} ({total_adjusted/result_df[weight_col].sum()*100:.2f}% of total)")
     logger.info(f"  New MFS share: {final_dist.get('married_filing_separately', 0)/final_dist.sum()*100:.1f}%")
     

@@ -8,7 +8,6 @@ import subprocess
 
 import pandas as pd
 import pytest
-
 from tax_modeler.artifacts import (
     ARTIFACT_VERSION,
     _git_sha,

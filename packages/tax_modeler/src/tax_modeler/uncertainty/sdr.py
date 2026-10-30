@@ -32,7 +32,6 @@ it is not over-interpreted as total uncertainty.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -74,7 +73,7 @@ class SDREstimate:
         }
 
 
-def _resolve_factor(factor: Optional[float], n_replicates: int) -> float:
+def _resolve_factor(factor: float | None, n_replicates: int) -> float:
     """SDR scale factor, defaulting to ``4 / R`` for the supplied replicate count."""
     if n_replicates <= 0:
         raise ValueError("need at least one replicate estimate")
@@ -82,7 +81,7 @@ def _resolve_factor(factor: Optional[float], n_replicates: int) -> float:
 
 
 def sdr_variance(
-    point: float, replicate_estimates: ArrayLike, *, factor: Optional[float] = None
+    point: float, replicate_estimates: ArrayLike, *, factor: float | None = None
 ) -> float:
     """SDR sampling variance of an estimate given its replicate estimates.
 
@@ -98,7 +97,7 @@ def sdr_variance(
 
 
 def sdr_se(
-    point: float, replicate_estimates: ArrayLike, *, factor: Optional[float] = None
+    point: float, replicate_estimates: ArrayLike, *, factor: float | None = None
 ) -> float:
     """SDR sampling standard error (square root of :func:`sdr_variance`)."""
     return float(np.sqrt(sdr_variance(point, replicate_estimates, factor=factor)))
@@ -108,7 +107,7 @@ def summarize(
     point: float,
     replicate_estimates: ArrayLike,
     *,
-    factor: Optional[float] = None,
+    factor: float | None = None,
     z: float = Z_90,
 ) -> SDREstimate:
     """Bundle a point estimate + replicate estimates into an :class:`SDREstimate`."""
@@ -172,7 +171,7 @@ def estimate_total(
     values: ArrayLike,
     weight_matrix: ArrayLike,
     *,
-    factor: Optional[float] = None,
+    factor: float | None = None,
     z: float = Z_90,
 ) -> SDREstimate:
     """SDR estimate of a weighted total over an ``(n_units, 1 + R)`` weight matrix."""
@@ -185,7 +184,7 @@ def estimate_ratio(
     denominator: ArrayLike,
     weight_matrix: ArrayLike,
     *,
-    factor: Optional[float] = None,
+    factor: float | None = None,
     z: float = Z_90,
 ) -> SDREstimate:
     """SDR estimate of a weighted ratio over an ``(n_units, 1 + R)`` weight matrix."""

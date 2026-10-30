@@ -10,7 +10,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from tax_modeler.config.tax_system_config import TaxSystemRegistry
 from tax_modeler.scenarios.registry import (
     OVERLAY_MODES,

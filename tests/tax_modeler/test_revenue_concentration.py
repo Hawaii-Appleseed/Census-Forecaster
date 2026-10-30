@@ -25,21 +25,18 @@ from __future__ import annotations
 import math
 
 import pytest
-
+from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
 from tax_modeler.projection.revenue_concentration import (
+    _TOP_QUINTILE_BRACKET_START,
     DOTAX_2022_BRACKETS,
     DOTAX_2022_MEDIAN_INCOME,
     TOP_QUINTILE_REVENUE_SHARE_2022,
-    _TOP_QUINTILE_BRACKET_START,
-    BracketEntry,
     concentration_marginal_fn,
     concentration_multiplier,
     expected_revenue_per_filer,
     make_concentration_adjusted_fn,
     top_quintile_revenue_fraction,
 )
-from tax_modeler.projection.hawaii_tax_real import hawaii_tax_weighted
-
 
 # ---------------------------------------------------------------------------
 # 1. Bracket data validation
@@ -468,8 +465,8 @@ class TestRevenueBacktestIntegration:
 
     def test_concentration_fn_as_tax_fn_in_backtest(self, panel_growing):
         """make_concentration_adjusted_fn() works as a drop-in tax_fn."""
-        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
         from tax_modeler.projection.hawaii_tax_real import hawaii_marginal_weighted
+        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
 
         conc_fn = make_concentration_adjusted_fn()
         summaries = run_revenue_backtest(
@@ -487,8 +484,8 @@ class TestRevenueBacktestIntegration:
 
     def test_concentration_mape_reasonable(self, panel_growing):
         """Revenue MAPE with concentration model < 20% on growing series."""
-        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
         from tax_modeler.projection.hawaii_tax_real import hawaii_marginal_weighted
+        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
 
         conc_fn = make_concentration_adjusted_fn()
         summaries = run_revenue_backtest(
@@ -506,8 +503,8 @@ class TestRevenueBacktestIntegration:
 
     def test_ensemble_beats_carry_forward_with_concentration_fn(self, panel_growing):
         """Core ship gate: ensemble MAPE < carry_forward MAPE with concentration model."""
-        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
         from tax_modeler.projection.hawaii_tax_real import hawaii_marginal_weighted
+        from tax_modeler.projection.revenue_backtest import run_revenue_backtest
 
         conc_fn = make_concentration_adjusted_fn()
         summaries = run_revenue_backtest(

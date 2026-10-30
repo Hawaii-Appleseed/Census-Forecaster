@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
 from tax_modeler.errors import DataValidationError
 from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
 

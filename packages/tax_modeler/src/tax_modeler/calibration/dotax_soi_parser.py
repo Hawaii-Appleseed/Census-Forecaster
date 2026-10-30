@@ -14,12 +14,12 @@ for accurate Hawaii tax modeling.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, Tuple, Optional
 import logging
 import re
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -298,7 +298,7 @@ class DOTAXSOIParser:
         logger.info(f"Parsed nonresident data: {len(result_df)} AGI brackets")
         return result_df
     
-    def get_resident_totals(self) -> Dict[str, float]:
+    def get_resident_totals(self) -> dict[str, float]:
         """
         Get total resident statistics from Table 5A.
         
@@ -321,7 +321,7 @@ class DOTAXSOIParser:
             'total_tax_after': float(total_row['tax_after_credits'])
         }
     
-    def get_nonresident_totals(self) -> Dict[str, float]:
+    def get_nonresident_totals(self) -> dict[str, float]:
         """
         Get total nonresident statistics from Table 17A.
         
@@ -347,7 +347,7 @@ class DOTAXSOIParser:
             'avg_tax_after': float(str(total_row.iloc[10]).replace('$', '').replace(',', ''))
         }
     
-    def get_combined_totals(self) -> Dict[str, float]:
+    def get_combined_totals(self) -> dict[str, float]:
         """
         Get combined resident + nonresident totals.
         

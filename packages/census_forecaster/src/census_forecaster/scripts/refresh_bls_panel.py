@@ -39,16 +39,17 @@ import json
 import os
 import sys
 import time
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Optional, Sequence
 
 from ..bls.client import fetch_cpi_data
 from ..bls.panel import (
-    BLS_PANEL_AREAS, BLS_PANEL_SERIES, all_panel_series_ids,
+    BLS_PANEL_AREAS,
+    BLS_PANEL_SERIES,
+    all_panel_series_ids,
     parse_series_id,
 )
-
 
 # BLS API limits per request:
 #   - Up to 50 series IDs
@@ -67,7 +68,7 @@ def fetch_full_panel(
     api_key: str,
     start_year: int,
     end_year: int,
-    series_ids: Optional[Sequence[str]] = None,
+    series_ids: Sequence[str] | None = None,
     verbose: bool = True,
 ) -> dict[str, list[dict]]:
     """Batch-fetch the full panel, splitting by series count and year span."""
@@ -187,7 +188,7 @@ def write_panel_files(
     _atomic_write_json(panel_dir / "manifest.json", manifest)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch the multi-MSA BLS CPI panel and write to bundled disk.",
     )

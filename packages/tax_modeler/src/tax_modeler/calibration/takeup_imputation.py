@@ -33,7 +33,6 @@ the assumption is that policy changes shift eligibility, but the
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -62,12 +61,12 @@ def impute_takeup(
     units: pd.DataFrame,
     *,
     target: CaseloadTarget,
-    eligibility_col: Optional[str] = None,
+    eligibility_col: str | None = None,
     benefit_col: str,
     score_col: str = "income",
     ascending: bool = True,
     weight_col: str = "weight",
-    out_col: Optional[str] = None,
+    out_col: str | None = None,
     tolerance: float = 0.05,
 ) -> pd.DataFrame:
     """Mark recipients up to the administrative target via rank-based imputation.
@@ -203,8 +202,8 @@ def impute_takeup_eitc_by_children(
     score_col: str = "eitc_amount",
     ascending: bool = False,
     weight_col: str = "weight",
-    out_col: Optional[str] = None,
-    distribution: Optional[dict[int, float]] = None,
+    out_col: str | None = None,
+    distribution: dict[int, float] | None = None,
 ) -> pd.DataFrame:
     """EITC take-up stratified by qualifying-child count.
 

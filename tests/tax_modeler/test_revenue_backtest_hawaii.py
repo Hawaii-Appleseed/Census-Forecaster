@@ -24,19 +24,16 @@ Test organisation
 from __future__ import annotations
 
 import math
-from unittest.mock import patch
 
 import pytest
-
 from tax_modeler.projection.revenue_backtest_hawaii import (
-    HawaiiBacktestResult,
     _DEFAULT_GEOID,
     _DEFAULT_HORIZONS,
+    HawaiiBacktestResult,
     _select_anchors,
     load_series_for_backtest,
     run_hawaii_revenue_backtest,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

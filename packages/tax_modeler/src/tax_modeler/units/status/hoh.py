@@ -8,16 +8,15 @@ Head of Household filing status.
 from __future__ import annotations
 
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union
 
 from tax_modeler.units.relshipp_codes import (
     EITC_QUALIFYING_CHILD_RELS,
-    QUALIFYING_RELATIVE_RELS,
     FOSTER_CHILD,
     GRANDCHILD,
     OWN_CHILD,
-    PARENT,
+    QUALIFYING_RELATIVE_RELS,
 )
+
 
 def is_head_of_household(
     person: pd.Series, 

@@ -21,14 +21,14 @@ import argparse
 import csv
 import math
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
 
 from .panel import PricesPanel, load_prices_panel
 from .universe import TICKERS
 
 
-def _pct(logret: Optional[float]) -> str:
+def _pct(logret: float | None) -> str:
     if logret is None:
         return "     —"
     return f"{(math.exp(logret) - 1) * 100:+6.1f}%"
@@ -179,7 +179,7 @@ def print_screen_summary(out=sys.stdout) -> int:
     return 0
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Market-signals tracker: per-ticker status from the "
                     "committed prices panel (offline).",

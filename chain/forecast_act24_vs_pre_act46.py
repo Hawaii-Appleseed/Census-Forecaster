@@ -77,11 +77,10 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
 
 import pandas as pd
-
-from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry, TaxSystemConfig
-from tax_modeler.scenarios.quintile_analysis import per_unit_tax
 from tax_modeler.calibration.cg_anchor import anchor_factors, apply_anchor_factors
+from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
 from tax_modeler.scenarios.act24_population import build_units, project_units, statute
+from tax_modeler.scenarios.quintile_analysis import per_unit_tax
 
 MID_ALPHA       = 1.5
 MID_TOP_PREMIUM = 0.010

@@ -25,8 +25,8 @@ import json
 import sys
 import time
 import urllib.request
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
 
 _DATA_DIR = Path(__file__).parent.parent / "data" / "leading_indicators"
 _OUT_FILE = _DATA_DIR / "bps_permits.json"
@@ -61,7 +61,7 @@ def _fetch_url(url: str, retries: int = 3, backoff: float = 2.0) -> bytes:
             req = urllib.request.Request(url, headers={"User-Agent": "census-forecaster/1.0"})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return resp.read()
-        except Exception as exc:
+        except Exception:
             if attempt == retries - 1:
                 raise
             time.sleep(backoff * (attempt + 1))
@@ -151,7 +151,7 @@ def fetch_bps_year(year: int, geoid_set: set[str]) -> dict[str, int]:
     return _parse_bps_csv(raw, geoid_set)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refresh county BPS permit counts from Census BPS CSVs.",
     )

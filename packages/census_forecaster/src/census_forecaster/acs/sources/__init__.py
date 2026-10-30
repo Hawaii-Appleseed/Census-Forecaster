@@ -37,11 +37,11 @@ References
 * FHFA HPI: https://fred.stlouisfed.org/series/HISTHPI
 """
 from .base import (
+    SOURCE_REGISTRY,
     AnchorSource,
     AnnualRate,
     available_sources,
     load_source,
-    SOURCE_REGISTRY,
 )
 
 __all__ = [

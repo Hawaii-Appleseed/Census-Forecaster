@@ -34,9 +34,9 @@ Reform DSL (``Reform.benefit_overrides["hi_food_excise"]``):
 from __future__ import annotations
 
 from bisect import bisect_right
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import cache
-from typing import Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -78,7 +78,7 @@ class HawaiiFoodExciseParameters:
     income_threshold_factor: float = 1.0
 
 
-def hawaii_food_excise_parameters(tax_year: Optional[int] = None) -> HawaiiFoodExciseParameters:
+def hawaii_food_excise_parameters(tax_year: int | None = None) -> HawaiiFoodExciseParameters:
     """Year-aware parameters: Act 163 for TY2023-2027, prior law otherwise.
 
     With ``tax_year`` omitted, returns the Act 163 schedule (law in effect
@@ -97,7 +97,7 @@ def _food_excise_parameters(tax_year: int | None) -> HawaiiFoodExciseParameters:
 
 
 def with_food_excise_overrides(
-    base: HawaiiFoodExciseParameters, overrides: Optional[Mapping[str, object]]
+    base: HawaiiFoodExciseParameters, overrides: Mapping[str, object] | None
 ) -> HawaiiFoodExciseParameters:
     if not overrides:
         return base
@@ -122,8 +122,8 @@ def food_excise_credit(
     agi: float,
     filing_status: str,
     n_exemptions: int,
-    tax_year: Optional[int] = None,
-    params: Optional[HawaiiFoodExciseParameters] = None,
+    tax_year: int | None = None,
+    params: HawaiiFoodExciseParameters | None = None,
 ) -> float:
     """Scalar §235-55.85 credit for one tax unit (the per-filer liability and
     legacy credit paths). ``n_exemptions`` = filer + spouse + dependents."""
@@ -144,9 +144,9 @@ def _schedule_lists(schedule: Schedule, factor: float) -> tuple[list[float], lis
 def compute_hi_food_excise_for_units(
     units: pd.DataFrame,
     *,
-    tax_year: Optional[int] = None,
-    params: Optional[HawaiiFoodExciseParameters] = None,
-    overrides: Optional[Mapping[str, object]] = None,
+    tax_year: int | None = None,
+    params: HawaiiFoodExciseParameters | None = None,
+    overrides: Mapping[str, object] | None = None,
     out_col: str = "hi_food_excise_amount",
 ) -> pd.DataFrame:
     """Compute the HI Food/Excise Tax Credit per tax unit.
