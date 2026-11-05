@@ -25,13 +25,16 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--full", action="store_true", help="print every measure, not the summary")
     ap.add_argument("--csv", type=Path, help="also write the full table here")
+    ap.add_argument("--no-irs-reweight", action="store_true",
+                    help="read the population without the IRS rake (the figures published before 2026-11-05)")
     args = ap.parse_args()
 
     import forecast_working_family_credits as wfc
     import pandas as pd
 
     units, _ = wfc.load_population()
-    table = wfc.population_agreement(units)
+    rake = None if args.no_irs_reweight or not wfc.IRS_REWEIGHT else wfc.irs_rake(units)
+    table = wfc.population_agreement(units, rake=rake)
     if table is None:
         return 1
     if args.full:
