@@ -1,11 +1,11 @@
 check,model,dotax
-"take-up factor, EITC",0.98085506233167,
-"take-up factor, food/excise",0.7454582614486249,
+"take-up factor, EITC",0.978403824784312,
+"take-up factor, food/excise",0.7320735874387971,
 TY2024 EITC $M (fit),76.981028,76.981028
-TY2024 EITC claims,82671.68186557869,78399.0
-TY2023 EITC $M (out of sample),73.71985646633227,77.054
-TY2023 EITC claims (out of sample),82824.34246796842,84470.0
-TY2023 food/excise $M (fit),63.957,63.957
-TY2023 food/excise claims,249579.68090942246,249806.0
-"TY2022 food/excise $M, prior table (out of sample)",24.489954137792576,24.961
-"TY2022 food/excise claims, prior table",205246.26490149036,208786.0
+TY2024 EITC claims,82587.40657621414,78399.0
+TY2023 EITC $M (out of sample),73.75817983602408,77.054
+TY2023 EITC claims (out of sample),82466.0406714549,84470.0
+TY2023 food/excise $M (fit),63.956999999999994,63.957
+TY2023 food/excise claims,248280.1049088639,249806.0
+"TY2022 food/excise $M, prior table (out of sample)",24.622970678025826,24.961
+"TY2022 food/excise claims, prior table",206006.46480679713,208786.0
