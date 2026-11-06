@@ -1262,7 +1262,7 @@ EITC eligibility, and both with the Department of Taxation's and the IRS's Hawai
 (returns, wages, average wage by AGI class); the findings and the result of a trial reweight (not adopted) are in
 `SB3125_CD1_FORECAST.md` under "Poverty population and the revenue base" (October 30, 2026).
 
-Since November 5, 2026 the working-family credits step fits the poverty population's tax-unit weights (not the Census household or person weights) to the IRS's Hawaiʻi returns in the seven AGI classes from $1 to $500,000, household by household (`tax_modeler.calibration.irs_household_rake`), with each of the 80 replicates fitted on its own; `--no-irs-reweight` gives the previous figures (`SB3125_CD1_FORECAST.md`, "Poverty population fitted to IRS returns").
+Since November 5, 2026 the working-family credits step fits the poverty population's tax-unit weights (not the Census household or person weights) to the IRS's Hawaiʻi returns in the seven AGI classes from $1 to $500,000, household by household (`tax_modeler.calibration.irs_household_rake`), with each of the 80 replicates fitted on its own; `--no-irs-reweight` gives the previous figures (`SB3125_CD1_FORECAST.md`, "Poverty population fitted to IRS returns"). Its margins of error give each tax unit its own replicate ratio from the population as built, PWGTP_r / PWGTP for a one-person unit and WGTP_r / WGTP otherwise, carried through ageing and every reweight (`unit_replicate_ratios`; "Replicate weights for one-person tax units").
 
 **CLI:** pass `--replicate-weights` (and optionally `--n-replicates N`)
 to `scripts/poverty_impact_report.py`. The flag is OFF by default
