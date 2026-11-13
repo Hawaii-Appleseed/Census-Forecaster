@@ -28,17 +28,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10
         with:
-          version: "latest"
+          version: "0.11.8"   # pinned: "latest" let a uv release change installs under us
           enable-cache: true
 
       - name: Install workspace (dev only, smoke fixture has no external deps)
@@ -54,7 +54,7 @@ jobs:
       # fixtures and the population the page loads, both committed
       # (tests/simulator/, site/data/tax-simulator/). No npm packages.
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -71,17 +71,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10
         with:
-          version: "latest"
+          version: "0.11.8"   # pinned: "latest" let a uv release change installs under us
           enable-cache: true
 
       - name: Install workspace (all packages + dev + ml)

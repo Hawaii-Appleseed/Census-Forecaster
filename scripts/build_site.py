@@ -7,7 +7,9 @@ Usage:
 Two steps, on purpose. Model runs write to runs/ (gitignored, and the capital
 gains run alone takes ~25 minutes against a local tax-unit cache), so CI can
 never reproduce them. `--import-runs` copies a run's outputs into site/data/,
-where they are committed and reviewed like code. Every page is then rendered
+where they are committed and reviewed like code; it refuses a run whose
+manifest cites uncommitted code or a commit the model code has changed since
+(`stale_run`; `--allow-stale-runs` overrides). Every page is then rendered
 from those committed copies only, so the numbers in the prose, the charts, and
 the downloadable CSVs cannot disagree, and `tests/test_site_build.py` can check
 that the committed HTML is exactly what the committed data produces.
@@ -141,12 +143,47 @@ TAX_SIMULATOR = Estimate(
 ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR)
 
 
-def import_runs(est: Estimate) -> None:
+# What a run's outputs depend on: a commit that changed none of these since the
+# run's own leaves it current (a docs-only commit does not force a rerun).
+RUN_CODE = ("packages", "chain", "scripts", "pyproject.toml", "uv.lock")
+
+
+def stale_run(manifest_path: Path) -> str | None:
+    """Why the run behind ``manifest_path`` does not match HEAD's code, or None.
+
+    ``runs/`` is gitignored and ``scripts/new_worktree.py`` copies the main
+    checkout's into every worktree, so a run from an older commit is always
+    there to be imported; the file existing says nothing about its age.
+    """
+    import subprocess
+
+    sha = json.loads(manifest_path.read_text()).get("git_sha") or "unknown"
+    if sha.endswith("-dirty"):
+        return f"made from uncommitted code ({sha})"
+
+    def git(*args: str) -> int:
+        return subprocess.run(["git", *args], cwd=REPO, capture_output=True).returncode
+
+    if sha == "unknown" or git("cat-file", "-e", f"{sha}^{{commit}}"):
+        return f"made at commit {sha}, which this checkout does not have"
+    if git("diff", "--quiet", sha, "HEAD", "--", *RUN_CODE):
+        return f"made at {sha}; the model code has changed since"
+    return None
+
+
+def import_runs(est: Estimate, *, allow_stale: bool = False) -> None:
     runs = REPO / "runs"
     missing = [src for src in [*est.files.values(), *(s for _, s in est.extra)]
                if not (runs / src).exists()]
     if missing:
         raise SystemExit(f"runs/ is missing {missing}; run the model first.")
+    manifests = [src for src in [*est.files.values(), *est.optional.values()]
+                 if src.endswith("manifest.json") and (runs / src).exists()]
+    stale = [f"runs/{src}: {why}" for src in manifests if (why := stale_run(runs / src))]
+    if stale and not allow_stale:
+        raise SystemExit(f"not importing {est.slug}; its runs are stale:\n  " + "\n  ".join(stale)
+                         + "\nRerun the model (scripts/rerun_models.py), or pass "
+                           "--allow-stale-runs to import them anyway.")
     dst = DATA / est.slug
     dst.mkdir(parents=True, exist_ok=True)
     for name, src in est.files.items():
@@ -1776,11 +1813,13 @@ def main() -> None:
     ap.add_argument("--import-runs", nargs="*", metavar="SLUG",
                     help="copy fresh outputs from runs/ into site/data/ first "
                          f"(all estimates, or only the named ones: {', '.join(e.slug for e in ESTIMATES)})")
+    ap.add_argument("--allow-stale-runs", action="store_true",
+                    help="import runs made from older or uncommitted model code")
     args = ap.parse_args()
     if args.import_runs is not None:
         for est in ESTIMATES:
             if not args.import_runs or est.slug in args.import_runs:
-                import_runs(est)
+                import_runs(est, allow_stale=args.allow_stale_runs)
     for p in build():
         print(f"wrote {p.relative_to(REPO)}")
 
