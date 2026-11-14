@@ -1,6 +1,6 @@
 {
   "frequency": "annual",
-  "last_refresh": "2026-10",
+  "last_refresh": "2026-11",
   "limitations": [
     "Covers UI-covered employment only; excludes self-employed, federal civilian, and certain agricultural workers.",
     "State-level series; county-level QCEW exists (ENU15001*, ENU15003*, etc.) but is noisier on small-county wage means.",

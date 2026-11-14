@@ -1,6 +1,6 @@
 {
   "frequency": "annual",
-  "last_refresh": "2026-10",
+  "last_refresh": "2026-11",
   "limitations": [
     "State-level only; intra-state variation (Honolulu vs neighbor islands) is not captured.",
     "Per-capita metric uses all-state population denominator; excludes commuter income.",

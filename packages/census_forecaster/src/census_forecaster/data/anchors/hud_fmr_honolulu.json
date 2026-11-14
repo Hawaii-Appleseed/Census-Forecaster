@@ -1,6 +1,6 @@
 {
   "frequency": "annual (FY-aligned)",
-  "last_refresh": "2026-10",
+  "last_refresh": "2026-11",
   "limitations": [
     "FMRs are administrative: a percentile of recent-mover gross rents, not a direct rent estimate. HUD set Honolulu's at the 40th percentile in FY2010-FY2011 and from FY2018, and at the 50th in FY2012-FY2017, so the series has level shifts at those boundaries that are methodology, not rent.",
     "Lag: FMRs are built from ACS data a few years old plus HUD's trend adjustments, so their rate of change lags spot rent by 1-2 years.",
