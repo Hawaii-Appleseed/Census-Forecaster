@@ -50,20 +50,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Use a PAT or default GITHUB_TOKEN for the push later.
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10.3.3   # no moving major tag: setup-uv publishes exact versions only
         with:
-          version: "latest"
+          version: "0.11.8"   # pinned: "latest" let a uv release change installs under us
 
       - name: Install workspace packages
         # --extra dotax pulls openpyxl, which refresh_dotax_collections

@@ -384,3 +384,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nERROR: {e}", flush=True)
         traceback.print_exc()
+        sys.exit(1)   # without it a failed run exits 0 and rerun_models reports it ok

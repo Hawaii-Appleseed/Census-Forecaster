@@ -12,6 +12,8 @@ The order:
 1. Stages 1 and 2 of ``scripts/rerun_models.py`` (the Act 24 base, then the
    four scorers and the simulator population at once).
 2. ``build_site.py --import-runs act-24 working-family-credits capital-gains``.
+   It refuses a run made from model code other than HEAD's (``build_site.stale_run``),
+   so ``--skip-rerun`` cannot publish runs left over from an older commit.
 3. ``build_simulator_population.py --from-saved``. It runs here, after the
    import, and not as rerun_models' stage 3, because it checks itself against
    the capital-gains page's *published* CSVs (site/data/capital-gains/) and

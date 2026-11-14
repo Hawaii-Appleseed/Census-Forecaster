@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -76,10 +77,16 @@ def _wait_for_pages(sha: str) -> None:
     sys.exit(f"no Pages run appeared for {sha[:7]}")
 
 
-def _live(path: str, sha: str) -> bytes:
+def _live(path: str, sha: str) -> bytes | None:
+    """The live copy of ``path``, or None if it cannot be fetched (a 404 before the deploy
+    reaches the CDN, a timeout): the caller retries, and a raise would skip the clean-up."""
     url = LIVE + path.removeprefix("site/").removesuffix("index.html") + f"?v={sha[:7]}"
-    with urllib.request.urlopen(url, timeout=30) as r:   # ?v= skips the CDN's cached copy
-        return r.read()
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:   # ?v= skips the CDN's cached copy
+            return r.read()
+    except (urllib.error.URLError, TimeoutError) as exc:
+        print(f"  could not fetch {path}: {exc}", flush=True)
+        return None
 
 
 def _verify(paths: list[str], sha: str) -> bool:
@@ -96,8 +103,14 @@ def _verify(paths: list[str], sha: str) -> bool:
         else:
             print(f"  STALE {path}")
             ok = False
-    version = json.loads(_live("site/data/tax-simulator/population.json", sha))["web_format_version"]
-    kernel = re.search(rb"WEB_FORMAT_VERSION = (\d+)", _live("site/assets/simulator/kernel.js", sha))
+    population = _live("site/data/tax-simulator/population.json", sha)
+    kernel_js = _live("site/assets/simulator/kernel.js", sha)
+    if population is None or kernel_js is None:
+        print("  could not fetch the simulator population or kernel.js to compare formats")
+        print(f"live site does NOT match {sha[:7]}", flush=True)
+        return False
+    version = json.loads(population)["web_format_version"]
+    kernel = re.search(rb"WEB_FORMAT_VERSION = (\d+)", kernel_js)
     if not kernel or int(kernel.group(1)) != version:
         print(f"  simulator population is format {version}, kernel.js expects "
               f"{kernel and int(kernel.group(1))}")
