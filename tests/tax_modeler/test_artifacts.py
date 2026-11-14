@@ -65,6 +65,37 @@ def test_calibrated_base_round_trip(tmp_path, units_df):
     assert "created_at" in meta and "git_sha" in meta
 
 
+def test_unchanged_base_leaves_the_file_alone(tmp_path, units_df):
+    """The population store is keyed on the file's bytes: a rewrite of the same content
+    with a new created_at would discard every shared population."""
+    path = tmp_path / "base.pkl"
+    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023)
+    before = path.read_bytes()
+    save_calibrated_base(units_df.copy(), path, deduction_params=dict(_PARAMS), tax_year=2023)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("change", ["units", "params", "year", "meta"])
+def test_changed_base_is_rewritten(tmp_path, units_df, change):
+    path = tmp_path / "base.pkl"
+    save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023)
+    key = load_calibrated_base(path)[2]["content_key"]
+    units, params, year, meta = units_df, _PARAMS, 2023, None
+    if change == "units":
+        units = units_df.assign(weight=[10.0, 1.6])
+    elif change == "params":
+        params = dict(_PARAMS, salt_cap=40_000)
+    elif change == "year":
+        year = 2024
+    else:
+        meta = {"cd": "1"}
+    save_calibrated_base(units, path, deduction_params=params, tax_year=year, extra_meta=meta)
+    new_units, new_params, new_meta = load_calibrated_base(path)
+    assert new_meta["content_key"] != key
+    pd.testing.assert_frame_equal(new_units, units)
+    assert new_params == params and new_meta["tax_year"] == year
+
+
 def test_round_trip_with_expected_params_ok(tmp_path, units_df):
     path = tmp_path / "base.pkl"
     save_calibrated_base(units_df, path, deduction_params=_PARAMS, tax_year=2023)

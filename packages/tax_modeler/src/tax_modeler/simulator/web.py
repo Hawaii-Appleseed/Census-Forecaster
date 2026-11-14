@@ -114,7 +114,9 @@ def pack(arrays: dict[str, tuple[str, np.ndarray]]) -> tuple[bytes, list[dict]]:
 
 # When and from which commit a run was made: the metadata's provenance and the
 # credit table's source carry these, and no result depends on them.
-_STAMP_KEYS = frozenset({"created_at", "git_sha"})
+# content_key (artifacts.save_calibrated_base) is not a stamp, but it is a hash of
+# inputs the arrays already cover; counted, adding it moved every share link's version.
+_STAMP_KEYS = frozenset({"created_at", "git_sha", "content_key"})
 
 
 def _without_stamps(x):
