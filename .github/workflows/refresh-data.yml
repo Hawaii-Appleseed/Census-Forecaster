@@ -18,6 +18,15 @@ name: refresh-data
 # it must run before every step below that merges additively into that
 # same file (national-macro, EIA, HTA, DBEDT, UI-claims) — reversing the
 # order would silently drop whatever those steps last wrote.
+#
+# Each fetch and calibration step is continue-on-error: one source failing
+# (a layout change, a 429) keeps its committed data and no longer skips every
+# later step and the commit, which lost all of November 2026's refresh to a
+# DBEDT layout change. The commit message names the failed steps, and the
+# last step then fails the job so the alert issue still opens. A failed
+# refresh_market_panel writes nothing, so the merges after it still merge
+# into the committed macro_monthly.json. Install and the smoke gate are not
+# continue-on-error: without them nothing is worth committing.
 
 on:
   schedule:
@@ -66,6 +75,8 @@ jobs:
         run: uv sync --all-packages --extra dev --extra markets --extra dotax --extra cor
 
       - name: Refresh BLS multi-MSA panel
+        id: refresh-bls-multi-msa-panel
+        continue-on-error: true
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
@@ -77,6 +88,8 @@ jobs:
           fi
 
       - name: Refresh BEA anchors
+        id: refresh-bea-anchors
+        continue-on-error: true
         env:
           BEA_API_KEY: ${{ secrets.BEA_API_KEY }}
         run: |
@@ -87,6 +100,8 @@ jobs:
           fi
 
       - name: Refresh PCE, FHFA Hawaii HPI, QCEW Hawaii wage and HUD FMR anchors
+        id: refresh-pce-fhfa-hawaii-hpi
+        continue-on-error: true
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
@@ -101,6 +116,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_annual_anchors
 
       - name: Refresh Zillow + BLS LAUS county anchors
+        id: refresh-zillow-bls-laus-county
+        continue-on-error: true
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
@@ -116,11 +133,15 @@ jobs:
           fi
 
       - name: Refresh BPS county permit counts
+        id: refresh-bps-county-permit-counts
+        continue-on-error: true
         run: |
           # No API key required — Census BPS data is publicly available.
           uv run python -m census_forecaster.scripts.refresh_bps_permits
 
       - name: Refresh Census SAIPE county poverty rates
+        id: refresh-census-saipe-county-poverty
+        continue-on-error: true
         env:
           # Census now REQUIRES a key for this endpoint (a keyless request
           # returns an HTML "Missing Key" page). Set the CENSUS_API_KEY repo
@@ -130,6 +151,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_saipe
 
       - name: Refresh market prices panel + macro monthly series
+        id: refresh-market-prices-panel-macro
+        continue-on-error: true
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
@@ -143,6 +166,8 @@ jobs:
             --tolerate-failures --derive-signals
 
       - name: Refresh national-macro predictor series
+        id: refresh-national-macro-predictor-series
+        continue-on-error: true
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         run: |
@@ -155,6 +180,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_national_macro
 
       - name: Refresh EIA Hawaii electricity price
+        id: refresh-eia-hawaii-electricity-price
+        continue-on-error: true
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
@@ -169,6 +196,8 @@ jobs:
           fi
 
       - name: Refresh DBEDT monthly economic indicators
+        id: refresh-dbedt-monthly-economic-indicators
+        continue-on-error: true
         run: |
           # No API key required — DBEDT publishes keyless per-county
           # workbooks. Visitor arrivals (current month) + county building
@@ -178,6 +207,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_dbedt_mei
 
       - name: Refresh HTA historical visitor arrivals
+        id: refresh-hta-historical-visitor-arrivals
+        continue-on-error: true
         run: |
           # No API key required. Archival cross-check for DBEDT arrivals
           # above (1990-2024 backbone; the two agreed to within 0.0004%
@@ -189,6 +220,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_hta_visitors
 
       - name: Refresh DOL weekly UI initial claims
+        id: refresh-dol-weekly-ui-initial
+        continue-on-error: true
         run: |
           # No API key required — keyless all-states CSV (~13 MB). The
           # fastest-moving labour signal in the panel (~11-day lag at the
@@ -199,6 +232,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_ui_claims
 
       - name: Refresh Hawaii FRED + BTS indicators
+        id: refresh-hawaii-fred-bts-indicators
+        continue-on-error: true
         run: |
           # No API key required. HIPHCI (Philadelphia Fed Hawaii coincident
           # index) and HIBPPRIV (Hawaii permit UNIT counts) via keyless FRED
@@ -207,6 +242,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_hawaii_indicators
 
       - name: Refresh FEMA Hawaii disaster declarations
+        id: refresh-fema-hawaii-disaster-declarations
+        continue-on-error: true
         run: |
           # No API key required. NOT a predictor — a robustness control,
           # the same kind of thing exclude_2020 is. Writes its own file
@@ -215,6 +252,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_fema_disasters
 
       - name: Refresh Realtor.com Hawaii listing metrics
+        id: refresh-realtor-com-hawaii-listing
+        continue-on-error: true
         run: |
           # No API key required. County listing-side indicators (days on
           # market, price-cut share, pending ratio, active/new counts) —
@@ -227,6 +266,8 @@ jobs:
           uv run python -m census_forecaster.scripts.refresh_realtor_inventory
 
       - name: Refresh DOTAX monthly tax collections
+        id: refresh-dotax-monthly-tax-collections
+        continue-on-error: true
         run: |
           # No API key required (needs openpyxl — see the --extra dotax on
           # the install step above). Revenue ground truth for the model's
@@ -249,6 +290,7 @@ jobs:
 
       - name: Refresh Council on Revenues IIT projections
         id: cor
+        continue-on-error: true
         run: |
           # No API key required (needs pdfplumber — see the --extra cor on the
           # install step above). Scrapes the COR meeting page for the newest
@@ -306,6 +348,8 @@ jobs:
           Run: \$RUN_URL"
 
       - name: Regenerate BLS v3 calibration
+        id: regenerate-bls-v3-calibration
+        continue-on-error: true
         run: |
           # Only regenerate if the BLS panel exists. If neither key is
           # set, the calibration step would crash on a missing panel.
@@ -316,6 +360,8 @@ jobs:
           fi
 
       - name: Regenerate ACS v3 calibration
+        id: regenerate-acs-v3-calibration
+        continue-on-error: true
         run: |
           # Regenerate ACS calibration.json from the bundled multi-state panel.
           # The panel (acs_panel.json + county_population_2020.json) is committed
@@ -346,7 +392,11 @@ jobs:
         run: uv run pytest tests/census_forecaster -m smoke -v --tb=short
 
       - name: Commit + push if data changed
+        id: commit
+        env:
+          STEPS: ${{ toJSON(steps) }}
         run: |
+          FAILED=$(echo "$STEPS" | jq -r 'to_entries[] | select(.value.outcome == "failure") | .key' | paste -sd, - | sed 's/,/, /g')
           git config user.name 'census-forecaster-refresh-bot'
           git config user.email 'noreply@anthropic.com'
 
@@ -372,6 +422,9 @@ jobs:
           MSG="chore(data): monthly refresh ${REFRESH_DATE} [skip ci]
 
           Auto-refresh from monthly cron run.
+          ${FAILED:+
+          FAILED this run, so their committed data is unchanged: ${FAILED}
+          }
 
           - BLS multi-MSA panel re-fetched from the BLS public API
           - BEA anchors re-fetched from the BEA Regional API
@@ -392,6 +445,18 @@ jobs:
           Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
           git commit -m "$MSG"
           git push
+
+      - name: Fail if any refresh step failed
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: |
+          # The fetch steps are continue-on-error so the rest still commits;
+          # this turns any of them failing back into a failed run.
+          FAILED=$(echo "$STEPS" | jq -r 'to_entries[] | select(.value.outcome == "failure") | .key')
+          if [ -n "$FAILED" ]; then
+            echo "::error::refresh steps failed (their committed data was kept): $(echo $FAILED)"
+            exit 1
+          fi
 
       - name: Alert on failure
         if: failure()
