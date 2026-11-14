@@ -444,7 +444,16 @@ jobs:
 
           Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
           git commit -m "$MSG"
-          git push
+          # The job takes ~15 minutes; a merge to main in that window rejected
+          # the push (2026-11-13). The commit holds only data files, so replay
+          # it on the new main and retry. A conflict (someone committed the
+          # same data file) aborts the rebase and fails the step.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejected (attempt $attempt); rebasing onto origin/main"
+            git pull --rebase origin main || { git rebase --abort; exit 1; }
+          done
+          exit 1
 
       - name: Fail if any refresh step failed
         env:
