@@ -8,9 +8,10 @@ result in a file the first time a step computes it, and later calls with the
 same arguments load it.
 
 A store's key is the caller's fingerprint of the calibrated-base pickle and
-the model code (``common.fingerprint.fingerprint``). Step 1 rewrites that
-pickle on every run, so a store never outlives the run that filled it, and
-opening a store removes the directories of other keys.
+the code (``common.fingerprint.fingerprint``; the chain's key also covers
+``chain/`` and ``scripts/``). Step 1 leaves the pickle as it is when the base
+comes out the same, so a store carries over to the next run until one of
+those changes. Opening a store removes the directories of other keys.
 
 Only frames the store itself handed out are cached: :meth:`PopulationStore.base`
 loads the calibrated base, ``build_units`` / ``project_units`` (``store=``)

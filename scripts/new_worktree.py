@@ -53,6 +53,26 @@ def _copy_tree(main_tree: Path, rel: str, path: Path) -> None:
                            check=True)
 
 
+def _fill(main_tree: Path, path: Path) -> None:
+    """Steps 2-4 of the module docstring, in the new worktree."""
+    for rel in INPUTS:
+        if (main_tree / rel).is_dir():
+            _copy_tree(main_tree, rel, path)
+            print(f"copied {rel}/", flush=True)
+        else:
+            print(f"main checkout has no {rel}/; skipped", flush=True)
+
+    subprocess.run(["uv", "sync", "--all-packages", "--frozen", "--all-extras", "-q"],
+                   cwd=path, check=True)
+
+    where = subprocess.run([str(path / ".venv/bin/python"), "-c",
+                            "import tax_modeler; print(tax_modeler.__file__)"],
+                           cwd=path, check=True, capture_output=True, text=True).stdout.strip()
+    if not Path(where).resolve().is_relative_to(path):
+        sys.exit(f"the new venv imports tax_modeler from {where}, not the worktree")
+    print(f"venv ready: tax_modeler from {Path(where).relative_to(path)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -67,29 +87,20 @@ def main() -> int:
     if path.exists():
         sys.exit(f"{path} already exists")
 
+    if not shutil.which("uv"):
+        sys.exit("uv is not on PATH; install it first (the worktree needs its own venv)")
+
     _git("fetch", "-q", "origin", cwd=main_tree)
     _git("worktree", "add", "-q", "-b", args.branch, str(path), args.base, cwd=main_tree)
     print(f"worktree {path} on {args.branch} (from {args.base})", flush=True)
+    try:
+        _fill(main_tree, path)
+    except (subprocess.CalledProcessError, SystemExit, KeyboardInterrupt) as exc:
+        # Half-built, it would block the retry ("already exists") and hold the branch.
+        subprocess.run(["git", "worktree", "remove", "--force", str(path)], cwd=main_tree)
+        subprocess.run(["git", "branch", "-D", args.branch], cwd=main_tree, capture_output=True)
+        sys.exit(f"setting up the worktree failed ({exc}); removed it and branch {args.branch}")
 
-    for rel in INPUTS:
-        if (main_tree / rel).is_dir():
-            _copy_tree(main_tree, rel, path)
-            print(f"copied {rel}/", flush=True)
-        else:
-            print(f"main checkout has no {rel}/; skipped", flush=True)
-
-    if not shutil.which("uv"):
-        sys.exit("uv is not on PATH; install it, then run "
-                 "`uv sync --all-packages --frozen --all-extras` in the worktree")
-    subprocess.run(["uv", "sync", "--all-packages", "--frozen", "--all-extras", "-q"],
-                   cwd=path, check=True)
-
-    where = subprocess.run([str(path / ".venv/bin/python"), "-c",
-                            "import tax_modeler; print(tax_modeler.__file__)"],
-                           cwd=path, check=True, capture_output=True, text=True).stdout.strip()
-    if not Path(where).resolve().is_relative_to(path):
-        sys.exit(f"the new venv imports tax_modeler from {where}, not the worktree")
-    print(f"venv ready: tax_modeler from {Path(where).relative_to(path)}")
     print(f"\ncd {path}")
     return 0
 

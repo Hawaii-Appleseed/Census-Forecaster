@@ -1,6 +1,6 @@
 {
   "frequency": "annual",
-  "last_refresh": "2026-10",
+  "last_refresh": "2026-11",
   "limitations": [
     "National-level price index; Hawaii cost-of-living deviates persistently above the national average so the *level* differs from Honolulu CPI but YoY rates are tightly correlated.",
     "PCE deflator weights expenditure shares differently from CPI (chain-weighted Fisher index, broader scope including imputed services).",

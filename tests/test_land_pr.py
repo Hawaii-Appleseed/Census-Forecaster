@@ -38,3 +38,17 @@ def test_the_pr_view_no_longer_asks_for_the_capped_file_list(monkeypatch):
     monkeypatch.setattr(land_pr, "_run", _fake_run('{"state": "OPEN", "headRefName": "b", "mergeCommit": null}', calls))
     land_pr._pr(5)
     assert "files" not in calls[0][-1].split(",")
+
+
+def test_a_failed_live_fetch_is_retried_not_raised(monkeypatch):
+    """A 404 or timeout from the CDN before the deploy reaches it used to raise out of the
+    retry loop, before the clean-up ran."""
+    import urllib.error
+
+    def fail(*a, **k):
+        raise urllib.error.URLError("timed out")
+
+    monkeypatch.setattr(land_pr.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(land_pr.time, "sleep", lambda s: None)
+    assert land_pr._live("site/index.html", "abcdef1") is None
+    assert land_pr._verify([], "abcdef1") is False

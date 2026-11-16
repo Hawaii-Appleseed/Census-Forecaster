@@ -1,6 +1,6 @@
 {
   "frequency": "quarterly (annual mean of Q1-Q4, complete years only)",
-  "last_refresh": "2026-10",
+  "last_refresh": "2026-11",
   "limitations": [
     "Repeat-sales index; new construction is excluded by construction.",
     "State-level only; intra-state divergence (Honolulu vs Maui vs Big Island) is not captured.",
