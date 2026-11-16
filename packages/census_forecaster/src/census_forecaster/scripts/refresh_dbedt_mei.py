@@ -27,8 +27,10 @@ Source & discovery
 "latest" URL, so the listing page is scraped and the newest date wins —
 same pattern as ``refresh_hta_visitors``. Keyless.
 
-Workbook layout (single sheet): row 3 = series names, row 4 = units,
-col A = month timestamps from row 5.
+Workbook layout (first sheet): one row of series names, col A = month
+timestamps below it. The name row is located rather than fixed (see
+``_header_row``): it was row 3 with a units row under it until DBEDT's
+2026-09 workbooks, and is row 1 with the units in each label since.
 
 Usage
 -----
@@ -179,6 +181,26 @@ def discover_workbooks(page_url: str = MEI_PAGE,
     return {geo: url for geo, (_, url) in best.items()}
 
 
+def _header_row(grid: list[list], fragments: set[str]) -> list:
+    """The series-name row: of the rows above the first dated row, the one
+    naming the most wanted series.
+
+    The row is found, not fixed, because DBEDT moved it: until the 2026-09
+    workbooks it was row 3 (title rows above, a units row below, data from
+    row 5); from then on it is row 1, with the units folded into each label
+    ("Visitor arrivals by air 2/ (Persons)") and data from row 2.
+    """
+    first_data = next((i for i, row in enumerate(grid)
+                       if row and isinstance(row[0], datetime)), None)
+    if not first_data:
+        raise ValueError("no header row above the first dated row; not an MEI table")
+
+    def hits(row: list) -> int:
+        return sum(any(f in str(cell or "").lower() for f in fragments) for cell in row)
+
+    return max(grid[:first_data], key=hits)
+
+
 def parse_mei_workbook(content: bytes) -> dict[str, list[dict]]:
     """One MEI workbook → ``{series_fragment_prefix: rows}``.
 
@@ -192,10 +214,8 @@ def parse_mei_workbook(content: bytes) -> dict[str, list[dict]]:
                                 read_only=True)
     ws = wb[wb.sheetnames[0]]
     grid = [list(r) for r in ws.iter_rows(values_only=True)]
-    if len(grid) < 5:
-        raise ValueError("workbook too short to be an MEI table")
-
-    headers = grid[2]  # row 3: series names
+    fragments = {fragment for fragment, _ in SERIES}
+    headers = _header_row(grid, fragments)
 
     # Column index of every occurrence of each wanted fragment, in sheet
     # order — so ("inventory ...", 0) and ("inventory ...", 1) resolve to
@@ -205,7 +225,6 @@ def parse_mei_workbook(content: bytes) -> dict[str, list[dict]]:
     # fragment (nth=0 and nth=1), and iterating raw dict keys would append
     # each matching column once per entry — [42, 42, 45, 45] instead of
     # [42, 45] — collapsing both occurrences onto the same column.
-    fragments = {fragment for fragment, _ in SERIES}
     occurrences: dict[str, list[int]] = {}
     for idx, name in enumerate(headers):
         label = str(name or "").strip().lower()
@@ -227,7 +246,7 @@ def parse_mei_workbook(content: bytes) -> dict[str, list[dict]]:
         )
 
     out: dict[str, list[dict]] = {p: [] for p in col_for_prefix}
-    for row in grid[4:]:
+    for row in grid:
         stamp = row[0] if row else None
         if not isinstance(stamp, datetime):
             continue

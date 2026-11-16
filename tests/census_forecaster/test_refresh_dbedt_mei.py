@@ -68,6 +68,23 @@ def test_non_datetime_rows_ignored():
     assert len(out["DBEDT_ARRIVALS_"]) == 1
 
 
+def test_header_in_row_one_with_units_in_the_label():
+    """DBEDT's layout from the 2026-09 workbooks: names in row 1 with the
+    units folded in, data from row 2, no units row."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Date", "Civilian labor force 1/ (Persons)",
+               "Visitor arrivals by air 2/ (Persons)", "Private Building Permits (1000)"])
+    ws.append([datetime(1990, 1, 1), 399750, 555000, 120.5])
+    ws.append([datetime(1990, 2, 1), 400550, 500000, 98.0])
+    buf = io.BytesIO()
+    wb.save(buf)
+    out = mei.parse_mei_workbook(buf.getvalue())
+    assert set(out) == {"DBEDT_ARRIVALS_", "DBEDT_PERMITS_"}
+    assert out["DBEDT_ARRIVALS_"][0] == {"year": 1990, "period": "M01", "value": 555000.0}
+    assert len(out["DBEDT_PERMITS_"]) == 2
+
+
 def test_missing_series_raises():
     with pytest.raises(ValueError, match="no wanted series"):
         mei.parse_mei_workbook(_workbook(["Something else"], [

@@ -121,9 +121,28 @@ def save_calibrated_base(
     ``tax_year`` is the calibration vintage (the year passed to
     ``compute_base_tax`` when the base was built) — consumers must re-score
     with the SAME params and year for the tail rescale to be consistent.
+
+    If ``path`` already holds this exact content (``meta["content_key"]``, a
+    hash of everything but the provenance), the file is left as it is,
+    ``created_at`` and ``git_sha`` included. The chain's population store is
+    keyed on this file's bytes, so rewriting identical content with a new
+    time stamp threw away every shared population on each run.
     """
+    import pickle
+
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    content_key = hashlib.blake2b(
+        pickle.dumps((ARTIFACT_VERSION, units, deduction_params, int(tax_year), extra_meta),
+                     protocol=pickle.HIGHEST_PROTOCOL),
+        digest_size=16).hexdigest()
+    try:
+        existing = pd.read_pickle(path)["meta"].get("content_key")
+    except Exception:  # noqa: BLE001 — missing, legacy or unreadable: write it
+        existing = None
+    if existing == content_key:
+        logger.info("Calibrated base unchanged; kept %s", path)
+        return
     payload = {
         "artifact_version": ARTIFACT_VERSION,
         "units": units,
@@ -134,10 +153,13 @@ def save_calibrated_base(
             "n_units": int(len(units)),
             "tax_year": int(tax_year),
             "params_fingerprint": params_fingerprint(deduction_params),
+            "content_key": content_key,
             **(extra_meta or {}),
         },
     }
-    pd.to_pickle(payload, path)
+    tmp = path.with_name(f"{path.name}.tmp")
+    pd.to_pickle(payload, tmp)
+    tmp.replace(path)
     logger.info(
         "Saved calibrated base: %s (%d units, TY%d, params %s, git %s)",
         path, len(units), tax_year,

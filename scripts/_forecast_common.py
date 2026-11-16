@@ -57,11 +57,19 @@ POPULATION_DIR = ARTIFACT_DIR / "populations"
 
 def population_store():
     """The chain's shared populations for the current calibrated base
-    (``tax_modeler.scenarios.population_store``), keyed by the model code and
-    the calibrated-base pickle, which step 1 rewrites on every run."""
+    (``tax_modeler.scenarios.population_store``), keyed by the model code, the
+    scripts that call the store, and the calibrated-base pickle.
+
+    Step 1 leaves the pickle alone when the base comes out the same
+    (``artifacts.save_calibrated_base``), so the store carries over from one
+    run to the next until the code, the tax-unit cache or a calibration
+    input changes. The ``chain/`` and ``scripts/`` code is in the key because
+    entries now outlive a run: a step that changed how it builds a
+    population must not load one built the old way."""
     from tax_modeler.scenarios.population_store import PopulationStore
 
-    return PopulationStore(POPULATION_DIR, fingerprint(CALIBRATED_PKL))
+    return PopulationStore(POPULATION_DIR,
+                           fingerprint(CALIBRATED_PKL, REPO / "chain", REPO / "scripts"))
 
 
 def silence_noise() -> None:
