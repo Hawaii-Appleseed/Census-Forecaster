@@ -60,7 +60,9 @@
     "2023-09",
     "2024-04",
     "2026-03",
-    "2026-05"
+    "2026-05",
+    "2026-08",
+    "2026-09"
   ],
   "disasters": [
     {
@@ -769,12 +771,36 @@
         "2026-05"
       ],
       "title": "EARTHQUAKE"
+    },
+    {
+      "declaration_date": "2026-10-07",
+      "designated_areas": 3,
+      "disaster_number": 4951,
+      "incident_begin": "2026-08-14",
+      "incident_end": "2026-08-16",
+      "incident_type": "Hurricane",
+      "months": [
+        "2026-08"
+      ],
+      "title": "HURRICANE LALA"
+    },
+    {
+      "declaration_date": "2026-10-07",
+      "designated_areas": 2,
+      "disaster_number": 4952,
+      "incident_begin": "2026-09-06",
+      "incident_end": "2026-09-09",
+      "incident_type": "Hurricane",
+      "months": [
+        "2026-09"
+      ],
+      "title": "HURRICANE LOWELL"
     }
   ],
   "excluded_types": [
     "Biological"
   ],
-  "fetch_date": "2026-10-07",
+  "fetch_date": "2026-11-14",
   "limitations": [
     "NOT a predictor \u2014 a robustness control, like exclude_2020. Nothing here is screened against anything.",
     "Major-disaster (DR) declarations only; emergency (EM) and fire-management (FM) declarations are a lower bar and far more numerous.",
