@@ -1,7 +1,8 @@
 """Working-family tax credits after Act 163 expires: revenue, distribution, poverty.
 
 Usage:
-  python chain/forecast_working_family_credits.py            # TY2022-2031, writes runs/working_family_credits/
+  python chain/forecast_working_family_credits.py                   # TY2022-2031, writes runs/working_family_credits/
+  python chain/forecast_working_family_credits.py --no-irs-reweight # the figures published before 2026-11-05
 
 Question
 --------
@@ -23,10 +24,17 @@ Method
 ------
 Population: tax units built from the 2024 1-year Hawaii PUMS with real
 dependents (scripts/poverty_impact_report.py's pipeline), projected to each
-tax year with CBO per-component aging; federal EITC take-up anchored to IRS
-counts after lifting short with-children EITC buckets to IRS Hawaii targets
-(the production poverty pipeline's default). Federal EITC parameters past
-TY2025 are CPI-extrapolated.
+tax year with CBO per-component aging. The tax-unit weights are first fitted,
+household by household, to the IRS's Hawaii returns in the seven AGI classes
+from $1 to $500,000 (tax_modeler.calibration.irs_household_rake; the factors
+are found on the population aged to TY2023, the IRS table's year, and carried
+to every year); then short with-children EITC buckets are lifted to IRS Hawaii
+targets (the production poverty pipeline's default) and federal EITC take-up is
+anchored to IRS counts. Only the tax-unit weight moves: the Census household
+and person weights behind the poverty and household-fifth figures do not.
+Each of the 80 replicate weights is raked to the same IRS counts on its own, so
+the standard errors measure the sampling of everything except those counts.
+Federal EITC parameters past TY2025 are CPI-extrapolated.
 
 State credits: each tax unit's credit under the expanded law (40%; Act 163
 table) and the reverted law (20%; prior table), computed from the statutory
@@ -70,6 +78,7 @@ Outputs (runs/working_family_credits/):
 """
 from __future__ import annotations
 
+import argparse
 import functools
 import logging
 import sys
@@ -92,6 +101,9 @@ SCORE_YEARS = [2028, 2029, 2030, 2031]
 POVERTY_YEAR = 2028
 CAL_YEAR = 2023         # food/excise: the year DOTAX's Credits Claimed report fits it to
 EITC_CAL_YEAR = 2024    # EITC: the latest year of DOTAX's Earned Income Tax Credit Report
+IRS_REWEIGHT = True     # fit the tax-unit weights to IRS returns (--no-irs-reweight: the pre-2026-11-05 figures)
+IRS_RAKE_YEAR = 2023    # the population is aged to this year to find the factors; the IRS table's year (irs_soi_hi_table2.BASE_YEAR)
+IRS_PER_REPLICATE = True  # rake each of the 80 replicates on its own (False: every replicate carries the headline's factor)
 
 @functools.cache
 def dotax() -> dict[int, dict[str, float]]:
@@ -168,20 +180,115 @@ def load_population():
     return units, persons
 
 
-def _aged_and_reweighted(base: pd.DataFrame, year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """The population aged to ``year``, and the same with the EITC by-children reweight."""
+class IrsRake:
+    """Household factors fitted to IRS returns, and the 80 replicates' own.
+
+    ``factors`` is indexed by household id; ``replicates`` is None when every
+    replicate carries ``factors`` (the October 30 trial's method) or a frame of
+    the same index with one column per replicate. ``replicates`` is raked from the
+    aged weight times WGTP_r / WGTP, the construction ``_replicate_ratios`` uses for
+    the sampling-error table; ``unit_replicates`` is raked from the tax units' own
+    ``weight_r01..weight_r80`` columns (PWGTP_r for one-person units), which the
+    population-agreement check reads.
+    """
+
+    def __init__(self, factors: pd.Series, replicates: pd.DataFrame | None, info: dict,
+                 replicate_info: dict | None = None, unit_replicates: pd.DataFrame | None = None):
+        self.factors, self.replicates, self.info, self.replicate_info = factors, replicates, info, replicate_info
+        self.unit_replicates = unit_replicates
+
+
+@functools.cache
+def _households() -> pd.DataFrame:
+    return pd.read_parquet(PUMS_DIR / "psam_h15.parquet",
+                           columns=["SERIALNO", "WGTP", *[f"WGTP{i}" for i in range(1, 81)]])
+
+
+def irs_rake(base: pd.DataFrame, *, year: int | None = None, per_replicate: bool | None = None) -> IrsRake:
+    """Fit the tax-unit weights to the IRS's Hawaii returns, once per run.
+
+    The population is aged to ``year`` (IRS_RAKE_YEAR) from the cached base weights, before the
+    EITC by-children reweight, and raked household by household to the seven IRS classes from
+    $1 to $500,000 (``irs_household_rake``). The factors belong to households and are carried to
+    every year. With ``per_replicate`` each replicate's weight (the aged weight times its
+    household's WGTP_r / WGTP) is raked to the same targets on its own.
+    Ageing can draw random numbers; numpy's generator is put back, so the draws that follow
+    are the ones they would have been.
+    """
     import poverty_impact_report as pir
+    from tax_modeler.calibration import irs_household_rake as rake
+
+    year = IRS_RAKE_YEAR if year is None else year
+    per_replicate = IRS_PER_REPLICATE if per_replicate is None else per_replicate
+    state = np.random.get_state()
+    try:
+        aged = pir._build_units_for_tax_year(base, year, project=True, use_cbo_aging=True)
+    finally:
+        np.random.set_state(state)
+    targets = rake.irs_targets()
+    w = aged["weight"].to_numpy(dtype=float)
+    factors, info = rake.household_factors(aged, w, targets=targets)
+    reps, rep_info, unit_reps = None, None, None
+    if per_replicate:
+        ratios = _replicate_ratios(aged, _households())
+        cols, errs, lo, hi = {}, [], [], []
+        for r in range(80):
+            fr, inf_r = rake.household_factors(aged, w * ratios[r], targets=targets)
+            cols[f"r{r + 1:02d}"] = fr.reindex(factors.index).to_numpy()
+            errs.append(inf_r["max_abs_rel_error"])
+            lo.append(inf_r["factor_min"])
+            hi.append(inf_r["factor_max"])
+        reps = pd.DataFrame(cols, index=factors.index)
+        rep_info = {"max_abs_rel_error": float(max(errs)), "factor_min": float(min(lo)),
+                    "factor_max": float(max(hi))}
+        from tax_modeler import agreement
+
+        cols_u = agreement.replicate_columns(aged)
+        if cols_u:
+            unit_reps = pd.DataFrame(
+                {c: rake.household_factors(aged, aged[c].to_numpy(dtype=float), targets=targets)[0]
+                 .reindex(factors.index).to_numpy() for c in cols_u}, index=factors.index)
+    return IrsRake(factors, reps, info, rep_info, unit_reps)
+
+
+def _apply_rake_to_replicates(u: pd.DataFrame, rake: IrsRake | None) -> pd.DataFrame:
+    """Per-replicate rake on a frame's ``weight_r01..weight_r80`` columns.
+
+    The columns already carry the headline's factor (``agreement.carry_weight_changes``
+    scales them by whatever changed ``weight``); this multiplies by ``g_r / g`` so each
+    replicate carries its own, ``g_r`` fitted to that column (``IrsRake.unit_replicates``).
+    A no-op without per-replicate factors.
+    """
+    from tax_modeler import agreement
+
+    reps = agreement.replicate_columns(u)
+    if rake is None or rake.unit_replicates is None or not reps:
+        return u
+    out = u.copy()
+    g = out["irs_rake_factor"].to_numpy(dtype=float)
+    gr = rake.unit_replicates.reindex(out["hh_id"]).to_numpy(dtype=float)       # (n, 80)
+    adj = np.where(np.isnan(gr), 1.0, gr / g[:, None])
+    out[reps] = out[reps].to_numpy(dtype=float) * adj
+    return out
+
+
+def _aged_and_reweighted(base: pd.DataFrame, year: int,
+                         rake: IrsRake | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The population aged to ``year``, and the same with the IRS rake and the EITC by-children reweight."""
+    import poverty_impact_report as pir
+    from tax_modeler.calibration import irs_household_rake as rk
 
     aged = pir._build_units_for_tax_year(base, year, project=True, use_cbo_aging=True)
+    u = aged if rake is None else rk.apply_household_factors(aged, rake.factors)
     # As in poverty_impact_report's default path: lift the short 1-/2-child
     # EITC buckets to IRS Hawaii counts.
-    return aged, pir._apply_eitc_reweight(aged)
+    return aged, pir._apply_eitc_reweight(u)
 
 
-def units_for_year(base: pd.DataFrame, year: int) -> pd.DataFrame:
+def units_for_year(base: pd.DataFrame, year: int, rake: IrsRake | None = None) -> pd.DataFrame:
     import poverty_impact_report as pir
 
-    _, u = _aged_and_reweighted(base, year)
+    _, u = _aged_and_reweighted(base, year, rake)
     # Then apply IRS-anchored take-up.
     return pir._apply_credit_takeup(u, tax_year=year)
 
@@ -224,13 +331,14 @@ def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dic
     }
 
 
-def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd.DataFrame | None:
+def population_agreement(units: pd.DataFrame, out_dir: Path | None = None,
+                         rake: IrsRake | None = None) -> pd.DataFrame | None:
     """Print how this population differs from the revenue base on what both measure.
 
     The revenue base is the pickle step 1 writes; without it there is nothing to
     compare and the check says so. The population is compared as the credits are
-    scored on it: aged to the EITC calibration year, with the EITC by-children
-    reweight, before take-up. It reads both frames and changes neither, so
+    scored on it: aged to the EITC calibration year, with the IRS rake and the EITC
+    by-children reweight, before take-up. It reads both frames and changes neither, so
     no figure this step publishes depends on it. A failure here is reported and
     does not stop the run.
     """
@@ -251,10 +359,10 @@ def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd
         # step must not move, so numpy's generator is put back.
         state = np.random.get_state()
         try:
-            aged, reweighted = _aged_and_reweighted(units, EITC_CAL_YEAR)
+            aged, reweighted = _aged_and_reweighted(units, EITC_CAL_YEAR, rake)
         finally:
             np.random.set_state(state)
-        as_used = agreement.carry_weight_changes(aged, reweighted)
+        as_used = _apply_rake_to_replicates(agreement.carry_weight_changes(aged, reweighted), rake)
         table = agreement.compare_populations(revenue_base, as_used)
     except Exception as exc:  # noqa: BLE001 - a diagnostic must not stop the chain
         print(f"  population agreement check failed: {type(exc).__name__}: {exc}", flush=True)
@@ -265,16 +373,28 @@ def population_agreement(units: pd.DataFrame, out_dir: Path | None = None) -> pd
     return table
 
 
-def run() -> None:
+def run(irs_reweight: bool | None = None) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     print("Loading PUMS population...", flush=True)
     base, persons = load_population()
-    population_agreement(base, OUT_DIR)
+    irs_reweight = IRS_REWEIGHT if irs_reweight is None else irs_reweight
+    rake = irs_rake(base) if irs_reweight else None
+    if rake is not None:
+        i = rake.info
+        print(f"  IRS rake (aged to TY{IRS_RAKE_YEAR}): {i['iterations']} iterations, max margin error "
+              f"{i['max_abs_rel_error']:.1e}; household factors {i['factor_min']:.2f}-{i['factor_max']:.2f} "
+              f"(1st-99th percentile {i['factor_p1']:.2f}-{i['factor_p99']:.2f}); effective sample "
+              f"{i['ess_before']:,.0f} -> {i['ess_after']:,.0f}", flush=True)
+        if rake.replicate_info:
+            print(f"  per-replicate rake: 80 replicates, worst margin error "
+                  f"{rake.replicate_info['max_abs_rel_error']:.1e}, factors "
+                  f"{rake.replicate_info['factor_min']:.2f}-{rake.replicate_info['factor_max']:.2f}", flush=True)
+    population_agreement(base, OUT_DIR, rake)
 
     frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
     for yr in YEARS:
-        u = units_for_year(base, yr)
+        u = units_for_year(base, yr, rake)
         frames[yr] = (u, state_credits(u))
         print(f"  TY{yr} built ({time.perf_counter() - t0:.0f}s)", flush=True)
 
@@ -336,7 +456,8 @@ def run() -> None:
     distribution(u).to_csv(OUT_DIR / f"distribution_ty{POVERTY_YEAR}.csv", index=False)
     by_family_type(u).to_csv(OUT_DIR / f"by_family_type_ty{POVERTY_YEAR}.csv", index=False)
     poverty(u, persons).to_csv(OUT_DIR / f"poverty_ty{POVERTY_YEAR}.csv", index=False)
-    sampling_error(frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"]).to_csv(
+    sampling_error(frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"],
+                   None if rake is None else rake.replicates).to_csv(
         OUT_DIR / f"sampling_error_ty{POVERTY_YEAR}.csv", index=False)
 
     from tax_modeler.runs import write_run_manifest
@@ -345,7 +466,10 @@ def run() -> None:
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
                 "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),
-                "takeup_food": round(p_food, 4), "dotax": dotax()},
+                "takeup_food": round(p_food, 4), "dotax": dotax(),
+                "irs_reweight": None if rake is None else {
+                    "year": IRS_RAKE_YEAR, "per_replicate": rake.replicates is not None,
+                    **{k: round(v, 4) if isinstance(v, float) else v for k, v in rake.info.items()}}},
         inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
                 "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2",
                 "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 "
@@ -466,13 +590,20 @@ def _summarize(hh: pd.DataFrame, col: str, order: list[str]) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def _replicate_ratios(u: pd.DataFrame, households: pd.DataFrame) -> np.ndarray:
+def _replicate_ratios(u: pd.DataFrame, households: pd.DataFrame,
+                      rake_replicates: pd.DataFrame | None = None) -> np.ndarray:
     """(R, n_units) ratios WGTP_r / WGTP for each tax unit's household.
 
     Every adjustment the model makes to a unit's weight (calibration, the EITC
     by-children reweight, the dollar take-up scale) is multiplicative in the
     household weight, so scaling a unit's final weight by its household's
     replicate ratio is the replicate of that weight.
+
+    The IRS rake is multiplicative in the household too, but each replicate is raked
+    to the IRS counts on its own: with ``rake_replicates`` (household factors per
+    replicate, from :func:`irs_rake`) every ratio is also multiplied by ``g_r / g``,
+    ``g`` being the unit's ``irs_rake_factor`` (the headline's). Without it every
+    replicate carries the headline's factor.
     """
     cols = [f"WGTP{i}" for i in range(1, 81)]
     h = households.drop_duplicates("SERIALNO").set_index("SERIALNO")
@@ -483,22 +614,28 @@ def _replicate_ratios(u: pd.DataFrame, households: pd.DataFrame) -> np.ndarray:
     reps = h[cols].reindex(keys).to_numpy(dtype=float).T
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = np.where(base > 0, reps / base, 1.0)
-    return np.nan_to_num(ratio, nan=1.0)
+    ratio = np.nan_to_num(ratio, nan=1.0)
+    if rake_replicates is not None:
+        gr = rake_replicates.reindex(keys).to_numpy(dtype=float).T           # (80, n)
+        g = u["irs_rake_factor"].to_numpy(dtype=float)
+        ratio = ratio * np.where(np.isnan(gr), 1.0, gr / g)
+    return ratio
 
 
 def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, p_food: float,
-                   eitc_target_m: float) -> pd.DataFrame:
+                   eitc_target_m: float, rake_replicates: pd.DataFrame | None = None) -> pd.DataFrame:
     """Sampling error of the TY2028 loss figures, from the 80 ACS replicate weights.
 
     Each replicate re-fits the earned income tax credit and food/excise take-up
     to the Department of Taxation's dollars (as the headline does), so the error
     shown is for the loss given what the Department paid, not for the level.
+    ``rake_replicates``: each replicate's own IRS-rake household factors (see ``_replicate_ratios``).
     90 percent margin = 1.645 standard errors, as the Census Bureau publishes.
     """
-    households = pd.read_parquet(PUMS_DIR / "psam_h15.parquet", columns=["SERIALNO", "WGTP", *[f"WGTP{i}" for i in range(1, 81)]])
+    households = _households()
     uE, cE = frames[EITC_CAL_YEAR]
     uF, cF = frames[CAL_YEAR]
-    rE, rF, r28 = (_replicate_ratios(x, households) for x in (uE, uF, u28))
+    rE, rF, r28 = (_replicate_ratios(x, households, rake_replicates) for x in (uE, uF, u28))
     wE, wF, w28 = (x["weight"].to_numpy(dtype=float) for x in (uE, uF, u28))
     eitc_exp, food_exp = cE["eitc_expanded"].to_numpy(float), cF["food_expanded"].to_numpy(float)
     dE = (c28["eitc_expanded"] - c28["eitc_reverted"]).to_numpy(float)
@@ -619,6 +756,22 @@ def _print_summary(rev: pd.DataFrame, cal: pd.DataFrame) -> None:
     print(rev[cols].to_string(index=False, float_format=lambda v: f"{v:,.1f}"))
 
 
+def main(argv: list[str] | None = None) -> None:
+    global IRS_RAKE_YEAR, IRS_PER_REPLICATE
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--no-irs-reweight", action="store_true",
+                    help="skip the IRS fit of the tax-unit weights: reproduces the figures published before 2026-11-05")
+    ap.add_argument("--same-factor-replicates", action="store_true",
+                    help="every replicate carries the headline's IRS factor (the October 30 trial's method) "
+                         "instead of being raked on its own")
+    ap.add_argument("--irs-rake-year", type=int, default=IRS_RAKE_YEAR,
+                    help="year the population is aged to when the factors are found (default: the IRS table's year)")
+    args = ap.parse_args(argv)
+    IRS_RAKE_YEAR = args.irs_rake_year
+    IRS_PER_REPLICATE = not args.same_factor_replicates
+    run(irs_reweight=IRS_REWEIGHT and not args.no_irs_reweight)
+
+
 if __name__ == "__main__":
     logging.disable(logging.WARNING)
-    run()
+    main()

@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-10-31T02:16:56+00:00",
-  "git_sha": "89e9527",
+  "created_at": "2026-11-05T23:31:30+00:00",
+  "git_sha": "ded71f9",
   "script": "chain/forecast_working_family_credits.py",
   "params": {
     "years": [
@@ -20,8 +20,8 @@
       0.4,
       0.2
     ],
-    "takeup_eitc": 0.9809,
-    "takeup_food": 0.7455,
+    "takeup_eitc": 0.9784,
+    "takeup_food": 0.7321,
     "dotax": {
       "2022": {
         "eitc_$M": 19.786,
@@ -35,9 +35,23 @@
         "food_$M": 63.957,
         "food_claims": 249806
       }
+    },
+    "irs_reweight": {
+      "year": 2023,
+      "per_replicate": true,
+      "iterations": 3,
+      "max_abs_rel_error": 0.0,
+      "households": 5181,
+      "households_targeted": 4858,
+      "factor_min": 0.7649,
+      "factor_max": 1.6175,
+      "factor_p1": 0.8872,
+      "factor_p99": 1.1508,
+      "ess_before": 4305.428,
+      "ess_after": 4300.9225
     }
   },
-  "params_fingerprint": "ba444def670dd6ff",
+  "params_fingerprint": "df58987753675de7",
   "inputs": {
     "pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
     "dotax": "Tax Credits Claimed by Hawai\u02bbi Taxpayers, TY2022-2023, Tables A-1/A-2",
@@ -53,5 +67,5 @@
     "revenue_by_year.csv",
     "sampling_error_ty2028.csv"
   ],
-  "published_at": "2026-10-31T02:17:16+00:00"
+  "published_at": "2026-11-05T23:31:37+00:00"
 }
