@@ -102,13 +102,13 @@ NOTES (also surfaced via :class:`PovertyImpactResult.notes`):
     files land. ``--rake-to-irs-zip`` stays OFF by default and the
     script logs a "data not bundled" warning when set without it.
   * **Expansion take-up**: every ``hi_ctc_<NNN>`` scenario scales its
-    $NNN/child increment by ``hi_ctc_takeup_rate`` (default 0.80,
+    $NNN/child increment by ``TakeupRates.hi_ctc`` (default 0.70,
     Hawaii-empirical anchor from HI EITC observed take-up — see
     :mod:`tax_modeler.calibration.hi_eitc_takeup_estimate`);
     ``hi_eitc_100pct`` scales its 60-pp HI EITC increment by
-    ``hi_eitc_100pct_takeup_rate`` (default 0.95, since the rate
+    ``TakeupRates.hi_eitc_100pct`` (default 0.98, since the rate
     auto-attaches to federal claims); ``expanded_ctc_2021`` scales the
-    ARPA delta by ``arpa_ctc_takeup_rate`` (default 0.95). Removal
+    ARPA delta by ``TakeupRates.arpa_ctc`` (default 0.94). Removal
     scenarios are unscaled — receipt is encoded by IRS take-up
     calibration upstream on the baseline credit columns.
 """
@@ -121,7 +121,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .spm import SPMResourceMeta, compute_spm_resources
+from .spm import SPMColumns, SPMResourceMeta, compute_spm_resources
 from .thresholds import threshold_for_units
 
 _DEFAULT_SCENARIOS: tuple[str, ...] = (
@@ -208,20 +208,61 @@ def _persons_per_unit(units: pd.DataFrame) -> np.ndarray:
     return (n_adults + n_children).astype(float)
 
 
+@dataclass(frozen=True)
+class PovertyColumns:
+    """The unit-frame columns :func:`compute_poverty_impact` reads. The credit
+    columns' values are computed upstream; these only name them."""
+
+    eitc: str = "eitc_amount"
+    ctc: str = "ctc_refundable"
+    hi_eitc: str = "hi_eitc_amount"
+    arpa_ctc: str = "arpa_ctc_refundable"
+    qualifying_children: str = "num_qualifying_children"
+    rxkids: str = "rxkids_amount"
+    household_type: str = "filing_status"
+    tenure: str = "tenure"
+
+
+@dataclass(frozen=True)
+class TakeupRates:
+    """Take-up applied to the *increment* of each expansion scenario. Removal
+    scenarios are not scaled: receipt is already encoded by the upstream IRS
+    take-up calibration of the baseline credit columns.
+
+    hi_ctc:
+        Every ``hi_ctc_<NNN>`` expansion. Default 0.70, a **Hawaii-empirical
+        anchor**: observed federal-EITC take-up in Hawaii 2022 = 84,010 admin
+        claims / ~120,535 PUMS-eligible filers (see
+        :mod:`tax_modeler.calibration.hi_eitc_takeup_estimate`). The composite
+        friction (file a return, claim federal, state auto-attach) for an HI
+        CTC piggybacking on Form N-15 matches the existing HI EITC's. 0.0
+        zeroes the lift at every dollar level.
+    hi_eitc_100pct:
+        The hi_eitc_100pct increment. Default 0.98, **near-perfect conditional
+        take-up given an existing HI EITC claim**: HI EITC auto-computes as a
+        fixed percentage of federal EITC on Form N-15 (Act 209, 2023). The 0.02
+        friction is filers who do not claim the expanded amount the form
+        offers. Non-claimers of federal EITC are captured upstream by the
+        ``hi_eitc`` column's IRS-anchored take-up imputation.
+    arpa_ctc:
+        The expanded_ctc_2021 increment. Default 0.94, the empirical mean of
+        Karpman et al. (Urban Institute, 2022) and US Treasury reports on ARPA
+        monthly-CTC participation among eligible families (band 0.92-0.95),
+        conditional on already claiming the baseline CTC.
+    """
+
+    hi_ctc: float = 0.70
+    hi_eitc_100pct: float = 0.98
+    arpa_ctc: float = 0.94
+
+
 def _scenario_resources(
     *,
     baseline_resources: np.ndarray,
     units: pd.DataFrame,
     scenario: str,
-    eitc_col: str,
-    ctc_col: str,
-    hi_eitc_col: str,
-    arpa_ctc_col: str,
-    qualifying_children_col: str,
-    hi_ctc_takeup_rate: float,
-    hi_eitc_100pct_takeup_rate: float,
-    arpa_ctc_takeup_rate: float,
-    rxkids_col: str,
+    columns: PovertyColumns,
+    takeup: TakeupRates,
 ) -> np.ndarray:
     """Counterfactual SPM resources via linear arithmetic on credit columns.
 
@@ -229,9 +270,9 @@ def _scenario_resources(
     take-up rate. Removal scenarios are not — receipt is already encoded
     via upstream IRS take-up calibration on the baseline credit columns.
     """
-    eitc = units[eitc_col].fillna(0).to_numpy(dtype=float)
-    ctc = units[ctc_col].fillna(0).to_numpy(dtype=float)
-    hi_eitc = units[hi_eitc_col].fillna(0).to_numpy(dtype=float)
+    eitc = units[columns.eitc].fillna(0).to_numpy(dtype=float)
+    ctc = units[columns.ctc].fillna(0).to_numpy(dtype=float)
+    hi_eitc = units[columns.hi_eitc].fillna(0).to_numpy(dtype=float)
     if scenario == "no_eitc":
         return baseline_resources - eitc
     if scenario == "no_ctc":
@@ -273,13 +314,13 @@ def _scenario_resources(
     if scenario == "no_credits":
         return baseline_resources - (eitc + ctc + hi_eitc)
     if scenario == "expanded_ctc_2021":
-        if arpa_ctc_col not in units.columns:
+        if columns.arpa_ctc not in units.columns:
             raise KeyError(
-                f"scenario={scenario!r} requires column {arpa_ctc_col!r}; "
+                f"scenario={scenario!r} requires column {columns.arpa_ctc!r}; "
                 "call tax_modeler.credits.arpa_ctc_for_tax_units(units) first."
             )
-        arpa = units[arpa_ctc_col].fillna(0).to_numpy(dtype=float)
-        increment = (arpa - ctc) * arpa_ctc_takeup_rate
+        arpa = units[columns.arpa_ctc].fillna(0).to_numpy(dtype=float)
+        increment = (arpa - ctc) * takeup.arpa_ctc
         return baseline_resources + increment
     if scenario == "hi_eitc_100pct":
         # Going from 40% to 100% of federal = +60pp = +1.5× the current
@@ -294,31 +335,31 @@ def _scenario_resources(
         # upstream by IRS-anchored take-up imputation on hi_eitc_amount.
         increment = (
             hi_eitc * (1.0 - _HI_EITC_CURRENT_RATE) / _HI_EITC_CURRENT_RATE
-            * hi_eitc_100pct_takeup_rate
+            * takeup.hi_eitc_100pct
         )
         return baseline_resources + increment
     hi_ctc_match = _HI_CTC_SCENARIO_RE.match(scenario)
     if hi_ctc_match is not None:
-        if qualifying_children_col not in units.columns:
+        if columns.qualifying_children not in units.columns:
             raise KeyError(
-                f"scenario={scenario!r} requires column {qualifying_children_col!r}."
+                f"scenario={scenario!r} requires column {columns.qualifying_children!r}."
             )
         # Per-child dollar amount is encoded in the scenario name:
         # ``hi_ctc_650`` → $650/child. See _HI_CTC_SCENARIO_RE above.
         per_child = float(hi_ctc_match.group(1))
-        n_kids = units[qualifying_children_col].fillna(0).clip(lower=0).to_numpy(dtype=float)
-        return baseline_resources + per_child * n_kids * hi_ctc_takeup_rate
+        n_kids = units[columns.qualifying_children].fillna(0).clip(lower=0).to_numpy(dtype=float)
+        return baseline_resources + per_child * n_kids * takeup.hi_ctc
     if scenario == "rxkids_hi":
-        if rxkids_col not in units.columns:
+        if columns.rxkids not in units.columns:
             raise KeyError(
-                f"scenario={scenario!r} requires column {rxkids_col!r}; "
+                f"scenario={scenario!r} requires column {columns.rxkids!r}; "
                 "call tax_modeler.programs.compute_rxkids_for_units(units) first."
             )
         # The rxkids_amount column is already take-up-adjusted inside
         # compute_rxkids_for_units (the program's overall takeup_rate
         # parameter scales both prenatal and postnatal). Adding it
         # directly to baseline resources gives the expansion lift.
-        rxk = units[rxkids_col].fillna(0).to_numpy(dtype=float)
+        rxk = units[columns.rxkids].fillna(0).to_numpy(dtype=float)
         return baseline_resources + rxk
     raise ValueError(f"unknown scenario: {scenario!r}")
 
@@ -418,18 +459,9 @@ def compute_poverty_impact(
     *,
     tax_year: int,
     scenarios: Sequence[str] = _DEFAULT_SCENARIOS,
-    eitc_col: str = "eitc_amount",
-    ctc_col: str = "ctc_refundable",
-    hi_eitc_col: str = "hi_eitc_amount",
-    arpa_ctc_col: str = "arpa_ctc_refundable",
-    qualifying_children_col: str = "num_qualifying_children",
-    hi_ctc_takeup_rate: float = 0.70,
-    hi_eitc_100pct_takeup_rate: float = 0.98,
-    arpa_ctc_takeup_rate: float = 0.94,
-    rxkids_col: str = "rxkids_amount",
-    household_type_col: str = "filing_status",
+    columns: PovertyColumns = PovertyColumns(),
+    takeup: TakeupRates = TakeupRates(),
     weight_col: str = "weight",
-    tenure_col: str = "tenure",
     extrapolate_thresholds: bool = False,
 ) -> PovertyImpactResult:
     """Compute SPM poverty impact of EITC, CTC, and HI state EITC, plus expansions.
@@ -446,40 +478,17 @@ def compute_poverty_impact(
     tax_year:
         Year for threshold lookup and (informational) for credit
         parameters. The credit *values* are already baked into the
-        ``eitc_col`` / ``ctc_col`` / ``hi_eitc_col`` columns at compute
+        ``columns.eitc`` / ``columns.ctc`` / ``columns.hi_eitc`` columns at compute
         time — this argument does not recompute them.
     scenarios:
         Which counterfactuals to evaluate. Default includes the policy
         menu of three HI CTC dollar levels (``hi_ctc_300``,
         ``hi_ctc_650``, ``hi_ctc_1000``) plus the removal/expansion
         scenarios.
-    hi_ctc_takeup_rate:
-        Take-up rate applied to *every* ``hi_ctc_<NNN>`` expansion
-        increment. Default 0.70 — **Hawaii-empirical anchor**:
-        observed federal-EITC take-up in Hawaii 2022 = 84,010 admin
-        claims ÷ ~120,535 PUMS-eligible filers (see
-        :mod:`tax_modeler.calibration.hi_eitc_takeup_estimate`). The
-        composite friction (file return × claim federal × state
-        auto-attach) for an HI CTC piggybacking on Form N-15 matches
-        the existing HI EITC's. Setting to 0.0 zeroes the lift across
-        all dollar levels.
-    hi_eitc_100pct_takeup_rate:
-        Take-up rate applied to the hi_eitc_100pct expansion
-        increment. Default 0.98 — **near-perfect conditional take-up
-        given existing HI EITC claim**, because HI EITC auto-computes
-        as a fixed percentage of federal EITC on Form N-15 (Act 209,
-        2023). The 0.02 friction captures rare cases where filers
-        elect not to claim the expanded amount even though the form
-        offers it automatically. The composite take-up (including
-        non-claimers of federal EITC) is captured separately by the
-        upstream ``hi_eitc`` column's IRS-anchored take-up imputation.
-    arpa_ctc_takeup_rate:
-        Take-up rate applied to the expanded_ctc_2021 increment.
-        Default 0.94 — empirical mean of Karpman et al. (Urban
-        Institute, 2022) and US Treasury reports on actual ARPA
-        monthly-CTC participation among eligible families (band:
-        0.92–0.95). Applied as conditional take-up given the unit
-        already claims the baseline CTC.
+    columns:
+        The frame's column names (:class:`PovertyColumns`).
+    takeup:
+        Take-up on each expansion scenario's increment (:class:`TakeupRates`).
     extrapolate_thresholds:
         For a ``tax_year`` past the SPM threshold table, index the latest
         tabled threshold forward by the credit-parameter CPI assumption
@@ -499,7 +508,7 @@ def compute_poverty_impact(
     # required when ``n_children`` is also a valid substitute.
     is_spm_mode = "n_persons" in units.columns
     required = {"county", "house_district", "senate_district",
-                weight_col, eitc_col, ctc_col, hi_eitc_col}
+                weight_col, columns.eitc, columns.ctc, columns.hi_eitc}
     if not is_spm_mode:
         required |= {"filing_status", "num_dependents"}
     missing = required - set(units.columns)
@@ -511,7 +520,7 @@ def compute_poverty_impact(
     df = units.copy()
 
     # 1. Baseline SPM resources (with all credits intact).
-    # NOTE: ``rxkids_col`` is wired with ``rxkids_col=None`` here so
+    # NOTE: the RxKids column is wired as ``rxkids=None`` here so
     # baseline resources reflect the *current* policy (RxKids does not
     # exist in Hawaii). The ``rxkids_hi`` scenario adds the amount as
     # a counterfactual expansion in ``_scenario_resources`` below.
@@ -519,15 +528,13 @@ def compute_poverty_impact(
         df,
         tax_year=tax_year,
         extrapolate=extrapolate_thresholds,
-        eitc_col=eitc_col,
-        refundable_ctc_col=ctc_col,
-        hi_eitc_col=hi_eitc_col,
-        rxkids_col=None,
+        columns=SPMColumns(eitc=columns.eitc, refundable_ctc=columns.ctc,
+                           hi_eitc=columns.hi_eitc, rxkids=None),
     )
 
     # 2. Per-unit Hawaii SPM threshold.
     df["spm_threshold"] = threshold_for_units(
-        df, year=tax_year, tenure_col=tenure_col, extrapolate=extrapolate_thresholds,
+        df, year=tax_year, tenure_col=columns.tenure, extrapolate=extrapolate_thresholds,
     )
     threshold = df["spm_threshold"].to_numpy(dtype=float)
 
@@ -543,15 +550,8 @@ def compute_poverty_impact(
             baseline_resources=baseline_r,
             units=df,
             scenario=scn,
-            eitc_col=eitc_col,
-            ctc_col=ctc_col,
-            hi_eitc_col=hi_eitc_col,
-            arpa_ctc_col=arpa_ctc_col,
-            qualifying_children_col=qualifying_children_col,
-            hi_ctc_takeup_rate=hi_ctc_takeup_rate,
-            hi_eitc_100pct_takeup_rate=hi_eitc_100pct_takeup_rate,
-            arpa_ctc_takeup_rate=arpa_ctc_takeup_rate,
-            rxkids_col=rxkids_col,
+            columns=columns,
+            takeup=takeup,
         )
 
     # 5. Aggregate at each geography level.
@@ -574,23 +574,23 @@ def compute_poverty_impact(
 
     # 5a. Household-type disaggregation (single / HoH / MFJ / MFS).
     # HoH = single-mother proxy for RxKids analysis.
-    if household_type_col not in df.columns:
+    if columns.household_type not in df.columns:
         raise KeyError(
-            f"household_type_col={household_type_col!r} not in units; "
+            f"columns.household_type={columns.household_type!r} not in units; "
             "expected one of the filing_status columns."
         )
     by_ht = _aggregate(
-        df, group_col=household_type_col, threshold=threshold,
+        df, group_col=columns.household_type, threshold=threshold,
         person_weight=person_w, filer_weight=filer_w, scenarios=scenarios,
     )
     # Restrict to the canonical filing-status set so downstream consumers
     # can rely on the row labels even if the input frame has stray values.
-    by_ht = by_ht[by_ht[household_type_col].isin(_HOUSEHOLD_TYPES)].reset_index(drop=True)
+    by_ht = by_ht[by_ht[columns.household_type].isin(_HOUSEHOLD_TYPES)].reset_index(drop=True)
 
     # 5b. Augment by_state with HoH-specific poverty metrics. This is the
     # single-mother summary advocates need to cite when discussing RxKids
     # poverty impact.
-    hoh = by_ht[by_ht[household_type_col] == "head_of_household"]
+    hoh = by_ht[by_ht[columns.household_type] == "head_of_household"]
     state_row_extras: dict[str, float] = {}
     if not hoh.empty:
         hoh_row = hoh.iloc[0]
@@ -631,15 +631,15 @@ def compute_poverty_impact(
     if hi_ctc_scenarios:
         amounts = ", ".join(f"${amt}" for amt in hi_ctc_scenarios)
         notes.append(
-            f"hi_ctc_<NNN> scenarios apply a {hi_ctc_takeup_rate:.0%} take-up rate "
+            f"hi_ctc_<NNN> scenarios apply a {takeup.hi_ctc:.0%} take-up rate "
             f"to a hypothetical Hawaii state CTC at {amounts}/child. Pass "
-            "--hi-ctc-takeup-rate (or hi_ctc_takeup_rate=) to sweep; per-child "
+            "--hi-ctc-takeup-rate (or TakeupRates(hi_ctc=...)) to sweep; per-child "
             "amounts are encoded in the scenario name."
         )
     notes.append(
-        f"hi_eitc_100pct applies {hi_eitc_100pct_takeup_rate:.0%} take-up on "
+        f"hi_eitc_100pct applies {takeup.hi_eitc_100pct:.0%} take-up on "
         "the 60-pp HI EITC increment; existing 40%-band receipt is unchanged. "
-        f"expanded_ctc_2021 applies {arpa_ctc_takeup_rate:.0%} take-up on the "
+        f"expanded_ctc_2021 applies {takeup.arpa_ctc:.0%} take-up on the "
         "ARPA-CTC delta."
     )
 
@@ -895,7 +895,7 @@ def compute_poverty_impact_with_se(
         )
 
     # by_household_type aggregation in compute_poverty_impact uses
-    # household_type_col (default "filing_status"); restrict replicates to
+    # columns.household_type (default "filing_status"); restrict replicates to
     # the canonical four labels to match the headline.
     bht_se = se_frames["by_household_type"]
     bht_se = bht_se[bht_se["filing_status"].isin(_HOUSEHOLD_TYPES)].reset_index(drop=True)

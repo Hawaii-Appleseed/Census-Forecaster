@@ -7,7 +7,7 @@ import pytest
 from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.errors import ConfigError
 from tax_modeler.poverty.impact import compute_poverty_impact
-from tax_modeler.poverty.spm import compute_spm_resources
+from tax_modeler.poverty.spm import SPMColumns, compute_spm_resources
 from tax_modeler.programs import (
     RxKidsHIParams,
     compute_rxkids_for_units,
@@ -140,9 +140,9 @@ def test_rxkids_is_nontaxable_in_spm():
     )
 
     # SPM resources WITHOUT rxkids
-    no_rxk, _ = compute_spm_resources(out, rxkids_col=None)
+    no_rxk, _ = compute_spm_resources(out, columns=SPMColumns(rxkids=None))
     # SPM resources WITH rxkids
-    with_rxk, _ = compute_spm_resources(out, rxkids_col="rxkids_amount")
+    with_rxk, _ = compute_spm_resources(out, columns=SPMColumns(rxkids="rxkids_amount"))
     delta = float(with_rxk["spm_resources"].iloc[0] - no_rxk["spm_resources"].iloc[0])
     assert delta == pytest.approx(rxk, rel=1e-9)
 

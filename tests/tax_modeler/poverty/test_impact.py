@@ -8,6 +8,7 @@ from tax_modeler.credits.arpa_ctc import arpa_ctc_for_tax_units
 from tax_modeler.poverty.impact import (
     _DEFAULT_SCENARIOS,
     PovertyImpactResult,
+    TakeupRates,
     _persons_per_unit,
     compute_poverty_impact,
 )
@@ -339,10 +340,10 @@ def _kids_heavy_low_income_units(seed: int = 11, n: int = 120) -> pd.DataFrame:
 
 
 def test_takeup_rate_zero_kills_hi_ctc_650_lift():
-    """hi_ctc_takeup_rate=0.0 ⇒ no persons lifted by the hi_ctc_650 scenario."""
+    """TakeupRates(hi_ctc=0.0) ⇒ no persons lifted by the hi_ctc_650 scenario."""
     units = _kids_heavy_low_income_units()
     s = compute_poverty_impact(
-        units, tax_year=2024, hi_ctc_takeup_rate=0.0,
+        units, tax_year=2024, takeup=TakeupRates(hi_ctc=0.0),
     ).by_state.iloc[0]
     assert s["persons_lifted_hi_ctc_650"] == 0.0
 
@@ -353,7 +354,7 @@ def test_takeup_rate_monotone_hi_ctc_650():
     lifts = []
     for rate in (0.0, 0.4, 0.8, 1.0):
         s = compute_poverty_impact(
-            units, tax_year=2024, hi_ctc_takeup_rate=rate,
+            units, tax_year=2024, takeup=TakeupRates(hi_ctc=rate),
         ).by_state.iloc[0]
         lifts.append(s["persons_lifted_hi_ctc_650"])
     # Strictly monotone non-decreasing.
@@ -368,7 +369,7 @@ def test_takeup_rate_monotone_hi_eitc_100pct():
     lifts = []
     for rate in (0.0, 0.5, 0.95, 1.0):
         s = compute_poverty_impact(
-            units, tax_year=2024, hi_eitc_100pct_takeup_rate=rate,
+            units, tax_year=2024, takeup=TakeupRates(hi_eitc_100pct=rate),
         ).by_state.iloc[0]
         lifts.append(s["persons_lifted_hi_eitc_100pct"])
     assert lifts == sorted(lifts), f"non-monotone lifts: {lifts}"
@@ -380,7 +381,7 @@ def test_takeup_rate_monotone_arpa_ctc():
     lifts = []
     for rate in (0.0, 0.5, 0.95, 1.0):
         s = compute_poverty_impact(
-            units, tax_year=2024, arpa_ctc_takeup_rate=rate,
+            units, tax_year=2024, takeup=TakeupRates(arpa_ctc=rate),
         ).by_state.iloc[0]
         lifts.append(s["persons_lifted_expanded_ctc_2021"])
     assert lifts == sorted(lifts), f"non-monotone lifts: {lifts}"
