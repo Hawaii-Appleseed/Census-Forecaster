@@ -73,6 +73,7 @@ _STATE_PROXY_GEOID = "15003"
 # of the input PUMS incomes (2024 for the 2020-2024 5-year file) — aging grows
 # FROM here, so it must match the data vintage, not a hardcoded 2022.
 from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR  # noqa: E402 - sits with the constant it sets
+from tax_modeler.projection.options import CboAging  # noqa: E402
 
 _DEFAULT_BASE_YEAR = PUMS_INCOME_DOLLAR_YEAR
 
@@ -399,9 +400,7 @@ def project_tax_units_forward(
     acs_weight: float = 0.4,
     bls_weight: float = 0.6,
     eitc_poverty_alpha: float = 0.5,
-    use_cbo_aging: bool = False,
-    cbo_vintage: str = "2025-01",
-    cbo_hawaii_factors: dict[str, float] | None = None,
+    cbo_aging: CboAging | None = None,
 ) -> pd.DataFrame:
     """
     Project tax units to ``target_year`` using county-specific income growth.
@@ -470,9 +469,10 @@ def project_tax_units_forward(
         half-elasticity, motivated by the B19013/S1701 signal correlation).
         Set to 0.0 to disable the poverty-rate correction entirely; tune
         upward (e.g. 0.7) for a more aggressive distributional response.
-    use_cbo_aging:
-        When True, replace the county-scalar B19013 income growth with CBO
-        per-component aging (:func:`tax_modeler.calibration.cbo_aging.age_filers_with_components`)
+    cbo_aging:
+        Replace the county-scalar B19013 income growth with CBO per-component
+        aging (:class:`~tax_modeler.projection.options.CboAging`;
+        :func:`tax_modeler.calibration.cbo_aging.age_filers_with_components`)
         — the same income-aging engine the revenue path uses via
         ``year_recalibrator.project_and_recalibrate``. Each income component
         grows at its own CBO Outlook rate × a Hawaii calibration factor.
@@ -480,15 +480,7 @@ def project_tax_units_forward(
         (component differentiation replaces it), but all geography columns ride
         through unchanged, so the by-county / district poverty breakouts still
         resolve. Mutually exclusive with the BLS OES path; takes precedence if
-        both are requested. Default False (legacy B19013 scaling).
-    cbo_vintage:
-        CBO Outlook vintage identifier for the component growth CSV
-        (default ``"2025-01"``). Only used when ``use_cbo_aging=True``.
-    cbo_hawaii_factors:
-        Optional per-component Hawaii calibration multipliers passed through to
-        the CBO aging engine. ``None`` (default) uses
-        ``cbo_aging.DEFAULT_HAWAII_FACTORS``. Only used when
-        ``use_cbo_aging=True``.
+        both are requested. None (default): legacy B19013 scaling.
 
     Returns
     -------
@@ -516,7 +508,7 @@ def project_tax_units_forward(
     # BLS OES path is active when the caller provides person-level PUMS data
     # with occupation codes AND BLS wage-growth data.
     use_bls_path = (
-        not use_cbo_aging
+        cbo_aging is None
         and pums_persons_df is not None
         and bls_oes_data is not None
     )
@@ -537,7 +529,7 @@ def project_tax_units_forward(
     county_growth: dict[str, _GrowthFactorResult] = {}
     has_county = "county" in tax_units_df.columns
 
-    if not use_bls_path and not use_cbo_aging and has_county:
+    if not use_bls_path and cbo_aging is None and has_county:
         for county in tax_units_df["county"].dropna().unique():
             geoid = _resolve_geoid(str(county), geoid_lookup)
             if geoid is None:
@@ -578,7 +570,7 @@ def project_tax_units_forward(
     df = tax_units_df.copy()
     df["income_base_year"] = df["income"].copy()
 
-    if use_cbo_aging:
+    if cbo_aging is not None:
         # CBO per-component aging — the same income-aging engine the revenue
         # path uses (year_recalibrator.project_and_recalibrate). Each income
         # component grows at its own CBO Outlook rate × Hawaii factor, replacing
@@ -591,19 +583,19 @@ def project_tax_units_forward(
             age_filers_with_components,
             load_cbo_rates,
         )
-        cbo_rates = load_cbo_rates(vintage=cbo_vintage)
+        cbo_rates = load_cbo_rates(vintage=cbo_aging.vintage)
         df = age_filers_with_components(
             df,
             target_year=target_year,
             base_year=_DEFAULT_BASE_YEAR,
             cbo_rates=cbo_rates,
-            hawaii_factors=cbo_hawaii_factors,
+            hawaii_factors=cbo_aging.hawaii_factors,
         )
         df["income_ci90_low"] = float("nan")
         df["income_ci90_high"] = float("nan")
         logger.info(
             "CBO component aging (vintage %s): %d units, median %.0f → %.0f",
-            cbo_vintage, len(df),
+            cbo_aging.vintage, len(df),
             df["income_base_year"].median(), df["income"].median(),
         )
     elif use_bls_path:
@@ -681,12 +673,12 @@ def project_tax_units_forward(
     # ``earned_income`` / ``investment_income``, which otherwise stayed in
     # base-year dollars while credit parameters moved to the target year.
     df = _scale_credit_income_inputs(
-        df, tax_units_df, use_cbo_components=use_cbo_aging,
+        df, tax_units_df, use_cbo_components=cbo_aging is not None,
     )
     # SPM money income follows too, as a separate column: the poverty path
     # reads it, quintile binning keeps reading the base-year TCI.
     df = _add_spm_money_income(
-        df, tax_units_df, use_cbo_components=use_cbo_aging,
+        df, tax_units_df, use_cbo_components=cbo_aging is not None,
     )
 
     # --- Recalculate Hawaii tax on scaled incomes (with scaled deductions) ---

@@ -47,6 +47,12 @@ from tax_modeler.calibration.forward_targets import (
 from tax_modeler.calibration.forward_targets import (
     summarize as _summarize_targets,
 )
+from tax_modeler.projection.options import (
+    CboAging,
+    GrowthAssumptions,
+    SoiAnchor,
+    TopPremium,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,22 +100,11 @@ def project_and_recalibrate(
     *,
     use_forward_targets: bool = False,
     use_agi_reweighting: bool = True,
+    growth: GrowthAssumptions = GrowthAssumptions(),
     resynthesize_top: bool = False,
-    use_soi_anchor: bool = False,
-    soi_year: int = 2022,
-    hawaii_capgain_adjustment: float = 0.95,
-    use_cbo_aging: bool = False,
-    cbo_vintage: str = "2025-01",
-    cbo_hawaii_factors: dict[str, float] | None = None,
-    apply_top_premium: bool = True,
-    top_premium_pct: float = 0.010,
-    top_premium_base_year: int = 2024,
-    top_premium_threshold: float = 500_000.0,
-    cor_projections_M: dict[int, float] | None = None,
-    top_bracket_differential: float = 0.010,
-    low_growth: float = 0.025,
-    rate_drift: float = 0.005,
-    population_growth_rate: float = 0.005,
+    soi_anchor: SoiAnchor | None = None,
+    cbo_aging: CboAging | None = None,
+    top_premium: TopPremium | None = TopPremium(),
     method: str = "ensemble",
     base_year: int | None = None,
 ) -> tuple[pd.DataFrame, ForwardTargets | None]:
@@ -127,40 +122,30 @@ def project_and_recalibrate(
         When True, layers year-forward IRS-style re-anchoring on top of the
         county growth + top-premium projection. When False (default), the
         function is identical to the legacy chain (no behavioural change).
-    apply_top_premium:
-        Whether to apply ``apply_top_income_growth_premium`` (default True).
-        Set False to project on county growth alone.
-    top_premium_pct:
-        Annual premium for filers ≥ ``top_premium_threshold``. Default 1.0%.
-    top_premium_base_year:
-        Base year for premium compounding. Default 2024 (most recent ACS).
-    top_premium_threshold:
-        Minimum AGI for the premium to apply. Default $500K.
-    use_soi_anchor:
-        When True, replace the Pareto-derived $1M+ resynthesis with a
-        direct anchor on national IRS SOI Table 1.4 tiers. Mutually
-        exclusive with ``resynthesize_top`` — if both are True,
-        ``use_soi_anchor`` wins. Requires ``use_forward_targets=True``.
-    soi_year:
-        SOI Table 1.4 vintage to anchor on (default 2022, the most recent
-        published).
-    hawaii_capgain_adjustment:
-        Multiplier on national SOI CG share for Hawaii residents
-        (default 0.95, matching DOTAX Table 21 evidence).
-    use_cbo_aging:
-        When True, replace ``project_tax_units_forward``'s uniform
-        county-median aging with per-component CBO Outlook aging
-        (different growth for wages, CG, business, etc.). Phase 1 rake +
-        SOI top anchor + Phase 2 calibration still run downstream.
-    cbo_vintage:
-        CBO Outlook publication identifier (default ``"2025-01"``).
-    cbo_hawaii_factors:
-        Per-component Hawaii calibration multipliers on CBO national
-        rates. None → use ``cbo_aging.DEFAULT_HAWAII_FACTORS`` (HI wage
-        growth ~0.85 of national, CG parity).
-    cor_projections_M, top_bracket_differential, low_growth, rate_drift:
-        Forwarded to ``forward_targets.build_targets`` when
-        ``use_forward_targets`` is True.
+    growth:
+        Growth assumptions forwarded to ``forward_targets.build_targets``
+        when ``use_forward_targets`` is True
+        (:class:`~tax_modeler.projection.options.GrowthAssumptions`).
+    resynthesize_top:
+        Legacy $1M+ re-synthesis (Pareto, national-95% gains shares).
+        Requires ``use_forward_targets=True``.
+    soi_anchor:
+        Re-synthesize the $1M+ filers from national IRS SOI Table 1.4 tiers
+        (:class:`~tax_modeler.projection.options.SoiAnchor`); None skips it.
+        Wins over ``resynthesize_top`` if both are set. Requires
+        ``use_forward_targets=True``.
+    cbo_aging:
+        Per-component CBO Outlook aging
+        (:class:`~tax_modeler.projection.options.CboAging`) instead of
+        ``project_tax_units_forward``'s uniform county-median aging; it also
+        ages the SOI tiers. Phase 1 rake + SOI top anchor + Phase 2
+        calibration still run downstream. None: county-median aging. Its
+        vintage and Hawaii factors also feed ``build_targets`` (the defaults
+        when None).
+    top_premium:
+        The top-income growth premium
+        (:class:`~tax_modeler.projection.options.TopPremium`); None projects
+        on county growth alone.
     method:
         Projection method passed to ``project_tax_units_forward``
         (``"ensemble"`` by default).
@@ -200,8 +185,11 @@ def project_and_recalibrate(
         target_year, state_config=HAWAII
     )
 
+    cbo = cbo_aging or CboAging()   # build_targets reads its vintage either way
+    premium_threshold = (top_premium or TopPremium()).threshold
+
     # ── 1. Income aging — uniform county growth OR CBO component aging ───────
-    if use_cbo_aging:
+    if cbo_aging is not None:
         # Per-component CBO aging replaces the uniform B19013 income growth.
         # Geographic aging (county B19013) is dropped; the SOI-anchored
         # synthesis at Step 5b doesn't need geographic resolution since $1M+
@@ -213,7 +201,7 @@ def project_and_recalibrate(
             load_cbo_rates,
         )
         from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
-        cbo_rates = load_cbo_rates(vintage=cbo_vintage)
+        cbo_rates = load_cbo_rates(vintage=cbo_aging.vintage)
         projected = age_filers_with_components(
             units,
             target_year=target_year,
@@ -221,7 +209,7 @@ def project_and_recalibrate(
             # age_filers re-bases the cumulative CBO factors to this year.
             base_year=PUMS_INCOME_DOLLAR_YEAR,
             cbo_rates=cbo_rates,
-            hawaii_factors=cbo_hawaii_factors,
+            hawaii_factors=cbo_aging.hawaii_factors,
         )
     else:
         projected = project_tax_units_forward(
@@ -230,13 +218,13 @@ def project_and_recalibrate(
 
     if not use_forward_targets:
         # Legacy path: just apply the premium and return.
-        if apply_top_premium:
+        if top_premium is not None:
             projected = apply_top_income_growth_premium(
                 projected,
                 target_year=target_year,
-                base_year=top_premium_base_year,
-                annual_premium=top_premium_pct,
-                threshold=top_premium_threshold,
+                base_year=top_premium.base_year,
+                annual_premium=top_premium.annual,
+                threshold=top_premium.threshold,
             )
         return projected, None
 
@@ -255,14 +243,9 @@ def project_and_recalibrate(
     )
     forward = build_targets(
         target_year,
-        cor_projections_M=cor_projections_M,
-        low_growth=low_growth,
-        top_differential=top_bracket_differential,
-        rate_drift=rate_drift,
-        population_growth_rate=population_growth_rate,
+        growth=growth,
         include_agi_targets=use_agi_reweighting,
-        cbo_vintage=cbo_vintage,
-        hawaii_factors=cbo_hawaii_factors,
+        cbo=cbo,
         empirical_density=empirical_density,
     )
     logger.info("Year recalibrator: %s", _summarize_targets(forward))
@@ -271,7 +254,7 @@ def project_and_recalibrate(
     # Done BEFORE the premium so the premium operates on a correctly-sized
     # top-bracket population (the dominant driver of the ITEP gap).
     aliased = _alias_columns(projected)
-    pre_top = aliased.loc[aliased["agi"] >= top_premium_threshold, "weight"].sum()
+    pre_top = aliased.loc[aliased["agi"] >= premium_threshold, "weight"].sum()
     # Stage-2 reweighting: tier-level (5 SOI tiers within $1M+) only by default,
     # which is the methodologically supported correction (cohort persistence
     # at the top — Auten/Gee/Turner 2013). Per-bracket AGI mass is NOT raked
@@ -284,21 +267,21 @@ def project_and_recalibrate(
         filer_targets=forward.filer_targets,
         status_targets=forward.status_targets,
     )
-    post_top = raked.loc[raked["agi"] >= top_premium_threshold, "weight"].sum()
+    post_top = raked.loc[raked["agi"] >= premium_threshold, "weight"].sum()
     delta_pct = (post_top / pre_top - 1) * 100 if pre_top > 0 else 0.0
     logger.info(
-        f"Phase 1 (filer rake) — ≥${top_premium_threshold/1e3:.0f}K filers: "
+        f"Phase 1 (filer rake) — ≥${premium_threshold/1e3:.0f}K filers: "
         f"{pre_top:,.0f} → {post_top:,.0f} ({delta_pct:+.1f}%)"
     )
 
     # ── 4. Top-income premium (existing function, unchanged) ────────────────
-    if apply_top_premium:
+    if top_premium is not None:
         raked = apply_top_income_growth_premium(
             raked,
             target_year=target_year,
-            base_year=top_premium_base_year,
-            annual_premium=top_premium_pct,
-            threshold=top_premium_threshold,
+            base_year=top_premium.base_year,
+            annual_premium=top_premium.annual,
+            threshold=top_premium.threshold,
         )
         # Premium scales income and clears the top-row tax columns; mirror to
         # the alias so Phase 2 sees consistent values.
@@ -309,7 +292,7 @@ def project_and_recalibrate(
     # The premium changed AGI; tax must be recomputed from current AGI before
     # the bracket multipliers can target the COR aggregate. Use the existing
     # base-tax recompute helper.
-    if apply_top_premium:
+    if top_premium is not None:
         from tax_modeler.pipeline import _compute_base_tax
         raked = _compute_base_tax(
             raked, tax_year=target_year, deduction_params=_ded_params,
@@ -322,7 +305,7 @@ def project_and_recalibrate(
     # Two modes share this slot — both zero existing $1M+ weights, then add
     # fresh donors sized to the forward DOTAX-projected $1M+ count.
     #
-    #   - ``use_soi_anchor``: pulls per-tier composition (CG/wages/biz/div)
+    #   - ``soi_anchor``: pulls per-tier composition (CG/wages/biz/div)
     #     directly from national SOI Table 1.4. Strictly preferred when SOI
     #     data is available — closer to ITEP's methodology.
     #   - ``resynthesize_top`` (legacy): Pareto α=1.5 with national-95% CG
@@ -334,7 +317,7 @@ def project_and_recalibrate(
     # globally — which drops $1M+ count below target and forces Phase 2 to
     # inflate per-filer tax to compensate. Trust the synthesizer's count;
     # let Phase 2 anchor the aggregate.
-    if use_soi_anchor or resynthesize_top:
+    if soi_anchor is not None or resynthesize_top:
         import numpy as np
 
         from tax_modeler.pipeline import _compute_base_tax as _compute_base_tax_2
@@ -344,7 +327,7 @@ def project_and_recalibrate(
         fwd_1m_tax_M = float(forward.tax_targets.get(top, dotax_base.tax_targets_M()[top]))
         pre_1m = float(raked.loc[raked["agi"] >= 1_000_000, "weight"].sum())
 
-        if use_soi_anchor:
+        if soi_anchor is not None:
             from tax_modeler.calibration.soi_top_anchor import (
                 synthesize_top_filers_from_soi,
             )
@@ -355,13 +338,13 @@ def project_and_recalibrate(
                 raked,
                 target_filer_count=fwd_1m_count,
                 target_tax_M=fwd_1m_tax_M,
-                soi_year=soi_year,
-                hawaii_capgain_adjustment=hawaii_capgain_adjustment,
-                target_year=target_year if use_cbo_aging else None,
-                cbo_vintage=cbo_vintage if use_cbo_aging else None,
-                cbo_hawaii_factors=cbo_hawaii_factors if use_cbo_aging else None,
+                soi_year=soi_anchor.year,
+                hawaii_capgain_adjustment=soi_anchor.hawaii_capgain_adjustment,
+                target_year=target_year if cbo_aging is not None else None,
+                cbo_vintage=cbo_aging.vintage if cbo_aging is not None else None,
+                cbo_hawaii_factors=cbo_aging.hawaii_factors if cbo_aging is not None else None,
             )
-            mode = "SOI anchor (CBO-aged tiers)" if use_cbo_aging else "SOI anchor"
+            mode = "SOI anchor (CBO-aged tiers)" if cbo_aging is not None else "SOI anchor"
         else:
             from tax_modeler.scenarios.top_income_synthesis import synthesize_top_filers
             raked = synthesize_top_filers(

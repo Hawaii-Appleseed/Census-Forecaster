@@ -193,11 +193,12 @@ def _build_units_for_tax_year(
     from tax_modeler.pipeline import compute_base_tax
 
     if project:
+        from tax_modeler.projection.options import CboAging
         from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
         out = project_tax_units_forward(
             units, target_year=tax_year,
             eitc_poverty_alpha=eitc_poverty_alpha,
-            use_cbo_aging=use_cbo_aging,
+            cbo_aging=CboAging() if use_cbo_aging else None,
         )
     else:
         out = compute_base_tax(units, tax_year=tax_year)

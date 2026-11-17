@@ -41,10 +41,10 @@ warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
 import pandas as pd
-from tax_modeler.base import build_tail_units
-from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
 from tax_modeler.config.tax_system_config import TaxCalculator
 from tax_modeler.reporting import BLUE, GREEN, NAVY, make_quintile_pdf
+from tax_modeler.scenarios import recalibrated_population
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 from tax_modeler.scenarios.quintile_analysis import (
     compute_quintile_breaks,
     cor_scale_factor_for_year,
@@ -57,11 +57,10 @@ from tax_modeler.scenarios.sb3125_cd1_credits import compute_credit_overlay
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
-from _forecast_common import CALIBRATED_PKL, TARGET_YEARS  # noqa: E402
+from _forecast_common import TARGET_YEARS, open_calibrated  # noqa: E402
 
-# MID scenario parameters (matches chain/forecast_sb3125_enhanced.py MID).
-MID_ALPHA           = 1.5
-MID_TOP_PREMIUM     = 0.010
+# MID scenario parameters (matches chain/forecast_sb3125_enhanced.py MID; alpha
+# and top premium are act24_population's MID_ALPHA / MID_TOP_PREMIUM).
 MID_REEC            = "obbba_mid"
 MID_REEC_EFF_SHARE  = 0.65
 MID_CGEC_GROWTH     = 0.015
@@ -140,28 +139,21 @@ def main(bill: str = "sb3125_cd1") -> None:
     spec = PRESENTATION[bill]
     label = scenario.label
 
-    if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py first.")
-        sys.exit(1)
-
     import time
     wall = time.perf_counter()
 
     print("Loading calibrated base...", flush=True)
-    from tax_modeler.artifacts import load_calibrated_base
-    base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
-    cal_tax_year = int(cal_meta.get("tax_year", 2023))
+    base = open_calibrated(shared=False)
 
     print(f"Synthesizing top filers (MID alpha={MID_ALPHA})...", flush=True)
     # $500K-$1M income redistribution (truncated Pareto inverse-CDF mapped to
     # weighted percentile; preserves PUMS demographics so the surcharge-relevant
     # Single+MFS share isn't diluted), $1M+ Pareto synthesis, enrichment (adds
     # total_cash_income for TCI quintile binning), capital-gains imputation, and
-    # the tail calibrated on the base's own deduction basis. Not aged:
-    # project_and_recalibrate's SOI anchor zeroes every $1M+ unit and replaces
-    # them with SOI tiers aged from TY2022, so its level is moot.
-    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
-                                     cal_tax_year=cal_tax_year)
+    # the tail calibrated on the base's own deduction basis
+    # (scenarios.recalibrated_population, as the fy26base and capital-gains
+    # steps build it).
+    units, tail_k = recalibrated_population.build_units(base, alpha=MID_ALPHA)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()
@@ -197,31 +189,18 @@ def main(bill: str = "sb3125_cd1") -> None:
         # forward DOTAX-shaped filer counts BEFORE the premium, then re-anchor
         # aggregate tax to COR's annual IIT projection AFTER premium + tax
         # recompute.
-        # Methodology stack (ITEP-aligned):
-        #   - use_forward_targets: rake to forward DOTAX-shaped filer counts
+        # Methodology stack (ITEP-aligned; scenarios.recalibrated_population):
+        #   - forward targets: rake to forward DOTAX-shaped filer counts
         #     and re-anchor aggregate tax to COR projection per year.
-        #   - use_soi_anchor: anchor $1M+ tier composition (CG / wages /
+        #   - SOI anchor: anchor $1M+ tier composition (CG / wages /
         #     business / dividends) on national IRS SOI Table 1.4.
-        #   - use_cbo_aging: age each filer's income components at CBO
+        #   - CBO aging: age each filer's income components at CBO
         #     Outlook nominal rates (wages 4.4%/yr, CG 5-9%/yr, etc.) instead
-        #     of uniform B19013 county-median growth.
-        # Default Hawaii calibration factors apply (DEFAULT_HAWAII_FACTORS):
-        # wages 0.85x national, business 0.90x, capital_gains 1.00x, others
-        # 1.00x. Pass cbo_hawaii_factors={c: 1.0 ...} for pure CBO-national
-        # aging (matches ITEP methodology by construction).
-        projected, _forward = project_and_recalibrate(
-            units,
-            target_year=yr,
-            use_forward_targets=True,
-            use_soi_anchor=True,
-            soi_year=2022,
-            hawaii_capgain_adjustment=0.95,
-            use_cbo_aging=True,
-            cbo_vintage="2025-01",
-            top_premium_pct=MID_TOP_PREMIUM,
-            top_bracket_differential=0.025,
-            method="ensemble",
-        )
+        #     of uniform B19013 county-median growth, with the default Hawaii
+        #     factors (wages 0.85x national, business 0.90x, capital_gains
+        #     1.00x, others 1.00x).
+        projected, _forward = recalibrated_population.project(
+            units, year=yr, top_premium=MID_TOP_PREMIUM)
 
         baseline_cfg = baseline.system_for(yr)
         scenario_cfg = scenario.system_for(yr)
