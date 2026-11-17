@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 from tax_modeler.scenarios.behavioral_response import BehavioralParams
 
 YEARS = (2027, 2028, 2029, 2030, 2031)
@@ -32,6 +33,6 @@ class SimScenario:
 
 SCENARIOS = {
     "low": SimScenario("low", "LOW", alpha=1.7, top_premium=0.003, behavior="high"),
-    "mid": SimScenario("mid", "MID", alpha=1.5, top_premium=0.010, behavior="mid"),
+    "mid": SimScenario("mid", "MID", alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM, behavior="mid"),
     "high": SimScenario("high", "HIGH", alpha=1.4, top_premium=0.023, behavior="low"),
 }

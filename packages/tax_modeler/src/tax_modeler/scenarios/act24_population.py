@@ -32,7 +32,7 @@ units and projections.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -51,13 +51,14 @@ MID_TOP_PREMIUM = 0.010
 @dataclass(frozen=True)
 class CalibratedBase:
     """The calibrated base (``artifacts.load_calibrated_base``), the deduction
-    params and tax year it was calibrated under, and the population store
-    that loaded it (None: nothing is shared or cached)."""
+    params and tax year it was calibrated under, the population store that
+    loaded it (None: nothing is shared or cached), and the pickle's metadata."""
 
     frame: pd.DataFrame
     ded_params: Any
     tax_year: int
     store: PopulationStore | None = None
+    meta: dict = field(default_factory=dict)
 
     @classmethod
     def load(cls, path, store: PopulationStore | None = None) -> CalibratedBase:
@@ -68,7 +69,7 @@ class CalibratedBase:
             from tax_modeler.artifacts import load_calibrated_base
 
             frame, ded_params, meta = load_calibrated_base(path)
-        return cls(frame, ded_params, int(meta.get("tax_year", 2023)), store)
+        return cls(frame, ded_params, int(meta.get("tax_year", 2023)), store, meta)
 
     def units(self, *, alpha: float, top_premium: float,
               enrich: bool = False) -> tuple[pd.DataFrame, float]:
