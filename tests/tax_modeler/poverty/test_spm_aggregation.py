@@ -271,7 +271,7 @@ def test_food_excise_credit_counted_once_at_spm_grain():
     """hi_low_income_credit must survive aggregation so compute_spm_resources
     can un-net it from hi_tax_liability when hi_food_excise_amount is also
     present. Before it was carried, the SPM frame counted the credit twice."""
-    from tax_modeler.poverty.spm import compute_spm_resources
+    from tax_modeler.poverty.spm import SPMColumns, compute_spm_resources
 
     persons = _persons([
         {"SERIALNO": "H3", "SPORDER": 1, "AGEP": 35, "PWGTP": 10, "WGTP": 10,
@@ -289,6 +289,6 @@ def test_food_excise_credit_counted_once_at_spm_grain():
     with_food, _ = compute_spm_resources(spm, federal_tax_fallback=False)
     without_food, _ = compute_spm_resources(
         spm.drop(columns=["hi_food_excise_amount", "hi_low_income_credit"]),
-        hi_food_excise_col=None, federal_tax_fallback=False)
+        columns=SPMColumns(hi_food_excise=None), federal_tax_fallback=False)
     # With the dedicated column: 25,000 - 400 + 140. Without: 25,000 - 345.
     assert with_food["spm_resources"].iloc[0] - without_food["spm_resources"].iloc[0] == pytest.approx(140 - 55)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-from tax_modeler.poverty.spm import compute_spm_resources
+from tax_modeler.poverty.spm import SPMColumns, compute_spm_resources
 
 
 def _unit(**cols) -> pd.DataFrame:
@@ -28,7 +28,7 @@ def test_resources_read_tci_without_the_aged_column():
 
 def test_explicit_money_income_col_overrides_detection():
     out, _ = compute_spm_resources(
-        _unit(spm_money_income=23_000.0), money_income_col="total_cash_income",
+        _unit(spm_money_income=23_000.0), columns=SPMColumns(money_income="total_cash_income"),
         federal_tax_fallback=False,
     )
     assert out["spm_resources"].iloc[0] == pytest.approx(20_000.0)

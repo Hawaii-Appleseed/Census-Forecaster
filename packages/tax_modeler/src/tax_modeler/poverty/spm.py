@@ -53,37 +53,49 @@ class SPMResourceMeta:
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class SPMColumns:
+    """The unit-frame columns :func:`compute_spm_resources` reads. A column
+    that is ``None`` or absent from the frame counts as zero. Override one
+    with ``SPMColumns(eitc="my_eitc")`` or ``dataclasses.replace``.
+
+    ``money_income`` None picks ``spm_money_income`` when the frame has it
+    (a projected frame), else ``total_cash_income``; ``federal_tax`` and
+    ``payroll_tax`` absent fall back to the estimates described there."""
+
+    money_income: str | None = None
+    state_tax: str = "hi_tax_liability"
+    eitc: str = "eitc_amount"
+    refundable_ctc: str = "ctc_refundable"
+    federal_tax: str | None = "federal_tax_liability"
+    payroll_tax: str | None = None
+    snap: str | None = "snap_amount"
+    ssi: str | None = "ssi_amount"
+    ssi_hi: str | None = "ssi_hi_amount"
+    aca_ptc: str | None = "aca_ptc_amount"
+    wic: str | None = "wic_amount"
+    housing_subsidy: str | None = "housing_subsidy_amount"
+    liheap: str | None = "liheap_amount"
+    childcare_subsidy: str | None = "childcare_amount"
+    school_lunch: str | None = "school_lunch_amount"
+    hi_eitc: str | None = "hi_eitc_amount"
+    hi_food_excise: str | None = "hi_food_excise_amount"
+    hi_renters: str | None = "hi_renters_amount"
+    moop: str | None = "moop_amount"
+    childcare_expense: str | None = "childcare_expense_amount"
+    work_expense: str | None = "work_expense_amount"
+    rxkids: str | None = "rxkids_amount"
+    filing_status: str = "filing_status"
+    earned_income: str = "earned_income"
+
+
 def compute_spm_resources(
     units: pd.DataFrame,
     *,
-    money_income_col: str | None = None,
-    state_tax_col: str = "hi_tax_liability",
-    eitc_col: str = "eitc_amount",
-    refundable_ctc_col: str = "ctc_refundable",
-    federal_tax_col: str | None = "federal_tax_liability",
-    payroll_tax_col: str | None = None,
-    snap_col: str | None = "snap_amount",
-    ssi_col: str | None = "ssi_amount",
-    ssi_hi_col: str | None = "ssi_hi_amount",
-    aca_ptc_col: str | None = "aca_ptc_amount",
-    wic_col: str | None = "wic_amount",
-    housing_subsidy_col: str | None = "housing_subsidy_amount",
-    liheap_col: str | None = "liheap_amount",
-    childcare_subsidy_col: str | None = "childcare_amount",
-    school_lunch_col: str | None = "school_lunch_amount",
-    hi_eitc_col: str | None = "hi_eitc_amount",
-    hi_food_excise_col: str | None = "hi_food_excise_amount",
-    hi_renters_col: str | None = "hi_renters_amount",
-    moop_col: str | None = "moop_amount",
-    childcare_expense_col: str | None = "childcare_expense_amount",
-    work_expense_col: str | None = "work_expense_amount",
-    rxkids_col: str | None = "rxkids_amount",
-    # behavior knobs
+    columns: SPMColumns = SPMColumns(),
     federal_tax_fallback: bool = True,
     tax_year: int | None = None,
     extrapolate: bool = False,
-    filing_status_col: str = "filing_status",
-    earned_income_col: str = "earned_income",
     out_col: str = "spm_resources",
 ) -> tuple[pd.DataFrame, SPMResourceMeta]:
     """Add an ``spm_resources`` column to ``units``.
@@ -124,6 +136,7 @@ def compute_spm_resources(
         amounts that fed into the calculation (for audit). ``meta`` is
         a :class:`SPMResourceMeta` with the provenance.
     """
+    money_income_col = columns.money_income
     if money_income_col is None:
         money_income_col = (
             AGED_MONEY_INCOME_COL if AGED_MONEY_INCOME_COL in units.columns
@@ -147,33 +160,33 @@ def compute_spm_resources(
     zeroed: list[str] = []
 
     money_income = _col(money_income_col); used.append(money_income_col)
-    eitc = _col(eitc_col)
-    if eitc_col in df.columns:
-        used.append(eitc_col)
+    eitc = _col(columns.eitc)
+    if columns.eitc in df.columns:
+        used.append(columns.eitc)
     else:
-        zeroed.append(eitc_col)
-    rctc = _col(refundable_ctc_col)
-    if refundable_ctc_col in df.columns:
-        used.append(refundable_ctc_col)
+        zeroed.append(columns.eitc)
+    rctc = _col(columns.refundable_ctc)
+    if columns.refundable_ctc in df.columns:
+        used.append(columns.refundable_ctc)
     else:
-        zeroed.append(refundable_ctc_col)
-    state_tax = _col(state_tax_col)
-    if state_tax_col in df.columns:
-        used.append(state_tax_col)
+        zeroed.append(columns.refundable_ctc)
+    state_tax = _col(columns.state_tax)
+    if columns.state_tax in df.columns:
+        used.append(columns.state_tax)
     else:
-        zeroed.append(state_tax_col)
+        zeroed.append(columns.state_tax)
 
     # F3 de-duplication: hi_tax_liability is NET of a simplified low-income
     # food/excise credit (column ``hi_low_income_credit``, HRS §235-55.85). If
     # the caller ALSO supplies the dedicated graduated model in
-    # ``hi_food_excise_col``, the same statutory credit would be counted twice —
+    # ``columns.hi_food_excise``, the same statutory credit would be counted twice —
     # once implicitly via the reduced state_tax, once explicitly via
     # +hi_food_excise. Gross state_tax back up by the embedded credit so the
     # credit is counted exactly once (through the dedicated hi_food_excise line,
     # the better model). Callers that don't model hi_food_excise (e.g. the
     # poverty_impact_report path) are unaffected — the credit stays counted once
     # via the netted liability.
-    if hi_food_excise_col and hi_food_excise_col in df.columns:
+    if columns.hi_food_excise and columns.hi_food_excise in df.columns:
         if "hi_low_income_credit" in df.columns:
             embedded_credit = _col("hi_low_income_credit")
             state_tax = state_tax + embedded_credit
@@ -181,21 +194,21 @@ def compute_spm_resources(
         else:
             import logging
             logging.getLogger(__name__).warning(
-                "compute_spm_resources: hi_food_excise_col=%r present but no "
+                "compute_spm_resources: columns.hi_food_excise=%r present but no "
                 "'hi_low_income_credit' column to un-net from %r — the §235-55.85 "
                 "food/excise credit may be double-counted in SPM resources.",
-                hi_food_excise_col, state_tax_col,
+                columns.hi_food_excise, columns.state_tax,
             )
 
     # Federal tax: prefer column → real calculator → flat-rate fallback → zero
-    if federal_tax_col and federal_tax_col in df.columns:
-        federal_tax = _col(federal_tax_col)
-        used.append(federal_tax_col)
+    if columns.federal_tax and columns.federal_tax in df.columns:
+        federal_tax = _col(columns.federal_tax)
+        used.append(columns.federal_tax)
         federal_source = "column"
     elif (
         federal_tax_fallback
         and tax_year is not None
-        and filing_status_col in df.columns
+        and columns.filing_status in df.columns
     ):
         # Real federal-tax calculator: TY 2022–2025 brackets + standard
         # deductions per IRS Rev. Procs. Removes the ~4–6pp upward bias
@@ -210,7 +223,7 @@ def compute_spm_resources(
                 # Federal AGI when the frame has it: taxing SSI, public
                 # assistance and full Social Security overstated tax.
                 income_col="federal_agi" if "federal_agi" in df.columns else money_income_col,
-                filing_status_col=filing_status_col,
+                filing_status_col=columns.filing_status,
                 extrapolate=extrapolate,
             )
             federal_tax = df_fed["federal_tax_liability"].fillna(0).to_numpy(
@@ -250,87 +263,87 @@ def compute_spm_resources(
         zeroed.append("federal_tax")
 
     # Payroll tax: prefer column, else compute on earned_income
-    if payroll_tax_col and payroll_tax_col in df.columns:
-        payroll_tax = _col(payroll_tax_col)
-        used.append(payroll_tax_col)
+    if columns.payroll_tax and columns.payroll_tax in df.columns:
+        payroll_tax = _col(columns.payroll_tax)
+        used.append(columns.payroll_tax)
         payroll_source = "column"
-    elif earned_income_col in df.columns:
-        payroll_tax = _col(earned_income_col) * _EMPLOYEE_FICA_RATE
-        used.append(earned_income_col)
+    elif columns.earned_income in df.columns:
+        payroll_tax = _col(columns.earned_income) * _EMPLOYEE_FICA_RATE
+        used.append(columns.earned_income)
         payroll_source = "computed"
     else:
         payroll_tax = np.zeros(n)
         payroll_source = "zero"
         zeroed.append("payroll_tax")
 
-    snap = _col(snap_col)
-    if snap_col and snap_col in df.columns:
-        used.append(snap_col)
+    snap = _col(columns.snap)
+    if columns.snap and columns.snap in df.columns:
+        used.append(columns.snap)
     else:
         zeroed.append("snap")
-    ssi = _col(ssi_col)
-    if ssi_col and ssi_col in df.columns:
-        used.append(ssi_col)
+    ssi = _col(columns.ssi)
+    if columns.ssi and columns.ssi in df.columns:
+        used.append(columns.ssi)
     else:
         zeroed.append("ssi")
-    ssi_hi = _col(ssi_hi_col)
-    if ssi_hi_col and ssi_hi_col in df.columns:
-        used.append(ssi_hi_col)
+    ssi_hi = _col(columns.ssi_hi)
+    if columns.ssi_hi and columns.ssi_hi in df.columns:
+        used.append(columns.ssi_hi)
     else:
         zeroed.append("ssi_hi_supplement")
-    aca_ptc = _col(aca_ptc_col)
-    if aca_ptc_col and aca_ptc_col in df.columns:
-        used.append(aca_ptc_col)
+    aca_ptc = _col(columns.aca_ptc)
+    if columns.aca_ptc and columns.aca_ptc in df.columns:
+        used.append(columns.aca_ptc)
     else:
         zeroed.append("aca_ptc")
-    wic = _col(wic_col)
-    if wic_col and wic_col in df.columns:
-        used.append(wic_col)
+    wic = _col(columns.wic)
+    if columns.wic and columns.wic in df.columns:
+        used.append(columns.wic)
     else:
         zeroed.append("wic")
-    housing = _col(housing_subsidy_col)
-    if housing_subsidy_col and housing_subsidy_col in df.columns:
-        used.append(housing_subsidy_col)
+    housing = _col(columns.housing_subsidy)
+    if columns.housing_subsidy and columns.housing_subsidy in df.columns:
+        used.append(columns.housing_subsidy)
     else:
         zeroed.append("housing_subsidy")
-    liheap = _col(liheap_col)
-    if liheap_col and liheap_col in df.columns:
-        used.append(liheap_col)
+    liheap = _col(columns.liheap)
+    if columns.liheap and columns.liheap in df.columns:
+        used.append(columns.liheap)
     else:
         zeroed.append("liheap")
-    childcare_subsidy = _col(childcare_subsidy_col)
-    if childcare_subsidy_col and childcare_subsidy_col in df.columns:
-        used.append(childcare_subsidy_col)
+    childcare_subsidy = _col(columns.childcare_subsidy)
+    if columns.childcare_subsidy and columns.childcare_subsidy in df.columns:
+        used.append(columns.childcare_subsidy)
     else:
         zeroed.append("childcare_subsidy")
-    school_lunch = _col(school_lunch_col)
-    if school_lunch_col and school_lunch_col in df.columns:
-        used.append(school_lunch_col)
+    school_lunch = _col(columns.school_lunch)
+    if columns.school_lunch and columns.school_lunch in df.columns:
+        used.append(columns.school_lunch)
     else:
         zeroed.append("school_lunch")
-    hi_eitc = _col(hi_eitc_col)
-    if hi_eitc_col and hi_eitc_col in df.columns:
-        used.append(hi_eitc_col)
+    hi_eitc = _col(columns.hi_eitc)
+    if columns.hi_eitc and columns.hi_eitc in df.columns:
+        used.append(columns.hi_eitc)
     else:
         zeroed.append("hi_eitc")
-    hi_food_excise = _col(hi_food_excise_col)
-    if hi_food_excise_col and hi_food_excise_col in df.columns:
-        used.append(hi_food_excise_col)
+    hi_food_excise = _col(columns.hi_food_excise)
+    if columns.hi_food_excise and columns.hi_food_excise in df.columns:
+        used.append(columns.hi_food_excise)
     else:
         zeroed.append("hi_food_excise")
-    hi_renters = _col(hi_renters_col)
-    if hi_renters_col and hi_renters_col in df.columns:
-        used.append(hi_renters_col)
+    hi_renters = _col(columns.hi_renters)
+    if columns.hi_renters and columns.hi_renters in df.columns:
+        used.append(columns.hi_renters)
     else:
         zeroed.append("hi_renters")
 
-    moop = _col(moop_col)
-    childcare = _col(childcare_expense_col)
-    work_exp = _col(work_expense_col)
+    moop = _col(columns.moop)
+    childcare = _col(columns.childcare_expense)
+    work_exp = _col(columns.work_expense)
     for label, name in [
-        ("moop", moop_col),
-        ("childcare_expense", childcare_expense_col),
-        ("work_expense", work_expense_col),
+        ("moop", columns.moop),
+        ("childcare_expense", columns.childcare_expense),
+        ("work_expense", columns.work_expense),
     ]:
         if name and name in df.columns:
             used.append(name)
@@ -340,9 +353,9 @@ def compute_spm_resources(
     # Hypothetical program: RxKids Hawaiʻi cash prescription. Charitable
     # disbursement (non-taxable, doesn't interact with AGI / EITC / CTC
     # phase-outs) — counted as SPM resources only.
-    rxkids = _col(rxkids_col)
-    if rxkids_col and rxkids_col in df.columns:
-        used.append(rxkids_col)
+    rxkids = _col(columns.rxkids)
+    if columns.rxkids and columns.rxkids in df.columns:
+        used.append(columns.rxkids)
     else:
         zeroed.append("rxkids")
 

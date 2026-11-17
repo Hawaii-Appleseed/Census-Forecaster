@@ -1108,6 +1108,7 @@ def main(argv: list | None = None) -> int:
     # 7. Resolve scenarios.
     from tax_modeler.poverty.impact import (
         _DEFAULT_SCENARIOS,
+        TakeupRates,
         compute_poverty_impact,
         compute_poverty_impact_with_se,
     )
@@ -1123,9 +1124,9 @@ def main(argv: list | None = None) -> int:
     #    column emitted by the aggregator.
     impact_kwargs = dict(
         tax_year=args.tax_year, scenarios=scenarios,
-        hi_ctc_takeup_rate=args.hi_ctc_takeup_rate,
-        hi_eitc_100pct_takeup_rate=args.hi_eitc_100pct_takeup_rate,
-        arpa_ctc_takeup_rate=args.arpa_ctc_takeup_rate,
+        takeup=TakeupRates(hi_ctc=args.hi_ctc_takeup_rate,
+                           hi_eitc_100pct=args.hi_eitc_100pct_takeup_rate,
+                           arpa_ctc=args.arpa_ctc_takeup_rate),
     )
     if args.replicate_weights:
         result = compute_poverty_impact_with_se(

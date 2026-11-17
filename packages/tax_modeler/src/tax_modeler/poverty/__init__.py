@@ -14,18 +14,23 @@ imputation is a later phase (the synthetic fixture cannot exercise it).
 from __future__ import annotations
 
 from .impact import (
+    PovertyColumns,
     PovertyImpactResult,
+    TakeupRates,
     compute_poverty_impact,
     compute_poverty_impact_with_se,
 )
-from .spm import compute_spm_resources
+from .spm import SPMColumns, compute_spm_resources
 from .thresholds import hawaii_spm_threshold, spm_threshold_table, threshold_for_units
 
 __all__ = [
     "compute_spm_resources",
+    "SPMColumns",
     "compute_poverty_impact",
     "compute_poverty_impact_with_se",
     "PovertyImpactResult",
+    "PovertyColumns",
+    "TakeupRates",
     "hawaii_spm_threshold",
     "spm_threshold_table",
     "threshold_for_units",
