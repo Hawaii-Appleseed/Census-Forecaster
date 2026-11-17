@@ -62,9 +62,10 @@ sys.path.insert(0, str(REPO / "chain"))     # forecast_cg_rate_options (the capi
 
 from _forecast_common import (  # noqa: E402
     ARTIFACT_DIR,
-    CALIBRATED_PKL,
     RUNS_DIR,
     cache_provenance,
+    population_store,
+    require_calibrated,
 )
 from common.fingerprint import closure_guard, fingerprint  # noqa: E402
 
@@ -434,13 +435,10 @@ def main() -> int:
     if args.check_only or args.from_saved:
         pop = Population.load(OUT)
     else:
-        if not CALIBRATED_PKL.exists():
-            print(f"ERROR: {CALIBRATED_PKL} missing; run chain/forecast_sb3125_enhanced.py --cd 2 first.")
-            return 1
+        calibrated_pkl = require_calibrated()
         print("Building the scoring population (LOW/MID/HIGH x TY2027-2031)...", flush=True)
-        from _forecast_common import population_store
         store = population_store()
-        pop = build_population(CALIBRATED_PKL, store_at=(str(store.root), store.key))
+        pop = build_population(calibrated_pkl, store_at=(str(store.root), store.key))
         pop.meta["built"] = {"created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                              "git_sha": code_sha}
         pop.save(OUT)

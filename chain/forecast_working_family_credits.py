@@ -93,7 +93,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
-OUT_DIR = REPO / "runs" / "working_family_credits"
+OUT_DIR = REPO / "runs" / "working_family_credits"   # also population_agreement's
 PUMS_DIR = REPO / "packages" / "data" / "raw" / "pums_2024_1yr"
 
 YEARS = [2022, 2023, 2024, 2027, 2028, 2029, 2030, 2031]
@@ -365,9 +365,9 @@ def population_agreement(units: pd.DataFrame, out_dir: Path | None = None,
     try:
         import numpy as np
         from tax_modeler import agreement
-        from tax_modeler.artifacts import load_calibrated_base
+        from tax_modeler.scenarios.act24_population import CalibratedBase
 
-        revenue_base, _, _ = load_calibrated_base(CALIBRATED_PKL)
+        revenue_base = CalibratedBase.load(CALIBRATED_PKL).frame
         # The population as the credits are scored on it (before take-up), not as cached.
         # Ageing and the reweight can draw random numbers; the draws that follow in this
         # step must not move, so numpy's generator is put back.
@@ -439,7 +439,6 @@ def run(irs_reweight: bool | None = None) -> None:
     rev["eitc_loss_$M"] = rev["eitc_expanded_$M"] - rev["eitc_reverted_$M"]
     rev["food_loss_$M"] = rev["food_expanded_$M"] - rev["food_reverted_$M"]
     rev["total_loss_$M"] = rev["eitc_loss_$M"] + rev["food_loss_$M"]
-    rev.to_csv(OUT_DIR / "revenue_by_year.csv", index=False)
 
     r = rev.set_index("tax_year")
     r22, r23, r24 = r.loc[2022], r.loc[2023], r.loc[EITC_CAL_YEAR]
@@ -455,9 +454,12 @@ def run(irs_reweight: bool | None = None) -> None:
         {"check": "TY2022 food/excise $M, prior table (out of sample)", "model": r22["food_reverted_$M"], "dotax": dotax()[2022]["food_$M"]},
         {"check": "TY2022 food/excise claims, prior table", "model": r22["food_claimants_reverted"], "dotax": dotax()[2022]["food_claims"]},
     ])
-    cal.to_csv(OUT_DIR / "calibration.csv", index=False)
-    eitc_check(uE, cE, p_eitc, dotax_base.load_eitc_report(EITC_CAL_YEAR)).to_csv(
-        OUT_DIR / f"eitc_check_ty{EITC_CAL_YEAR}.csv", index=False)
+    outputs = {
+        "revenue_by_year.csv": rev,
+        "calibration.csv": cal,
+        f"eitc_check_ty{EITC_CAL_YEAR}.csv":
+            eitc_check(uE, cE, p_eitc, dotax_base.load_eitc_report(EITC_CAL_YEAR)),
+    }
 
     # Distribution and poverty, TY2028.
     u, c = frames[POVERTY_YEAR]
@@ -469,16 +471,17 @@ def run(irs_reweight: bool | None = None) -> None:
     q_eitc = np.where(c["eitc_expanded"] > 0, min(p_eitc, 1.0), 0.0)
     q_food = np.where(c["food_expanded"] > c["food_reverted"], min(p_food, 1.0), 0.0)
     u["_claim_prob"] = 1 - (1 - q_eitc) * (1 - q_food)
-    distribution(u).to_csv(OUT_DIR / f"distribution_ty{POVERTY_YEAR}.csv", index=False)
-    by_family_type(u).to_csv(OUT_DIR / f"by_family_type_ty{POVERTY_YEAR}.csv", index=False)
-    poverty(u, persons).to_csv(OUT_DIR / f"poverty_ty{POVERTY_YEAR}.csv", index=False)
-    sampling_error(frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"], ratios,
-                   None if rake is None else rake.replicates).to_csv(
-        OUT_DIR / f"sampling_error_ty{POVERTY_YEAR}.csv", index=False)
+    outputs[f"distribution_ty{POVERTY_YEAR}.csv"] = distribution(u)
+    outputs[f"by_family_type_ty{POVERTY_YEAR}.csv"] = by_family_type(u)
+    outputs[f"poverty_ty{POVERTY_YEAR}.csv"] = poverty(u, persons)
+    outputs[f"sampling_error_ty{POVERTY_YEAR}.csv"] = sampling_error(
+        frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"], ratios,
+        None if rake is None else rake.replicates)
 
-    from tax_modeler.runs import write_run_manifest
-    write_run_manifest(
-        OUT_DIR, script="chain/forecast_working_family_credits.py",
+    # population_agreement.csv is already in OUT_DIR, so the manifest lists it too.
+    from _forecast_common import save_run
+    save_run(
+        OUT_DIR.name, outputs, script="chain/forecast_working_family_credits.py",
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
                 "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),

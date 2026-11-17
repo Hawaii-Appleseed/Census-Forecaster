@@ -72,16 +72,22 @@ def population_store():
                            fingerprint(CALIBRATED_PKL, REPO / "chain", REPO / "scripts"))
 
 
+def require_calibrated() -> Path:
+    """The calibrated-base pickle step 1 saves; exits with guidance when it is missing."""
+    if not CALIBRATED_PKL.exists():
+        print(f"ERROR: {CALIBRATED_PKL} not found. "
+              f"Run chain/forecast_sb3125_enhanced.py --cd 2 first.", flush=True)
+        sys.exit(1)
+    return CALIBRATED_PKL
+
+
 def open_calibrated(*, shared: bool = True):
     """The calibrated base step 1 saved, as an
     ``act24_population.CalibratedBase``; exits with guidance when it is missing.
 
     ``shared`` loads it through :func:`population_store`, so the populations
     built from it are shared with the chain's other steps."""
-    if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. "
-              f"Run chain/forecast_sb3125_enhanced.py --cd 2 first.", flush=True)
-        sys.exit(1)
+    require_calibrated()
     from tax_modeler.scenarios.act24_population import CalibratedBase
 
     return CalibratedBase.load(CALIBRATED_PKL, store=population_store() if shared else None)

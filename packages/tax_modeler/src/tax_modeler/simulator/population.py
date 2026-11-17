@@ -87,25 +87,19 @@ def _scenario_worker(calibrated_path: str, key: str, years: tuple[int, ...],
     warnings.filterwarnings("ignore")
     logging.disable(logging.WARNING)
 
-    from tax_modeler.artifacts import load_calibrated_base
-    from tax_modeler.scenarios.act24_population import build_units, project_units
+    from tax_modeler.scenarios.act24_population import CalibratedBase
 
     sc = SCENARIOS[key]
     store = None
     if store_at is not None and key == "mid":
         from tax_modeler.scenarios.population_store import PopulationStore
         store = PopulationStore(*store_at)
-        base, ded_params, meta = store.base(calibrated_path)
-    else:
-        base, ded_params, meta = load_calibrated_base(calibrated_path)
-    units, tail_k = build_units(base, alpha=sc.alpha, top_premium=sc.top_premium,
-                                ded_params=ded_params,
-                                cal_tax_year=int(meta.get("tax_year", 2023)), enrich=True,
-                                store=store)
+    base = CalibratedBase.load(calibrated_path, store)
+    units, tail_k = base.units(alpha=sc.alpha, top_premium=sc.top_premium, enrich=True)
     out = {"units": units, "tail_k": tail_k, "years": {},
-           "calibrated_meta": {k: v for k, v in meta.items() if k != "deduction_params"}}
+           "calibrated_meta": {k: v for k, v in base.meta.items() if k != "deduction_params"}}
     for y in years:
-        out["years"][y] = project_units(units, year=y, top_premium=sc.top_premium, store=store)
+        out["years"][y] = base.projected(units, year=y, top_premium=sc.top_premium)
     return out
 
 
