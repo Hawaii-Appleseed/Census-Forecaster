@@ -58,7 +58,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from tax_modeler.config.tax_system_config import TaxSystemConfig, TaxSystemRegistry
+from tax_modeler.config.tax_system_config import TaxSystemConfig
 from tax_modeler.errors import ConfigError
 
 #: Spec filing-status keys -> the bracket/deduction CSV's status names.
@@ -87,8 +87,11 @@ FOOD_EXCISE_TABLES = ("act163", "pre_act163")
 def current_law_system(year: int) -> TaxSystemConfig:
     """Current law (Act 24, the enacted SB 3125 CD2) for ``year`` (TY2027+),
     with the statutory §235-51(f) alternative tax at 7.25% rather than the
-    registry system's stacked shortcut (``TaxSystemConfig.cg_alt_tax``)."""
-    return dataclasses.replace(TaxSystemRegistry.get_sb3125_cd2_system(year), cg_alt_tax="statute")
+    registry system's stacked shortcut (``TaxSystemConfig.cg_alt_tax``).
+    The law is ``scenarios.registry.CURRENT_LAW``."""
+    from tax_modeler.scenarios.registry import CURRENT_LAW, get_scenario
+
+    return dataclasses.replace(get_scenario(CURRENT_LAW).system(year), cg_alt_tax="statute")
 
 
 Schedule = tuple[tuple[float, float], ...]

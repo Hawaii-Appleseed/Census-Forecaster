@@ -67,10 +67,8 @@ def run_one_scenario(
           f"({100*v['filer_target_ratio']:.1f}%), ${v['tax_1m_plus_$M']:,.1f}M tax "
           f"({100*v['tax_target_ratio']:.1f}%)", flush=True)
 
-    get_scenario_system = (
-        TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
-        else TaxSystemRegistry.get_sb3125_cd2_system
-    )
+    from tax_modeler.scenarios.registry import get_scenario
+    get_scenario_system = get_scenario(f"sb3125_cd{cd}").system
 
     calc = TaxCalculator()
     rows = []
