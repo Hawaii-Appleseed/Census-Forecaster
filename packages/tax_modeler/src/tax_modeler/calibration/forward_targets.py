@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from tax_modeler.calibration import dotax_base
+from tax_modeler.projection.options import CboAging, GrowthAssumptions
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -292,18 +293,13 @@ def empirical_density_from_pums(
 def build_targets(
     year: int,
     *,
-    cor_projections_M: dict[int, float] | None = None,
-    low_growth: float = 0.025,
-    top_differential: float = 0.010,
-    rate_drift: float = 0.005,
-    population_growth_rate: float = 0.005,
+    growth: GrowthAssumptions = GrowthAssumptions(),
     base_counts: dict[tuple[float, float], int] | None = None,
     base_tax: dict[tuple[float, float], float] | None = None,
     base_status: dict[str, int] | None = None,
     base_year: int = dotax_base.BASE_YEAR,
     include_agi_targets: bool = True,
-    cbo_vintage: str = "2025-01",
-    hawaii_factors: dict[str, float] | None = None,
+    cbo: CboAging = CboAging(),
     empirical_density: dict[tuple[float, float], np.ndarray] | None = None,
 ) -> ForwardTargets:
     """Construct ``ForwardTargets`` for the given year.
@@ -312,39 +308,29 @@ def build_targets(
     ----------
     year:
         Target tax year (2022..2031 supported).
-    cor_projections_M:
-        Override for the COR projection table. Default uses
-        ``DEFAULT_COR_IIT_PROJECTIONS_M``.
-    low_growth:
-        Annual income growth factor applied to brackets below $200K.
-    top_differential:
-        Extra annual growth for brackets at/above $200K (compounded with
-        ``low_growth``). Captures top-1% empirical premium.
-    rate_drift:
-        Per-year effective-rate uplift reflecting bracket-creep into higher
-        marginal rates as nominal incomes rise.
-    population_growth_rate:
-        Annual filer-count growth rate, applied uniformly across brackets
-        AFTER bracket migration. Default 0.005 (0.5%/yr) is between DBEDT's
-        ~0.34%/yr total population projection and ~0.6%/yr civilian labor
-        force projection (DBEDT 2050 series, Apr 2024). Tax filers correlate
-        most closely with the labor force. Set to 0.0 to hold filer count
-        constant (legacy behavior).
+    growth:
+        COR projections and the income, rate and filer-count growth
+        (:class:`~tax_modeler.projection.options.GrowthAssumptions`).
+        ``population_growth_rate=0.0`` holds the filer count constant
+        (legacy behavior).
     base_counts, base_tax, base_status:
         Override the DOTAX baseline (mainly for testing the round-trip).
     base_year:
         DOTAX edition the baseline comes from (``dotax_base``); default the
         newest on file, TY2023. ``2022`` reproduces the earlier base.
+    cbo:
+        CBO vintage and Hawaii factors for the stage-2 AGI-mass targets
+        (``include_agi_targets``).
     """
-    cor = dict(cor_projections_M or DEFAULT_COR_IIT_PROJECTIONS_M)
+    cor = dict(growth.cor_projections_M or DEFAULT_COR_IIT_PROJECTIONS_M)
     bc = dict(base_counts or dotax_base.filer_targets(base_year))
     bt = dict(base_tax    or dotax_base.tax_targets_M(base_year))
     bs = dict(base_status or dotax_base.status_targets(base_year))
 
     years = year - base_year
-    g_low  = (1 + low_growth) ** years
-    g_high = g_low * (1 + top_differential) ** years
-    drift  = 1 + rate_drift * years
+    g_low  = (1 + growth.low_growth) ** years
+    g_high = g_low * (1 + growth.top_differential) ** years
+    drift  = 1 + growth.rate_drift * years
 
     # ── 1. Filer counts: bracket migration ────────────────────────────────────
     forward_counts = _migrate_filer_counts(
@@ -356,7 +342,7 @@ def build_targets(
     # force projection. Aggregate tax target stays anchored to COR via the
     # uniform rescale below, so this only affects the WEIGHT distribution
     # (more middle-bracket filer mass) not total revenue.
-    pop_factor = (1 + population_growth_rate) ** years
+    pop_factor = (1 + growth.population_growth_rate) ** years
     forward_counts = {b: int(round(c * pop_factor)) for b, c in forward_counts.items()}
 
     # ── 2. Tax targets: per-filer effective rate × new counts × drift ─────────
@@ -392,8 +378,8 @@ def build_targets(
             fwd_1m_count = int(forward_counts.get((1_000_000, np.inf), bc[(1_000_000, np.inf)]))
             agi = build_agi_targets(
                 year,
-                cbo_vintage=cbo_vintage,
-                hawaii_factors=hawaii_factors,
+                cbo_vintage=cbo.vintage,
+                hawaii_factors=cbo.hawaii_factors,
                 base_year=base_year,
                 soi_tier_total_filers=fwd_1m_count,
             )

@@ -31,20 +31,25 @@ def build_units(base: CalibratedBase, *, alpha: float) -> tuple[pd.DataFrame, fl
 
 
 def project(units: pd.DataFrame, *, year: int, top_premium: float):
-    """``project_and_recalibrate`` to ``year``: ``(projected, forward_targets)``."""
+    """``project_and_recalibrate`` to ``year``: ``(projected, forward_targets)``,
+    with forward targets (top-bracket growth differential 2.5%/yr), the SOI
+    anchor for the $1M+ tiers, CBO component aging and the top premium."""
     from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
+    from tax_modeler.projection.options import (
+        CboAging,
+        GrowthAssumptions,
+        SoiAnchor,
+        TopPremium,
+    )
 
     return project_and_recalibrate(
         units,
         target_year=year,
         use_forward_targets=True,
-        use_soi_anchor=True,
-        soi_year=2022,
-        hawaii_capgain_adjustment=0.95,
-        use_cbo_aging=True,
-        cbo_vintage="2025-01",
-        top_premium_pct=top_premium,
-        top_bracket_differential=0.025,
+        growth=GrowthAssumptions(top_differential=0.025),
+        soi_anchor=SoiAnchor(year=2022, hawaii_capgain_adjustment=0.95),
+        cbo_aging=CboAging(vintage="2025-01"),
+        top_premium=TopPremium(annual=top_premium),
         method="ensemble",
     )
 

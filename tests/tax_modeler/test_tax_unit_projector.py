@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+from tax_modeler.projection.options import CboAging
 from tax_modeler.projection.tax_unit_projector import project_tax_units_forward
 from tax_modeler.revenue.estimator import RevenueEstimator
 
@@ -391,7 +392,7 @@ def test_cbo_path_money_income_adds_growth_not_the_decomposition_gap():
     }
     base = pd.concat([base, pd.DataFrame([retiree])], ignore_index=True)
 
-    proj = project_tax_units_forward(base, target_year=PUMS_INCOME_DOLLAR_YEAR, use_cbo_aging=True)
+    proj = project_tax_units_forward(base, target_year=PUMS_INCOME_DOLLAR_YEAR, cbo_aging=CboAging())
     assert proj["spm_money_income"].tolist() == pytest.approx(proj["total_cash_income"].tolist())
     assert proj["income"].tolist() == pytest.approx(proj["income_base_year"].tolist())
 
@@ -413,7 +414,7 @@ def test_cbo_path_money_income_ages_the_transfers_income_leaves_out():
     }
     proj = project_tax_units_forward(
         pd.DataFrame([retiree]), target_year=PUMS_INCOME_DOLLAR_YEAR + 3,
-        use_cbo_aging=True,
+        cbo_aging=CboAging(),
     )
     rates = load_cbo_rates()
     f = rates.factor("retirement", PUMS_INCOME_DOLLAR_YEAR + 3) / rates.factor(
