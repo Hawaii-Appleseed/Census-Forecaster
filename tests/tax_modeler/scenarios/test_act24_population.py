@@ -73,3 +73,28 @@ def test_mid_gains_factors_builds_with_the_premium(monkeypatch, tail_units):
                                              ded_params={}, cal_tax_year=2023, years=[2027])
     assert out == {2027: {"400p": 1.0}}
     assert seen["top_premium"] == 0.01
+
+
+def test_calibrated_base_passes_its_basis_to_every_call(monkeypatch, tail_units):
+    """``CalibratedBase`` forwards the deduction params, tax year and store it
+    was loaded with, so a chain step cannot re-score on another basis (C3)."""
+    calls = []
+    monkeypatch.setattr(act24_population, "build_units",
+                        lambda base, **kw: calls.append(("build", base, kw)) or (base, 1.0))
+    monkeypatch.setattr(act24_population, "project_units",
+                        lambda u, **kw: calls.append(("project", u, kw)) or u)
+    monkeypatch.setattr(cg_anchor, "apply_anchor_factors",
+                        lambda df, f: calls.append(("anchor", df, f)) or df)
+    store = object()
+    base = act24_population.CalibratedBase(tail_units, {"d": 1}, 2023, store)
+
+    units, _ = base.units(alpha=1.5, top_premium=0.01, enrich=True)
+    assert calls[0][2] == {"alpha": 1.5, "top_premium": 0.01, "ded_params": {"d": 1},
+                           "cal_tax_year": 2023, "enrich": True, "store": store}
+    base.projected(units, year=2027, top_premium=0.01)
+    assert [c[0] for c in calls] == ["build", "project"]          # no factors: no anchoring
+    base.projected(units, year=2028, top_premium=0.01, macro_shock="moderate",
+                   gains_factors={"400p": 1.2})
+    assert calls[2][2] == {"year": 2028, "top_premium": 0.01, "macro_shock": "moderate",
+                           "store": store}
+    assert calls[3][0] == "anchor" and calls[3][2] == {"400p": 1.2}

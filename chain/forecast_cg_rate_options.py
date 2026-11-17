@@ -106,13 +106,12 @@ from tax_modeler.calibration.cg_anchor import (
     cg_growth,
     rank_classes,
 )
+from tax_modeler.scenarios import recalibrated_population
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 OUT_DIR = REPO / "runs" / "cg_rate_options"
-
-MID_ALPHA = 1.5
-MID_TOP_PREMIUM = 0.010
 
 YEARS = [2026, 2027, 2028, 2029, 2030, 2031]
 DIST_YEAR = 2027          # the charted year: a 2027 bill's first tax year
@@ -137,45 +136,20 @@ GRID = "#d4d4d4"
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_base() -> pd.DataFrame:
-    """Calibrated base + $1M+ synthesis, identical to chain/forecast_act24_vs_pre_act46.py."""
-    from _forecast_common import CALIBRATED_PKL
-    from tax_modeler.artifacts import load_calibrated_base
-    from tax_modeler.base import build_tail_units
+    """Calibrated base + $1M+ synthesis, as chain/forecast_sb3125_vs_fy26base.py builds it
+    (``scenarios.recalibrated_population``)."""
+    from _forecast_common import open_calibrated
 
-    if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd 2 first.")
-        sys.exit(1)
-    base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
-    cal_tax_year = int(cal_meta.get("tax_year", 2023))
-    # Not aged to the PUMS dollar year: project()'s SOI anchor replaces every
-    # $1M+ unit with SOI tiers aged from TY2022, so the tail's level is moot.
-    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
-                                     cal_tax_year=cal_tax_year)
+    units, tail_k = recalibrated_population.build_units(open_calibrated(shared=False),
+                                                        alpha=MID_ALPHA)
     print(f"  tail_k={tail_k:.4f}", flush=True)
     return units
 
 
 def project(units: pd.DataFrame, yr: int) -> pd.DataFrame:
     """MID projection to *yr* with target-year itemized deductions (weight > 0 rows only)."""
-    from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
-    from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
-    from tax_modeler.pipeline import compute_base_tax
-
-    projected, _ = project_and_recalibrate(
-        units,
-        target_year=yr,
-        use_forward_targets=True,
-        use_soi_anchor=True,
-        soi_year=2022,
-        hawaii_capgain_adjustment=0.95,
-        use_cbo_aging=True,
-        cbo_vintage="2025-01",
-        top_premium_pct=MID_TOP_PREMIUM,
-        top_bracket_differential=0.025,
-        method="ensemble",
-    )
-    ded = scale_deduction_params_for_target_year(yr, geoid="15003")
-    projected = compute_base_tax(projected.copy(), tax_year=yr, deduction_params=ded)
+    projected, _ = recalibrated_population.project(units, year=yr, top_premium=MID_TOP_PREMIUM)
+    projected = recalibrated_population.rescore(projected, year=yr)
     return projected[projected["weight"] > 0.01].reset_index(drop=True)
 
 

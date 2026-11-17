@@ -23,6 +23,7 @@
 ## Layout
 
 - `chain/` — the five steps behind the published numbers (`scripts/rerun_models.py` STAGES). `analyses/` — every other forecast/report script. `scripts/` — tooling plus `_forecast_common.py` (paths, `--cd` parsing, the tax-unit cache) and `run_scenario.py`. Each chain/analyses script puts `scripts/` on `sys.path` for `_forecast_common`; run them from the repo root.
+- A chain step loads the calibrated base with `_forecast_common.open_calibrated()` (an `act24_population.CalibratedBase`, whose `.units()`, `.projected()` and `.gains_factors()` carry the deduction basis and population store) and writes its run with `save_run()`. The MID assumptions are `act24_population.MID_ALPHA` / `MID_TOP_PREMIUM`; the SOI-recalibrated MID path (fy26base, capital gains) is `scenarios.recalibrated_population`. Pick a bill's system with `registry.get_scenario(slug).system`, not an `if cd == ...` ladder.
 - Package code must not import `_forecast_common`. The cache key is the exception: `common.fingerprint` (`fingerprint`, `code_closure`, `closure_guard`) lives in the dependency-free `census-common` package, which anything may import. Its `SCRIPT_DIRS` tuple lists the script directories the closure scan reads: edit it when adding one. `CF_REPO_ROOT` overrides the repo root it derives from its own location.
 - The tax-unit parquet cache's `.meta.json` sidecar stores `code_key` (`tax_modeler.artifacts.construction_code_key()`: the fingerprint of the import closure of `tax_modeler.base`), which `check_cache_sidecar` compares; `git_sha` there is provenance only.
 
