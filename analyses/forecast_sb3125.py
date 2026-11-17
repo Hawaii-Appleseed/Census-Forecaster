@@ -95,11 +95,8 @@ if __name__ == "__main__":
         # ---- Per-year fiscal impact ----------------------------------------
         COR_FY27_IIT_PROJ_M = 3050.0
 
-        # Select the right TaxSystemRegistry factory for this CD
-        get_scenario_system = (
-            TaxSystemRegistry.get_sb3125_cd1_system if CD == "1"
-            else TaxSystemRegistry.get_sb3125_cd2_system
-        )
+        from tax_modeler.scenarios.registry import get_scenario
+        get_scenario_system = get_scenario(f"sb3125_cd{CD}").system
 
         calc = TaxCalculator()
         rows = []

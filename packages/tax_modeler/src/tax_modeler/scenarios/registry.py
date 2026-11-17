@@ -15,6 +15,11 @@ filenames, report subtitles) stays with the calling script.
 Follows the registry recipe proven in docs/archive/REGISTRY_MIGRATION_SCOPE.md: the
 spec is the single source of truth, and the existing callables are
 referenced, never reimplemented, so scenario math cannot drift.
+
+This is the only table of tax-system names. ``reform.Reform``'s
+``tax_system:`` names (``TAX_SYSTEM_FACTORY_REGISTRY``) are built from it,
+plus :data:`ALIASES`, and :data:`CURRENT_LAW` names the law in force. To add a
+bill, write its getter on ``TaxSystemRegistry`` and add one spec here.
 """
 
 from __future__ import annotations
@@ -74,6 +79,14 @@ class ScenarioSpec:
                 f"not TY{year}"
             )
         return self.system()
+
+    def factory(self) -> Callable[[int], TaxSystemConfig]:
+        """The system as a function of the tax year, as ``reform.Reform``
+        takes it. A year-less system ignores the year it is given (Reform's
+        convention), where :meth:`system_for` refuses any but ``fixed_year``."""
+        if self.takes_year:
+            return self.system
+        return lambda _year: self.system()
 
 
 _SPECS: list[ScenarioSpec] = [
@@ -151,14 +164,53 @@ _SPECS: list[ScenarioSpec] = [
         system=TaxSystemRegistry.get_act46_rollback_targeted,
         statute="Freezes Act 46 phase-in for upper brackets only",
     ),
+    # Single-year schedules, used as fixed baselines (Reform specs name them).
+    ScenarioSpec(
+        slug="act46_2025",
+        label="Act 46, TY2025 schedule",
+        family="act46",
+        system=TaxSystemRegistry.get_act46_2025_system,
+        baseline=None,
+        takes_year=False,
+        fixed_year=2025,
+        statute="Act 46 brackets and standard deductions as of TY2025",
+    ),
+    ScenarioSpec(
+        slug="act46_2027",
+        label="Act 46, TY2027 schedule",
+        family="act46",
+        system=TaxSystemRegistry.get_act46_2027_system,
+        baseline=None,
+        takes_year=False,
+        fixed_year=2027,
+        statute="Act 46 TY2027 bracket and standard-deduction phase-in",
+    ),
+    ScenarioSpec(
+        slug="ty2017",
+        label="2017 law (pre-Act 46)",
+        family="other",
+        system=TaxSystemRegistry.get_2017_system,
+        baseline=None,
+        takes_year=False,
+        fixed_year=2018,
+        statute="Pre-Act 46 brackets, standard deduction and personal exemption",
+    ),
 ]
 
 SCENARIO_SPECS: dict[str, ScenarioSpec] = {s.slug: s for s in _SPECS}
 
+# Other names for a registry slug. Act 24, SLH 2026 is SB 3125 as enacted (CD2).
+ALIASES: dict[str, str] = {"act24": "sb3125_cd2"}
+
+# The income tax law in force, which the tax simulator and custom specs score
+# against.
+CURRENT_LAW = "act24"
+
 
 def get_scenario(slug: str) -> ScenarioSpec:
+    """The spec for ``slug`` (or one of its :data:`ALIASES`)."""
     try:
-        return SCENARIO_SPECS[slug]
+        return SCENARIO_SPECS[ALIASES.get(slug, slug)]
     except KeyError:
         raise KeyError(
             f"Unknown scenario {slug!r}. Known slugs: "

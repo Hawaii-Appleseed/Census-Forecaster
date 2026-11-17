@@ -60,23 +60,19 @@ BenefitOverrides = Mapping[str, Mapping[str, Any]]
 # ---------------------------------------------------------------------------
 # Bridges the YAML-friendly string identifier (``"sb3125_cd1"``) and the
 # actual callable factory (``TaxSystemRegistry.get_sb3125_cd1_system``).
-# Pre-populated with every Hawaii bill currently shipped; users can
-# extend at runtime via :func:`register_tax_system`.
+# Built from tax_modeler.scenarios.registry, the one table of tax-system
+# names (its slugs, then its aliases, e.g. "act24"); users can extend it at
+# runtime via :func:`register_tax_system`.
 
-TAX_SYSTEM_FACTORY_REGISTRY: dict[str, TaxSystemFactory] = {
-    "act46":             TaxSystemRegistry.get_act46_system,
-    "act46_2025":        lambda y: TaxSystemRegistry.get_act46_2025_system(),
-    "act46_2027":        lambda y: TaxSystemRegistry.get_act46_2027_system(),
-    "sb3125_cd1":        TaxSystemRegistry.get_sb3125_cd1_system,
-    "sb3125_cd2":        TaxSystemRegistry.get_sb3125_cd2_system,
-    "sb3125_sd1":        TaxSystemRegistry.get_sb3125_sd1_system,
-    "sb3125_original":   lambda y: TaxSystemRegistry.get_sb3125_original_2027_system(),
-    "hb2306_orig":       TaxSystemRegistry.get_hb2306_orig_system,
-    "hb2306_hd1":        TaxSystemRegistry.get_hb2306_hd1_system,
-    "ty2017":            lambda y: TaxSystemRegistry.get_2017_system(),
-    # Current law: Act 24 is the enacted SB 3125 CD2.
-    "act24":             TaxSystemRegistry.get_sb3125_cd2_system,
-}
+def _registry_factories() -> dict[str, TaxSystemFactory]:
+    from tax_modeler.scenarios.registry import ALIASES, SCENARIO_SPECS
+
+    factories = {slug: spec.factory() for slug, spec in SCENARIO_SPECS.items()}
+    factories.update({alias: factories[slug] for alias, slug in ALIASES.items()})
+    return factories
+
+
+TAX_SYSTEM_FACTORY_REGISTRY: dict[str, TaxSystemFactory] = _registry_factories()
 
 
 def register_tax_system(name: str, factory: TaxSystemFactory) -> None:

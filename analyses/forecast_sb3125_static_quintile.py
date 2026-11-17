@@ -522,17 +522,14 @@ if __name__ == "__main__":
             apply_itemized_deduction_adjustment,
             apply_top_income_growth_premium,
         )
+        from tax_modeler.scenarios.registry import get_scenario
         from tax_modeler.scenarios.top_income_synthesis import (
             age_synthetic_tail,
             calibrate_synthetic_tail_to_tax_target,
             synthesize_top_filers,
             validate_top_synthesis,
         )
-
-        get_scenario_system = (
-            TaxSystemRegistry.get_sb3125_cd1_system if CD == "1"
-            else TaxSystemRegistry.get_sb3125_cd2_system
-        )
+        get_scenario_system = get_scenario(f"sb3125_cd{CD}").system
 
         wall_start = time.perf_counter()
 
