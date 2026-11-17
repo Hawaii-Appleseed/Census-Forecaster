@@ -34,7 +34,6 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 import traceback
@@ -44,26 +43,25 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))   # _forecast_common
 
-import numpy as np
 import pandas as pd
-from tax_modeler.adjustments.itemized_deductions import scale_deduction_params_for_target_year
-from tax_modeler.base import build_tail_units
-from tax_modeler.calibration.year_recalibrator import project_and_recalibrate
+from _forecast_common import (  # noqa: E402
+    CALIBRATED_PKL,
+    TARGET_YEARS,
+    cache_provenance,
+    open_calibrated,
+    parse_cd_args,
+    save_run,
+)
 from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
-from tax_modeler.liability.hawaii import NO_ITEMIZING
-from tax_modeler.pipeline import compute_base_tax as _compute_base_tax
+from tax_modeler.scenarios import recalibrated_population
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 from tax_modeler.scenarios.quintile_analysis import (
     compute_quintile_breaks,
     generate_quintile_report,
     per_unit_tax,
 )
-
-MID_ALPHA       = 1.5
-MID_TOP_PREMIUM = 0.010
-from _forecast_common import CALIBRATED_PKL, TARGET_YEARS  # noqa: E402
 
 INCOME_BINS = {
     "below_50K":   (0,          50_000),
@@ -74,15 +72,6 @@ INCOME_BINS = {
 
 # ITEP annual figures from "26.05.06 HI SB 3125 CD Analysis.xlsx" (residents, $M).
 ITEP_ANNUAL = {2027: -227.0, 2028: -258.0, 2029: -534.0, 2030: -563.0, 2031: -622.0}
-
-
-def _parse_args():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument(
-        "--cd", choices=["1", "2"], default="1",
-        help="Conference draft to model: 1=CD1 (default), 2=CD2",
-    )
-    return p.parse_args()
 
 
 def regime_systems(yr: int, get_scenario_system) -> tuple[TaxSystemConfig, TaxSystemConfig, TaxSystemConfig]:
@@ -116,10 +105,7 @@ def score_regimes(projected: pd.DataFrame, yr: int, systems, calc):
     TY2027 SD-expansion effect, which is exactly 0 by statute (Act 46's TY2027
     SD equals its TY2026 SD), and -$346.3M into the 5-year total.
     """
-    ded_params = scale_deduction_params_for_target_year(yr, geoid="15003")
-    proj_target = _compute_base_tax(
-        projected.copy(), tax_year=yr, deduction_params=ded_params,
-    )
+    proj_target = recalibrated_population.rescore(projected, year=yr)
     return proj_target, tuple(per_unit_tax(proj_target, cfg, calc) for cfg in systems)
 
 
@@ -133,26 +119,15 @@ def _bin_delta(inc, w, diffs):
 
 
 def main(cd: str) -> None:
-    if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd {cd} first.")
-        sys.exit(1)
-
     import time
     wall = time.perf_counter()
 
-    get_scenario_system = (
-        TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
-        else TaxSystemRegistry.get_sb3125_cd2_system
-    )
+    from tax_modeler.scenarios.registry import get_scenario
+    get_scenario_system = get_scenario(f"sb3125_cd{cd}").system
 
     print(f"Loading calibrated base (CD{cd})...", flush=True)
-    from tax_modeler.artifacts import load_calibrated_base
-    base, cal_ded_params, cal_meta = load_calibrated_base(CALIBRATED_PKL)
-    cal_tax_year = int(cal_meta.get("tax_year", 2023))
-    # The unaged tail: project_and_recalibrate's SOI anchor zeroes every $1M+
-    # unit and replaces them with SOI tiers aged from TY2022, so its level is moot.
-    units, tail_k = build_tail_units(base, alpha=MID_ALPHA, ded_params=cal_ded_params,
-                                     cal_tax_year=cal_tax_year)
+    units, tail_k = recalibrated_population.build_units(open_calibrated(shared=False),
+                                                        alpha=MID_ALPHA)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     calc = TaxCalculator()
@@ -171,19 +146,8 @@ def main(cd: str) -> None:
         fwd_kept = None
         print(f"  TY {yr}...", flush=True)
 
-        projected, fwd = project_and_recalibrate(
-            units,
-            target_year=yr,
-            use_forward_targets=True,
-            use_soi_anchor=True,
-            soi_year=2022,
-            hawaii_capgain_adjustment=0.95,
-            use_cbo_aging=True,
-            cbo_vintage="2025-01",
-            top_premium_pct=MID_TOP_PREMIUM,
-            top_bracket_differential=0.025,
-            method="ensemble",
-        )
+        projected, fwd = recalibrated_population.project(units, year=yr,
+                                                         top_premium=MID_TOP_PREMIUM)
         if fwd is not None and fwd.statute_vs_cor_wedge is not None:
             fwd_kept = fwd
             print(
@@ -246,17 +210,12 @@ def main(cd: str) -> None:
     all_brackets.to_csv(B_CSV, index=False)
 
     # ---- Manifested run output (canonical; /tmp copies kept above) ---------
-    from _forecast_common import RUNS_DIR, cache_provenance
-    from tax_modeler.runs import tidy_long, write_run_manifest
-    run_dir = RUNS_DIR / f"sb3125_cd{cd}_fy26base"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    all_quintiles.to_csv(run_dir / "quintile.csv", index=False)
-    all_brackets.to_csv(run_dir / "bracket.csv", index=False)
-    tidy_long(all_quintiles, ["tax_year", "quintile"]).to_csv(
-        run_dir / "distribution_tidy.csv", index=False,
-    )
-    write_run_manifest(
-        run_dir,
+    from tax_modeler.runs import tidy_long
+    run_dir = save_run(
+        f"sb3125_cd{cd}_fy26base",
+        {"quintile.csv": all_quintiles,
+         "bracket.csv": all_brackets,
+         "distribution_tidy.csv": tidy_long(all_quintiles, ["tax_year", "quintile"])},
         script=f"chain/forecast_sb3125_vs_fy26base.py --cd {cd}",
         params={"cd": cd, "target_years": TARGET_YEARS},
         inputs={
@@ -378,7 +337,7 @@ def main(cd: str) -> None:
 
 
 if __name__ == "__main__":
-    args = _parse_args()
+    args = parse_cd_args(__doc__)
     try:
         main(cd=args.cd)
     except Exception as e:

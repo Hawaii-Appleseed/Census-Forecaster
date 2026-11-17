@@ -72,6 +72,38 @@ def population_store():
                            fingerprint(CALIBRATED_PKL, REPO / "chain", REPO / "scripts"))
 
 
+def open_calibrated(*, shared: bool = True):
+    """The calibrated base step 1 saved, as an
+    ``act24_population.CalibratedBase``; exits with guidance when it is missing.
+
+    ``shared`` loads it through :func:`population_store`, so the populations
+    built from it are shared with the chain's other steps."""
+    if not CALIBRATED_PKL.exists():
+        print(f"ERROR: {CALIBRATED_PKL} not found. "
+              f"Run chain/forecast_sb3125_enhanced.py --cd 2 first.", flush=True)
+        sys.exit(1)
+    from tax_modeler.scenarios.act24_population import CalibratedBase
+
+    return CalibratedBase.load(CALIBRATED_PKL, store=population_store() if shared else None)
+
+
+def save_run(name: str, frames: dict, *, script: str, params: dict,
+             inputs: dict | None = None) -> Path:
+    """Write ``frames`` ({filename: DataFrame}) to ``runs/<name>/`` and its
+    manifest (``tax_modeler.runs.write_run_manifest``); returns the directory.
+
+    ``inputs`` defaults to the tax-unit cache's provenance."""
+    from tax_modeler.runs import write_run_manifest
+
+    run_dir = RUNS_DIR / name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for filename, frame in frames.items():
+        frame.to_csv(run_dir / filename, index=False)
+    write_run_manifest(run_dir, script=script, params=params,
+                       inputs={"tax_units_cache": cache_provenance()} if inputs is None else inputs)
+    return run_dir
+
+
 def silence_noise() -> None:
     """Suppress library warnings/log spam in analytical script output."""
     warnings.filterwarnings("ignore")

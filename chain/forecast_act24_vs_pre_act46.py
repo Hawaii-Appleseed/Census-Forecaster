@@ -73,19 +73,14 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))   # _forecast_common
 
 import pandas as pd
+from _forecast_common import REPO, RUNS_DIR, TARGET_YEARS, open_calibrated, save_run  # noqa: E402
 from tax_modeler.calibration.cg_anchor import anchor_factors, apply_anchor_factors
 from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemConfig, TaxSystemRegistry
-from tax_modeler.scenarios.act24_population import build_units, project_units, statute
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM, statute
 from tax_modeler.scenarios.quintile_analysis import per_unit_tax
-
-MID_ALPHA       = 1.5
-MID_TOP_PREMIUM = 0.010
-
-from _forecast_common import CALIBRATED_PKL, RUNS_DIR, TARGET_YEARS  # noqa: E402
 
 # The Act 24 run's static bracket change (MID), which column C must equal:
 # same population, same gains base, same statute, same two systems.
@@ -106,20 +101,11 @@ def _cfg_2017(yr: int) -> TaxSystemConfig:
 
 
 def main() -> None:
-    if not CALIBRATED_PKL.exists():
-        print(f"ERROR: {CALIBRATED_PKL} not found. Run chain/forecast_sb3125_enhanced.py --cd 2 first.")
-        sys.exit(1)
-
     print("Loading calibrated base...", flush=True)
     # The MID population and its projections, as step 1 left them in the
     # chain's population store (computed here if it did not).
-    from _forecast_common import population_store
-    store = population_store()
-    base, cal_ded_params, cal_meta = store.base(CALIBRATED_PKL)
-    cal_tax_year = int(cal_meta.get("tax_year", 2023))
-
-    units, tail_k = build_units(base, alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM,
-                                ded_params=cal_ded_params, cal_tax_year=cal_tax_year, store=store)
+    base = open_calibrated()
+    units, tail_k = base.units(alpha=MID_ALPHA, top_premium=MID_TOP_PREMIUM)
     print(f"  tail_k={tail_k:.4f}", flush=True)
 
     page = pd.read_csv(ENHANCED) if ENHANCED.exists() else None
@@ -136,7 +122,7 @@ def main() -> None:
 
         # The Act 24 page's own population and projection (MID), then its
         # gains base: column C is then the page's static bracket change.
-        projected = project_units(units, year=yr, top_premium=MID_TOP_PREMIUM, store=store)
+        projected = base.projected(units, year=yr, top_premium=MID_TOP_PREMIUM)
         w = projected["weight"].to_numpy(dtype=float)
         proj_target = apply_anchor_factors(projected, anchor_factors(projected, yr))
 
@@ -164,16 +150,12 @@ def main() -> None:
 
     df = pd.DataFrame(rows)
 
-    out_dir = REPO / "runs" / "act24_vs_pre_act46"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_dir / "decomposition.csv", index=False)
-
     from _forecast_common import cache_provenance
-    from tax_modeler.runs import write_run_manifest
-    write_run_manifest(
-        out_dir, script="chain/forecast_act24_vs_pre_act46.py",
+    out_dir = save_run(
+        "act24_vs_pre_act46", {"decomposition.csv": df},
+        script="chain/forecast_act24_vs_pre_act46.py",
         params={"cd": "2", "target_years": TARGET_YEARS, "alpha": MID_ALPHA,
-                "top_premium": MID_TOP_PREMIUM, "tail_k": tail_k, "cal_tax_year": cal_tax_year,
+                "top_premium": MID_TOP_PREMIUM, "tail_k": tail_k, "cal_tax_year": base.tax_year,
                 "tieout_checked": page is not None},
         inputs={"tax_units_cache": cache_provenance(),
                 "act24_page": str(ENHANCED.relative_to(REPO)) if page is not None else None},

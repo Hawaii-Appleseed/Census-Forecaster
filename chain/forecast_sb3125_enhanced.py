@@ -102,9 +102,11 @@ REEC carryforward (§235-12.5(e) 5-year window):
   utilization from TY2026-2030 nonrefundable claims. Scenario-specific
   estimates: LOW=$4M, MID=$6M, HIGH=$9M, RECESSION=$6M.
 
-Output:
-  /tmp/sb3125_cd1_enhanced_2027_2031.csv  (--cd 1)
-  /tmp/sb3125_cd2_enhanced_2027_2031.csv  (--cd 2)
+Outputs:
+  data/artifacts/sb3125_calibrated_base.pkl  (read by every later chain step)
+  runs/sb3125_cd{N}_enhanced/  enhanced.csv, fiscal_tidy.csv, quintile.csv,
+                               bracket.csv, manifest.json
+  /tmp/sb3125_cd{N}_{enhanced,quintile_mid,bracket_mid}_2027_2031.csv  (copies)
 """
 from __future__ import annotations
 
@@ -112,16 +114,18 @@ import sys
 import traceback
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common, poverty_impact_report
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))   # _forecast_common
 
 from _forecast_common import (  # noqa: E402
-    ARTIFACT_DIR,
+    CALIBRATED_PKL,
     TARGET_YEARS,
     load_cached_units,
+    open_calibrated,
     parse_cd_args,
+    save_run,
     silence_noise,
 )
+from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM  # noqa: E402
 
 # Three calibrated scenarios. Calibration is anchored to (a) the official
 # 5yr fiscal-impact estimate of ~$680M, (b) state-level ETI literature
@@ -152,11 +156,11 @@ SCENARIOS = [
     },
     {
         "label":  "MID",
-        "alpha":  1.5,
+        "alpha":  MID_ALPHA,          # 1.5, shared with every step that scores MID
         "reec":   "obbba_mid",
         "behav":  "mid",              # ETI=0.40, migr=0.0025, pte=0
         "corp_agi_limit": False,
-        "top_premium":     0.010,     # +1.0%/yr: IRS SOI 1.8pp – 0.8pp Hawaii haircut
+        "top_premium":     MID_TOP_PREMIUM,  # +1.0%/yr: IRS SOI 1.8pp – 0.8pp Hawaii haircut
         "reec_eff_share":  0.65,      # IRS §25D median full-year offset
         "cgec_growth":     0.015,     # 1.5%/yr: pre-COVID average
         "macro_shock":     None,
@@ -185,7 +189,7 @@ SCENARIOS = [
     {
         # Recession scenario: MID behavioral params + moderate recession macro shock.
         "label":  "RECESSION",
-        "alpha":  1.5,                # same as MID
+        "alpha":  MID_ALPHA,          # same as MID
         "reec":   "obbba_mid",
         "behav":  "mid",              # MID behavioral: ETI=0.40, migr=0.10, pte=0.70
         "corp_agi_limit": False,
@@ -207,8 +211,53 @@ CAPITAL_GAINS_NOTE = ("DOTAX-anchored base (calibration.cg_anchor; MID's factors
                       "scenario), statutory alternative tax (HRS §235-51(f))")
 
 
-def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains_factors=None,
-                     shared=False):
+def _scenario(label):
+    return next(s for s in SCENARIOS if s["label"] == label)
+
+
+def scoring_systems(cd, *, statutory):
+    """(Act 46, SB 3125 CD{cd}) system getters; ``statutory`` scores capital
+    gains with the statutory alternative tax (``act24_population.statute``)."""
+    from tax_modeler.config.tax_system_config import TaxSystemRegistry
+    from tax_modeler.scenarios.act24_population import statute
+    from tax_modeler.scenarios.registry import get_scenario
+
+    act46, bill = TaxSystemRegistry.get_act46_system, get_scenario(f"sb3125_cd{cd}").system
+    return (statute(act46), statute(bill)) if statutory else (act46, bill)
+
+
+def credit_overlay(scenario, year, cd, projected):
+    """The REEC/CGEC/TCRA cap overlay for one scenario and tax year.
+
+    CD2 adds the vintage carryforward simulation and the round-2 knobs, with
+    AGI eligibility recomputed from the projected filers: the §235-12.5(a)
+    thresholds ($175K/$350K) are unindexed, so nominal income growth erodes
+    them and fewer filers are eligible each forecast year."""
+    from tax_modeler.scenarios.sb3125_cd1_credits import (
+        compute_credit_overlay,
+        compute_dynamic_agi_eligibility_share,
+    )
+
+    knobs = {
+        "reec_demand_scenario":            scenario["reec"],
+        "corp_subject_to_agi_limit":       scenario["corp_agi_limit"],
+        "reec_effective_claim_share":      scenario["reec_eff_share"],
+        "cgec_annual_growth":              scenario["cgec_growth"],
+        "reec_carryforward_utilization_m": scenario.get("reec_cf_m", 0.0),
+    }
+    if cd != "2":
+        return compute_credit_overlay(year, **knobs)
+    return compute_credit_overlay(
+        year, **knobs,
+        model_carryforward_pool=True,
+        agi_eligibility_by_year={year: compute_dynamic_agi_eligibility_share(projected)},
+        pro_rata_elasticity=float(scenario.get("pro_rata_elasticity", 0.0)),
+        interpretation=scenario.get("interpretation", "B"),
+        dynamic_refundable_share=bool(scenario.get("dynamic_refundable_share", False)),
+    )
+
+
+def _scenario_worker(scenario_dict, target_years, cd="1", gains_factors=None, shared=False):
     """Top-level worker (must be picklable) for the scenario process pool.
 
     The pool (``tax_modeler.parallel.process_pool``) forks its workers where
@@ -220,33 +269,18 @@ def _scenario_worker(scenario_dict, target_years, calibrated_path, cd="1", gains
     population store (``_forecast_common.population_store``), for the
     population other steps build again (MID).
     """
-    from tax_modeler.artifacts import load_calibrated_base
-    store = None
-    if shared:
-        from _forecast_common import population_store
-        store = population_store()
-        base, ded_params, meta = store.base(calibrated_path)
-    else:
-        base, ded_params, meta = load_calibrated_base(calibrated_path)
-    return run_one_scenario(
-        base, scenario=scenario_dict, target_years=target_years, cd=cd,
-        ded_params=ded_params, cal_tax_year=int(meta.get("tax_year", 2023)),
-        gains_factors=gains_factors, store=store,
-    )
+    from _forecast_common import open_calibrated
+
+    return run_one_scenario(open_calibrated(shared=shared), scenario=scenario_dict,
+                            target_years=target_years, cd=cd, gains_factors=gains_factors)
 
 
-def run_one_scenario(
-    base_calibrated, *, scenario, target_years, cd="1",
-    ded_params=None, cal_tax_year=2023, gains_factors=None, store=None,
-):
+def run_one_scenario(base, *, scenario, target_years, cd="1", gains_factors=None):
     """Run a single scenario across all target years and return per-year rows.
 
-    Imports its dependencies internally so this function is self-contained
-    and trivially executable in a worker process (ProcessPoolExecutor).
-
-    ``ded_params``/``cal_tax_year`` are the deduction params and vintage the
-    calibrated base was scored under — re-scoring here must use the SAME
-    basis or the synthetic-tail rescale derives a wrong ``tail_k`` (C3).
+    ``base`` is the ``act24_population.CalibratedBase``: re-scoring here uses
+    the deduction params and vintage it was calibrated under, or the
+    synthetic-tail rescale derives a wrong ``tail_k`` (C3).
 
     ``gains_factors`` ({year: {DOTAX class: k}}, from
     ``act24_population.mid_gains_factors``) puts each year's projected gains
@@ -254,9 +288,6 @@ def run_one_scenario(
     alternative tax. None (tests, diagnostics) keeps the model's own gains
     base and the stacked shortcut.
     """
-    if ded_params is None:
-        from tax_modeler.artifacts import load_canonical_deduction_params
-        ded_params = load_canonical_deduction_params()
     import logging
     import time
     import warnings
@@ -264,28 +295,17 @@ def run_one_scenario(
     warnings.filterwarnings("ignore")
     logging.disable(logging.WARNING)
 
-    from tax_modeler.calibration.cg_anchor import apply_anchor_factors
-    from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
+    from tax_modeler.config.tax_system_config import TaxCalculator
     from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR
-    from tax_modeler.scenarios.act24_population import build_units, project_units, statute
     from tax_modeler.scenarios.behavioral_response import (
         BehavioralParams,
         score_with_response,
         top_rate_path,
     )
     from tax_modeler.scenarios.quintile_analysis import cor_scale_factor_for_year
-    from tax_modeler.scenarios.sb3125_cd1_credits import (
-        compute_credit_overlay,
-        compute_dynamic_agi_eligibility_share,
-    )
     from tax_modeler.scenarios.top_income_synthesis import (
         synthetic_tail_aging_factor,
         validate_top_synthesis,
-    )
-
-    get_scenario_system = (
-        TaxSystemRegistry.get_sb3125_cd1_system if cd == "1"
-        else TaxSystemRegistry.get_sb3125_cd2_system
     )
 
     label  = scenario["label"]
@@ -305,11 +325,10 @@ def run_one_scenario(
           f"reec_cf_m={reec_cf_m:.1f}M "
           f"macro_shock={macro_shock or 'none'}", end="", flush=True)
     if cd == "2":
-        pro_rata_elasticity      = float(scenario.get("pro_rata_elasticity", 0.0))
-        interpretation           = scenario.get("interpretation", "B")
-        dynamic_refundable_share = bool(scenario.get("dynamic_refundable_share", False))
-        print(f"\n  pro_rata_eta={pro_rata_elasticity:.2f} interp={interpretation} "
-              f"dyn_refundable={dynamic_refundable_share}", end="", flush=True)
+        print(f"\n  pro_rata_eta={float(scenario.get('pro_rata_elasticity', 0.0)):.2f} "
+              f"interp={scenario.get('interpretation', 'B')} "
+              f"dyn_refundable={bool(scenario.get('dynamic_refundable_share', False))}",
+              end="", flush=True)
     print(f"\n{'='*78}", flush=True)
 
     # Synthesize fresh from the calibrated (no-synthesis) base, re-scored with
@@ -317,8 +336,7 @@ def run_one_scenario(
     # calibrated to DOTAX's TY2023 $1M+ tax and aged to the PUMS dollar year
     # with this scenario's premium. Shared with the tax simulator's population
     # (tax_modeler.scenarios.act24_population).
-    units, tail_k = build_units(base_calibrated, alpha=alpha, top_premium=top_premium,
-                                ded_params=ded_params, cal_tax_year=cal_tax_year, store=store)
+    units, tail_k = base.units(alpha=alpha, top_premium=top_premium)
     v = validate_top_synthesis(units)
     print(f"  Synthesis: {v['filers_1m_plus']:,.0f} filers @ $1M+ "
           f"({100*v['filer_target_ratio']:.1f}%), tail_k={tail_k:.4f} to the TY2023 tax, "
@@ -330,41 +348,32 @@ def run_one_scenario(
           f"{behav_params.migration_elast}, pte_capture={behav_params.pte_capture}",
           flush=True)
 
-    # Per-filer effective deduction from the projection step
-    # (greater of standard and expected itemized, with Hawaii Pease applied).
-    # Plumbed into compare_systems so the bracket comparison reflects
-    # realistic itemized behavior at the top of the distribution.
     calc = TaxCalculator()
     # Each year's change in the top rate, from TY2027, when the bill takes
     # effect: migration phases each change in from the year it starts.
-    path = top_rate_path(TaxSystemRegistry.get_act46_system, get_scenario_system,
+    path = top_rate_path(*scoring_systems(cd, statutory=False),
                          range(2027, max(target_years) + 1), calc)
+    baseline_system, scenario_system = scoring_systems(cd, statutory=gains_factors is not None)
     rows = []
     for year in target_years:
         t0 = time.perf_counter()
         # 1-2) County B19013 projection with per-filer effective deductions,
         #      the top-income growth premium, the recession shock (RECESSION
         #      only), then re-scoring every unit whose income those changed
-        #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes").
-        projected = project_units(units, year=year, top_premium=top_premium,
-                                  macro_shock=macro_shock, store=store)
-        # 2b) Capital gains on the DOTAX-anchored base (MID's factors).
-        if gains_factors is not None:
-            projected = apply_anchor_factors(projected, gains_factors[year])
+        #      (see SB3125_CD1_FORECAST.md, "Scoring-path fixes"); then the
+        #      capital gains on the DOTAX-anchored base (MID's factors).
+        projected = base.projected(
+            units, year=year, top_premium=top_premium, macro_shock=macro_shock,
+            gains_factors=None if gains_factors is None else gains_factors[year])
 
         # 3-5) Static scores, the behavioral response (per-filer ETI +
         #      migration) and the PTE shift. Act 46 is scored once, on the
         #      population before anyone responds; SB 3125 again on the
         #      responded population (score_with_response).
-        baseline_cfg = TaxSystemRegistry.get_act46_system(year)
-        scenario_cfg = get_scenario_system(year)
-        if gains_factors is not None:     # the statutory alternative tax
-            baseline_cfg = statute(TaxSystemRegistry.get_act46_system)(year)
-            scenario_cfg = statute(get_scenario_system)(year)
         revenue, _, behav_diag = score_with_response(
             projected, behav_params, target_year=year,
-            baseline_cfg=baseline_cfg, scenario_cfg=scenario_cfg, calculator=calc,
-            top_rate_path=path,
+            baseline_cfg=baseline_system(year), scenario_cfg=scenario_system(year),
+            calculator=calc, top_rate_path=path,
         )
         baseline_static = revenue["baseline_$M"]
         diff_static = revenue["static_$M"]
@@ -374,33 +383,7 @@ def run_one_scenario(
         bracket_delta_after_response = revenue["behavioral_$M"]
 
         # 6) Credit-cap overlay
-        if cd == "2":
-            # CD2: vintage carryforward simulation + round-2 demand/eligibility knobs.
-            # Per-year AGI eligibility recomputed from projected distribution:
-            # §235-12.5(a) thresholds ($175K/$350K) are unindexed, so nominal
-            # income growth erodes them — fewer filers eligible each forecast year.
-            agi_elig_share = compute_dynamic_agi_eligibility_share(projected)
-            credit = compute_credit_overlay(
-                year, reec_demand_scenario=reec,
-                corp_subject_to_agi_limit=corp_agi,
-                reec_effective_claim_share=reec_eff,
-                cgec_annual_growth=cgec_g,
-                reec_carryforward_utilization_m=reec_cf_m,
-                model_carryforward_pool=True,
-                agi_eligibility_by_year={year: agi_elig_share},
-                pro_rata_elasticity=pro_rata_elasticity,
-                interpretation=interpretation,
-                dynamic_refundable_share=dynamic_refundable_share,
-            )
-        else:
-            # CD1: standard credit overlay (no vintage simulation).
-            credit = compute_credit_overlay(
-                year, reec_demand_scenario=reec,
-                corp_subject_to_agi_limit=corp_agi,
-                reec_effective_claim_share=reec_eff,
-                cgec_annual_growth=cgec_g,
-                reec_carryforward_utilization_m=reec_cf_m,
-            )
+        credit = credit_overlay(scenario, year, cd, projected)
         credit_total = credit["total_credit_savings_$M"]
 
         total = bracket_delta_after_response + credit_total
@@ -452,325 +435,243 @@ def run_one_scenario(
     return rows
 
 
-if __name__ == "__main__":
-    silence_noise()
+def calibrate(cd):
+    """Build, validate and save the calibrated base every later step reads."""
+    from tax_modeler.artifacts import save_calibrated_base
+    from tax_modeler.base import build_calibrated_base, validate_calibrated_base
 
-    args = parse_cd_args(__doc__)
-    CD = args.cd
-    OUT_CSV = Path(f"/tmp/sb3125_cd{CD}_enhanced_2027_2031.csv")
-    cd_label = f"CD{CD}"
+    units = load_cached_units(cd, built_by="chain/forecast_sb3125_enhanced.py")
 
-    try:
-        import time
+    print("Enriching + base tax + calibrating (one-time)...", flush=True)
+    # Calibrates on the same itemized-deduction params the projection uses
+    # (the canonical set), so the calibration target and projected tax share
+    # one deduction basis. Avoids the standard-only-vs-itemized "double
+    # discount" at high incomes that previously made TY 2027 baseline
+    # drop ~$349M below the calibration anchor.
+    calibrated_base, cal_ded_params = build_calibrated_base(units, tax_year=2023)
 
-        import pandas as pd
+    # Validate post-rake AND post-synthesis (top-tier filers added in
+    # synthesis fill the $1M+ bin which the IPF rake can't reach via its
+    # 1.5x bin-cap). Calibration target is met after synthesis. The tail
+    # stays at the TY2023 level here (no aging), like the targets below.
+    v = validate_calibrated_base(calibrated_base, cal_ded_params, tax_year=2023)
+    print(
+        f"  CALIBRATION VALIDATION (post-rake + post-synthesis, itemized on):\n"
+        f"    hi_tax_liability:      ${v['hi_tax_liability_M']:>7,.0f}M  (DOTAX Table A8 target: ${v['dotax_before_credits_M']:,.0f}M)\n"
+        f"    hi_state_tax (net):    ${v['hi_state_tax_M']:>7,.0f}M  (DOTAX TY{v['dotax_base_year']} after credits: ${v['dotax_after_credits_M']:,.0f}M)",
+        flush=True,
+    )
 
-        print(f"SB 3125 {cd_label} enhanced fiscal forecast", flush=True)
-        print("Importing modules...", flush=True)
-        # The scenario workers import what they score with; the main process
-        # only needs the one-time calibration setup (enrich, base tax, rake).
-        from tax_modeler.base import build_calibrated_base, validate_calibrated_base
-        from tax_modeler.config.tax_system_config import TaxSystemRegistry
+    # Save calibrated base to a pickle so each parallel worker can read
+    # it independently. Pickle (not parquet) is required because the
+    # ``dependents`` column holds Python objects (lists of dicts) that
+    # parquet can't round-trip without lossy string conversion.
+    # save_calibrated_base embeds the deduction params + provenance metadata
+    # so consumers re-score on the SAME deduction basis (C3 fix).
+    save_calibrated_base(
+        calibrated_base, CALIBRATED_PKL,
+        deduction_params=cal_ded_params, tax_year=2023,
+        extra_meta={"built_by": "chain/forecast_sb3125_enhanced.py", "cd": cd},
+    )
 
-        get_scenario_system = (
-            TaxSystemRegistry.get_sb3125_cd1_system if CD == "1"
-            else TaxSystemRegistry.get_sb3125_cd2_system
+
+def mid_distribution(base, cd, gains_factors):
+    """MID's quintile and bracket tables for every target year:
+    ``(quintiles, brackets)``, with quintile boundaries fixed at the base year."""
+    import pandas as pd
+    from tax_modeler.config.tax_system_config import TaxCalculator
+    from tax_modeler.scenarios.quintile_analysis import (
+        compute_quintile_breaks,
+        cor_scale_factor_for_year,
+        generate_quintile_report,
+        per_unit_tax,
+    )
+
+    mid = _scenario("MID")
+    calc = TaxCalculator()
+    baseline_system, scenario_system = scoring_systems(cd, statutory=True)
+
+    # Re-synthesize MID (same params as the parallel worker); re-score on
+    # the calibration deduction basis (C3 fix — see run_one_scenario).
+    # enrich=True adds total_cash_income for TCI quintile binning.
+    units, _ = base.units(alpha=mid["alpha"], top_premium=mid["top_premium"], enrich=True)
+
+    # Anchor quintile boundaries to the 2026 base-year income distribution
+    # so Q1–Q5 membership is fixed across all projection years.
+    breaks = compute_quintile_breaks(units)
+    print(f"  2026 quintile AGI breaks (p20/p40/p60/p80): "
+          f"${breaks[0]:,.0f} / ${breaks[1]:,.0f} / "
+          f"${breaks[2]:,.0f} / ${breaks[3]:,.0f}", flush=True)
+
+    quintile_frames, bracket_frames = [], []
+    for yr in TARGET_YEARS:
+        projected = base.projected(units, year=yr, top_premium=mid["top_premium"],
+                                   gains_factors=gains_factors[yr])
+        base_cfg, scen_cfg = baseline_system(yr), scenario_system(yr)
+        overlay = credit_overlay(mid, yr, cd, projected)
+
+        # Year-specific COR scale factor from this scenario's Act 46
+        # microsim baseline (per-filer aggregated revenue, $M).
+        act46_baseline_M = float(
+            (per_unit_tax(projected, base_cfg, calc)
+             * projected["weight"].to_numpy(dtype=float)).sum() / 1e6
         )
-
-        wall_start = time.perf_counter()
-
-        units = load_cached_units(CD, built_by="chain/forecast_sb3125_enhanced.py")
-
-        print("Enriching + base tax + calibrating (one-time)...", flush=True)
-        # Calibrates on the same itemized-deduction params the projection uses
-        # (the canonical set), so the calibration target and projected tax share
-        # one deduction basis. Avoids the standard-only-vs-itemized "double
-        # discount" at high incomes that previously made TY 2027 baseline
-        # drop ~$349M below the calibration anchor.
-        calibrated_base, CAL_DED_PARAMS = build_calibrated_base(units, tax_year=2023)
-
-        # Validate post-rake AND post-synthesis (top-tier filers added in
-        # synthesis fill the $1M+ bin which the IPF rake can't reach via its
-        # 1.5x bin-cap). Calibration target is met after synthesis. The tail
-        # stays at the TY2023 level here (no aging), like the targets below.
-        v = validate_calibrated_base(calibrated_base, CAL_DED_PARAMS, tax_year=2023)
-        print(
-            f"  CALIBRATION VALIDATION (post-rake + post-synthesis, itemized on):\n"
-            f"    hi_tax_liability:      ${v['hi_tax_liability_M']:>7,.0f}M  (DOTAX Table A8 target: ${v['dotax_before_credits_M']:,.0f}M)\n"
-            f"    hi_state_tax (net):    ${v['hi_state_tax_M']:>7,.0f}M  (DOTAX TY{v['dotax_base_year']} after credits: ${v['dotax_after_credits_M']:,.0f}M)",
-            flush=True,
+        q_df, b_df, _ = generate_quintile_report(
+            projected, base_cfg, scen_cfg, overlay, calc,
+            scenario_params=mid,
+            quintile_breaks=breaks,
+            cor_scale_factor=cor_scale_factor_for_year(yr, act46_baseline_M),
         )
+        q_df.insert(0, "tax_year", yr)
+        b_df.insert(0, "tax_year", yr)
+        quintile_frames.append(q_df)
+        bracket_frames.append(b_df)
+        print(f"  TY {yr} quintile done", flush=True)
 
-        # Save calibrated base to a pickle so each parallel worker can read
-        # it independently. Pickle (not parquet) is required because the
-        # ``dependents`` column holds Python objects (lists of dicts) that
-        # parquet can't round-trip without lossy string conversion.
-        # save_calibrated_base embeds CAL_DED_PARAMS + provenance metadata so
-        # consumers re-score on the SAME deduction basis (C3 fix).
-        from tax_modeler.artifacts import save_calibrated_base
-        calibrated_pkl = ARTIFACT_DIR / "sb3125_calibrated_base.pkl"
-        save_calibrated_base(
-            calibrated_base, calibrated_pkl,
-            deduction_params=CAL_DED_PARAMS, tax_year=2023,
-            extra_meta={"built_by": "chain/forecast_sb3125_enhanced.py", "cd": CD},
-        )
-
-        # Capital gains: DOTAX anchors MID; every scenario rescales its gains
-        # with MID's factors (act24_population.mid_gains_factors), as the tax
-        # simulator does.
-        from _forecast_common import population_store
-        from tax_modeler.scenarios.act24_population import mid_gains_factors
-        # The MID populations here are built and projected again by the
-        # scenario worker, the pre-Act-46 run and the simulator: build them
-        # once, from the pickle every step reads, in the shared store.
-        STORE = population_store()
-        shared_base, _, _ = STORE.base(calibrated_pkl)
-        _mid = next(s for s in SCENARIOS if s["label"] == "MID")
-        print("Anchoring capital gains to DOTAX on the MID population...", flush=True)
-        GAINS_FACTORS = mid_gains_factors(
-            shared_base, alpha=_mid["alpha"], top_premium=_mid["top_premium"],
-            ded_params=CAL_DED_PARAMS, cal_tax_year=2023, years=TARGET_YEARS, store=STORE)
-
-        # Parallel: run all four scenarios concurrently, each in a worker
-        # that reads the calibrated pickle. The workers are forked where the
-        # platform allows (tax_modeler.parallel.process_pool), so they start
-        # with this process's imports instead of importing everything again.
-        from concurrent.futures import as_completed
-
-        from tax_modeler.parallel import forking, process_pool
-
-        all_rows = []
-        n_workers = min(len(SCENARIOS), 4)
-        print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
-        # The MID quintile analysis below needs only GAINS_FACTORS, so it runs
-        # here while the workers score the scenarios, not after them.
-        pool = process_pool(n_workers)
-        with forking():
-            futures = {
-                pool.submit(_scenario_worker, sc, TARGET_YEARS, str(calibrated_pkl), CD,
-                            GAINS_FACTORS, sc["label"] == "MID"): sc["label"]
-                for sc in SCENARIOS
-            }
-
-        # ---- Distributional quintile analysis (MID scenario, all years) -----
-        print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
-        import logging
-        import warnings
-
-        warnings.filterwarnings("ignore")
-        logging.disable(logging.WARNING)
-        from tax_modeler.config.tax_system_config import TaxCalculator, TaxSystemRegistry
-        from tax_modeler.scenarios.quintile_analysis import (
-            compute_quintile_breaks,
-            cor_scale_factor_for_year,
-            generate_quintile_report,
-            per_unit_tax,
-        )
-        from tax_modeler.scenarios.sb3125_cd1_credits import (
-            compute_credit_overlay,
-            compute_dynamic_agi_eligibility_share,
-        )
-
-        mid_sc = next(s for s in SCENARIOS if s["label"] == "MID")
-        q_calc = TaxCalculator()
-
-        # Re-synthesize MID (same params as the parallel worker); re-score on
-        # the calibration deduction basis (C3 fix — see run_one_scenario).
-        # enrich=True adds total_cash_income for TCI quintile binning.
-        from tax_modeler.calibration.cg_anchor import apply_anchor_factors
-        from tax_modeler.scenarios.act24_population import build_units, project_units, statute
-        q_units, _ = build_units(shared_base, alpha=mid_sc["alpha"],
-                                 top_premium=mid_sc["top_premium"],
-                                 ded_params=CAL_DED_PARAMS, cal_tax_year=2023, enrich=True,
-                                 store=STORE)
-
-        # Anchor quintile boundaries to the 2026 base-year income distribution
-        # so Q1–Q5 membership is fixed across all projection years.
-        base_2026_breaks = compute_quintile_breaks(q_units)
-        print(f"  2026 quintile AGI breaks (p20/p40/p60/p80): "
-              f"${base_2026_breaks[0]:,.0f} / ${base_2026_breaks[1]:,.0f} / "
-              f"${base_2026_breaks[2]:,.0f} / ${base_2026_breaks[3]:,.0f}", flush=True)
-
-        quintile_frames = []
-        bracket_frames  = []
-
-        for yr in TARGET_YEARS:
-            projected_q = apply_anchor_factors(
-                project_units(q_units, year=yr, top_premium=mid_sc["top_premium"], store=STORE),
-                GAINS_FACTORS[yr])
-
-            base_cfg = statute(TaxSystemRegistry.get_act46_system)(yr)
-            scen_cfg = statute(get_scenario_system)(yr)
-
-            if CD == "2":
-                agi_elig = compute_dynamic_agi_eligibility_share(projected_q)
-                credit_ov = compute_credit_overlay(
-                    yr,
-                    reec_demand_scenario=mid_sc["reec"],
-                    corp_subject_to_agi_limit=mid_sc["corp_agi_limit"],
-                    reec_effective_claim_share=mid_sc["reec_eff_share"],
-                    cgec_annual_growth=mid_sc["cgec_growth"],
-                    reec_carryforward_utilization_m=mid_sc.get("reec_cf_m", 0.0),
-                    model_carryforward_pool=True,
-                    agi_eligibility_by_year={yr: agi_elig},
-                    pro_rata_elasticity=mid_sc.get("pro_rata_elasticity", 0.0),
-                    interpretation=mid_sc.get("interpretation", "B"),
-                    dynamic_refundable_share=mid_sc.get("dynamic_refundable_share", False),
-                )
-            else:
-                credit_ov = compute_credit_overlay(
-                    yr,
-                    reec_demand_scenario=mid_sc["reec"],
-                    corp_subject_to_agi_limit=mid_sc["corp_agi_limit"],
-                    reec_effective_claim_share=mid_sc["reec_eff_share"],
-                    cgec_annual_growth=mid_sc["cgec_growth"],
-                    reec_carryforward_utilization_m=mid_sc.get("reec_cf_m", 0.0),
-                )
-
-            # Compute year-specific COR scale factor from this scenario's
-            # Act 46 microsim baseline (per-filer aggregated revenue, $M).
-            act46_baseline_M = float(
-                (per_unit_tax(projected_q, base_cfg, q_calc)
-                 * projected_q["weight"].to_numpy(dtype=float)).sum() / 1e6
-            )
-            cor_factor = cor_scale_factor_for_year(yr, act46_baseline_M)
-
-            q_df, b_df, _ = generate_quintile_report(
-                projected_q, base_cfg, scen_cfg, credit_ov,
-                q_calc,
-                scenario_params=mid_sc,
-                quintile_breaks=base_2026_breaks,
-                cor_scale_factor=cor_factor,
-            )
-            q_df.insert(0, "tax_year", yr)
-            b_df.insert(0, "tax_year", yr)
-            quintile_frames.append(q_df)
-            bracket_frames.append(b_df)
-            print(f"  TY {yr} quintile done", flush=True)
-
-        all_quintiles = pd.concat(quintile_frames, ignore_index=True)
-        all_brackets  = pd.concat(bracket_frames,  ignore_index=True)
-
-        with pool:
-            for fut in as_completed(futures):
-                label = futures[fut]
-                rows = fut.result()
-                all_rows.extend(rows)
-                print(f"  ✓ {label} complete ({len(rows)} rows)", flush=True)
-
-        # Sort rows so the CSV stays in scenario × year order
-        scen_order = {s["label"]: i for i, s in enumerate(SCENARIOS)}
-        all_rows.sort(key=lambda r: (scen_order[r["scenario"]], r["tax_year"]))
-
-        df = pd.DataFrame(all_rows)
-        df.to_csv(OUT_CSV, index=False)
-
-        # ---- Manifested run output (canonical; /tmp copy kept above) --------
-        from _forecast_common import RUNS_DIR, cache_provenance
-        from tax_modeler.runs import tidy_long, write_run_manifest
-        RUN_DIR = RUNS_DIR / f"sb3125_cd{CD}_enhanced"
-        RUN_DIR.mkdir(parents=True, exist_ok=True)
-        df.to_csv(RUN_DIR / "enhanced.csv", index=False)
-        tidy_long(df, ["scenario", "tax_year"]).to_csv(
-            RUN_DIR / "fiscal_tidy.csv", index=False,
-        )
-        write_run_manifest(
-            RUN_DIR,
-            script=f"chain/forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
-                    "capital_gains": CAPITAL_GAINS_NOTE,
-                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
-            inputs={"tax_units_cache": cache_provenance()},
-        )
-        print(f"Saved run: {RUN_DIR}", flush=True)
+    return (pd.concat(quintile_frames, ignore_index=True),
+            pd.concat(bracket_frames, ignore_index=True))
 
 
-        Q_CSV = Path(f"/tmp/sb3125_cd{CD}_quintile_mid_2027_2031.csv")
-        B_CSV = Path(f"/tmp/sb3125_cd{CD}_bracket_mid_2027_2031.csv")
-        all_quintiles.to_csv(Q_CSV, index=False)
-        all_brackets.to_csv(B_CSV, index=False)
-        print(f"Saved: {Q_CSV}", flush=True)
-        print(f"Saved: {B_CSV}", flush=True)
-        # Also keep them with the run: /tmp vanishes on reboot, and the
-        # estimates site (scripts/build_site.py) imports from RUN_DIR.
-        all_quintiles.to_csv(RUN_DIR / "quintile.csv", index=False)
-        all_brackets.to_csv(RUN_DIR / "bracket.csv", index=False)
-        write_run_manifest(
-            RUN_DIR,
-            script=f"chain/forecast_sb3125_enhanced.py --cd {CD}",
-            params={"cd": CD, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
-                    "capital_gains": CAPITAL_GAINS_NOTE,
-                    "gains_factors": {str(y): k for y, k in GAINS_FACTORS.items()}},
-            inputs={"tax_units_cache": cache_provenance()},
-        )
+def main(cd):
+    import time
+    from concurrent.futures import as_completed
 
-        # Print TY 2027 quintile summary
-        q27 = all_quintiles[all_quintiles["tax_year"] == 2027].copy()
-        print("\n" + "=" * 100, flush=True)
-        print("DISTRIBUTIONAL ANALYSIS — MID Scenario, TY 2027 "
-              "(bracket change + REEC credit loss per household)", flush=True)
-        print("=" * 100, flush=True)
-        pd.set_option("display.float_format", "{:,.1f}".format)
-        pd.set_option("display.max_colwidth", 20)
-        display_cols = [
-            "quintile", "household_count",
-            "avg_per_hh_bracket_change", "avg_per_hh_credit_loss", "avg_per_hh_total_change",
-            "total_bracket_$M", "total_credit_loss_$M", "total_change_$M",
-            "pct_pay_more", "pct_pay_less",
-        ]
-        print(q27[display_cols].to_string(index=False), flush=True)
+    import pandas as pd
+    from tax_modeler.parallel import forking, process_pool
+    from tax_modeler.runs import tidy_long
 
-        # ---- Summary tables -------------------------------------------------
-        print("\n" + "=" * 100, flush=True)
-        print(f"SB 3125 {cd_label} ENHANCED FISCAL IMPACT  "
-              f"($M, vs Act 46 baseline, with behavioral response)", flush=True)
-        print("=" * 100, flush=True)
+    cd_label = f"CD{cd}"
+    print(f"SB 3125 {cd_label} enhanced fiscal forecast", flush=True)
+    wall_start = time.perf_counter()
 
-        # Column order for summary tables
-        scen_order = [s["label"] for s in SCENARIOS]  # ["LOW","MID","HIGH","RECESSION"]
+    calibrate(cd)
 
-        # Total impact pivot
-        pv = df.pivot(index="tax_year", columns="scenario", values="total_impact_$M")
-        pv = pv[scen_order]
+    # Capital gains: DOTAX anchors MID; every scenario rescales its gains
+    # with MID's factors (act24_population.mid_gains_factors), as the tax
+    # simulator does. The MID populations here are built and projected
+    # again by the scenario worker, the pre-Act-46 run and the simulator:
+    # build them once, from the pickle every step reads, in the shared store.
+    base = open_calibrated()
+    mid = _scenario("MID")
+    print("Anchoring capital gains to DOTAX on the MID population...", flush=True)
+    gains_factors = base.gains_factors(years=TARGET_YEARS, alpha=mid["alpha"],
+                                       top_premium=mid["top_premium"])
+
+    # Parallel: run all four scenarios concurrently, each in a worker
+    # that reads the calibrated pickle. The workers are forked where the
+    # platform allows (tax_modeler.parallel.process_pool), so they start
+    # with this process's imports instead of importing everything again.
+    n_workers = min(len(SCENARIOS), 4)
+    print(f"\nLaunching {n_workers} parallel scenario workers ({cd_label})...", flush=True)
+    pool = process_pool(n_workers)
+    with forking():
+        futures = {
+            pool.submit(_scenario_worker, sc, TARGET_YEARS, cd,
+                        gains_factors, sc["label"] == "MID"): sc["label"]
+            for sc in SCENARIOS
+        }
+
+    # The MID quintile analysis needs only the gains factors, so it runs
+    # here while the workers score the scenarios, not after them.
+    print("\nRunning distributional quintile analysis (MID scenario)...", flush=True)
+    all_quintiles, all_brackets = mid_distribution(base, cd, gains_factors)
+
+    all_rows = []
+    with pool:
+        for fut in as_completed(futures):
+            label = futures[fut]
+            rows = fut.result()
+            all_rows.extend(rows)
+            print(f"  ✓ {label} complete ({len(rows)} rows)", flush=True)
+
+    # Sort rows so the CSV stays in scenario × year order
+    scen_order = {s["label"]: i for i, s in enumerate(SCENARIOS)}
+    all_rows.sort(key=lambda r: (scen_order[r["scenario"]], r["tax_year"]))
+    df = pd.DataFrame(all_rows)
+
+    # The /tmp copies are read by analyses/generate_itep_report.py; the run
+    # directory is canonical (scripts/build_site.py imports from it).
+    out_csv = Path(f"/tmp/sb3125_cd{cd}_enhanced_2027_2031.csv")
+    df.to_csv(out_csv, index=False)
+    for kind, frame in (("quintile", all_quintiles), ("bracket", all_brackets)):
+        tmp = Path(f"/tmp/sb3125_cd{cd}_{kind}_mid_2027_2031.csv")
+        frame.to_csv(tmp, index=False)
+        print(f"Saved: {tmp}", flush=True)
+    run_dir = save_run(
+        f"sb3125_cd{cd}_enhanced",
+        {"enhanced.csv": df,
+         "fiscal_tidy.csv": tidy_long(df, ["scenario", "tax_year"]),
+         "quintile.csv": all_quintiles,
+         "bracket.csv": all_brackets},
+        script=f"chain/forecast_sb3125_enhanced.py --cd {cd}",
+        params={"cd": cd, "target_years": TARGET_YEARS, "scenarios": SCENARIOS,
+                "capital_gains": CAPITAL_GAINS_NOTE,
+                "gains_factors": {str(y): k for y, k in gains_factors.items()}},
+    )
+    print(f"Saved run: {run_dir}", flush=True)
+
+    _print_summary(df, all_quintiles, cd_label)
+    print(f"\nSaved: {out_csv}", flush=True)
+    print(f"Total elapsed: {time.perf_counter() - wall_start:.1f}s", flush=True)
+
+
+def _print_summary(df, all_quintiles, cd_label):
+    import pandas as pd
+
+    # TY 2027 quintile summary
+    q27 = all_quintiles[all_quintiles["tax_year"] == 2027].copy()
+    print("\n" + "=" * 100, flush=True)
+    print("DISTRIBUTIONAL ANALYSIS — MID Scenario, TY 2027 "
+          "(bracket change + REEC credit loss per household)", flush=True)
+    print("=" * 100, flush=True)
+    pd.set_option("display.float_format", "{:,.1f}".format)
+    pd.set_option("display.max_colwidth", 20)
+    display_cols = [
+        "quintile", "household_count",
+        "avg_per_hh_bracket_change", "avg_per_hh_credit_loss", "avg_per_hh_total_change",
+        "total_bracket_$M", "total_credit_loss_$M", "total_change_$M",
+        "pct_pay_more", "pct_pay_less",
+    ]
+    print(q27[display_cols].to_string(index=False), flush=True)
+
+    print("\n" + "=" * 100, flush=True)
+    print(f"SB 3125 {cd_label} ENHANCED FISCAL IMPACT  "
+          f"($M, vs Act 46 baseline, with behavioral response)", flush=True)
+    print("=" * 100, flush=True)
+
+    scen_order = [s["label"] for s in SCENARIOS]  # ["LOW","MID","HIGH","RECESSION"]
+    for column, title in (
+        ("total_impact_$M", "Total annual fiscal impact ($M, post-behavioral):"),
+        ("bracket_delta_post_$M", "Bracket-change impact (post-ETI/migration/PTE) ($M):"),
+        ("bracket_delta_cor_scaled_$M",
+         "Bracket-change impact, COR-scaled to actual revenue base ($M):"),
+        ("credit_total_$M", "Credit-cap impact ($M):"),
+    ):
+        pv = df.pivot(index="tax_year", columns="scenario", values=column)[scen_order]
         pv.loc["5yr cum"] = pv.sum()
-        print("\nTotal annual fiscal impact ($M, post-behavioral):")
+        print(f"\n{title}")
         print(pv.to_string(float_format=lambda x: f"{x:>9,.1f}"), flush=True)
 
-        # Bracket-only (post-response) pivot
-        pv_b = df.pivot(index="tax_year", columns="scenario", values="bracket_delta_post_$M")[scen_order]
-        pv_b.loc["5yr cum"] = pv_b.sum()
-        print("\nBracket-change impact (post-ETI/migration/PTE) ($M):")
-        print(pv_b.to_string(float_format=lambda x: f"{x:>9,.1f}"), flush=True)
+    # Behavioral decomposition for MID at TY 2027
+    mid27 = df[(df["scenario"] == "MID") & (df["tax_year"] == 2027)].iloc[0]
+    print("\n" + "-" * 100, flush=True)
+    print("BEHAVIORAL DECOMPOSITION (MID scenario, TY 2027):", flush=True)
+    print("-" * 100, flush=True)
+    print(f"  Static bracket delta:                   ${mid27['bracket_delta_static_$M']:>+8.2f}M", flush=True)
+    print(f"  Behavioral response (ETI + migration):  ${mid27['eti_response_$M']:>+8.2f}M", flush=True)
+    print(f"  PTE election shift to entity tax:       ${mid27['pte_shift_$M']:>+8.2f}M", flush=True)
+    print(f"  Post-behavioral bracket delta:          ${mid27['bracket_delta_post_$M']:>+8.2f}M", flush=True)
+    cor_diag = (mid27['bracket_delta_cor_scaled_$M'] / mid27['bracket_delta_post_$M']
+                if mid27['bracket_delta_post_$M'] else 1.0)
+    print(f"  COR-scaled (×{cor_diag:.3f}):                "
+          f"${mid27['bracket_delta_cor_scaled_$M']:>+8.2f}M", flush=True)
 
-        # COR-scaled pivot
-        pv_cs = df.pivot(index="tax_year", columns="scenario", values="bracket_delta_cor_scaled_$M")[scen_order]
-        pv_cs.loc["5yr cum"] = pv_cs.sum()
-        print("\nBracket-change impact, COR-scaled to actual revenue base ($M):")
-        print(pv_cs.to_string(float_format=lambda x: f"{x:>9,.1f}"), flush=True)
 
-        # Credit pivot
-        pv_c = df.pivot(index="tax_year", columns="scenario", values="credit_total_$M")[scen_order]
-        pv_c.loc["5yr cum"] = pv_c.sum()
-        print("\nCredit-cap impact ($M):")
-        print(pv_c.to_string(float_format=lambda x: f"{x:>9,.1f}"), flush=True)
-
-        # Behavioral decomposition for MID at TY 2027
-        mid27 = df[(df["scenario"] == "MID") & (df["tax_year"] == 2027)].iloc[0]
-        print("\n" + "-" * 100, flush=True)
-        print("BEHAVIORAL DECOMPOSITION (MID scenario, TY 2027):", flush=True)
-        print("-" * 100, flush=True)
-        print(f"  Static bracket delta:                   ${mid27['bracket_delta_static_$M']:>+8.2f}M", flush=True)
-        print(f"  Behavioral response (ETI + migration):  ${mid27['eti_response_$M']:>+8.2f}M", flush=True)
-        print(f"  PTE election shift to entity tax:       ${mid27['pte_shift_$M']:>+8.2f}M", flush=True)
-        print(f"  Post-behavioral bracket delta:          ${mid27['bracket_delta_post_$M']:>+8.2f}M", flush=True)
-        cor_diag = (mid27['bracket_delta_cor_scaled_$M'] / mid27['bracket_delta_post_$M']
-                    if mid27['bracket_delta_post_$M'] else 1.0)
-        print(f"  COR-scaled (×{cor_diag:.3f}):                "
-              f"${mid27['bracket_delta_cor_scaled_$M']:>+8.2f}M", flush=True)
-
-        print(f"\nSaved: {OUT_CSV}", flush=True)
-        print(f"Total elapsed: {time.perf_counter() - wall_start:.1f}s", flush=True)
-
+if __name__ == "__main__":
+    silence_noise()
+    args = parse_cd_args(__doc__)
+    try:
+        main(args.cd)
     except Exception as e:
         print(f"\nERROR: {e}", flush=True)
         traceback.print_exc()

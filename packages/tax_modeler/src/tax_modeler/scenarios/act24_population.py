@@ -23,17 +23,79 @@ scale factor per DOTAX class and year (DOTAX anchors MID), every scenario's
 projected frame is rescaled with them (``cg_anchor.apply_anchor_factors``),
 and :func:`statute` scores a registry law with the statutory tax instead of
 its stacked shortcut.
+
+:class:`CalibratedBase` carries the calibrated base together with what every
+call above needs alongside it (its deduction params and vintage, and the
+chain's population store), so a chain step loads it once and asks it for
+units and projections.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import replace
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 if TYPE_CHECKING:
     from tax_modeler.config.tax_system_config import TaxSystemConfig
+    from tax_modeler.scenarios.population_store import PopulationStore
+
+# The MID scenario's population assumptions: the Pareto alpha of the
+# synthetic $1M+ tail and the top-income growth premium (per year). Every
+# chain step that scores "the MID population" uses these.
+MID_ALPHA = 1.5
+MID_TOP_PREMIUM = 0.010
+
+
+@dataclass(frozen=True)
+class CalibratedBase:
+    """The calibrated base (``artifacts.load_calibrated_base``), the deduction
+    params and tax year it was calibrated under, and the population store
+    that loaded it (None: nothing is shared or cached)."""
+
+    frame: pd.DataFrame
+    ded_params: Any
+    tax_year: int
+    store: PopulationStore | None = None
+
+    @classmethod
+    def load(cls, path, store: PopulationStore | None = None) -> CalibratedBase:
+        """Load the pickle at ``path``, through ``store`` when given."""
+        if store is not None:
+            frame, ded_params, meta = store.base(path)
+        else:
+            from tax_modeler.artifacts import load_calibrated_base
+
+            frame, ded_params, meta = load_calibrated_base(path)
+        return cls(frame, ded_params, int(meta.get("tax_year", 2023)), store)
+
+    def units(self, *, alpha: float, top_premium: float,
+              enrich: bool = False) -> tuple[pd.DataFrame, float]:
+        """:func:`build_units` on this base: ``(units, tail_k)``."""
+        return build_units(self.frame, alpha=alpha, top_premium=top_premium,
+                           ded_params=self.ded_params, cal_tax_year=self.tax_year,
+                           enrich=enrich, store=self.store)
+
+    def projected(self, units: pd.DataFrame, *, year: int, top_premium: float,
+                  macro_shock: str | None = None,
+                  gains_factors: dict[str, float] | None = None) -> pd.DataFrame:
+        """:func:`project_units`, then the gains rescaled with
+        ``gains_factors`` (one year's ``cg_anchor`` factors) when given."""
+        projected = project_units(units, year=year, top_premium=top_premium,
+                                  macro_shock=macro_shock, store=self.store)
+        if gains_factors is None:
+            return projected
+        from tax_modeler.calibration.cg_anchor import apply_anchor_factors
+
+        return apply_anchor_factors(projected, gains_factors)
+
+    def gains_factors(self, *, years: Iterable[int], alpha: float,
+                      top_premium: float) -> dict[int, dict[str, float]]:
+        """:func:`mid_gains_factors` on this base."""
+        return mid_gains_factors(self.frame, alpha=alpha, top_premium=top_premium,
+                                 ded_params=self.ded_params, cal_tax_year=self.tax_year,
+                                 years=years, store=self.store)
 
 
 def build_units(
