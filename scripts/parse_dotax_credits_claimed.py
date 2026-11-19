@@ -1,4 +1,4 @@
-"""Parse DOTAX's "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 and A-2, for two credits.
+"""Parse DOTAX's "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 and A-2, for three credits.
 
 The working-family step (``chain/forecast_working_family_credits.py``) fits its food and excise
 take-up to the Department of Taxation's dollars and checks the earned income credit and the
@@ -42,6 +42,7 @@ URLS = ("https://files.hawaii.gov/tax/stats/stats/credits/{year}credit_tables.xl
 CREDITS = {
     "eitc": "Earned Income Tax Credit",
     "food_excise": "Refundable Food/Excise Tax Credit",
+    "cdcc": "Tax Credit for Child and Dependent Care Expenses",
 }
 
 
@@ -137,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research & Planning",
             "files": sources,
             "note": "Dollars are the printed Table A-1 cells, in thousands of dollars; claims are Table A-2. "
-                    "Both credits are claimed by individuals only, so the ALL and Individuals columns are equal.",
+                    "All three credits are claimed by individuals only, so the ALL and Individuals columns are equal.",
         },
         "credits": CREDITS,
         "years": years,

@@ -1,6 +1,7 @@
-"""The Department of Taxation's "Tax Credits Claimed by Hawaiʻi Taxpayers" figures for two credits.
+"""The Department of Taxation's "Tax Credits Claimed by Hawaiʻi Taxpayers" figures for three credits.
 
-Dollars and claim counts for the earned income credit and the refundable food and excise credit,
+Dollars and claim counts for the earned income credit, the refundable food and excise credit and
+the child and dependent care credit (HRS §235-55.6, "Tax Credit for Child and Dependent Care Expenses"),
 from Tables A-1 and A-2 of the Department's workbook for each tax year. The working-family step
 fits its food and excise take-up to these dollars and checks both credits against them.
 
@@ -22,8 +23,9 @@ from pathlib import Path
 
 _PATH = Path(__file__).resolve().parents[1] / "data" / "calibration" / "dotax_credits_claimed.json"
 
-#: ``eitc`` is the earned income credit, ``food_excise`` the refundable food and excise credit.
-CREDITS = ("eitc", "food_excise")
+#: ``eitc`` is the earned income credit, ``food_excise`` the refundable food and excise credit,
+#: ``cdcc`` the child and dependent care credit.
+CREDITS = ("eitc", "food_excise", "cdcc")
 
 
 @cache

@@ -32,7 +32,7 @@ def _runs(root: Path, bump: float = 0.0) -> Path:
          "C_act24_increment": 50.0, "total_vs_pre_act46": -650.0, "memo_vs_frozen_2026": -150.0}
         for y in YEARS])
     rev = pd.DataFrame([{"tax_year": y, "eitc_loss_$M": 40.0, "food_loss_$M": 30.0,
-                         "total_loss_$M": 70.0} for y in (2028, 2029)])
+                         "cdcc_loss_$M": 8.0, "total_loss_$M": 78.0} for y in (2028, 2029)])
     pov = pd.DataFrame([{"tax_year": 2028, "persons_into_poverty": 2000.0,
                          "children_into_poverty": 500.0, "poverty_gap_increase_$M": 16.0}])
     for name, files in {rr.ENHANCED: {"enhanced.csv": enh, "quintile.csv": q},

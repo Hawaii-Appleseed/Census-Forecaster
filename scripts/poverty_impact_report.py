@@ -93,7 +93,7 @@ def _load_units(
     """
     from tax_modeler.analysis.puma_crosswalk import assign_geography
     from tax_modeler.base import build_raw_units
-    from tax_modeler.pipeline import enrich_for_credits
+    from tax_modeler.pipeline import attach_secondary_hours, enrich_for_credits
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -159,6 +159,10 @@ def _load_units(
 
     units = build_raw_units(persons.copy(), households.copy(), parallel=True)
     units = enrich_for_credits(units)
+    # The second earner's hours: the SPM childcare and work-expense functions need them to see a
+    # married couple's second earner (without them couples get no childcare expense).
+    if "WKHP" in persons.columns:
+        units = attach_secondary_hours(units, persons)
     units = assign_geography(units)
     return units, persons
 

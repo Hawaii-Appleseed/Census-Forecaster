@@ -81,6 +81,7 @@ class SPMColumns:
     hi_eitc: str | None = "hi_eitc_amount"
     hi_food_excise: str | None = "hi_food_excise_amount"
     hi_renters: str | None = "hi_renters_amount"
+    hi_cdcc: str | None = "hi_cdcc_amount"
     moop: str | None = "moop_amount"
     childcare_expense: str | None = "childcare_expense_amount"
     work_expense: str | None = "work_expense_amount"
@@ -336,6 +337,15 @@ def compute_spm_resources(
         used.append(columns.hi_renters)
     else:
         zeroed.append("hi_renters")
+    # The child and dependent care credit (HRS §235-55.6) is refundable. It is NOT netted into
+    # hi_tax_liability (liability/hawaii.py nets only the food/excise credit), so adding it here
+    # counts it once. The childcare expense subtracted below is the family's gross spending, not
+    # net of the credit.
+    hi_cdcc = _col(columns.hi_cdcc)
+    if columns.hi_cdcc and columns.hi_cdcc in df.columns:
+        used.append(columns.hi_cdcc)
+    else:
+        zeroed.append("hi_cdcc")
 
     moop = _col(columns.moop)
     childcare = _col(columns.childcare_expense)
@@ -363,7 +373,7 @@ def compute_spm_resources(
     # offsets MOOP indirectly rather than counting as cash). We compute
     # it elsewhere and report it separately, but do NOT add it here.
     # Hawaii state-level refundable credits (hi_eitc, hi_food_excise,
-    # hi_renters) ARE included — they are paid out as refunds and
+    # hi_renters, hi_cdcc) ARE included — they are paid out as refunds and
     # function as cash transfers in the SPM accounting.
     resources = (
         money_income
@@ -372,7 +382,7 @@ def compute_spm_resources(
         + aca_ptc + wic
         + housing + liheap + childcare_subsidy
         + school_lunch
-        + hi_eitc + hi_food_excise + hi_renters
+        + hi_eitc + hi_food_excise + hi_renters + hi_cdcc
         + rxkids
         - state_tax
         - federal_tax

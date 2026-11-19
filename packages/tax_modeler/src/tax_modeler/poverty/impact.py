@@ -20,8 +20,9 @@ and re-computes them under one or more counterfactual scenarios:
       :func:`tax_modeler.scenarios.eitc_labor_response.apply_hi_eitc_lfp_response`
       before SPM-unit aggregation.
     * ``act163_sunset`` — Act 163 (2023) expires after TY2027: the Hawaii
-      EITC falls from 40% to 20% of federal and the food/excise credit
-      returns to its pre-2023 table. Subtracts the precomputed
+      EITC falls from 40% to 20% of federal, the food/excise credit
+      returns to its pre-2023 table and the child and dependent care credit
+      returns to its $2,400 / $4,800 expense limits (§235-55.6(c)). Subtracts the precomputed
       ``act163_sunset_loss`` column (dollars per tax unit, take-up
       adjusted; see ``chain/forecast_working_family_credits.py``).
 

@@ -6,19 +6,29 @@ Usage:
 
 Question
 --------
-Act 163 (SLH 2023) doubled Hawaii's two main working-family credits for tax
+Act 163 (SLH 2023) expanded three of Hawaii's working-family credits for tax
 years 2023-2027:
 
   - Earned income tax credit (HRS §235-55.75): 20% -> 40% of the federal EITC
     (refundable since Act 114, 2022).
   - Refundable food/excise tax credit (HRS §235-55.85): the per-exemption table
     raised from $35-$110 to $70-$220 and extended $10,000 up the income scale.
+  - Child and dependent care credit (HRS §235-55.6, §1 of the Act): the limit
+    on employment-related expenses taken into account, subsection (c), raised
+    from $2,400 (one qualifying individual) / $4,800 (two or more) to $10,000 /
+    $20,000. Nothing else in the section changed: the credit was already
+    refundable, and its percentage (25% to $25,000 of AGI, one point lower per
+    further $5,000, 15% above $50,000) is the same under both limits.
 
-Act 163 is repealed on December 31, 2027 and both sections are reenacted as
-they read before it (L 2023, c 163, §5). The 2026 session did not extend it
-(HB 2306's extension was not enacted). So from TY2028 the credits return to
-20% of federal and the pre-2023 food/excise table. What do working families
-lose, and what would renewing the expansions cost?
+Act 163 is repealed on December 31, 2027 and each section (for §235-55.6,
+subsection (c)) is reenacted as it read before it (L 2023, c 163, §5). The 2026
+session did not extend it (HB 2306's extension, which would also have rewritten
+the care credit's percentages, was not enacted; Act 24 does not touch
+§235-55.6). So from TY2028 the credits return to 20% of federal, the pre-2023
+food/excise table and the $2,400 / $4,800 care limits. What do working families
+lose, and what would renewing the expansions cost? The scenario keeps its name
+(``act163_sunset``): all three expansions come from the same act and the same
+repeal.
 
 Method
 ------
@@ -37,7 +47,7 @@ the standard errors measure the sampling of everything except those counts.
 Federal EITC parameters past TY2025 are CPI-extrapolated.
 
 State credits: each tax unit's credit under the expanded law (40%; Act 163
-table) and the reverted law (20%; prior table), computed from the statutory
+tables and limits) and the reverted law (20%; prior table and limits), computed from the statutory
 schedules in tax_modeler.credits. Take-up is a uniform factor per credit, held
 constant, set so modeled dollars match DOTAX in the latest year it reports each
 credit:
@@ -47,10 +57,36 @@ credit:
     that the 40% rate does not touch and Act 25 (2025) ends.
   - Food/excise: TY2023, "Tax Credits Claimed by Hawaiʻi Taxpayers" Table A-1:
     $63.96M (the report that carries this credit).
+  - Child and dependent care: TY2023, the same table, "Tax Credit for Child and
+    Dependent Care Expenses": $14.82M on 18,119 claims. The latest edition is
+    TY2023 (the TY2024 workbook is not yet published).
 Checks: the EITC report's claims, its distribution by federal AGI range and by
 filing status (eitc_check_ty2024.csv); the Credits Claimed claim counts; and,
-out of sample, TY2023 EITC dollars and TY2022 food/excise dollars under the old
-table ($24.96M).
+out of sample, TY2023 EITC dollars, TY2022 food/excise dollars under the old
+table ($24.96M) and TY2022 care-credit dollars under the old limits ($6.48M on
+16,415 claims, the year before Act 163's limits applied).
+
+Care credit, expenses and what is simplified (credits/hi_cdcc.py has the schedule):
+the PUMS has no childcare spending, so a unit's expenses are drawn from the CPS ASEC
+Hawaii donors (SPM_CHILDCAREXPNS) the SPM childcare subtraction uses. The unit's credit
+is the mean of the statutory credit over the donor families' spending for its number of
+children under 13 (bins: one, two or more), not the cell mean the SPM subtraction
+uses. A cell mean is about $400 for these families and puts nearly all of them under
+the old $2,400 limit, so the expansion would be worth nothing and the old-law credit
+would equal the new one (tried: $10.3M under either limit, against DOTAX's $6.5M and
+$14.8M). Only 15% of Hawaii donor families with a child under 13 report any spending,
+and a few report a great deal, which is what the $10,000 / $20,000 limits are for. The
+donor sample is small (33 families that pay), so income is not a bin: the percentage
+(by AGI) and the earned-income limit carry the income gradient. Qualifying individuals
+are dependents under 13 on the frame (disabled dependents, a disabled spouse and
+student spouses' deemed income are not modeled), a unit must have earned income
+(married joint filers: the lesser spouse's earnings, scaled to the aged total) and married
+filing separately gets nothing. The §129 dependent care assistance exclusion that
+reduces the limit, payments to relatives, the provider-ID requirement and nonresident
+part-year rules are not modeled. Children's ages are the PUMS ages (not rolled forward to
+the tax year) and the donor sample's spending is not indexed. The take-up factor, like
+the others, is a dollar scale (here below one); the claim counts it implies are about three
+quarters of DOTAX's, because the CPS sample's few payers pay more than the average claimant.
 
 Food/excise amounts are fixed dollars and income ceilings are not indexed, so
 the credit shrinks in real terms as incomes grow; the EITC follows the
@@ -68,11 +104,12 @@ work-expense deductions are CPS ASEC donor cell means ranked on base-year
 income, in both cases.
 
 Outputs (runs/working_family_credits/):
-  revenue_by_year.csv      $M by year: expanded vs reverted, per credit, and claimants
+  revenue_by_year.csv      $M by year: expanded vs reverted, per credit (EITC, food/excise, child and dependent care), and claimants
   calibration.csv          take-up factors and the TY2022-TY2024 checks
   eitc_check_ty2024.csv    modeled EITC by federal AGI range and filing status vs DOTAX
   distribution_ty2028.csv  loss by household-income fifth
   by_family_type_ty2028.csv loss by family type (single, single parent, couple)
+  by_credit_ty2028.csv     each credit's households that lose and average loss, and all three together
   poverty_ty2028.csv       SPM poverty with and without the expansions
   manifest.json
 """
@@ -99,7 +136,7 @@ PUMS_DIR = REPO / "packages" / "data" / "raw" / "pums_2024_1yr"
 YEARS = [2022, 2023, 2024, 2027, 2028, 2029, 2030, 2031]
 SCORE_YEARS = [2028, 2029, 2030, 2031]
 POVERTY_YEAR = 2028
-CAL_YEAR = 2023         # food/excise: the year DOTAX's Credits Claimed report fits it to
+CAL_YEAR = 2023         # food/excise and care credit: the year DOTAX's Credits Claimed report fits them to
 EITC_CAL_YEAR = 2024    # EITC: the latest year of DOTAX's Earned Income Tax Credit Report
 IRS_REWEIGHT = True     # fit the tax-unit weights to IRS returns (--no-irs-reweight: the pre-2026-11-05 figures)
 IRS_RAKE_YEAR = 2023    # the population is aged to this year to find the factors; the IRS table's year (irs_soi_hi_table2.BASE_YEAR)
@@ -107,7 +144,7 @@ IRS_PER_REPLICATE = True  # rake each of the 80 replicates on its own (False: ev
 
 @functools.cache
 def dotax() -> dict[int, dict[str, float]]:
-    """DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 ($K) and A-2 (claims).
+    """DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers", Tables A-1 ($K) and A-2 (claims), for three credits.
 
     Read from ``data/calibration/dotax_credits_claimed.json`` (``scripts/parse_dotax_credits_claimed.py``
     writes it from the Department's workbooks), not typed here. A function and not a constant: this
@@ -125,7 +162,8 @@ def dotax() -> dict[int, dict[str, float]]:
     return {
         year: {"eitc_$M": round(claimed.dollars_M("eitc", year), 3), "eitc_claims": claimed.claims("eitc", year),
                "food_$M": round(claimed.dollars_M("food_excise", year), 3),
-               "food_claims": claimed.claims("food_excise", year)}
+               "food_claims": claimed.claims("food_excise", year),
+               "cdcc_$M": round(claimed.dollars_M("cdcc", year), 3), "cdcc_claims": claimed.claims("cdcc", year)}
         for year in (2022, 2023)
     }
 
@@ -307,7 +345,12 @@ def units_for_year(base: pd.DataFrame, year: int, rake: IrsRake | None = None) -
 
 
 def state_credits(u: pd.DataFrame) -> pd.DataFrame:
-    """Eligible (pre-take-up) state credits under both laws, per tax unit."""
+    """Eligible (pre-take-up) state credits under both laws, per tax unit.
+
+    The care credit's columns are expected values over the donor families' spending
+    (``compute_hi_cdcc_expected``), with ``cdcc_*_claim_prob`` and ``cdcc_loss_prob``.
+    """
+    from tax_modeler.credits.hi_cdcc import ACT163_CAPS, PRIOR_CAPS, compute_hi_cdcc_expected
     from tax_modeler.credits.hi_food_excise import (
         ACT163_JOINT,
         ACT163_SINGLE,
@@ -320,15 +363,27 @@ def state_credits(u: pd.DataFrame) -> pd.DataFrame:
     fed = u["eitc_amount"].fillna(0).clip(lower=0).to_numpy(dtype=float)
     act163 = HawaiiFoodExciseParameters(single=ACT163_SINGLE, joint=ACT163_JOINT)
     prior = HawaiiFoodExciseParameters(single=PRIOR_SINGLE, joint=PRIOR_JOINT)
+    cdcc = compute_hi_cdcc_expected(u, expanded=ACT163_CAPS, reverted=PRIOR_CAPS, donors=cdcc_donors())
     return pd.DataFrame({
         "eitc_expanded": EITC_EXPANDED * fed,
         "eitc_reverted": EITC_REVERTED * fed,
         "food_expanded": compute_hi_food_excise_for_units(u, params=act163, out_col="x")["x"].to_numpy(),
         "food_reverted": compute_hi_food_excise_for_units(u, params=prior, out_col="x")["x"].to_numpy(),
+        # expected credit over the donors' spending, before take-up; *_claim_prob is P(credit > 0),
+        # cdcc_loss_prob is P(expanded > reverted)
+        **{k: cdcc[k].to_numpy() for k in cdcc.columns},
     }, index=u.index)
 
 
-def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dict:
+@functools.cache
+def cdcc_donors():
+    """CPS ASEC Hawaii donors' childcare spending by number of children under 13 (hi_cdcc)."""
+    from tax_modeler.credits.hi_cdcc import donor_expense_distribution
+
+    return donor_expense_distribution()
+
+
+def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float, p_cdcc: float) -> dict:
     def m(col, p):
         return float((c[col] * w).sum() * p / 1e6)
 
@@ -341,6 +396,10 @@ def _totals(c: pd.DataFrame, w: np.ndarray, p_eitc: float, p_food: float) -> dic
         "eitc_claimants": n("eitc_expanded", p_eitc),
         "food_claimants_expanded": n("food_expanded", p_food),
         "food_claimants_reverted": n("food_reverted", p_food),
+        "cdcc_expanded_$M": m("cdcc_expanded", p_cdcc), "cdcc_reverted_$M": m("cdcc_reverted", p_cdcc),
+        # claimants: units' probability of a positive credit, times the take-up factor (capped at one)
+        "cdcc_claimants_expanded": float((c["cdcc_expanded_claim_prob"] * w).sum() * min(p_cdcc, 1.0)),
+        "cdcc_claimants_reverted": float((c["cdcc_reverted_claim_prob"] * w).sum() * min(p_cdcc, 1.0)),
     }
 
 
@@ -415,11 +474,12 @@ def run(irs_reweight: bool | None = None) -> None:
         print(f"  TY{yr} built ({time.perf_counter() - t0:.0f}s)", flush=True)
 
     # Take-up: a uniform factor per credit matching DOTAX's dollars under Act 163, in
-    # the latest year it reports each credit (EITC_CAL_YEAR, CAL_YEAR). Below 1 it is a
+    # the latest year it reports each credit (EITC_CAL_YEAR, CAL_YEAR for the other two). Below 1 it is a
     # claim probability (not every eligible household files). Above 1 it is a dollar
     # scale (the model's base runs short); claim probabilities are capped at 1 wherever
     # they are used.
     from tax_modeler.calibration import dotax_base
+    from tax_modeler.credits.hi_cdcc import ACT163_CAPS, PRIOR_CAPS
 
     eitc_dotax = dotax_base.eitc_new_credit(EITC_CAL_YEAR)
     uE, cE = frames[EITC_CAL_YEAR]
@@ -428,23 +488,26 @@ def run(irs_reweight: bool | None = None) -> None:
     uF, cF = frames[CAL_YEAR]
     wF = uF["weight"].to_numpy(dtype=float)
     p_food = dotax()[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
-    if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10):
-        raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}")
+    p_cdcc = dotax()[CAL_YEAR]["cdcc_$M"] * 1e6 / float((cF["cdcc_expanded"] * wF).sum())
+    if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10 and 0.5 < p_cdcc <= 1.10):
+        raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}, care {p_cdcc:.3f}")
 
     rows = []
     for yr, (u, c) in frames.items():
         w = u["weight"].to_numpy(dtype=float)
-        rows.append({"tax_year": yr, **_totals(c, w, p_eitc, p_food)})
+        rows.append({"tax_year": yr, **_totals(c, w, p_eitc, p_food, p_cdcc)})
     rev = pd.DataFrame(rows)
     rev["eitc_loss_$M"] = rev["eitc_expanded_$M"] - rev["eitc_reverted_$M"]
     rev["food_loss_$M"] = rev["food_expanded_$M"] - rev["food_reverted_$M"]
-    rev["total_loss_$M"] = rev["eitc_loss_$M"] + rev["food_loss_$M"]
+    rev["cdcc_loss_$M"] = rev["cdcc_expanded_$M"] - rev["cdcc_reverted_$M"]
+    rev["total_loss_$M"] = rev["eitc_loss_$M"] + rev["food_loss_$M"] + rev["cdcc_loss_$M"]
 
     r = rev.set_index("tax_year")
     r22, r23, r24 = r.loc[2022], r.loc[2023], r.loc[EITC_CAL_YEAR]
     cal = pd.DataFrame([
         {"check": "take-up factor, EITC", "model": p_eitc, "dotax": None},
         {"check": "take-up factor, food/excise", "model": p_food, "dotax": None},
+        {"check": "take-up factor, child and dependent care", "model": p_cdcc, "dotax": None},
         {"check": "TY2024 EITC $M (fit)", "model": r24["eitc_expanded_$M"], "dotax": eitc_dotax["dollars_M"]},
         {"check": "TY2024 EITC claims", "model": r24["eitc_claimants"], "dotax": eitc_dotax["claims"]},
         {"check": "TY2023 EITC $M (out of sample)", "model": r23["eitc_expanded_$M"], "dotax": dotax()[2023]["eitc_$M"]},
@@ -453,6 +516,10 @@ def run(irs_reweight: bool | None = None) -> None:
         {"check": "TY2023 food/excise claims", "model": r23["food_claimants_expanded"], "dotax": dotax()[2023]["food_claims"]},
         {"check": "TY2022 food/excise $M, prior table (out of sample)", "model": r22["food_reverted_$M"], "dotax": dotax()[2022]["food_$M"]},
         {"check": "TY2022 food/excise claims, prior table", "model": r22["food_claimants_reverted"], "dotax": dotax()[2022]["food_claims"]},
+        {"check": "TY2023 child and dependent care $M (fit)", "model": r23["cdcc_expanded_$M"], "dotax": dotax()[2023]["cdcc_$M"]},
+        {"check": "TY2023 child and dependent care claims", "model": r23["cdcc_claimants_expanded"], "dotax": dotax()[2023]["cdcc_claims"]},
+        {"check": "TY2022 child and dependent care $M, prior limits (out of sample)", "model": r22["cdcc_reverted_$M"], "dotax": dotax()[2022]["cdcc_$M"]},
+        {"check": "TY2022 child and dependent care claims, prior limits", "model": r22["cdcc_claimants_reverted"], "dotax": dotax()[2022]["cdcc_claims"]},
     ])
     outputs = {
         "revenue_by_year.csv": rev,
@@ -466,16 +533,26 @@ def run(irs_reweight: bool | None = None) -> None:
     u = u.copy()
     u["hi_eitc_amount"] = c["eitc_expanded"] * p_eitc
     u["hi_food_excise_amount"] = c["food_expanded"] * p_food
+    # The care credit is refundable and not netted into hi_tax_liability, so compute_spm_resources
+    # adds it once (poverty/spm.py, SPMColumns.hi_cdcc).
+    u["hi_cdcc_amount"] = c["cdcc_expanded"] * p_cdcc
     u["act163_sunset_loss"] = ((c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
-                               + (c["food_expanded"] - c["food_reverted"]) * p_food)
+                               + (c["food_expanded"] - c["food_reverted"]) * p_food
+                               + (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc)
     q_eitc = np.where(c["eitc_expanded"] > 0, min(p_eitc, 1.0), 0.0)
     q_food = np.where(c["food_expanded"] > c["food_reverted"], min(p_food, 1.0), 0.0)
-    u["_claim_prob"] = 1 - (1 - q_eitc) * (1 - q_food)
+    q_cdcc = c["cdcc_loss_prob"].to_numpy(dtype=float) * min(p_cdcc, 1.0)
+    u["_claim_prob"] = 1 - (1 - q_eitc) * (1 - q_food) * (1 - q_cdcc)
+    u["_loss_eitc"] = (c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
+    u["_loss_food"] = (c["food_expanded"] - c["food_reverted"]) * p_food
+    u["_loss_cdcc"] = (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc
+    u["_q_eitc"], u["_q_food"], u["_q_cdcc"] = q_eitc, q_food, q_cdcc
     outputs[f"distribution_ty{POVERTY_YEAR}.csv"] = distribution(u)
     outputs[f"by_family_type_ty{POVERTY_YEAR}.csv"] = by_family_type(u)
+    outputs[f"by_credit_ty{POVERTY_YEAR}.csv"] = by_credit(u)
     outputs[f"poverty_ty{POVERTY_YEAR}.csv"] = poverty(u, persons)
     outputs[f"sampling_error_ty{POVERTY_YEAR}.csv"] = sampling_error(
-        frames, u, c, p_eitc, p_food, eitc_dotax["dollars_M"], ratios,
+        frames, u, c, p_eitc, p_food, p_cdcc, eitc_dotax["dollars_M"], ratios,
         None if rake is None else rake.replicates)
 
     # population_agreement.csv is already in OUT_DIR, so the manifest lists it too.
@@ -485,12 +562,15 @@ def run(irs_reweight: bool | None = None) -> None:
         params={"years": YEARS, "poverty_year": POVERTY_YEAR, "calibration_year": CAL_YEAR,
                 "eitc_calibration_year": EITC_CAL_YEAR,
                 "eitc_rates": [EITC_EXPANDED, EITC_REVERTED], "takeup_eitc": round(p_eitc, 4),
-                "takeup_food": round(p_food, 4), "dotax": dotax(),
+                "takeup_food": round(p_food, 4), "takeup_cdcc": round(p_cdcc, 4),
+                "cdcc_caps": {"expanded": list(ACT163_CAPS), "reverted": list(PRIOR_CAPS)}, "dotax": dotax(),
                 "irs_reweight": None if rake is None else {
                     "year": IRS_RAKE_YEAR, "per_replicate": rake.replicates is not None,
                     **{k: round(v, 4) if isinstance(v, float) else v for k, v in rake.info.items()}}},
         inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
-                "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2",
+                "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2 "
+                         "(EITC, food/excise, child and dependent care)",
+                "cps_donors": "CPS ASEC Hawaii childcare spending (tax_modeler/data/cps_donor), families with a child under 13",
                 "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 "
                               "(data/calibration/dotax_eitc_2024.json)"},
     )
@@ -543,7 +623,8 @@ def eitc_check(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, report: dict) ->
     return out
 
 
-def _household_frame(u: pd.DataFrame) -> pd.DataFrame:
+def _household_frame(u: pd.DataFrame, loss_col: str = "act163_sunset_loss",
+                     prob_col: str = "_claim_prob") -> pd.DataFrame:
     """One row per household: summed loss, household income, weights, composition.
 
     ``loss_w`` is the household's weighted loss, each unit's loss times its
@@ -557,14 +638,14 @@ def _household_frame(u: pd.DataFrame) -> pd.DataFrame:
     income = g[income_col].sum()
     # A household loses if any of its tax units claims: q = 1 - prod(1 - q_unit),
     # each household's log sum as Series.sum adds it (group_sums).
-    q = u["_claim_prob"].to_numpy(dtype=float)
+    q = u[prob_col].to_numpy(dtype=float)
     log_miss = np.log1p(-np.where(q > 1 - 1e-12, 1 - 1e-12, q))
     codes = g.ngroup().to_numpy(dtype=float)
     kept = ~np.isnan(codes)                  # groupby drops units with no hh_id
     hh = pd.DataFrame({
         "income": income,
-        "loss": g["act163_sunset_loss"].sum(),
-        "loss_w": (u["act163_sunset_loss"] * u["weight"]).groupby(u["hh_id"], observed=True).sum(),
+        "loss": g[loss_col].sum(),
+        "loss_w": (u[loss_col] * u["weight"]).groupby(u["hh_id"], observed=True).sum(),
         "hh_weight": g["hh_weight"].first() if "hh_weight" in u.columns else g["weight"].first(),
         "children": g["num_dependents"].sum(),
         "joint": (u["filing_status"] == "married_filing_jointly").groupby(u["hh_id"], observed=True).any(),
@@ -580,6 +661,24 @@ def distribution(u: pd.DataFrame) -> pd.DataFrame:
     labels = ["Lowest 20%", "Second 20%", "Middle 20%", "Fourth 20%", "Top 20%"]
     hh["group"] = pd.cut(cum, [0, .2, .4, .6, .8, 1.0001], labels=labels, include_lowest=True)
     return _summarize(hh, "group", labels)
+
+
+def by_credit(u: pd.DataFrame) -> pd.DataFrame:
+    """Each credit's TY2028 loss on its own: all households, and the ones that receive less.
+
+    The total in :func:`distribution` adds the three; this is each one's households and loss,
+    with the same household rule (a household loses a credit if any of its units does).
+    """
+    out = []
+    for name, loss, prob in (("Earned income tax credit", "_loss_eitc", "_q_eitc"),
+                             ("Food/excise credit", "_loss_food", "_q_food"),
+                             ("Child and dependent care credit", "_loss_cdcc", "_q_cdcc"),
+                             ("All three", "act163_sunset_loss", "_claim_prob")):
+        hh = _household_frame(u, loss, prob)
+        hh["group"] = "All households"
+        row = _summarize(hh, "group", ["All households"]).iloc[0].drop(["group", "income_lo", "income_hi"])
+        out.append({"credit": name, **row.to_dict()})
+    return pd.DataFrame(out)
 
 
 def by_family_type(u: pd.DataFrame) -> pd.DataFrame:
@@ -649,12 +748,12 @@ def _household_ratios(u: pd.DataFrame, households: pd.DataFrame) -> np.ndarray:
     return np.nan_to_num(ratio, nan=1.0)
 
 
-def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, p_food: float,
+def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, p_food: float, p_cdcc: float,
                    eitc_target_m: float, ratios: pd.DataFrame,
                    rake_replicates: pd.DataFrame | None = None) -> pd.DataFrame:
     """Sampling error of the TY2028 loss figures, from the 80 ACS replicate weights.
 
-    Each replicate re-fits the earned income tax credit and food/excise take-up
+    Each replicate re-fits the earned income tax credit, food/excise and care credit take-up
     to the Department of Taxation's dollars (as the headline does), so the error
     shown is for the loss given what the Department paid, not for the level.
     ``ratios``: each unit's replicate ratios (:func:`unit_replicate_ratios`); the count of
@@ -669,31 +768,38 @@ def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, 
     h28 = _household_ratios(u28, households)
     wE, wF, w28 = (x["weight"].to_numpy(dtype=float) for x in (uE, uF, u28))
     eitc_exp, food_exp = cE["eitc_expanded"].to_numpy(float), cF["food_expanded"].to_numpy(float)
+    cdcc_exp = cF["cdcc_expanded"].to_numpy(float)
     dE = (c28["eitc_expanded"] - c28["eitc_reverted"]).to_numpy(float)
     dF = (c28["food_expanded"] - c28["food_reverted"]).to_numpy(float)
+    dC = (c28["cdcc_expanded"] - c28["cdcc_reverted"]).to_numpy(float)
     eitc_target = eitc_target_m * 1e6
     food_target = dotax()[CAL_YEAR]["food_$M"] * 1e6
+    cdcc_target = dotax()[CAL_YEAR]["cdcc_$M"] * 1e6
     hh = u28["hh_id"].to_numpy()
     hhw = (u28["hh_weight"] if "hh_weight" in u28.columns else u28["weight"]).to_numpy(float)
     q_e = np.where(c28["eitc_expanded"] > 0, 1.0, 0.0)
     q_f = np.where(c28["food_expanded"] > c28["food_reverted"], 1.0, 0.0)
+    q_c = c28["cdcc_loss_prob"].to_numpy(float)
 
     def estimate(rE_, rF_, r28_, h28_):
         pe = eitc_target / float((eitc_exp * wE * rE_).sum())
         pf = food_target / float((food_exp * wF * rF_).sum())
+        pc = cdcc_target / float((cdcc_exp * wF * rF_).sum())
         w = w28 * r28_
         eitc_loss = float((dE * pe * w).sum()) / 1e6
         food_loss = float((dF * pf * w).sum()) / 1e6
-        qe, qf = q_e * min(pe, 1.0), q_f * min(pf, 1.0)
-        claim = 1 - (1 - qe) * (1 - qf)
+        cdcc_loss = float((dC * pc * w).sum()) / 1e6
+        qe, qf, qc = q_e * min(pe, 1.0), q_f * min(pf, 1.0), q_c * min(pc, 1.0)
+        claim = 1 - (1 - qe) * (1 - qf) * (1 - qc)
         # A household loses if any of its units claims; one unit per household is the
         # headline's own simplification here (the household frame uses the same rule).
         log_keep = pd.Series(np.log1p(-np.clip(claim, 0, 1 - 1e-12))).groupby(hh).sum()
         hw = pd.Series(hhw * h28_).groupby(hh).first()
         hh_losing = float((hw * (1 - np.exp(log_keep.reindex(hw.index)))).sum())
-        return {"Total loss, $ millions": eitc_loss + food_loss,
+        return {"Total loss, $ millions": eitc_loss + food_loss + cdcc_loss,
                 "Earned income tax credit loss, $ millions": eitc_loss,
                 "Food/excise credit loss, $ millions": food_loss,
+                "Child and dependent care credit loss, $ millions": cdcc_loss,
                 "Households that receive less": hh_losing}
 
     head = estimate(np.ones_like(wE), np.ones_like(wF), np.ones_like(w28), np.ones_like(w28))
@@ -781,9 +887,10 @@ def _print_summary(rev: pd.DataFrame, cal: pd.DataFrame) -> None:
     pd.set_option("display.width", 200)
     print("\nCalibration and checks:")
     print(cal.to_string(index=False, float_format=lambda v: f"{v:,.3f}"))
-    print("\nState credits, $M (expanded = Act 163 renewed; reverted = current law from TY2028):")
+    print("\nState credits, $M (expanded = Act 163 renewed; reverted = current law from TY2028; "
+          "cdcc = child and dependent care):")
     cols = ["tax_year", "eitc_expanded_$M", "eitc_reverted_$M", "food_expanded_$M", "food_reverted_$M",
-            "eitc_loss_$M", "food_loss_$M", "total_loss_$M"]
+            "cdcc_expanded_$M", "cdcc_reverted_$M", "eitc_loss_$M", "food_loss_$M", "cdcc_loss_$M", "total_loss_$M"]
     print(rev[cols].to_string(index=False, float_format=lambda v: f"{v:,.1f}"))
 
 

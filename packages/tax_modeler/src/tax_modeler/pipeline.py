@@ -274,6 +274,28 @@ def enrich_for_credits(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def attach_secondary_hours(df: pd.DataFrame, person_df: pd.DataFrame) -> pd.DataFrame:
+    """Add ``secondary_hours_worked`` (PUMS WKHP of the second filer on a joint return) to tax units.
+
+    ``compute_childcare_expense_for_units``, ``compute_work_expense_for_units`` and the CCSP
+    childcare subsidy read it to tell whether a married couple has a second earner. Without
+    the column the childcare-expense function assumes one earner and gives every married
+    couple $0 of SPM childcare expense (and work expense counts one earner). This adds only
+    that column, so a caller that wants the full set of benefit inputs still uses
+    :func:`enrich_for_benefits`, which computes the same values. Idempotent.
+    """
+    out = df.copy()
+    if "secondary_hours_worked" in out.columns:
+        return out
+    if not {"SERIALNO", "SPORDER", "WKHP"} <= set(person_df.columns) or "secondary_filer_id" not in out.columns:
+        raise KeyError("attach_secondary_hours needs persons with SERIALNO, SPORDER, WKHP and "
+                       "tax units with secondary_filer_id")
+    pid = person_df["SERIALNO"].astype(str) + "_" + person_df["SPORDER"].astype(str)
+    wkhp = person_df["WKHP"].fillna(0).astype(float).groupby(pid.to_numpy()).first()
+    out["secondary_hours_worked"] = out["secondary_filer_id"].astype(str).map(wkhp).fillna(0.0)
+    return out
+
+
 def enrich_for_benefits(
     df: pd.DataFrame,
     person_df: pd.DataFrame | None = None,

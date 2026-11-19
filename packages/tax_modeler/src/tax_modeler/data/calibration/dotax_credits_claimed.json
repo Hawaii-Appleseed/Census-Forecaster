@@ -14,11 +14,12 @@
     "url": "https://files.hawaii.gov/tax/stats/stats/credits/2023credit_tables.xlsx"
    }
   },
-  "note": "Dollars are the printed Table A-1 cells, in thousands of dollars; claims are Table A-2. Both credits are claimed by individuals only, so the ALL and Individuals columns are equal."
+  "note": "Dollars are the printed Table A-1 cells, in thousands of dollars; claims are Table A-2. All three credits are claimed by individuals only, so the ALL and Individuals columns are equal."
  },
  "credits": {
   "eitc": "Earned Income Tax Credit",
-  "food_excise": "Refundable Food/Excise Tax Credit"
+  "food_excise": "Refundable Food/Excise Tax Credit",
+  "cdcc": "Tax Credit for Child and Dependent Care Expenses"
  },
  "years": {
   "2022": {
@@ -29,6 +30,10 @@
    "food_excise": {
     "dollars_k": 24961.0,
     "claims": 208786.0
+   },
+   "cdcc": {
+    "dollars_k": 6479.0,
+    "claims": 16415.0
    }
   },
   "2023": {
@@ -39,6 +44,10 @@
    "food_excise": {
     "dollars_k": 63957.442,
     "claims": 249806.0
+   },
+   "cdcc": {
+    "dollars_k": 14820.45,
+    "claims": 18119.0
    }
   }
  }
