@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** October 30, 2026
+**Last updated:** November 19, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -85,6 +85,28 @@
 
 Poverty (TY2028): 2,127 more people (521 children), poverty gap $16.0M.
 <!-- generated:results end -->
+
+---
+
+## Child and dependent care credit added to the working-family credits step — November 19, 2026 (working-family totals, household tables and poverty change; EITC and food/excise figures do not)
+
+`chain/forecast_working_family_credits.py` now models the third credit Act 163 expanded, the child and dependent care credit (HRS §235-55.6). The EITC and food/excise rows of `revenue_by_year.csv`, `calibration.csv`, `eitc_check_ty2024.csv` and the sampling-error table are unchanged to the last digit; what moves is every total that adds the credits (`total_loss_$M`, the household tables, the margins on the total and on households that receive less) and the poverty table.
+
+**The law.** Act 163 (SLH 2023), §1, amended subsection (c) of §235-55.6, the limit on employment-related expenses the credit counts: $2,400 for one qualifying individual and $4,800 for two or more became $10,000 and $20,000 for taxable years beginning after December 31, 2022. Subsection (c) is "[Repeal and reenactment on December 31, 2027. L 2023, c 163, §5.]", so the limits revert from TY2028 like the other two expansions. Nothing else in the section changed: the credit was already refundable ("the excess of the credit over payments due shall be refunded"), and its percentage (25% to $25,000 of AGI, one point less per further $5,000, 15% above $50,000) is the same under both limits. There is no phase-out. HB 2306 (2026) would have rewritten the percentage schedule and was not enacted; Act 24's enrolled text (SB 3125 CD2) does not touch the section. Sources: the Department's HRS text (`data.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0055_0006.htm`) for the amendment history and the sunset annotation, and the 2023 and 2026 bills' printed existing-law text (HB 1049 SD2 (2023), HB 2306 (2026)) for the $2,400 / $4,800 limits. The reenacted pre-Act text itself is not printed in the current statute; the reverted limits are what those bills show as the section before Act 163.
+
+**The model.** `credits/hi_cdcc.py` holds the schedule and its worked-example tests. The PUMS has no childcare spending, so a unit's expenses come from the CPS ASEC Hawaii donors the SPM childcare subtraction already uses, as a distribution and not a cell mean: a unit's credit is the mean of the statutory credit over the spending of the donor families with the same number of children under 13 (one, two or more). A cell mean is about $400 for these families, below the old $2,400 limit for nearly everyone, so it made the expansion worth nothing (the old-limit and new-limit credits both came to $10.3M against the Department's $6.5M and $14.8M). Only 15% of the 217 donor families with a child under 13 report any spending (33 families), which is the incidence the model carries. Qualifying individuals are dependents under 13; eligibility needs earned income (couples: the lesser spouse's, scaled to the aged total); married filing separately gets nothing.
+
+**Take-up.** One factor, fitted to the Department's TY2023 dollars in "Tax Credits Claimed by Hawaiʻi Taxpayers" Table A-1 ($14.82M on 18,119 claims; the TY2024 workbook is not yet published): 0.95, inside the 0.5 to 1.10 guard the other two credits use. Out of sample, TY2022 under the old limits comes to $7.2M against the Department's $6.5M (+12%). The model's claim counts are about three quarters of the Department's (13,500 against 18,100), because the CPS donors' few payers pay more than the average claimant; the dollars are matched exactly and the count is reported, not fitted.
+
+**What is simplified.** Disabled dependents, a disabled spouse and student spouses' deemed income are not qualifying individuals; the §129 dependent care assistance exclusion that reduces the limit, payments to relatives and the provider-ID requirement are not modeled; children's PUMS ages are not rolled forward; the donor spending is not indexed; the 33 paying families are a small sample, so income is not a bin (the AGI percentage and the earned-income limit carry the gradient).
+
+**Poverty.** `compute_spm_resources` takes a new refundable-credit column, `hi_cdcc_amount` (`SPMColumns.hi_cdcc`), added once: `liability/hawaii.py` nets only the food/excise credit into `hi_tax_liability`, so the care credit is not already in state tax, and the childcare expense subtracted stays the family's gross spending. Callers without the column are unchanged. The `act163_sunset` loss now includes the care credit's expansion. With the credit in baseline resources, persons moved into poverty by the sunset fall from 2,127 to 1,524 (children 521 to 320), because families who keep the credit at the old limits are better off than the earlier model, which counted no care credit at all, showed them; the care credit's own loss moves no one across the line but adds $0.27M to the poverty gap. The renewed rate is unchanged at 8.60% and the expired rate goes from 8.75% to 8.71%. One caveat: the poverty run's childcare-expense subtraction is zero for every married-couple unit, because the tax-unit frame carries no `secondary_hours_worked` and `compute_childcare_expense_for_units` then treats couples as one-earner; couples receive most of the care credit, so this overstates their SPM resources. It predates this entry and is not changed here.
+
+**Cost of renewing the care credit's limits.** $7.7M (TY2028), $7.8M, $7.8M and $7.9M (TY2031), $31.2M over TY2028 to 2031; with the other two credits, $339.4M over TY2028 to 2031 (it was $308.2M). In TY2028 about 6,800 households lose care credit, an average of $1,137 each (`by_credit_ty2028.csv`). The simulator is unchanged: it prices the EITC and food/excise credits only and reads those columns by name.
+
+**Reproducing it.** `python chain/forecast_working_family_credits.py`. `scripts/parse_dotax_credits_claimed.py` now also reads the "Tax Credit for Child and Dependent Care Expenses" row; `dotax_credits_claimed.json` carries it for TY2022 and TY2023.
+
+**Not changed, flagged.** `adjustments/hawaii_credits.py` (`HawaiiTaxCredits`) still describes "current law" for this credit as $3,000 / $6,000 limits, 25% falling to 20%, non-refundable and phased out above $100,000. None of that matches §235-55.6 (limits $2,400 / $4,800 before Act 163 and $10,000 / $20,000 through TY2027; 25% falling to 15%; refundable; no phase-out). It feeds the liability and scoring paths behind published figures, so correcting it is a separate change.
 
 ---
 
@@ -2635,7 +2657,7 @@ The tables below show every bracket for each filing status and each effective pe
 | **DOTAX Hawaiʻi Individual Income Tax Statistics, TY2023** (Tables A-8, A-1, 4, 21, 17A; `calibration/dotax_base.py`) | Resident filer count and tax by AGI class, AGI, filing status, net long-term gains, nonresident liability | Calibration and forward targets, and top-income synthesis: the $1M+ class (Table A-8's top row) is set from a TY2019–2023 window, 1,633 returns above $1M AGI owing $562.3M (1,704 and $441M as printed), a TY2023-scale level aged to the PUMS dollar year before projection (Step 6b). Was TY2022 (1,824 returns, $662.6M) until October 8, 2026 |
 | **DOTAX Earned Income Tax Credit Report, TY2024** (Act 107) | State EITC claims and dollars by federal AGI range, residency, filing status | Take-up anchor for the working-family credits page (78,399 new claims, $76.981M) |
 | **IRS Statistics of Income, Table 2 for Hawaii, TY2022 and TY2023** | Federal returns, wages and AGI by AGI class, by the address on the return (military families and part-year residents included) | Second benchmark in the population check (`calibration/irs_soi_hi_table2.py`); not a calibration target |
-| **DOTAX Tax Credits Claimed by Hawaiʻi Taxpayers, Tables A-1 and A-2, TY2022 and TY2023** | Dollars and claims for the earned income credit and the refundable food and excise credit | Food and excise take-up fit and out-of-sample checks in the working-family step (`calibration/dotax_credits_claimed.py`) |
+| **DOTAX Tax Credits Claimed by Hawaiʻi Taxpayers, Tables A-1 and A-2, TY2022 and TY2023** | Dollars and claims for the earned income credit, the refundable food and excise credit and the child and dependent care credit | Food and excise and child and dependent care take-up fits and out-of-sample checks in the working-family step (`calibration/dotax_credits_claimed.py`) |
 | **DOTAX "Tax Credits Claimed by Hawaiʻi Taxpayers — Tax Year 2023"** | Table A-1 (REEC aggregate), Table A-5 (REEC by AGI bin), line 1490 (CGEC) | Credit overlay baseline values |
 
 ### Administrative Benchmarks

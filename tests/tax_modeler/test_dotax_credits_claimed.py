@@ -34,6 +34,10 @@ def test_known_values_exactly_as_the_department_prints_them():
     assert claimed.dollars_M("food_excise", 2022) == pytest.approx(24.961)
     assert claimed.claims("eitc", 2022) == 60_903
     assert claimed.claims("food_excise", 2022) == 208_786
+    assert claimed.dollars_M("cdcc", 2023) == pytest.approx(14.82045)
+    assert claimed.claims("cdcc", 2023) == 18_119
+    assert claimed.dollars_M("cdcc", 2022) == pytest.approx(6.479)
+    assert claimed.claims("cdcc", 2022) == 16_415
 
 
 def test_unknown_year_and_credit_say_what_is_available():
@@ -51,8 +55,10 @@ def test_the_working_family_step_uses_the_figures_it_always_has():
     import forecast_working_family_credits as wfc
 
     assert wfc.dotax() == {
-        2022: {"eitc_$M": 19.786, "eitc_claims": 60_903, "food_$M": 24.961, "food_claims": 208_786},
-        2023: {"eitc_$M": 77.054, "eitc_claims": 84_470, "food_$M": 63.957, "food_claims": 249_806},
+        2022: {"eitc_$M": 19.786, "eitc_claims": 60_903, "food_$M": 24.961, "food_claims": 208_786,
+               "cdcc_$M": 6.479, "cdcc_claims": 16_415},
+        2023: {"eitc_$M": 77.054, "eitc_claims": 84_470, "food_$M": 63.957, "food_claims": 249_806,
+               "cdcc_$M": 14.82, "cdcc_claims": 18_119},
     }
 
 
@@ -74,6 +80,7 @@ def _workbook(path: Path, *, food_all: object = 100.0, food_ind: object = 100.0,
         ws.append(["      Refundable Food/Excise Tax Credit   ", food_all if sheet == "A-1" else 1000,
                    food_ind if sheet == "A-1" else 1000, "na"])
         ws.append(["      Earned Income Tax Credit", 77.5 * scale, 77.5 * scale, "na"])
+        ws.append(["      Tax Credit for Child and Dependent Care Expenses   ", 14.5 * scale, 14.5 * scale, "na"])
         if duplicate:
             ws.append(["      Earned Income Tax Credit", 1, 1, "na"])
     wb.save(path)
@@ -84,6 +91,7 @@ def test_the_parser_reads_a_workbook(tmp_path):
     d = parser.parse_workbook(_workbook(tmp_path / "2023credit_tables.xlsx"))
     assert d["eitc"] == {"dollars_k": 77.5, "claims": 775.0}
     assert d["food_excise"] == {"dollars_k": 100.0, "claims": 1000.0}
+    assert d["cdcc"] == {"dollars_k": 14.5, "claims": 145.0}
 
 
 def test_the_parser_refuses_a_suppressed_cell(tmp_path):

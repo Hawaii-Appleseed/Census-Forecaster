@@ -68,6 +68,7 @@ _SUM_COLS: tuple[str, ...] = (
     # Other state credits
     "hi_food_excise_amount",
     "hi_renters_amount",
+    "hi_cdcc_amount",
     # Benefits (added to SPM resources)
     "snap_amount",
     "ssi_amount",

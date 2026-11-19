@@ -179,16 +179,17 @@ def quintile_table(q: pd.DataFrame, year: int) -> str:
 def working_family(rev: pd.DataFrame, pov: pd.DataFrame) -> str:
     fut = rev[rev["tax_year"] >= 2028].sort_values("tax_year")
     rows = [[str(int(r["tax_year"])), money(r["eitc_loss_$M"]), money(r["food_loss_$M"]),
-             bold(money(r["total_loss_$M"]), True)] for _, r in fut.iterrows()]
+             money(r["cdcc_loss_$M"]), bold(money(r["total_loss_$M"]), True)] for _, r in fut.iterrows()]
     lo, hi = int(fut["tax_year"].min()), int(fut["tax_year"].max())
     rows.append([bold(f"TY{lo}–{str(hi)[2:]}", True),
                  bold(money(fut["eitc_loss_$M"].sum()), True),
                  bold(money(fut["food_loss_$M"].sum()), True),
+                 bold(money(fut["cdcc_loss_$M"].sum()), True),
                  bold(money(fut["total_loss_$M"].sum()), True)])
     out = ("**Working-family credits expiring after TY2027: revenue loss ($M)** "
            "(`chain/forecast_working_family_credits.py`)\n\n"
-           + md_table(["TY", "EITC loss", "Food/excise loss", "**Total**"],
-                      ["l", "r", "r", "r"], rows))
+           + md_table(["TY", "EITC loss", "Food/excise loss", "Child care loss", "**Total**"],
+                      ["l", "r", "r", "r", "r"], rows))
     if len(pov):
         p = pov.iloc[0]
         out += (f"\n\nPoverty (TY{int(p['tax_year'])}): {int(p['persons_into_poverty']):,} more "
