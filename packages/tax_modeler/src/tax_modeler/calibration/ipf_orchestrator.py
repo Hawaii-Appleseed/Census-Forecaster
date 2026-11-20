@@ -835,6 +835,7 @@ def apply_ipf_calibration_via_rake(
     calibrate_filing_status: bool = True,
     calibrate_soi_agi: bool = True,
     calibrate_families: bool = True,
+    method: str = "bounded",
 ) -> pd.DataFrame:
     """
     IPF calibration using pums_estimator's canonical rake() engine.
@@ -857,9 +858,34 @@ def apply_ipf_calibration_via_rake(
             Department's resident universe (:mod:`.family_margins`). Skipped when the frame has no federal
             credit columns.
 
+        method: ``"bounded"`` (default) solves every target together with bounded generalized raking
+            (:mod:`.act24_calibration`: filer counts, filing status, tax before credits, AGI and the Department's
+            head of household / dependent exemption / three-exemption margins), logs any unmet target and attaches
+            the full account as ``df.attrs["calibration"]``; the other ``calibrate_*`` flags then do not apply
+            (``calibrate_families`` switches the family margins). ``"legacy"`` is the one-margin-at-a-time rake
+            below. A frame without the columns the bounded solve needs falls back to the legacy rake with a warning.
+
     Returns:
         Calibrated DataFrame.
     """
+    if method not in ("bounded", "legacy"):
+        raise ValueError(f"method must be 'bounded' or 'legacy', not {method!r}")
+    if method == "bounded":
+        need = {"weight", "agi", "filing_status", "hi_tax_before_credits", "hi_state_tax", "num_dependents"}
+        if need <= set(df.columns):
+            from tax_modeler.calibration.act24_calibration import calibrate_act24
+
+            out, res = calibrate_act24(df, families=calibrate_families)
+            if res.exact:
+                logger.info("bounded calibration: exact on %d targets, ESS %.0f",
+                            len(res.table), res.effective_sample_size(df["weight"].to_numpy(float)))
+            else:
+                logger.warning("bounded calibration NOT exact: %s", res.message)
+                for _, r in res.conflicts().head(10).iterrows():
+                    logger.warning("  unmet: %s target %.6g value %.6g (%+.2f%%)",
+                                   r["constraint"], r["target"], r["value"], 100 * r["relative_miss"])
+            return out
+        logger.warning("bounded calibration skipped (frame lacks %s); using the legacy rake", sorted(need - set(df.columns)))
     orchestrator = IPFCalibrationOrchestrator(
         max_iterations=max_iterations,
         tolerance=tolerance,
