@@ -67,17 +67,19 @@ table ($24.96M) and TY2022 care-credit dollars under the old limits ($6.48M on
 16,415 claims, the year before Act 163's limits applied).
 
 Care credit, expenses and what is simplified (credits/hi_cdcc.py has the schedule):
-the PUMS has no childcare spending, so a unit's expenses are drawn from the CPS ASEC
-Hawaii donors (SPM_CHILDCAREXPNS) the SPM childcare subtraction uses. The unit's credit
-is the mean of the statutory credit over the donor families' spending for its number of
-children under 13 (bins: one, two or more), not the cell mean the SPM subtraction
-uses. A cell mean is about $400 for these families and puts nearly all of them under
+the PUMS has no childcare spending, so a unit's expenses are drawn from Hawaii CPS ASEC
+donors (SPM_CHILDCAREXPNS), pooled over ASEC 2022-2025 in calendar-2023 dollars (123 paying
+of 848 families with a child under 13). The unit's credit is the probability that a family
+at its AGI pays (hi_cdcc.pay_probability: the donors' 6.7% under $50,000, then the rates that
+match IRS Table 2's federal child and dependent care credit returns, 22% to 41%) times the mean
+of the statutory credit over the paying donors' spending for its number of children under 13
+(bins: one, two or more), not the cell mean the SPM subtraction uses. A cell mean is about $400 for these families and puts nearly all of them under
 the old $2,400 limit, so the expansion would be worth nothing and the old-law credit
 would equal the new one (tried: $10.3M under either limit, against DOTAX's $6.5M and
 $14.8M). Only 15% of Hawaii donor families with a child under 13 report any spending,
 and a few report a great deal, which is what the $10,000 / $20,000 limits are for. The
-donor sample is small (33 families that pay), so income is not a bin: the percentage
-(by AGI) and the earned-income limit carry the income gradient. Qualifying individuals
+donor sample is small, so income is not a bin for the amounts: the percentage (by AGI), the
+payment probability and the earned-income limit carry the income gradient. Qualifying individuals
 are dependents under 13 on the frame (disabled dependents, a disabled spouse and
 student spouses' deemed income are not modeled), a unit must have earned income
 (married joint filers: the lesser spouse's earnings, scaled to the aged total) and married
@@ -85,8 +87,9 @@ filing separately gets nothing. The §129 dependent care assistance exclusion th
 reduces the limit, payments to relatives, the provider-ID requirement and nonresident
 part-year rules are not modeled. Children's ages are the PUMS ages (not rolled forward to
 the tax year) and the donor sample's spending is not indexed. The take-up factor, like
-the others, is a dollar scale (here below one); the claim counts it implies are about three
-quarters of DOTAX's, because the CPS sample's few payers pay more than the average claimant.
+the others, is a dollar scale (here 0.763; the population's credits are 31% over the Department's
+before it); the claim counts it implies are about four fifths of DOTAX's, because the CPS
+sample's few payers pay more than the average claimant.
 
 Food/excise amounts are fixed dollars and income ceilings are not indexed, so
 the credit shrinks in real terms as incomes grow; the EITC follows the
@@ -572,7 +575,7 @@ def run(irs_reweight: bool | None = None) -> None:
         inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
                 "dotax": "Tax Credits Claimed by Hawaiʻi Taxpayers, TY2022-2023, Tables A-1/A-2 "
                          "(EITC, food/excise, child and dependent care)",
-                "cps_donors": "CPS ASEC Hawaii childcare spending (tax_modeler/data/cps_donor), families with a child under 13",
+                "cps_donors": "CPS ASEC Hawaii 2022-2025 childcare spending (tax_modeler/data/cps_donor), families with a child under 13; payment probability by AGI class (care_pay_rates.json)",
                 "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 "
                               "(data/calibration/dotax_eitc_2024.json)"},
     )
