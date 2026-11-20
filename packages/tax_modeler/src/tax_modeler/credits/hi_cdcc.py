@@ -124,17 +124,9 @@ def earned_income_limit(units: pd.DataFrame) -> np.ndarray:
     of the pair's base earnings is applied to the unit's ``earned_income`` (which is
     aged to the tax year), keeping the aged total.
     """
-    def col(name):
-        return units[name].fillna(0).to_numpy(dtype=float) if name in units.columns else np.zeros(len(units))
+    from tax_modeler.units.earnings import lower_earner_income
 
-    earned = units["earned_income"].fillna(0).to_numpy(dtype=float)
-    p = np.maximum(col("primary_wagp") + col("primary_semp"), 0.0)
-    s = np.maximum(col("secondary_wagp") + col("secondary_semp"), 0.0)
-    joint = (units["filing_status"].astype(str) == "married_filing_jointly").to_numpy()
-    total = p + s
-    with np.errstate(divide="ignore", invalid="ignore"):
-        lesser_share = np.where(total > 0, np.minimum(p, s) / total, 0.0)
-    return np.where(joint, earned * lesser_share, earned)
+    return lower_earner_income(units)
 
 
 def donor_expense_distribution(donor_path=None) -> dict[int, tuple[np.ndarray, np.ndarray]]:

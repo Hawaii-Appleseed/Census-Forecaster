@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** November 19, 2026
+**Last updated:** November 20, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -85,6 +85,14 @@
 
 Poverty (TY2028): 1,832 more people (474 children), poverty gap $16.5M.
 <!-- generated:results end -->
+
+---
+
+## SPM childcare-expense cap is the lowest earner's earnings — November 20, 2026 (working-family poverty rates and gap change; no credit dollars, take-up factor or Act 24 figure moves)
+
+`compute_childcare_expense_for_units` capped a two-earner couple's SPM childcare expense at 0.5 x the couple's total earnings, a stand-in for the lower earner's earnings on the belief that PUMS has no per-spouse earnings. The tax-unit frame does carry each filer's wages and self-employment income, and the SPM's rule is exact: the Interagency Technical Working Group's *Observations* (March 2010), which the Census Bureau's SPM follows, says "the level of total work expenses subtracted from any family's resources should be capped by the earning level of the lowest-earning adult." The cap is now the lowest earner's earnings (`units/earnings.lower_earner_income`, shared with the care credit's earned income limit): a single parent's own earnings, the lesser spouse's for a two-earner couple (aged by that spouse's share of the pair's base-year earnings), and zero for a one-earner couple. A second earner now counts on earnings, not on `secondary_hours_worked`; frames without the filer earnings columns keep the earlier hours rule. The TWG's wording caps childcare and other work expenses together; the model subtracts them separately and still caps only the childcare.
+
+Effect (TY2028, working-family poverty table): renewed rate 8.71% to 8.65%, expired rate 8.84% to 8.78%, poverty gap increase $16.5M to $16.4M; people (1,832) and children (474) pushed into poverty by the sunset do not change. The cap binds where a second earner's earnings are small, which lowers the childcare subtracted and so raises SPM resources. `poverty_impact_report.py` (TY2024, TY2025) and `analyses/forecast_hi_eitc_revert_20.py` keep their baseline poverty rates (9.01%, 8.97%) and the revert's persons lifted; their baseline poverty gap falls by about 0.03% ($740.0M to $739.8M in TY2024), and persons lifted by some hypothetical scenarios move by several hundred to about 1,000 (TY2025 `hi_eitc_100pct` 2,136 to 2,992; TY2024 `expanded_ctc_2021` 7,253 to 8,238), because families just above the line shift. Credit dollars, take-up factors, the household tables and every Act 24, capital-gains and simulator figure are unchanged.
 
 ---
 
