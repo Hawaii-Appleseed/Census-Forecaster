@@ -454,6 +454,34 @@ def _schedule_key(config: TaxSystemConfig, filing_status: str) -> tuple | None:
         return None
 
 
+def care_credit_inputs(tax_units: pd.DataFrame) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """Per-unit inputs of the care credit's expected-expense model, from the frame's own columns.
+
+    Returns ``(children, earned)``: children under 13 and the lower earner's earnings (the
+    §235-55.6(d)(1) limit), each None when the frame cannot give it (the calculator then counts
+    every dependent as under 13 and applies no earnings limit).
+
+    Children: ``care_children`` if the frame has it (the simulator's frames), else
+    ``num_children_under_13`` (from the real dependent records, see ``enrich_for_credits``; NaN, for
+    synthetic rows, counts as none), else the age records in ``dependents_details`` if they are real.
+    Earnings: ``care_earned`` if present, else ``units.earnings.lower_earner_income`` when the frame
+    carries both filers' wages (``primary_wagp`` and ``secondary_wagp``) and ``earned_income``.
+    """
+    cols = tax_units.columns
+    children = earned = None
+    if "care_children" in cols:
+        children = tax_units["care_children"].fillna(0).to_numpy(dtype=float)
+    elif "num_children_under_13" in cols:
+        children = tax_units["num_children_under_13"].fillna(0).to_numpy(dtype=float)
+    if "care_earned" in cols:
+        earned = tax_units["care_earned"].to_numpy(dtype=float)
+    elif {"earned_income", "primary_wagp", "secondary_wagp"} <= set(cols):
+        from tax_modeler.units.earnings import lower_earner_income
+
+        earned = lower_earner_income(tax_units)
+    return children, earned
+
+
 class TaxCalculator:
     """Centralized tax calculation engine."""
     
@@ -911,10 +939,13 @@ class TaxCalculator:
         total_cdcc = np.zeros(n, dtype=float)
         skip = nan_exemp | nan_dep
         fast = ~skip & np.isfinite(incomes) & np.isfinite(liabilities)
+        care_children, care_earned = care_credit_inputs(tax_units)
         if fast.any():
             total_credits[fast], total_cdcc[fast] = credit_calc.total_credits_arrays(
                 incomes[fast], statuses[fast], num_dependents[fast], liabilities[fast],
                 credit_scenario=config.credit_scenario,
+                care_children=None if care_children is None else care_children[fast],
+                care_earned=None if care_earned is None else care_earned[fast],
             )
         for i in np.flatnonzero(~skip & ~fast):
             try:
@@ -924,6 +955,8 @@ class TaxCalculator:
                     num_dependents=int(num_dependents[i]),
                     tax_before_credits=float(liabilities[i]),
                     credit_scenario=config.credit_scenario,
+                    care_children=None if care_children is None else float(care_children[i]),
+                    care_earned=None if care_earned is None else float(care_earned[i]),
                 )
                 total_credits[i] = cr['total']
                 total_cdcc[i] = cr['child_care']
@@ -1077,6 +1110,7 @@ class TaxCalculator:
         credit_calc = HawaiiTaxCredits(year=config.year)
         total_credits = np.zeros(len(tax_units))
         total_cdcc = np.zeros(len(tax_units))
+        care_children, care_earned = care_credit_inputs(tax_units)
 
         for i, (income, status, tax_li, n_dep) in enumerate(zip(
             tax_units[income_col],
@@ -1090,6 +1124,8 @@ class TaxCalculator:
                     num_dependents=int(n_dep),
                     tax_before_credits=tax_li,
                     credit_scenario=config.credit_scenario,
+                    care_children=None if care_children is None else float(care_children[i]),
+                    care_earned=None if care_earned is None else float(care_earned[i]),
                 )
                 total_credits[i] = cr['total']
                 total_cdcc[i] = cr['child_care']

@@ -113,7 +113,7 @@ test("per-unit tax matches the model", () => {
     const sys = prepareSystem(byName.get(s.case).systems[s.year][s.side], meta.food_excise);
     const u = unitArrays(pop, s.year, "mid");
     s.units.forEach((i, k) => {
-      const t = unitTax(sys, pop.arrays.fs[i], pop.arrays.deps[i], u.agi[i], u.item[i], u.cg[i]);
+      const t = unitTax(sys, pop.arrays.fs[i], pop.arrays.deps[i], u.agi[i], u.item[i], u.cg[i], u.care[i]);
       close(t.before, s.before_credits[k], `${s.case} ${s.year} ${s.side} unit ${i} before`, 1e-9);
       close(t.credits, s.credits[k], `${s.case} ${s.year} ${s.side} unit ${i} credits`, 1e-9);
       close(t.net, s.net[k], `${s.case} ${s.year} ${s.side} unit ${i} net`, 1e-9);
@@ -138,7 +138,7 @@ test("the responded population matches the model, unit by unit", () => {
     close(adj.agi[i], r.agi[k], `${where} income`, 1e-9);
     close(adj.cg[i], r.cg_share[k], `${where} gains share`, 1e-9);
     close(adj.weight[i], r.weight[k], `${where} weight`, 1e-9);
-    const t = unitTax(prepared[r.year].reform, pop.arrays.fs[i], pop.arrays.deps[i], adj.agi[i], adj.item[i], adj.cg[i]);
+    const t = unitTax(prepared[r.year].reform, pop.arrays.fs[i], pop.arrays.deps[i], adj.agi[i], adj.item[i], adj.cg[i], adj.care[i]);
     close(t.net, r.net[k], `${where} net`, 1e-9);
     if (adj.cg[i] < u.cg[i]) realized++;
   });

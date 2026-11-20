@@ -20,6 +20,12 @@ recorded here per year (``quint_<year>``), with the projected frame's row
 order (``order_<year>``), so the browser kernel and :func:`frame_for`
 reproduce the published tables.
 
+Care credit: each unit's children under 13 (``care_n``), the lower earner's earnings per year
+(``care_earn_<year>``) and the expected expenses the credit counts under that year's current-law
+limits (``care_exp_<year>``, ``credits.hi_cdcc.expected_capped_expense``), which the browser kernel
+reads instead of redoing the donor sums. LOW and HIGH use MID's: their differing units are
+top-income rows with no children under 13 in the population.
+
 Capital gains: the arrays carry the model's own gains share (``cg``). The
 simulator and the Act 24 page score on the DOTAX-anchored base instead
 (:mod:`.gains`), which :func:`unit_arrays` applies by default.
@@ -33,6 +39,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
+from tax_modeler.credits import hi_cdcc
+from tax_modeler.units.earnings import lower_earner_income
 
 from .scenarios import SCENARIOS, YEARS
 
@@ -164,6 +173,9 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
     if np.isnan(arrays["deps"]).any():
         raise RuntimeError("NaN num_dependents in the population")
     arrays["deps"] = arrays["deps"].astype(np.uint8)
+    kids13 = (mid_units["num_children_under_13"].fillna(0.0).to_numpy(np.float64)
+              if "num_children_under_13" in mid_units.columns else np.zeros(len(canon_ids)))
+    arrays["care_n"] = kids13.astype(np.uint8)
     hhw = mid_units.groupby(hh_codes)["hh_weight"].agg(["first", "nunique"])
     if (hhw["nunique"] > 1).any():
         raise RuntimeError("hh_weight differs within a household")
@@ -187,6 +199,10 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
             raise RuntimeError(f"TY{y}: NaN itemized deduction survived the refresh")
         arrays[f"agi_{y}"], arrays[f"item_{y}"], arrays[f"tci_{y}"] = agi, item, tci
         arrays[f"order_{y}"] = pos.astype(np.int32)
+        earn = np.empty(len(canon_ids))
+        earn[pos] = lower_earner_income(proj)
+        arrays[f"care_earn_{y}"] = earn
+        arrays[f"care_exp_{y}"] = hi_cdcc.expected_capped_expense(kids13, earn, hi_cdcc.caps_for_year(y))
 
         fifth = _household_quintiles(proj, breaks, y)
         hh_of = {h: i for i, h in enumerate(hh_ids)}
@@ -293,5 +309,7 @@ def frame_for(pop: Population, year: int, scenario: str = "mid",
         "hh_weight": a["hh_weight"][a["hh"]],
         "synthetic_cg_share": u["synthetic_cg_share"],
         "total_cash_income": a[f"tci_{year}"],
+        "care_children": a["care_n"].astype(np.float64),
+        "care_earned": a[f"care_earn_{year}"],
     })
     return df.iloc[order].reset_index(drop=True)

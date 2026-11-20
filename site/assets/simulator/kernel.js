@@ -36,9 +36,9 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
-// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 2 added the gains anchor,
+// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 4 added care_exp_<year>; 2 added the gains anchor,
 // 3 dropped hhfw for per-unit filer weights)
-export const WEB_FORMAT_VERSION = 3;
+export const WEB_FORMAT_VERSION = 4;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
@@ -92,7 +92,9 @@ export function unitArrays(pop, year, scenario = "mid") {
   }
   const cg = new Float64Array(pop.n);
   for (let i = 0; i < pop.n; i++) cg[i] = Math.min(1, cgModel[i] * k[cls[i]]);
-  return { agi, item, weight, cg };
+  const care = A[`care_exp_${year}`];
+  if (!care) throw new Error(`population has no care-credit expenses for ${year}`);
+  return { agi, item, weight, cg, care };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,8 +169,22 @@ function foodExcisePerExemption(agi, table, factor) {
   return k < table.length ? table[k][1] : 0;
 }
 
-/** HawaiiTaxCredits.calculate_total_credits, credit_scenario None. */
-export function credits(fe, agi, fs, deps, taxBefore) {
+/** Expected expenses the care credit counts for a household with `children` children under 13 and no
+ * earnings limit: the donor families' mean of min(spending, limit)
+ * (credits.hi_cdcc.expected_capped_expense, summed in file order). The population carries each unit's
+ * own (care_exp_<year>), which also applies the unit's earnings limit. */
+export function householdCare(c, children) {
+  if (children === 0) return 0;
+  const d = c.donors[children >= 2 ? "2" : "1"];
+  const cap = children >= 2 ? c.caps[1] : c.caps[0];
+  let acc = 0;
+  for (let j = 0; j < d.x.length; j++) acc += d.p[j] * Math.min(Math.min(d.x[j], cap), Infinity);
+  return acc;
+}
+
+/** HawaiiTaxCredits.calculate_total_credits, credit_scenario None. `care` is the unit's expected
+ * care-credit expenses (care_exp_<year>, or householdCare). */
+export function credits(fe, agi, fs, deps, taxBefore, care) {
   // food/excise (refundable): joint table for every status but single
   const nEx = 1 + deps + (fs === MFJ ? 1 : 0);
   const table = fs === 0 ? fe.single : fe.joint;
@@ -180,15 +196,16 @@ export function credits(fe, agi, fs, deps, taxBefore) {
     const claimRate = 0.02;
     reec = agi < 100000 ? claimRate * 1500 : agi < 200000 ? claimRate * 2500 : claimRate * 3500;
   }
-  // dependent care, current law (nonrefundable)
+  // dependent care, current law (refundable): the applicable percentage (hi_cdcc.applicable_percentage)
+  // of the unit's expected expenses
   let cdcc = 0;
-  if (deps !== 0 && !(agi > 100000)) {
-    const cap = deps === 1 ? 3000 : 6000;
-    let pct;
-    if (agi <= 25000) pct = 0.25;
-    else if (agi <= 43000) pct = 0.25 - 0.05 * (agi - 25000) / 18000;
-    else pct = 0.20;
-    cdcc = Math.min(12000 * deps, cap) * pct;
+  if (deps !== 0) {
+    const c = fe.cdcc;
+    let pct = c.percent_above;
+    for (const [ceiling, rate] of c.percent) {
+      if (agi <= ceiling) { pct = rate; break; }
+    }
+    cdcc = care * pct;
   }
   // low-income renters (expected value, refundable)
   const threshold = fs === MFJ ? 40000 : fs === HOH ? 35000 : fs === 3 ? 20000 : 30000;
@@ -197,14 +214,14 @@ export function credits(fe, agi, fs, deps, taxBefore) {
     const share = 0.30;
     renters = agi < 15000 ? share * 150 : agi < 25000 ? share * 100 : share * 50;
   }
-  const refundable = food + renters;
-  let nonref = reec + cdcc;
+  const refundable = food + renters + cdcc;
+  let nonref = reec;
   nonref = Math.min(nonref, taxBefore);
   return refundable + nonref;
 }
 
 /** Tax on one unit (TaxCalculator.unit_liabilities, one row). */
-export function unitTax(sys, fs, deps, agi, itemized, cgShare) {
+export function unitTax(sys, fs, deps, agi, itemized, cgShare, care = 0) {
   const s = sys.byStatus[fs];
   const ded = Math.max(s.sd, itemized);
   const exemptions = exemptionCount(fs, deps) * sys.pe;
@@ -221,15 +238,15 @@ export function unitTax(sys, fs, deps, agi, itemized, cgShare) {
     const alt = bracketTax(s, base) + sys.cgRate * (taxableFull - base);
     if (alt < before) before = alt;
   }
-  const cr = credits(sys.fe, agi, fs, deps, before);
+  const cr = credits(sys.fe, agi, fs, deps, before, care);
   return { before, credits: cr, net: before - cr };
 }
 
 /** Net tax for every unit (a Float64Array). */
-export function unitNetTaxes(pop, sys, agi, item, cg) {
+export function unitNetTaxes(pop, sys, agi, item, cg, care) {
   const { fs, deps } = pop.arrays;
   const out = new Float64Array(pop.n);
-  for (let i = 0; i < pop.n; i++) out[i] = unitTax(sys, fs[i], deps[i], agi[i], item[i], cg[i]).net;
+  for (let i = 0; i < pop.n; i++) out[i] = unitTax(sys, fs[i], deps[i], agi[i], item[i], cg[i], care[i]).net;
   return out;
 }
 
@@ -335,7 +352,7 @@ export function behave(pop, baseSys, reformSys, u, params, year, path) {
   if (params.pte_capture > 0) {
     throw new Error("PTE election response is not modeled by the simulator (capture is 0)");
   }
-  return { agi, item: u.item, weight, cg };
+  return { agi, item: u.item, weight, cg, care: u.care };
 }
 
 // ---------------------------------------------------------------------------
@@ -350,10 +367,10 @@ export function behave(pop, baseSys, reformSys, u, params, year, path) {
 export function scoreYear(pop, year, scenario, baseSys, reformSys, path) {
   const params = pop.meta.scenarios[scenario];
   const u = unitArrays(pop, year, scenario);
-  const base = weightedMillions(unitNetTaxes(pop, baseSys, u.agi, u.item, u.cg), u.weight);
-  const reform = weightedMillions(unitNetTaxes(pop, reformSys, u.agi, u.item, u.cg), u.weight);
+  const base = weightedMillions(unitNetTaxes(pop, baseSys, u.agi, u.item, u.cg, u.care), u.weight);
+  const reform = weightedMillions(unitNetTaxes(pop, reformSys, u.agi, u.item, u.cg, u.care), u.weight);
   const adj = behave(pop, baseSys, reformSys, u, params, year, path);
-  const reform2 = weightedMillions(unitNetTaxes(pop, reformSys, adj.agi, adj.item, adj.cg), adj.weight);
+  const reform2 = weightedMillions(unitNetTaxes(pop, reformSys, adj.agi, adj.item, adj.cg, adj.care), adj.weight);
   let filers1m = 0;
   for (let i = 0; i < pop.n; i++) if (adj.agi[i] >= 1_000_000) filers1m += adj.weight[i];
   return { scenario, tax_year: year, "baseline_$M": base, "reform_$M": reform,
@@ -380,8 +397,8 @@ function sharesOf(change, w, idx) {
 export function distribution(pop, year, baseSys, reformSys) {
   const A = pop.arrays, meta = pop.meta;
   const u = unitArrays(pop, year, "mid");
-  const baseTax = unitNetTaxes(pop, baseSys, u.agi, u.item, u.cg);
-  const reformTax = unitNetTaxes(pop, reformSys, u.agi, u.item, u.cg);
+  const baseTax = unitNetTaxes(pop, baseSys, u.agi, u.item, u.cg, u.care);
+  const reformTax = unitNetTaxes(pop, reformSys, u.agi, u.item, u.cg, u.care);
   // per-year array when the fifths differ between years, else one shared array
   const H = pop.nHouseholds, hh = A.hh;
   const quint = A[`quint_${year}`] ?? A.quint;
@@ -708,7 +725,8 @@ export function federalEitc(fed, { fs, earned, agi, investment = 0, children = 0
  * (0 to 1), as the population stores them. */
 export function householdTax(system, foodExcise, { fs, agi, dependents = 0, itemized = 0, cgShare = 0 }) {
   const sys = prepareSystem(system, foodExcise);
-  return unitTax(sys, typeof fs === "number" ? fs : STATUSES.indexOf(fs), dependents, agi, itemized, cgShare);
+  return unitTax(sys, typeof fs === "number" ? fs : STATUSES.indexOf(fs), dependents, agi, itemized, cgShare,
+    householdCare(sys.fe.cdcc, dependents));
 }
 
 export { SpecError };

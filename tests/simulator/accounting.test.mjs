@@ -50,8 +50,8 @@ test("a filer who moves away costs their whole tax under the plan", () => {
   const base = prepareSystem(systems[Y].baseline, meta.food_excise);
   const plan = prepareSystem(systems[Y].reform, meta.food_excise);
   const u = unitArrays(pop, Y, "mid");
-  const tPlan = unitNetTaxes(pop, plan, u.agi, u.item, u.cg);
-  const tCurrent = unitNetTaxes(pop, base, u.agi, u.item, u.cg);
+  const tPlan = unitNetTaxes(pop, plan, u.agi, u.item, u.cg, u.care);
+  const tCurrent = unitNetTaxes(pop, base, u.agi, u.item, u.cg, u.care);
   let lostWhole = 0, lostIncrease = 0;
   for (let i = 0; i < pop.n; i++) {
     const b = base.byStatus[pop.arrays.fs[i]], s = plan.byStatus[pop.arrays.fs[i]];
