@@ -21,7 +21,7 @@
    "behavioral_vs_published": 0.9785691522717412,
    "response_ratio": 0.8214609890427885,
    "published_response_ratio": 0.8225419967453065,
-   "net_static_$M": 48.13017054736201,
+   "net_static_$M": 48.13017054736247,
    "net_behavioral_$M": 39.537057500634546
   },
   {
@@ -38,8 +38,8 @@
    "behavioral_vs_published": 0.975177735636276,
    "response_ratio": 0.821431237536972,
    "published_response_ratio": 0.8228908680546715,
-   "net_static_$M": 50.85339624978042,
-   "net_behavioral_$M": 41.76872193327654
+   "net_static_$M": 50.853396249781326,
+   "net_behavioral_$M": 41.7687219332779
   },
   {
    "option": "cap9",
@@ -55,7 +55,7 @@
    "behavioral_vs_published": 0.971625771698467,
    "response_ratio": 0.8212866397057623,
    "published_response_ratio": 0.8225218923719647,
-   "net_static_$M": 52.95449457628001,
+   "net_static_$M": 52.95449457627956,
    "net_behavioral_$M": 43.49081890786965
   },
   {
@@ -72,8 +72,8 @@
    "behavioral_vs_published": 0.9711512607065977,
    "response_ratio": 0.8216968771448653,
    "published_response_ratio": 0.822438405429562,
-   "net_static_$M": 55.877899172687194,
-   "net_behavioral_$M": 45.913431060856055
+   "net_static_$M": 55.87789917268674,
+   "net_behavioral_$M": 45.9134310608556
   },
   {
    "option": "cap9",
@@ -107,7 +107,7 @@
    "response_ratio": 0.7558364938054164,
    "published_response_ratio": 0.755188376480875,
    "net_static_$M": 141.7242804992734,
-   "net_behavioral_$M": 107.12038325966614
+   "net_behavioral_$M": 107.1203832596666
   },
   {
    "option": "ordinary",
@@ -157,7 +157,7 @@
    "behavioral_vs_published": 0.9563064904325241,
    "response_ratio": 0.7540922601878388,
    "published_response_ratio": 0.7559384449634682,
-   "net_static_$M": 165.81162829582127,
+   "net_static_$M": 165.8116282958208,
    "net_behavioral_$M": 125.03600135626402
   },
   {
@@ -174,7 +174,7 @@
    "behavioral_vs_published": 0.9550010379265346,
    "response_ratio": 0.7541943984608996,
    "published_response_ratio": 0.7556979965432382,
-   "net_static_$M": 174.84551415813667,
+   "net_static_$M": 174.84551415813712,
    "net_behavioral_$M": 131.86579791585382
   }
  ]
