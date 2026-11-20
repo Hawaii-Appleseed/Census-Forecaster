@@ -268,7 +268,7 @@ def tax_after_credits_M(year: int = BASE_YEAR) -> dict[Bracket, float]:
     return {_key(r): float(r["tax_after_M"]) for r in _a8_rows(year)}
 
 
-FAMILY_KINDS = ("hoh", "dependents", "exemptions_3plus")
+FAMILY_KINDS = ("hoh", "joint", "dependents", "exemptions_3plus")
 
 
 def _fine_family(kind: str, year: int) -> list[tuple[float, float]]:
@@ -279,8 +279,8 @@ def _fine_family(kind: str, year: int) -> list[tuple[float, float]]:
     if kind == "exemptions_3plus":
         return [(-np.inf if r["lo"] is None else float(r["lo"]), r["three"] + r["four"] + r["five"] + r["six_plus"])
                 for r in d["a6_returns_by_regular_exemptions"]["classes"]]
-    if kind == "hoh":
-        src, col = d["a2_returns_by_status"], "hoh"
+    if kind in ("hoh", "joint"):
+        src, col = d["a2_returns_by_status"], kind
     elif kind == "dependents":
         src, col = d["a5_exemptions"], "dependents"
     else:
@@ -300,7 +300,7 @@ def _fine_family(kind: str, year: int) -> list[tuple[float, float]]:
 
 def family_targets(kind: str, edges, year: int = BASE_YEAR) -> dict[int, float]:
     """A resident family measure rebinned into the classes that start at ``edges`` (the first edge ``-inf``, the last
-    class open): ``hoh`` returns (A-2, head of household and qualifying widow(er)), ``dependents`` exemptions (A-5,
+    class open): ``hoh`` returns (A-2, head of household and qualifying widow(er)), ``joint`` returns (A-2), ``dependents`` exemptions (A-5,
     qualified dependents) or ``exemptions_3plus`` returns with three or more regular exemptions (A-6). Class index
     -> value. The edges must be Department class edges (multiples of $10,000 up to $50,000, then 75, 100, 150, 200, ...)."""
     e = np.asarray(edges, dtype=float)

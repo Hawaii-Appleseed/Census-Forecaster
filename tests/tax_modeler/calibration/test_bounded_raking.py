@@ -8,6 +8,7 @@ from tax_modeler.calibration import apply_ipf_calibration_via_rake, dotax_base
 from tax_modeler.calibration.act24_calibration import (
     DEFAULT_BOUNDS,
     FAMILY_EDGES,
+    WIDE_BOUNDS,
     calibrate_act24,
     constraints,
 )
@@ -80,6 +81,12 @@ def test_constraints_have_matching_shapes_and_the_family_margins_are_the_departm
     assert X.shape == (len(df), len(names)) == (len(df), len(t))
     assert sum(n.startswith("filers ") for n in names) == sum(1 for k in dotax_base.filer_targets() if k[0] < 1e6)
     assert not any(n.startswith("tax after credits") for n in names)
+    assert not any(n.startswith("agi ") for n in names)
+    assert any(n.startswith("agi ") for n in constraints(df, agi_margin=True)[0])
+    assert {"status married_filing_separately"} <= set(names)
+    # joint returns by class are targets (without them the solver moved joint filers into separate filing at high AGI)
+    joint = sum(v for n, v in zip(names, t, strict=True) if n.startswith("joint returns"))
+    assert joint == pytest.approx(next(v for n, v in zip(names, t, strict=True) if n == "status married_filing_jointly"))
     assert any(n.startswith("tax after credits") for n in constraints(df, tax_after=True)[0])
     # head of household targets are brought to Table 4's head-of-household count, scaled as the status targets are
     hoh = sum(v for n, v in zip(names, t, strict=True) if n.startswith("head of household returns"))
@@ -89,7 +96,7 @@ def test_constraints_have_matching_shapes_and_the_family_margins_are_the_departm
 
 
 def test_the_default_bounds_are_the_documented_ones():
-    assert DEFAULT_BOUNDS == (0.1, 10.0)
+    assert DEFAULT_BOUNDS == (0.2, 5.0) and WIDE_BOUNDS == (0.1, 10.0)
 
 
 def test_calibrate_act24_attaches_the_account_and_leaves_other_columns_alone():
