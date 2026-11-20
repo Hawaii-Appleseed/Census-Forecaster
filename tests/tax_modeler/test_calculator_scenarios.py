@@ -117,6 +117,14 @@ class TestBrackets:
 
 # ── CDCC tests ────────────────────────────────────────────────────────────────
 
+def _expected_expense(n):
+    """Donor mean of min(spending, the bills' $10,000 / $20,000 limit): the expenses the credit counts."""
+    from tax_modeler.credits import hi_cdcc
+    x, p = hi_cdcc.donor_expense_distribution()[1 if n == 1 else 2]
+    cap = 10_000.0 if n == 1 else 20_000.0
+    return sum(pj * min(xj, cap) for xj, pj in zip(x, p, strict=True))
+
+
 class TestCDCC:
     def test_cdcc_zero_dependents_all_scenarios(self, credits_2025, credits_2027):
         """CDCC is 0 for filers with no dependents regardless of scenario."""
@@ -125,26 +133,50 @@ class TestCDCC:
             result = calc.calculate_total_credits(80_000, "single", 0, 5_000, cs)
             assert result["child_care"] == 0.0, f"Expected 0 for {cs}, got {result['child_care']}"
 
-    def test_act46_cdcc_hoh_50k_2kids(self, credits_2025):
-        """Act 46 CDCC for HoH $50k, 2 kids: expense cap $6k × ~21% ≈ $1,250."""
+    def test_current_law_cdcc_hoh_50k_2kids(self, credits_2025):
+        """HRS §235-55.6, TY2025 (Act 163 limits): AGI $50,000 is "not over $50,000", so 20% of the
+        expected expenses the credit counts (donor spending up to the $20,000 limit for two or more)."""
+        from tax_modeler.credits import hi_cdcc
+        x, p = hi_cdcc.donor_expense_distribution()[2]
+        expected = 0.20 * sum(pj * min(xj, 20_000.0) for xj, pj in zip(x, p, strict=True))
         result = credits_2025.calculate_total_credits(50_000, "head_of_household", 2, 3_000, None)
-        # pct ≈ 20% (above $43k), expenses = min($24k, $6k) = $6k → $1,200
-        assert result["child_care"] == pytest.approx(1_200, abs=50)
+        assert result["child_care"] == pytest.approx(expected, rel=1e-12)
 
-    def test_act46_cdcc_nonrefundable(self, credits_2025):
-        """Act 46 CDCC is non-refundable — capped at tax_before_credits."""
+    def test_current_law_cdcc_is_refundable(self, credits_2025):
+        """§235-55.6(a)(1): the excess over tax is refunded, so the credit is paid with almost no tax."""
         result = credits_2025.calculate_total_credits(40_000, "head_of_household", 2, 100, None)
-        assert result["total_nonrefundable"] <= 100
+        assert result["child_care"] > 0
+        assert result["total_refundable"] >= result["child_care"]
+        assert result["total_nonrefundable"] <= 100          # only the renewable energy credit is capped by tax
 
-    def test_act46_cdcc_phases_out_above_100k(self, credits_2025):
-        """Act 46 CDCC phases out entirely above $100k AGI."""
-        result = credits_2025.calculate_total_credits(150_000, "single", 1, 5_000, None)
-        assert result["child_care"] == 0.0
+    def test_current_law_cdcc_has_no_phase_out(self, credits_2025):
+        """Above $50,000 the percentage stays at 15%; the credit never phases out."""
+        base = credits_2025.calculate_total_credits(60_000, "single", 1, 5_000, None)["child_care"]
+        assert base > 0
+        for agi in (150_000, 400_000):
+            assert credits_2025.calculate_total_credits(agi, "single", 1, 5_000, None)["child_care"] == base
+
+    @pytest.mark.parametrize("agi,pct", [(25_000, 0.25), (25_001, 0.24), (30_000, 0.24), (45_000, 0.21),
+                                         (45_001, 0.20), (50_000, 0.20), (50_001, 0.15)])
+    def test_current_law_cdcc_percentage_schedule(self, credits_2025, agi, pct):
+        top = credits_2025.calculate_total_credits(20_000, "single", 1, 5_000, None)["child_care"] / 0.25
+        result = credits_2025.calculate_total_credits(agi, "single", 1, 5_000, None)
+        assert result["child_care"] == pytest.approx(pct * top, rel=1e-12)
+
+    @pytest.mark.parametrize("year", [2022, 2023, 2027, 2028, 2031])
+    def test_current_law_cdcc_limits_follow_the_tax_year(self, year):
+        """Act 163 §1 raised the limits for TY2023-2027; §5 repeals and reenacts subsection (c) after 2027."""
+        from tax_modeler.credits import hi_cdcc
+        x, p = hi_cdcc.donor_expense_distribution()[1]
+        cap = hi_cdcc.caps_for_year(year)[0]
+        calc = HawaiiTaxCredits(year)
+        want = 0.25 * sum(pj * min(xj, cap) for xj, pj in zip(x, p, strict=True))
+        assert calc.calculate_total_credits(20_000, "single", 1, 5_000, None)["child_care"] == pytest.approx(want, rel=1e-12)
 
     def test_hb2306_cdcc_hoh_50k_2kids(self, credits_2027):
         """HB 2306 CDCC for HoH $50k, 2 kids: $20k × 50% = $10,000."""
         result = credits_2027.calculate_total_credits(50_000, "head_of_household", 2, 3_000, "hb2306_hd1")
-        assert result["child_care"] == pytest.approx(10_000, abs=1)
+        assert result["child_care"] == pytest.approx(0.50 * _expected_expense(2), rel=1e-12)
 
     def test_hb2306_cdcc_refundable(self, credits_2027):
         """Under HB 2306, CDCC should appear in refundable credits."""
@@ -156,28 +188,28 @@ class TestCDCC:
         """HB 2306 CDCC applicable percentage floors at 5% above $160k."""
         # $200k income → 5% × $10k cap × 1 child = $500
         result = credits_2027.calculate_total_credits(200_000, "single", 1, 10_000, "hb2306_hd1")
-        assert result["child_care"] == pytest.approx(500, abs=1)
+        assert result["child_care"] == pytest.approx(0.05 * _expected_expense(1), rel=1e-12)
 
     def test_sb3125_cdcc_hoh_50k_2kids(self, credits_2027):
         """SB 3125 CDCC for HoH $50k: formula 35% − ceil((50k−43k)/3k)×1pp = 33%, $20k cap → $6,600."""
         steps = math.ceil((50_000 - 43_000) / 3_000)  # ceil(7000/3000) = 3
         expected_pct = max(0.15, 0.35 - 0.01 * steps)  # 0.35 - 0.03 = 0.32
-        expected = min(12_000 * 2, 20_000) * expected_pct
+        expected = _expected_expense(2) * expected_pct
         result = credits_2027.calculate_total_credits(50_000, "head_of_household", 2, 3_000, "sb3125_sd1")
-        assert result["child_care"] == pytest.approx(expected, abs=1)
+        assert result["child_care"] == pytest.approx(expected, rel=1e-12)
 
     def test_sb3125_cdcc_floor_15pct(self, credits_2027):
         """SB 3125 CDCC applicable percentage floors at 15%."""
         # At AGI = $200k: steps = ceil((200k-43k)/3k) = 53 → 35-53 = -18 → floor 15%
         result = credits_2027.calculate_total_credits(200_000, "single", 1, 10_000, "sb3125_sd1")
         # $10k cap × 15% = $1,500
-        assert result["child_care"] == pytest.approx(1_500, abs=1)
+        assert result["child_care"] == pytest.approx(0.15 * _expected_expense(1), rel=1e-12)
 
     def test_sb3125_cdcc_at_threshold(self, credits_2027):
         """SB 3125 CDCC at exactly $43k AGI should use 35%."""
         result = credits_2027.calculate_total_credits(43_000, "single", 1, 5_000, "sb3125_sd1")
         # steps = ceil(0/3000) = 0 → 35%
-        assert result["child_care"] == pytest.approx(10_000 * 0.35, abs=1)
+        assert result["child_care"] == pytest.approx(0.35 * _expected_expense(1), rel=1e-12)
 
     def test_sb3125_cdcc_refundable(self, credits_2027):
         """Under SB 3125, CDCC should appear in refundable credits."""
@@ -214,22 +246,34 @@ class TestSpotChecks:
         assert diff == pytest.approx(2_400, abs=100)
 
     def test_hoh_50k_2kids_hb2306_refund(self, calculator, hb2306, credits_2027):
-        """HoH $50k, 2 kids under HB 2306: enhanced CDCC should produce net refund."""
+        """HoH $50k, 2 kids under HB 2306: the bill's refundable CDCC is larger than current law's
+        (the same expected expenses: the bill's higher percentage and its limit past TY2027), and a
+        family that pays the whole limit ($20,000) gets a net refund."""
         r = calculator.calculate_tax(50_000, hb2306, "head_of_household", 3)
         cr = credits_2027.calculate_total_credits(
             50_000, "head_of_household", 2, r["tax_liability"], "hb2306_hd1"
         )
-        net = r["tax_liability"] - cr["total"]
-        assert net < 0, f"Expected negative net tax (refund), got {net}"
+        cl = credits_2027.calculate_total_credits(50_000, "head_of_household", 2, r["tax_liability"], None)
+        assert cr["child_care"] > cl["child_care"] > 0
+        from tax_modeler.credits import hi_cdcc
+        full_claim = 0.50 * 20_000
+        assert r["tax_liability"] - (cr["total"] - cr["child_care"]) - full_claim < 0
+        assert float(hi_cdcc.applicable_percentage(50_000)) == 0.20
 
     def test_hoh_50k_2kids_sb3125_refund(self, calculator, sb3125, credits_2027):
-        """HoH $50k, 2 kids under SB 3125: enhanced CDCC should also produce net refund."""
+        """HoH $50k, 2 kids under SB 3125: the bill's refundable CDCC is larger than current law's
+        (the same expected expenses: the bill's higher percentage and its limit past TY2027), and a
+        family that pays the whole limit ($20,000) gets a net refund."""
         r = calculator.calculate_tax(50_000, sb3125, "head_of_household", 3)
         cr = credits_2027.calculate_total_credits(
             50_000, "head_of_household", 2, r["tax_liability"], "sb3125_sd1"
         )
-        net = r["tax_liability"] - cr["total"]
-        assert net < 0, f"Expected negative net tax (refund), got {net}"
+        cl = credits_2027.calculate_total_credits(50_000, "head_of_household", 2, r["tax_liability"], None)
+        assert cr["child_care"] > cl["child_care"] > 0
+        from tax_modeler.credits import hi_cdcc
+        full_claim = 0.32 * 20_000
+        assert r["tax_liability"] - (cr["total"] - cr["child_care"]) - full_claim < 0
+        assert float(hi_cdcc.applicable_percentage(50_000)) == 0.20
 
     def test_single_300k_no_kids_act46_vs_hb2306(self, calculator, act46, hb2306):
         """Single $300k, 0 deps: HB 2306 +1pp on $225k+ brackets should add ~$694.

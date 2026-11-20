@@ -22,6 +22,7 @@ from tax_modeler.config.tax_system_config import (
     TaxSystemRegistry,
     compare_systems,
 )
+from tax_modeler.credits import hi_cdcc
 from tax_modeler.errors import ConfigError
 from tax_modeler.reform import Reform, apply_reform
 from tax_modeler.reform.income_tax_spec import (
@@ -509,6 +510,7 @@ SYNTH_K = {"low": [0.0, 0.9, 1.5, 1.4, 2.4, 1.95, 1.0],
 
 def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
     rng = np.random.default_rng(9)
+    care_rng = np.random.default_rng(10)         # its own stream: the draws below stay as they were
     hh = np.repeat(np.arange(n // 2), 2)
     a = {
         "filer_id": np.array([f"U{i}" for i in range(n)]),
@@ -519,8 +521,11 @@ def _synthetic_population(n=120, years=(2027, 2028), anchor=True) -> Population:
         "weight": rng.uniform(1, 30, n),
         "cg": np.where(rng.random(n) < 0.2, 0.4, 0.0),
         "hh_weight": rng.uniform(5, 40, n // 2),
+        "care_n": care_rng.integers(0, 3, n).astype(np.uint8),
     }
     for y in years:
+        a[f"care_earn_{y}"] = care_rng.uniform(0, 80_000, n)
+        a[f"care_exp_{y}"] = hi_cdcc.expected_capped_expense(a["care_n"], a[f"care_earn_{y}"], hi_cdcc.caps_for_year(y))
         a[f"agi_{y}"] = rng.lognormal(11, 1.3, n)
         a[f"item_{y}"] = a[f"agi_{y}"] * 0.1
         a[f"tci_{y}"] = a[f"agi_{y}"] * 1.05
@@ -830,7 +835,7 @@ class TestPopulationScoring:
         pop = _synthetic_population(years=YEARS)
         write_web_files(pop, tmp_path, kernel_source=b"k")
         m = json.loads((tmp_path / "population.json").read_text())
-        assert m["web_format_version"] == WEB_FORMAT_VERSION == 3
+        assert m["web_format_version"] == WEB_FORMAT_VERSION == 4
         assert m["cg_anchor"] == {k: pop.meta["cg_anchor"][k] for k in ("top_share", "classes", "k")}
         assert {k: v["cg_beta"] for k, v in m["scenarios"].items()} == {"low": 2.6, "mid": 2.0, "high": 1.6}
         assert m["current_law"]["2027"]["capital_gains_rate"] == 7.25

@@ -1,4 +1,4 @@
-"""Parse IRS SOI Table 2 for Hawaiʻi: returns, wages and AGI by size of adjusted gross income.
+"""Parse IRS SOI Table 2 for Hawaiʻi: returns, wages, AGI and the family-credit rows by size of adjusted gross income.
 
 The IRS publishes one workbook per tax year, "Table 2. Individual Income and Tax Data, by
 State and Size of Adjusted Gross Income", for each state at
@@ -17,7 +17,11 @@ Usage:
 Writes packages/tax_modeler/src/tax_modeler/data/calibration/irs_soi_hi_table2.json with each
 file's SHA-256. Each year is checked before it is written: the ten classes must add to the
 printed all-returns column (returns are rounded to the nearest 10, so within 50), and the
-wage counts and amounts and AGI must add to theirs.
+wage counts and amounts and AGI must add to theirs. The family rows (head of household returns, the
+nonrefundable child and other dependent tax credit, the additional (refundable) child tax credit and the
+child and dependent care credit, each a count and, for the credits, an amount) are checked the same way.
+The 2022 workbook prints the additional credit as "Refundable child tax credit or additional child tax
+credit"; both labels are read.
 """
 from __future__ import annotations
 
@@ -82,11 +86,27 @@ def parse_workbook(path: Path) -> dict:
     r_wn = row_of("Salaries and wages in AGI: Number")
     if _label(rows[r_wn + 1][0]) != "Amount":
         raise ValueError(f"{path.name}: the row under the wage count is not the amount")
+    r_hoh = row_of("Number of head of household returns")
+    r_cdcc = row_of("Child and dependent care credit: Number")
+    r_ctc = row_of("Nonrefundable child and other dependent tax credit: Number")
+    try:
+        r_actc = row_of("Additional child tax credit: Number")
+    except ValueError:
+        r_actc = row_of("Refundable child tax credit or additional child tax credit: Number")
+    for name, i in (("child and dependent care", r_cdcc), ("nonrefundable child and other dependent", r_ctc),
+                    ("additional child tax", r_actc)):
+        if _label(rows[i + 1][0]) != "Amount":
+            raise ValueError(f"{path.name}: the row under the {name} credit count is not the amount")
     out = {"tax_year": year}
-    for key, i, tol_of in (("returns", r_ret, lambda t: 50), ("joint_returns", r_joint, lambda t: 50),
-                           ("agi_amount_k", r_agi, lambda t: max(10, 1e-4 * abs(t))),
-                           ("wage_returns", r_wn, lambda t: 50),
-                           ("wage_amount_k", r_wn + 1, lambda t: max(10, 1e-4 * abs(t)))):
+    money = lambda t: max(10, 1e-4 * abs(t))  # noqa: E731
+    count = lambda t: 50  # noqa: E731
+    for key, i, tol_of in (("returns", r_ret, count), ("joint_returns", r_joint, count),
+                           ("agi_amount_k", r_agi, money),
+                           ("wage_returns", r_wn, count), ("wage_amount_k", r_wn + 1, money),
+                           ("hoh_returns", r_hoh, count),
+                           ("ctc_nonref_returns", r_ctc, count), ("ctc_nonref_amount_k", r_ctc + 1, money),
+                           ("actc_returns", r_actc, count), ("actc_amount_k", r_actc + 1, money),
+                           ("cdcc_returns", r_cdcc, count), ("cdcc_amount_k", r_cdcc + 1, money)):
         total, classes = values(i)
         if abs(sum(classes) - total) > tol_of(total):
             raise ValueError(f"{path.name}: {key} classes add to {sum(classes):,.0f}, printed total {total:,.0f}")

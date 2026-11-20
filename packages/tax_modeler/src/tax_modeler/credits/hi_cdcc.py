@@ -41,6 +41,8 @@ AGI is federal adjusted gross income, as on the N-11.
 """
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 import pandas as pd
 
@@ -160,6 +162,38 @@ def donor_expense_distribution(donor_path=None) -> dict[int, tuple[np.ndarray, n
     return out
 
 
+@functools.cache
+def default_donors() -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """:func:`donor_expense_distribution` from the CPS ASEC file in the package, read once."""
+    return donor_expense_distribution()
+
+
+def expected_capped_expense(n_children, earned_limit, caps: Caps, donors=None) -> np.ndarray:
+    """Expected employment-related expenses the credit counts, per unit: the donor families'
+    mean of ``min(spending, dollar limit, earned income limit)``.
+
+    ``n_children``: children under 13 (qualifying individuals); 1 uses the one-child donors, 2 or more
+    the two-or-more donors, 0 gives 0. ``earned_limit``: subsection (d)(1)'s limit (the lower earner's
+    earnings; ``np.inf`` for none). The credit is then ``applicable_percentage(agi)`` times this: the
+    scoring path's care credit for current law and for both bills, which differ in ``caps`` and
+    percentage schedule only. The statute's $1 floor applies to a single claim and is ignored in
+    the expectation (a sub-dollar effect). The donors' amounts are summed in file order, which the
+    simulator kernel repeats.
+    """
+    dist = donors if donors is not None else default_donors()
+    n = np.asarray(n_children)
+    earn = np.broadcast_to(np.maximum(np.asarray(earned_limit, dtype=float), 0.0), n.shape)
+    cap = np.where(n >= 2, caps[1], caps[0]).astype(float)
+    out = np.zeros(n.shape, dtype=float)
+    for b, (x, p) in dist.items():
+        idx = (n >= 2) if b == 2 else (n == 1)
+        if not idx.any():
+            continue
+        for xj, pj in zip(x, p, strict=True):
+            out[idx] += pj * np.minimum(np.minimum(xj, cap[idx]), earn[idx])
+    return out
+
+
 def compute_hi_cdcc_expected(units: pd.DataFrame, *, expanded: Caps = ACT163_CAPS,
                              reverted: Caps | None = PRIOR_CAPS, donors=None) -> pd.DataFrame:
     """Expected §235-55.6 credit per tax unit under two laws, before take-up.
@@ -221,5 +255,6 @@ def compute_hi_cdcc_for_units(units: pd.DataFrame, *, tax_year: int | None = Non
 __all__ = [
     "ACT163_CAPS", "PRIOR_CAPS", "PERCENT_SCHEDULE", "caps_for_year", "applicable_percentage",
     "expense_limit", "cdcc_credit", "count_children_under_13", "earned_income_limit",
-    "donor_expense_distribution", "compute_hi_cdcc_expected", "compute_hi_cdcc_for_units",
+    "donor_expense_distribution", "default_donors", "expected_capped_expense",
+    "compute_hi_cdcc_expected", "compute_hi_cdcc_for_units",
 ]

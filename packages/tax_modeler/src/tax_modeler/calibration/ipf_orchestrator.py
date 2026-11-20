@@ -316,6 +316,7 @@ class IPFCalibrationOrchestrator:
         soi_max_adjustment: float = 1.10,
         skip_synthesis_bin: bool = True,
         infeasibility_threshold: float = 0.25,
+        extra_margins: dict[str, tuple[np.ndarray, dict[str, float]]] | None = None,
     ) -> pd.DataFrame:
         """Joint multi-pass IPF calibration.
 
@@ -383,6 +384,13 @@ class IPFCalibrationOrchestrator:
             universe. SOI Hawaii has 674,660 returns; DOTAX has 618,423
             (SOI counts federal-only filers DOTAX excludes). Pass
             ``DOTAX_total / SOI_total ≈ 0.917`` to scale SOI AGI down.
+        extra_margins:
+            More count margins raked jointly with the filer-count and filing-status margins:
+            ``{name: (codes, targets)}``, ``codes`` an integer array with one code per unit and
+            ``targets`` the weighted count for each code (as a string). See
+            :mod:`tax_modeler.calibration.family_margins` (head of household, nonrefundable
+            CTC/ODC and ACTC returns by AGI class). Code 0 carries the remainder of the total,
+            so the population total is unchanged. ``None``: no extra margin.
         soi_max_adjustment:
             Per-bin scaling cap for the SOI AGI step. SOI AGI is more
             achievable than DOTAX tax (PUMS records have AGI directly),
@@ -425,6 +433,15 @@ class IPFCalibrationOrchestrator:
                 str(code): self.DOTAX_FILING_STATUS_TARGETS[fs]
                 for fs, code in _FS_CODE.items()
             }
+
+        # --- extra count margins (families with children, by AGI class) ----
+        extra_dev: dict[str, tuple[str, dict[int, float]]] = {}
+        for name, (codes, targets) in (extra_margins or {}).items():
+            col = f"_x_{name}"
+            result[col] = np.asarray(codes, dtype=float)
+            temp_cols.append(col)
+            margins[col] = {str(k): float(v) for k, v in targets.items()}
+            extra_dev[name] = (col, {int(k): float(v) for k, v in targets.items() if int(k) != 0})
 
         # --- prepare tax-total targets (skip synthesis-handled bin) ------
         if calibrate_tax_totals and skip_synthesis_bin:
@@ -514,6 +531,15 @@ class IPFCalibrationOrchestrator:
                     m = max(m, abs(cur - tgt) / tgt)
             return m
 
+        def _max_dev_extra(d: pd.DataFrame) -> float:
+            m = 0.0
+            for col, tg in extra_dev.values():
+                for code, tgt in tg.items():
+                    cur = d.loc[d[col] == code, "weight"].sum()
+                    if tgt > 100:
+                        m = max(m, abs(cur - tgt) / tgt)
+            return m
+
         def _max_dev_tax(d: pd.DataFrame) -> float:
             if not calibrate_tax_totals:
                 return 0.0
@@ -582,12 +608,13 @@ class IPFCalibrationOrchestrator:
             fs_d = _max_dev_fs(result)
             tt_d = _max_dev_tax(result)
             soi_d = _max_dev_soi_agi(result)
+            fam_d = _max_dev_extra(result)
             history.append((outer + 1, fc_d, fs_d, tt_d))
-            max_dev = max(fc_d, fs_d, tt_d, soi_d)
+            max_dev = max(fc_d, fs_d, tt_d, soi_d, fam_d)
             logger.info(
                 "Joint IPF outer iter %d: max_dev=%.4f "
-                "(filer_count=%.4f, filing_status=%.4f, tax_total=%.4f, soi_agi=%.4f)",
-                outer + 1, max_dev, fc_d, fs_d, tt_d, soi_d,
+                "(filer_count=%.4f, filing_status=%.4f, tax_total=%.4f, soi_agi=%.4f, families=%.4f)",
+                outer + 1, max_dev, fc_d, fs_d, tt_d, soi_d, fam_d,
             )
             if max_dev < outer_tolerance:
                 converged = True
@@ -807,6 +834,7 @@ def apply_ipf_calibration_via_rake(
     calibrate_tax_totals: bool = True,
     calibrate_filing_status: bool = True,
     calibrate_soi_agi: bool = True,
+    calibrate_families: bool = True,
 ) -> pd.DataFrame:
     """
     IPF calibration using pums_estimator's canonical rake() engine.
@@ -823,6 +851,11 @@ def apply_ipf_calibration_via_rake(
         calibrate_filer_counts: Rake to DOTAX filer-count targets by AGI bracket.
         calibrate_tax_totals: Scale weights to DOTAX tax-total targets by AGI bracket.
         calibrate_filing_status: Rake to DOTAX filing-status distribution.
+        calibrate_families: Also rake head of household returns, returns claiming the nonrefundable
+            child and other dependent tax credit, and returns claiming the additional child tax credit,
+            each by AGI class, to the IRS SOI Hawaii counts for the base year scaled class by class to the
+            Department's resident universe (:mod:`.family_margins`). Skipped when the frame has no federal
+            credit columns.
 
     Returns:
         Calibrated DataFrame.
@@ -861,8 +894,17 @@ def apply_ipf_calibration_via_rake(
             logger.warning("SOI calibration disabled (data unavailable): %s", e)
             calibrate_soi_agi = False
 
+    extra_margins = None
+    if calibrate_families:
+        from tax_modeler.calibration.family_margins import margin_codes
+
+        extra_margins = margin_codes(df)
+        if extra_margins is None:
+            logger.warning("family margins skipped: the frame has no federal credit columns")
+
     return orchestrator.calibrate_via_rake(
         df,
+        extra_margins=extra_margins,
         calibrate_filer_counts=calibrate_filer_counts,
         calibrate_tax_totals=calibrate_tax_totals,
         calibrate_filing_status=calibrate_filing_status,

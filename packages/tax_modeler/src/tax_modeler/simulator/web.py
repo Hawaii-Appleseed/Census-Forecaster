@@ -45,7 +45,8 @@ from .scenarios import SCENARIOS
 from .systems import food_excise_tables, system_to_json
 
 # 3 dropped hhfw: distribution totals sum each unit's own filer weight.
-WEB_FORMAT_VERSION = 3
+# 4 added care_exp_<year>: each unit's expected care-credit expenses.
+WEB_FORMAT_VERSION = 4
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it
@@ -80,6 +81,7 @@ def _web_arrays(pop: Population) -> dict[str, tuple[str, np.ndarray]]:
     for y in pop.years:
         out[f"agi_{y}"] = ("f8", a[f"agi_{y}"])
         out[f"item_{y}"] = ("f8", a[f"item_{y}"])
+        out[f"care_exp_{y}"] = ("f8", a[f"care_exp_{y}"])
         out[f"cgcls_{y}"] = ("u1", a[f"cgcls_{y}"])
         for k in SCENARIOS:
             if k == "mid":

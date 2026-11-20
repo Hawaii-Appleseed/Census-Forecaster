@@ -28,7 +28,9 @@ BASE_YEAR = 2023
 _PATH = Path(__file__).resolve().parents[1] / "data" / "calibration" / "irs_soi_hi_table2.json"
 
 #: Values the table carries for each class.
-KEYS = ("returns", "joint_returns", "agi_amount_k", "wage_returns", "wage_amount_k")
+KEYS = ("returns", "joint_returns", "agi_amount_k", "wage_returns", "wage_amount_k",
+        "hoh_returns", "ctc_nonref_returns", "ctc_nonref_amount_k", "actc_returns", "actc_amount_k",
+        "cdcc_returns", "cdcc_amount_k")
 
 
 @cache
