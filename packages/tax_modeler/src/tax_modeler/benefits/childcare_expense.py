@@ -64,19 +64,34 @@ def compute_childcare_expense_for_units(
     global mean. Filers with zero qualifying children or zero earned
     income get $0.
 
-    Applies the Census SPM childcare cap (Short 2012; Renwick & Fox 2016):
+    Caps the expense at the earnings of the lowest-earning adult, the SPM's rule for
+    work-related expenses (Interagency Technical Working Group on Developing a
+    Supplemental Poverty Measure, *Observations*, March 2010, which the Census Bureau's
+    SPM follows: "The level of total work expenses subtracted from any family's resources
+    should be capped by the earning level of the lowest-earning adult"; see also Short
+    2012 and Renwick & Fox 2016, as cited before this rule was exact):
 
-      * single / HoH:                  cap = earned_income
-      * MFJ, both spouses working:     cap ≈ 0.5 × earned_income
-                                       (per-spouse earnings unavailable in PUMS;
-                                       use balanced-split heuristic)
-      * MFJ, only one spouse works:    cap = 0
-                                       (Census disallows childcare deduction
-                                       when one parent could provide care)
+      * single / HoH / MFS:          cap = the filer's earned income
+      * MFJ, both spouses earn:      cap = the lesser spouse's earnings
+                                     (``tax_modeler.units.earnings.lower_earner_income``)
+      * MFJ, only one spouse earns:  cap = 0 (the other spouse's earnings are zero, so no
+                                     childcare is subtracted)
 
-    The donor frame's ``SPM_CHILDCAREXPNS`` is uncapped, so without this
-    step the model would over-subtract childcare for low-income MFJ
-    families where the cap would bind, biasing the SPM rate upward.
+    An earlier version used 0.5 x total earnings for two-earner couples (a balanced-split
+    stand-in for earnings it believed PUMS did not give per spouse) and read the second
+    earner from ``secondary_hours_worked``. The frame carries each filer's wages and
+    self-employment income, so the exact rule is used; ``secondary_hours_worked`` is no
+    longer read here. Frames without the filer earnings columns fall back to that earlier
+    rule (0.5 x earned income when the second filer works, per ``secondary_hours_worked``,
+    else 0).
+
+    The cap applies to the childcare expense alone; the TWG's wording caps childcare and other
+    work expenses together, which this function (one of two subtractions, with
+    ``compute_work_expense_for_units``) does not do.
+
+    The donor frame's ``SPM_CHILDCAREXPNS`` is uncapped, so without this step the model
+    would over-subtract childcare for low-earning families where the cap binds, biasing
+    the SPM rate upward.
     """
     path = Path(donor_path) if donor_path is not None else _DEFAULT_DONOR_PATH
     donors_raw = pd.read_parquet(path)
@@ -129,19 +144,19 @@ def compute_childcare_expense_for_units(
     working_with_kids = (n_kids > 0) & (earned > 0)
     amt = np.where(working_with_kids, amt, 0.0)
 
-    # Apply Census SPM childcare cap (lower-earner's earnings).
+    # SPM cap: the lowest-earning adult's earnings.
     is_joint = (out[filing_status_col].astype(str) == "married_filing_jointly").to_numpy()
-    if secondary_hours_col in out.columns:
-        secondary_working = out[secondary_hours_col].fillna(0).astype(float).to_numpy() > 0
+    if {"primary_wagp", "secondary_wagp"} <= set(out.columns):
+        from tax_modeler.units.earnings import lower_earner_income
+
+        cap = lower_earner_income(out, earned_income_col=earned_income_col,
+                                  filing_status_col=filing_status_col)
     else:
-        # Without a secondary-hours signal, assume MFJ has only one earner.
-        # That's conservative (allows zero childcare deduction for MFJ).
-        secondary_working = np.zeros(len(out), dtype=bool)
-    cap = np.where(
-        is_joint,
-        np.where(secondary_working, 0.5 * earned, 0.0),
-        earned,
-    )
+        if secondary_hours_col in out.columns:
+            secondary_working = out[secondary_hours_col].fillna(0).astype(float).to_numpy() > 0
+        else:
+            secondary_working = np.zeros(len(out), dtype=bool)
+        cap = np.where(is_joint, np.where(secondary_working, 0.5 * earned, 0.0), earned)
     amt = np.minimum(amt, cap)
     out[out_col] = np.maximum(amt, 0.0)
     return out

@@ -101,7 +101,9 @@ and the threshold are indexed past their last published year by the same CPI
 assumption as the federal credits. Not indexed: benefits use the package's
 latest tables (TY2025; FY2024 for SNAP), and the medical, childcare and
 work-expense deductions are CPS ASEC donor cell means ranked on base-year
-income, in both cases.
+income, in both cases. The childcare subtraction is capped at the lowest-earning
+adult's earnings (the SPM rule; a couple's is the lesser spouse's, zero for a
+one-earner couple): tax_modeler.benefits.childcare_expense.
 
 Outputs (runs/working_family_credits/):
   revenue_by_year.csv      $M by year: expanded vs reverted, per credit (EITC, food/excise, child and dependent care), and claimants
