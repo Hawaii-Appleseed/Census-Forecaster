@@ -251,6 +251,65 @@ def agi_targets_M(year: int = BASE_YEAR) -> dict[Bracket, float]:
     return {b: out[b] for b in AGI_BRACKETS}
 
 
+# ── Tables A-2, A-5 and A-6: families, in the Department's own universe and AGI ───────────────
+@cache
+def load_family(year: int = BASE_YEAR) -> dict:
+    """Tables A-2, A-5 and A-6 for ``year`` (``dotax_family_<year>.json``, from ``scripts/parse_dotax_family_tables.py``)."""
+    path = _DATA_DIR / f"dotax_family_{year}.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No {path.name}. Download {year}indinc_tables.xlsx from files.hawaii.gov/tax/stats/stats/indinc/ "
+            f"with curl and run scripts/parse_dotax_family_tables.py {year}=PATH.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def tax_after_credits_M(year: int = BASE_YEAR) -> dict[Bracket, float]:
+    """Resident tax liability after credits by AGI bracket, $M (Table A-8; negative where refundable credits exceed tax)."""
+    return {_key(r): float(r["tax_after_M"]) for r in _a8_rows(year)}
+
+
+FAMILY_KINDS = ("hoh", "dependents", "exemptions_3plus")
+
+
+def _fine_family(kind: str, year: int) -> list[tuple[float, float]]:
+    """``[(lower edge, value)]`` per Department class for one family measure (Loss class at -inf), with the
+    nontaxable returns at $10,000 or more spread over the classes from $10,000 to $200,000 in proportion to their
+    returns (the table prints them as one cell)."""
+    d = load_family(year)
+    if kind == "exemptions_3plus":
+        return [(-np.inf if r["lo"] is None else float(r["lo"]), r["three"] + r["four"] + r["five"] + r["six_plus"])
+                for r in d["a6_returns_by_regular_exemptions"]["classes"]]
+    if kind == "hoh":
+        src, col = d["a2_returns_by_status"], "hoh"
+    elif kind == "dependents":
+        src, col = d["a5_exemptions"], "dependents"
+    else:
+        raise KeyError(f"{kind!r} is not one of {FAMILY_KINDS}")
+    fine = [(float(r["lo"]), r[col]) for r in src["taxable"]]
+    spread = 0.0
+    for r in src["nontaxable"]:
+        if r["lo"] is not None and r["lo"] >= 10_000:
+            spread += r[col]
+        else:
+            fine.append((-np.inf if r["lo"] is None else 0.0, r[col]))
+    weights = {lo: n for lo, n in ((float(lo), n) for (lo, _), n in filer_targets(year).items()) if 10_000 <= lo < 200_000}
+    total_w = sum(weights.values())
+    fine += [(lo, spread * n / total_w) for lo, n in weights.items()]
+    return fine
+
+
+def family_targets(kind: str, edges, year: int = BASE_YEAR) -> dict[int, float]:
+    """A resident family measure rebinned into the classes that start at ``edges`` (the first edge ``-inf``, the last
+    class open): ``hoh`` returns (A-2, head of household and qualifying widow(er)), ``dependents`` exemptions (A-5,
+    qualified dependents) or ``exemptions_3plus`` returns with three or more regular exemptions (A-6). Class index
+    -> value. The edges must be Department class edges (multiples of $10,000 up to $50,000, then 75, 100, 150, 200, ...)."""
+    e = np.asarray(edges, dtype=float)
+    out = {i: 0.0 for i in range(len(e))}
+    for lo, v in _fine_family(kind, year):
+        out[int(np.searchsorted(e, lo, side="right") - 1)] += v
+    return out
+
+
 # ── Table 21 and the A-8 classes the capital-gains anchor ranks on ───────────
 CG_CLASSES = ("lt100", "100_150", "150_200", "200_300", "300_400", "400p")
 

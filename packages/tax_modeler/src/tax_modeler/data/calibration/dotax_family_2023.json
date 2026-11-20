@@ -1,0 +1,548 @@
+{
+ "source": {
+  "title": "Individual Income Tax Statistics, Tables A-2, A-5 and A-6 (resident returns by Hawaiʻi AGI class)",
+  "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research & Planning",
+  "url": "https://files.hawaii.gov/tax/stats/stats/indinc/2023indinc_tables.xlsx",
+  "file": "2023indinc_tables.xlsx",
+  "sha256": "8027aa98f143c4869ca08d39f5f5b4838d6afa060f548a13068299fad7d8c33c",
+  "note": "A-2 'Single' includes married filing separately; 'H/H' includes head of household and qualifying widow(er). Regular exemptions = self + spouse (joint return) + qualified dependents. A-6 excludes returns filed by dependents claimed by another taxpayer from its exemption columns (its 'returns' are all resident returns)."
+ },
+ "tax_year": 2023,
+ "a2_returns_by_status": {
+  "taxable": [
+   {
+    "class": "0 to under 10000",
+    "lo": 0.0,
+    "hi": 10000.0,
+    "joint": 808.0,
+    "single": 32925.0,
+    "hoh": 1631.0
+   },
+   {
+    "class": "10000 to under 20000",
+    "lo": 10000.0,
+    "hi": 20000.0,
+    "joint": 7163.0,
+    "single": 41766.0,
+    "hoh": 6758.0
+   },
+   {
+    "class": "20000 to under 30000",
+    "lo": 20000.0,
+    "hi": 30000.0,
+    "joint": 9273.0,
+    "single": 36441.0,
+    "hoh": 7594.0
+   },
+   {
+    "class": "30000 to under 40000",
+    "lo": 30000.0,
+    "hi": 40000.0,
+    "joint": 10430.0,
+    "single": 37447.0,
+    "hoh": 9336.0
+   },
+   {
+    "class": "40000 to under 50000",
+    "lo": 40000.0,
+    "hi": 50000.0,
+    "joint": 10612.0,
+    "single": 34178.0,
+    "hoh": 9288.0
+   },
+   {
+    "class": "50000 to under 75000",
+    "lo": 50000.0,
+    "hi": 75000.0,
+    "joint": 25244.0,
+    "single": 55734.0,
+    "hoh": 14697.0
+   },
+   {
+    "class": "75000 to under 100000",
+    "lo": 75000.0,
+    "hi": 100000.0,
+    "joint": 24325.0,
+    "single": 25846.0,
+    "hoh": 7336.0
+   },
+   {
+    "class": "100000 to under 150000",
+    "lo": 100000.0,
+    "hi": 150000.0,
+    "joint": 40672.0,
+    "single": 18967.0,
+    "hoh": 5731.0
+   },
+   {
+    "class": "150000 to under 200000",
+    "lo": 150000.0,
+    "hi": 200000.0,
+    "joint": 24019.0,
+    "single": 4857.0,
+    "hoh": 1375.0
+   },
+   {
+    "class": "200000 to under 300000",
+    "lo": 200000.0,
+    "hi": 300000.0,
+    "joint": 17818.0,
+    "single": 2820.0,
+    "hoh": 690.0
+   },
+   {
+    "class": "300000 to under 400000",
+    "lo": 300000.0,
+    "hi": 400000.0,
+    "joint": 5299.0,
+    "single": 1070.0,
+    "hoh": 227.0
+   },
+   {
+    "class": "400000 and over",
+    "lo": 400000.0,
+    "hi": null,
+    "joint": 7029.0,
+    "single": 1635.0,
+    "hoh": 253.0
+   }
+  ],
+  "nontaxable": [
+   {
+    "class": "Loss",
+    "lo": null,
+    "hi": 0.0,
+    "joint": 4892.0,
+    "single": 8148.0,
+    "hoh": 466.0
+   },
+   {
+    "class": "0 to under 5000",
+    "lo": 0.0,
+    "hi": 5000.0,
+    "joint": 14707.0,
+    "single": 47072.0,
+    "hoh": 2723.0
+   },
+   {
+    "class": "5000 to under 10000",
+    "lo": 5000.0,
+    "hi": 10000.0,
+    "joint": 5415.0,
+    "single": 4413.0,
+    "hoh": 753.0
+   },
+   {
+    "class": "10000 and over",
+    "lo": 10000.0,
+    "hi": null,
+    "joint": 8701.0,
+    "single": 5372.0,
+    "hoh": 675.0
+   }
+  ],
+  "totals": {
+   "taxable": {
+    "joint": 182692.0,
+    "single": 293686.0,
+    "hoh": 64916.0
+   },
+   "nontaxable": {
+    "joint": 33715.0,
+    "single": 65005.0,
+    "hoh": 4617.0
+   },
+   "resident": {
+    "joint": 216407.0,
+    "single": 358691.0,
+    "hoh": 69533.0
+   }
+  }
+ },
+ "a5_exemptions": {
+  "taxable": [
+   {
+    "class": "0 to under 10000",
+    "lo": 0.0,
+    "hi": 10000.0,
+    "returns": 35364.0,
+    "regular": 26702.0,
+    "dependents": 3553.0,
+    "age": 5643.0,
+    "total": 32352.0
+   },
+   {
+    "class": "10000 to under 20000",
+    "lo": 10000.0,
+    "hi": 20000.0,
+    "returns": 55687.0,
+    "regular": 74334.0,
+    "dependents": 18744.0,
+    "age": 15967.0,
+    "total": 90487.0
+   },
+   {
+    "class": "20000 to under 30000",
+    "lo": 20000.0,
+    "hi": 30000.0,
+    "returns": 53308.0,
+    "regular": 81842.0,
+    "dependents": 21798.0,
+    "age": 16015.0,
+    "total": 98090.0
+   },
+   {
+    "class": "30000 to under 40000",
+    "lo": 30000.0,
+    "hi": 40000.0,
+    "returns": 57213.0,
+    "regular": 92513.0,
+    "dependents": 25892.0,
+    "age": 14355.0,
+    "total": 107121.0
+   },
+   {
+    "class": "40000 to under 50000",
+    "lo": 40000.0,
+    "hi": 50000.0,
+    "returns": 54078.0,
+    "regular": 89563.0,
+    "dependents": 25389.0,
+    "age": 12324.0,
+    "total": 102128.0
+   },
+   {
+    "class": "50000 to under 75000",
+    "lo": 50000.0,
+    "hi": 75000.0,
+    "returns": 95675.0,
+    "regular": 165823.0,
+    "dependents": 45422.0,
+    "age": 22055.0,
+    "total": 188285.0
+   },
+   {
+    "class": "75000 to under 100000",
+    "lo": 75000.0,
+    "hi": 100000.0,
+    "returns": 57507.0,
+    "regular": 115037.0,
+    "dependents": 33428.0,
+    "age": 13538.0,
+    "total": 128819.0
+   },
+   {
+    "class": "100000 to under 150000",
+    "lo": 100000.0,
+    "hi": 150000.0,
+    "returns": 65370.0,
+    "regular": 155333.0,
+    "dependents": 49482.0,
+    "age": 14228.0,
+    "total": 169785.0
+   },
+   {
+    "class": "150000 to under 200000",
+    "lo": 150000.0,
+    "hi": 200000.0,
+    "returns": 30251.0,
+    "regular": 82468.0,
+    "dependents": 28298.0,
+    "age": 6689.0,
+    "total": 89246.0
+   },
+   {
+    "class": "200000 to under 300000",
+    "lo": 200000.0,
+    "hi": 300000.0,
+    "returns": 21328.0,
+    "regular": 59605.0,
+    "dependents": 20520.0,
+    "age": 5561.0,
+    "total": 65230.0
+   },
+   {
+    "class": "300000 to under 400000",
+    "lo": 300000.0,
+    "hi": 400000.0,
+    "returns": 6596.0,
+    "regular": 17658.0,
+    "dependents": 5782.0,
+    "age": 2232.0,
+    "total": 19905.0
+   },
+   {
+    "class": "400000 and over",
+    "lo": 400000.0,
+    "hi": null,
+    "returns": 8917.0,
+    "regular": 23054.0,
+    "dependents": 7155.0,
+    "age": 4074.0,
+    "total": 27172.0
+   }
+  ],
+  "nontaxable": [
+   {
+    "class": "Loss",
+    "lo": null,
+    "hi": 0.0,
+    "returns": 13506.0,
+    "regular": 20091.0,
+    "dependents": 2106.0,
+    "age": 11183.0,
+    "total": 31421.0
+   },
+   {
+    "class": "0 to under 5000",
+    "lo": 0.0,
+    "hi": 5000.0,
+    "returns": 64502.0,
+    "regular": 82545.0,
+    "dependents": 6961.0,
+    "age": 55874.0,
+    "total": 139149.0
+   },
+   {
+    "class": "5000 to under 10000",
+    "lo": 5000.0,
+    "hi": 10000.0,
+    "returns": 10581.0,
+    "regular": 18747.0,
+    "dependents": 3010.0,
+    "age": 12357.0,
+    "total": 31357.0
+   },
+   {
+    "class": "10000 and over",
+    "lo": 10000.0,
+    "hi": null,
+    "returns": 14748.0,
+    "regular": 26551.0,
+    "dependents": 3592.0,
+    "age": 17284.0,
+    "total": 44316.0
+   }
+  ],
+  "totals": {
+   "taxable": {
+    "returns": 541294.0,
+    "regular": 983932.0,
+    "dependents": 285463.0,
+    "age": 132681.0,
+    "total": 1118620.0
+   },
+   "nontaxable": {
+    "returns": 103337.0,
+    "regular": 147934.0,
+    "dependents": 15669.0,
+    "age": 96698.0,
+    "total": 246243.0
+   },
+   "resident": {
+    "returns": 644631.0,
+    "regular": 1131866.0,
+    "dependents": 301132.0,
+    "age": 229379.0,
+    "total": 1364863.0
+   }
+  }
+ },
+ "a6_returns_by_regular_exemptions": {
+  "classes": [
+   {
+    "class": "Loss",
+    "lo": null,
+    "hi": 0.0,
+    "returns": 13506.0,
+    "one": 7796.0,
+    "two": 4426.0,
+    "three": 486.0,
+    "four": 284.0,
+    "five": 95.0,
+    "six_plus": 59.0,
+    "age_one": 5361.0,
+    "age_two": 2911.0
+   },
+   {
+    "class": "0 to under 10000",
+    "lo": 0.0,
+    "hi": 10000.0,
+    "returns": 110447.0,
+    "one": 66518.0,
+    "two": 23090.0,
+    "three": 2670.0,
+    "four": 991.0,
+    "five": 376.0,
+    "six_plus": 218.0,
+    "age_one": 42894.0,
+    "age_two": 15490.0
+   },
+   {
+    "class": "10000 to under 20000",
+    "lo": 10000.0,
+    "hi": 20000.0,
+    "returns": 63776.0,
+    "one": 35320.0,
+    "two": 14415.0,
+    "three": 3804.0,
+    "four": 1852.0,
+    "five": 672.0,
+    "six_plus": 335.0,
+    "age_one": 12695.0,
+    "age_two": 6713.0
+   },
+   {
+    "class": "20000 to under 30000",
+    "lo": 20000.0,
+    "hi": 30000.0,
+    "returns": 56358.0,
+    "one": 33212.0,
+    "two": 13050.0,
+    "three": 4148.0,
+    "four": 2127.0,
+    "five": 819.0,
+    "six_plus": 463.0,
+    "age_one": 9116.0,
+    "age_two": 5315.0
+   },
+   {
+    "class": "30000 to under 40000",
+    "lo": 30000.0,
+    "hi": 40000.0,
+    "returns": 58625.0,
+    "one": 35584.0,
+    "two": 13246.0,
+    "three": 4663.0,
+    "four": 2586.0,
+    "five": 1039.0,
+    "six_plus": 543.0,
+    "age_one": 7236.0,
+    "age_two": 4327.0
+   },
+   {
+    "class": "40000 to under 50000",
+    "lo": 40000.0,
+    "hi": 50000.0,
+    "returns": 54823.0,
+    "one": 33219.0,
+    "two": 12588.0,
+    "three": 4429.0,
+    "four": 2455.0,
+    "five": 1083.0,
+    "six_plus": 613.0,
+    "age_one": 6108.0,
+    "age_two": 3466.0
+   },
+   {
+    "class": "50000 to under 75000",
+    "lo": 50000.0,
+    "hi": 75000.0,
+    "returns": 96433.0,
+    "one": 54789.0,
+    "two": 24758.0,
+    "three": 8283.0,
+    "four": 4859.0,
+    "five": 2147.0,
+    "six_plus": 1218.0,
+    "age_one": 10185.0,
+    "age_two": 6253.0
+   },
+   {
+    "class": "75000 to under 100000",
+    "lo": 75000.0,
+    "hi": 100000.0,
+    "returns": 57836.0,
+    "one": 25619.0,
+    "two": 17973.0,
+    "three": 6750.0,
+    "four": 4472.0,
+    "five": 1900.0,
+    "six_plus": 995.0,
+    "age_one": 5935.0,
+    "age_two": 3926.0
+   },
+   {
+    "class": "100000 to under 150000",
+    "lo": 100000.0,
+    "hi": 150000.0,
+    "returns": 65585.0,
+    "one": 18853.0,
+    "two": 23089.0,
+    "three": 10288.0,
+    "four": 8559.0,
+    "five": 3278.0,
+    "six_plus": 1441.0,
+    "age_one": 5998.0,
+    "age_two": 4198.0
+   },
+   {
+    "class": "150000 to under 200000",
+    "lo": 150000.0,
+    "hi": 200000.0,
+    "returns": 30326.0,
+    "one": 4844.0,
+    "two": 10967.0,
+    "three": 5811.0,
+    "four": 5917.0,
+    "five": 1995.0,
+    "six_plus": 757.0,
+    "age_one": 2768.0,
+    "age_two": 1985.0
+   },
+   {
+    "class": "200000 to under 300000",
+    "lo": 200000.0,
+    "hi": 300000.0,
+    "returns": 21375.0,
+    "one": 2806.0,
+    "two": 7799.0,
+    "three": 4136.0,
+    "four": 4748.0,
+    "five": 1401.0,
+    "six_plus": 461.0,
+    "age_one": 2110.0,
+    "age_two": 1742.0
+   },
+   {
+    "class": "300000 to under 400000",
+    "lo": 300000.0,
+    "hi": 400000.0,
+    "returns": 6607.0,
+    "one": 1075.0,
+    "two": 2488.0,
+    "three": 1164.0,
+    "four": 1374.0,
+    "five": 381.0,
+    "six_plus": 115.0,
+    "age_one": 844.0,
+    "age_two": 696.0
+   },
+   {
+    "class": "400000 and over",
+    "lo": 400000.0,
+    "hi": null,
+    "returns": 8934.0,
+    "one": 1627.0,
+    "two": 3595.0,
+    "three": 1315.0,
+    "four": 1720.0,
+    "five": 522.0,
+    "six_plus": 133.0,
+    "age_one": 1423.0,
+    "age_two": 1331.0
+   }
+  ],
+  "total": {
+   "returns": 644631.0,
+   "one": 321262.0,
+   "two": 171484.0,
+   "three": 57947.0,
+   "four": 41944.0,
+   "five": 15708.0,
+   "six_plus": 7351.0,
+   "age_one": 112673.0,
+   "age_two": 58353.0
+  }
+ }
+}
