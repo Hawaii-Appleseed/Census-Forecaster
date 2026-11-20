@@ -180,15 +180,18 @@ export function credits(fe, agi, fs, deps, taxBefore) {
     const claimRate = 0.02;
     reec = agi < 100000 ? claimRate * 1500 : agi < 200000 ? claimRate * 2500 : claimRate * 3500;
   }
-  // dependent care, current law (nonrefundable)
+  // dependent care, current law (refundable; credits.hi_cdcc.cdcc_credit): the applicable
+  // percentage of the assumed expenses, up to the limit in force in the credit year
   let cdcc = 0;
-  if (deps !== 0 && !(agi > 100000)) {
-    const cap = deps === 1 ? 3000 : 6000;
-    let pct;
-    if (agi <= 25000) pct = 0.25;
-    else if (agi <= 43000) pct = 0.25 - 0.05 * (agi - 25000) / 18000;
-    else pct = 0.20;
-    cdcc = Math.min(12000 * deps, cap) * pct;
+  if (deps !== 0) {
+    const c = fe.cdcc;
+    let pct = c.percent_above;
+    for (const [ceiling, rate] of c.percent) {
+      if (agi <= ceiling) { pct = rate; break; }
+    }
+    const cap = deps >= 2 ? c.caps[1] : c.caps[0];
+    cdcc = pct * Math.min(c.expense_per_dependent * deps, cap);
+    if (cdcc < 1) cdcc = 0;
   }
   // low-income renters (expected value, refundable)
   const threshold = fs === MFJ ? 40000 : fs === HOH ? 35000 : fs === 3 ? 20000 : 30000;
@@ -197,8 +200,8 @@ export function credits(fe, agi, fs, deps, taxBefore) {
     const share = 0.30;
     renters = agi < 15000 ? share * 150 : agi < 25000 ? share * 100 : share * 50;
   }
-  const refundable = food + renters;
-  let nonref = reec + cdcc;
+  const refundable = food + renters + cdcc;
+  let nonref = reec;
   nonref = Math.min(nonref, taxBefore);
   return refundable + nonref;
 }

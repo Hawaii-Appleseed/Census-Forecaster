@@ -3,7 +3,7 @@
 A system is what the kernel needs to tax one unit: per filing status the
 bracket schedule ``[[floor, rate %], ...]`` and standard deduction, the
 personal exemption, the tax year whose credit law applies
-(``HawaiiTaxCredits(year=...)``: the food/excise table changes after TY2027),
+(``HawaiiTaxCredits(year=...)``: the food/excise table and the care credit's limits change after TY2027),
 and ``capital_gains_rate``: the HRS §235-51(f) alternative tax rate in
 percent, or ``"ordinary"`` for none (``tax_modeler.liability.cg_alternative``).
 """
@@ -39,13 +39,22 @@ def system_to_json(config: TaxSystemConfig, calc: TaxCalculator | None = None) -
 
 
 def food_excise_tables(years) -> dict:
-    """Statutory food/excise credit schedules by tax year
-    (``credits.hi_food_excise``): single and joint tables, amount factor."""
+    """Statutory credit schedules by tax year, for the kernel: the food/excise credit
+    (``credits.hi_food_excise``: single and joint tables, amount factor) and the care credit
+    (``credits.hi_cdcc``, key ``cdcc``: the expense limits in force that year, the
+    applicable-percentage schedule, and the expenses assumed per dependent, as
+    ``HawaiiTaxCredits`` assumes them)."""
+    from tax_modeler.adjustments.hawaii_credits import ASSUMED_CARE_EXPENSE_PER_DEPENDENT
+    from tax_modeler.credits import hi_cdcc
     from tax_modeler.credits.hi_food_excise import hawaii_food_excise_parameters
 
     out = {}
     for y in years:
         p = hawaii_food_excise_parameters(y)
         out[str(y)] = {"single": [list(r) for r in p.single], "joint": [list(r) for r in p.joint],
-                       "amount_pct": p.amount_pct, "income_threshold_factor": p.income_threshold_factor}
+                       "amount_pct": p.amount_pct, "income_threshold_factor": p.income_threshold_factor,
+                       "cdcc": {"caps": [float(c) for c in hi_cdcc.caps_for_year(y)],
+                                "percent": [[float(c), float(r)] for c, r in hi_cdcc.PERCENT_SCHEDULE],
+                                "percent_above": float(hi_cdcc.PERCENT_ABOVE),
+                                "expense_per_dependent": float(ASSUMED_CARE_EXPENSE_PER_DEPENDENT)}}
     return out

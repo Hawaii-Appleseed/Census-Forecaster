@@ -16,6 +16,12 @@ import math
 import numpy as np
 import pandas as pd
 
+#: PUMS has no childcare spending, so the current-law credit assumes every filer with a dependent
+#: pays this much per dependent (Hawaii average, about $12,000 a year), capped by the statute's
+#: dollar limit. A simplification of this module, not of §235-55.6; the working-family step
+#: (``credits/hi_cdcc.py``) draws expenses from CPS ASEC donors instead.
+ASSUMED_CARE_EXPENSE_PER_DEPENDENT = 12_000.0
+
 
 class HawaiiTaxCredits:
     """
@@ -73,8 +79,12 @@ class HawaiiTaxCredits:
         """
         Hawaii Child and Dependent Care Tax Credit (HRS 235-55.6).
 
-        Current law: expense caps $3k/$6k, 25% down to 20%, non-refundable,
-                     phases out above $43k AGI.
+        Current law (the statute, via ``credits.hi_cdcc``): refundable; applicable
+                     percentage 25% to $25,000 of AGI, one point less per further
+                     $5,000 (20% at $45,000-$50,000), 15% above $50,000, no
+                     phase-out; expense limits $10,000 / $20,000 for TY2023-2027
+                     (Act 163, SLH 2023, §1) and $2,400 / $4,800 from TY2028 (§5
+                     repeals and reenacts subsection (c)), by ``self.year``.
         HB2306 HD1 enhanced: expense caps $10k/$20k, 50% down to 5%, refundable,
                      wider AGI schedule ($80k-$160k phase-down).
         SB3125 SD1 enhanced: expense caps $10k/$20k, formula-based (35% at $43k,
@@ -83,8 +93,9 @@ class HawaiiTaxCredits:
                      Assumed: 35% starting at $43,000 AGI.
 
         Note: PUMS has no childcare expense data. We estimate expenses using
-        Hawaii avg childcare cost (~$12k/yr/child). Most filers with qualifying
-        dependents will hit the expense cap.
+        Hawaii avg childcare cost (~$12k/yr/child), so every filer with a dependent
+        is taken to hit the expense limit (see ASSUMED_CARE_EXPENSE_PER_DEPENDENT).
+        Dependents are not restricted to those under 13.
         """
         if num_dependents == 0:
             return 0
@@ -125,21 +136,14 @@ class HawaiiTaxCredits:
             pct = max(0.15, starting_pct - 0.01 * steps)
 
         else:
-            # Current law parameters
-            expense_cap = 3_000 if num_dependents == 1 else 6_000
+            # Current law: the statute's schedule and the limits in force in self.year
+            # (credits/hi_cdcc.py: one copy of the schedule, shared with the working-family step).
+            from tax_modeler.credits import hi_cdcc
 
-            # Current law percentage schedule (HRS 235-55.6 pre-amendment)
-            if agi <= 25_000:
-                pct = 0.25
-            elif agi <= 43_000:
-                # Linear decrease from 25% to 20% over $25k-$43k
-                pct = 0.25 - 0.05 * (agi - 25_000) / 18_000
-            else:
-                pct = 0.20
-
-            # Current law phases out entirely above $100k
-            if agi > 100_000:
-                return 0
+            credit = hi_cdcc.cdcc_credit(
+                agi, num_dependents, ASSUMED_CARE_EXPENSE_PER_DEPENDENT * num_dependents,
+                np.inf, hi_cdcc.caps_for_year(self.year))
+            return float(credit)
 
         # Estimated qualifying expenses (Hawaii avg ~$12k/yr/child)
         estimated_expenses = min(12_000 * num_dependents, expense_cap)
@@ -189,13 +193,11 @@ class HawaiiTaxCredits:
             filing_status: Filing status
             num_dependents: Number of dependents
             tax_before_credits: Tax liability before credits
-            credit_scenario: If 'hb2306_hd1', use enhanced CDCC (refundable)
+            credit_scenario: If 'hb2306_hd1' or 'sb3125_sd1', use that bill's CDCC
 
         Returns:
             Dictionary with individual credits and totals
         """
-        enhanced_cdcc = credit_scenario in ('hb2306_hd1', 'sb3125_sd1')
-
         credits = {
             'food_excise': self.food_excise_tax_credit(agi, filing_status, num_dependents),
             'renewable_energy': self.renewable_energy_credit(agi, filing_status),
@@ -204,14 +206,10 @@ class HawaiiTaxCredits:
             'renters': self.low_income_renters_credit(agi, filing_status),
         }
 
-        # Separate refundable and non-refundable
-        # Under HB2306 HD1 and SB3125 SD1, CDCC becomes refundable
-        if enhanced_cdcc:
-            refundable_credits = credits['food_excise'] + credits['renters'] + credits['child_care']
-            nonrefundable_credits = credits['renewable_energy']
-        else:
-            refundable_credits = credits['food_excise'] + credits['renters']
-            nonrefundable_credits = credits['renewable_energy'] + credits['child_care']
+        # Separate refundable and non-refundable. The care credit is refundable under
+        # §235-55.6(a)(1) in current law and in both bills.
+        refundable_credits = credits['food_excise'] + credits['renters'] + credits['child_care']
+        nonrefundable_credits = credits['renewable_energy']
 
         # Non-refundable credits limited to tax liability
         nonrefundable_credits = min(nonrefundable_credits, tax_before_credits)
@@ -280,12 +278,17 @@ class HawaiiTaxCredits:
             pct = _pymax(0.15, 0.35 - 0.01 * steps)
             phased_out = np.zeros(len(agi), dtype=bool)
         else:
-            cap = np.where(deps == 1, 3_000, 6_000)
-            pct = np.where(agi <= 25_000, 0.25,
-                           np.where(agi <= 43_000, 0.25 - 0.05 * (agi - 25_000) / 18_000, 0.20))
-            phased_out = agi > 100_000
-        expenses = _pymin(12_000 * deps, cap)
-        child_care = np.where((deps == 0) | phased_out, 0.0, expenses * pct)
+            from tax_modeler.credits import hi_cdcc
+
+            # Current law: hi_cdcc's schedule and the limits in force in self.year,
+            # the same function the scalar method calls.
+            cc = hi_cdcc.cdcc_credit(
+                agi, deps, ASSUMED_CARE_EXPENSE_PER_DEPENDENT * deps, np.inf,
+                hi_cdcc.caps_for_year(self.year))
+            child_care = np.where(deps == 0, 0.0, cc)
+        if credit_scenario in ('hb2306_hd1', 'sb3125_sd1'):
+            expenses = _pymin(12_000 * deps, cap)
+            child_care = np.where((deps == 0) | phased_out, 0.0, expenses * pct)
 
         # Low-income renters
         threshold = np.full(len(agi), 30000.0)
@@ -296,13 +299,8 @@ class HawaiiTaxCredits:
                            np.where(agi < 15000, 0.30 * 150,
                                     np.where(agi < 25000, 0.30 * 100, 0.30 * 50)))
 
-        if credit_scenario in ('hb2306_hd1', 'sb3125_sd1'):
-            refundable = food + renters + child_care
-            nonrefundable = renewable
-        else:
-            refundable = food + renters
-            nonrefundable = renewable + child_care
-        nonrefundable = _pymin(nonrefundable, tax)
+        refundable = food + renters + child_care
+        nonrefundable = _pymin(renewable, tax)
         return refundable + nonrefundable, child_care
 
 
@@ -335,7 +333,8 @@ def apply_credits_to_dataframe(df: pd.DataFrame,
                                filing_status_col: str = 'filing_status',
                                dependents_col: str = 'num_dependents',
                                tax_col: str = 'tax_liability',
-                               credit_scenario: str | None = None) -> pd.DataFrame:
+                               credit_scenario: str | None = None,
+                               year: int = 2024) -> pd.DataFrame:
     """
     Apply Hawaii tax credits to a DataFrame of tax units.
 
@@ -346,12 +345,13 @@ def apply_credits_to_dataframe(df: pd.DataFrame,
         dependents_col: Name of dependents column
         tax_col: Name of tax liability column
         credit_scenario: If 'hb2306_hd1', use enhanced CDCC
+        year: Tax year, which selects the food/excise table and the care credit's limits
 
     Returns:
         DataFrame with added credit columns
     """
     result_df = df.copy()
-    calculator = HawaiiTaxCredits()
+    calculator = HawaiiTaxCredits(year)
 
     credits_list = []
     for _, row in df.iterrows():

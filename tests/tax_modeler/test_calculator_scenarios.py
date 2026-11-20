@@ -125,21 +125,39 @@ class TestCDCC:
             result = calc.calculate_total_credits(80_000, "single", 0, 5_000, cs)
             assert result["child_care"] == 0.0, f"Expected 0 for {cs}, got {result['child_care']}"
 
-    def test_act46_cdcc_hoh_50k_2kids(self, credits_2025):
-        """Act 46 CDCC for HoH $50k, 2 kids: expense cap $6k × ~21% ≈ $1,250."""
+    def test_current_law_cdcc_hoh_50k_2kids(self, credits_2025):
+        """HRS §235-55.6, TY2025 (Act 163 limits): AGI $50,000 is "not over $50,000", so 20%;
+        $24,000 of assumed expenses against the $20,000 limit for two or more: $4,000."""
         result = credits_2025.calculate_total_credits(50_000, "head_of_household", 2, 3_000, None)
-        # pct ≈ 20% (above $43k), expenses = min($24k, $6k) = $6k → $1,200
-        assert result["child_care"] == pytest.approx(1_200, abs=50)
+        assert result["child_care"] == pytest.approx(4_000)
 
-    def test_act46_cdcc_nonrefundable(self, credits_2025):
-        """Act 46 CDCC is non-refundable — capped at tax_before_credits."""
+    def test_current_law_cdcc_is_refundable(self, credits_2025):
+        """§235-55.6(a)(1): the excess over tax is refunded, so the credit is paid with almost no tax."""
         result = credits_2025.calculate_total_credits(40_000, "head_of_household", 2, 100, None)
-        assert result["total_nonrefundable"] <= 100
+        assert result["child_care"] > 0
+        assert result["total_refundable"] >= result["child_care"]
+        assert result["total_nonrefundable"] <= 100          # only the renewable energy credit is capped by tax
 
-    def test_act46_cdcc_phases_out_above_100k(self, credits_2025):
-        """Act 46 CDCC phases out entirely above $100k AGI."""
-        result = credits_2025.calculate_total_credits(150_000, "single", 1, 5_000, None)
-        assert result["child_care"] == 0.0
+    def test_current_law_cdcc_has_no_phase_out(self, credits_2025):
+        """Above $50,000 the percentage stays at 15%: $10,000 limit for one dependent."""
+        for agi in (60_000, 150_000, 400_000):
+            result = credits_2025.calculate_total_credits(agi, "single", 1, 5_000, None)
+            assert result["child_care"] == pytest.approx(1_500)
+
+    @pytest.mark.parametrize("agi,pct", [(25_000, 0.25), (25_001, 0.24), (30_000, 0.24), (45_000, 0.21),
+                                         (45_001, 0.20), (50_000, 0.20), (50_001, 0.15)])
+    def test_current_law_cdcc_percentage_schedule(self, credits_2025, agi, pct):
+        result = credits_2025.calculate_total_credits(agi, "single", 1, 5_000, None)
+        assert result["child_care"] == pytest.approx(pct * 10_000)
+
+    @pytest.mark.parametrize("year,cap1,cap2", [(2022, 2_400, 4_800), (2023, 10_000, 20_000),
+                                                (2027, 10_000, 20_000), (2028, 2_400, 4_800),
+                                                (2031, 2_400, 4_800)])
+    def test_current_law_cdcc_limits_follow_the_tax_year(self, year, cap1, cap2):
+        """Act 163 §1 raised the limits for TY2023-2027; §5 repeals and reenacts subsection (c) after 2027."""
+        calc = HawaiiTaxCredits(year)
+        assert calc.calculate_total_credits(20_000, "single", 1, 5_000, None)["child_care"] == pytest.approx(0.25 * cap1)
+        assert calc.calculate_total_credits(20_000, "head_of_household", 3, 5_000, None)["child_care"] == pytest.approx(0.25 * cap2)
 
     def test_hb2306_cdcc_hoh_50k_2kids(self, credits_2027):
         """HB 2306 CDCC for HoH $50k, 2 kids: $20k × 50% = $10,000."""
