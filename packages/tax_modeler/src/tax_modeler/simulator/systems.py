@@ -43,14 +43,17 @@ def food_excise_tables(years) -> dict:
     (``credits.hi_food_excise``: single and joint tables, amount factor) and the care credit
     (``credits.hi_cdcc``, key ``cdcc``): the expense limits in force that year, the
     applicable-percentage schedule, and the CPS ASEC donor spending (``donors``, keyed by one child or
-    two or more: the amounts and their weights, in the order the expected expense sums them), which a
-    household calculator turns into the expected expenses the credit counts. The population carries
-    each unit's expected expense already (``care_exp_<year>``)."""
+    two or more: the amounts and their weights, which sum to one, in the order the expected expense sums them),
+    which a household calculator turns into the expected expenses of a family that pays, and the probability that a
+    family pays by AGI class (``pay``: ``edges`` and ``rates``, ``hi_cdcc.pay_probability``). The population carries
+    each unit's expected expense if it pays already (``care_exp_<year>``)."""
     from tax_modeler.credits import hi_cdcc
     from tax_modeler.credits.hi_food_excise import hawaii_food_excise_parameters
 
     donors = {str(b): {"x": [float(v) for v in x], "p": [float(v) for v in p]}
               for b, (x, p) in hi_cdcc.default_donors().items()}
+    pay = hi_cdcc.pay_rates()
+    pay = {"edges": [float(e) for e in pay["edges"]], "rates": [float(r) for r in pay["rates"]]}
     out = {}
     for y in years:
         p = hawaii_food_excise_parameters(y)
@@ -59,5 +62,5 @@ def food_excise_tables(years) -> dict:
                        "cdcc": {"caps": [float(c) for c in hi_cdcc.caps_for_year(y)],
                                 "percent": [[float(c), float(r)] for c, r in hi_cdcc.PERCENT_SCHEDULE],
                                 "percent_above": float(hi_cdcc.PERCENT_ABOVE),
-                                "donors": donors}}
+                                "donors": donors, "pay": pay}}
     return out

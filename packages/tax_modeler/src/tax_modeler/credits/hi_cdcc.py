@@ -42,6 +42,8 @@ AGI is federal adjusted gross income, as on the N-11.
 from __future__ import annotations
 
 import functools
+import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -59,6 +61,12 @@ PERCENT_SCHEDULE: tuple[tuple[float, float], ...] = (
     (40_000.0, 0.22), (45_000.0, 0.21), (50_000.0, 0.20),
 )
 PERCENT_ABOVE = 0.15
+
+#: Pooled Hawaii CPS ASEC donor families (scripts/pool_cps_care_donors.py) and the probability that a family with a
+#: child under 13 pays for care, by AGI class (scripts/build_care_pay_rates.py).
+_DATA = Path(__file__).resolve().parents[1] / "data" / "cps_donor"
+DONOR_FAMILIES_PATH = _DATA / "cps_asec_hawaii_care_families.parquet"
+PAY_RATES_PATH = _DATA / "care_pay_rates.json"
 
 ACT163_FIRST_YEAR = 2023
 ACT163_LAST_YEAR = 2027            # (c) repealed and reenacted on December 31, 2027
@@ -131,54 +139,59 @@ def earned_income_limit(units: pd.DataFrame) -> np.ndarray:
     return lower_earner_income(units)
 
 
-def donor_expense_distribution(donor_path=None) -> dict[int, tuple[np.ndarray, np.ndarray]]:
-    """CPS ASEC Hawaii donors' work-related childcare expense, by number of children under 13.
+@functools.cache
+def pay_rates() -> dict:
+    """``care_pay_rates.json``: ``edges`` (AGI, ascending) and ``rates`` (one more than edges): the probability that a
+    family with a child under 13 pays for care, by AGI class (see :func:`pay_probability`)."""
+    return json.loads(PAY_RATES_PATH.read_text(encoding="utf-8"))
 
-    Returns ``{1: (x, p), 2: (x, p)}`` (2 meaning two or more): the dollar amounts ``x`` of
-    the donor families that paid anything, and ``p`` each family's weight as a share of ALL
-    donor families in the bin, so ``p.sum()`` is the share who pay (the rest pay nothing).
-    Donors are the SPM families with a child under 13, counted from the person records,
-    because every donor that pays has one: 33 of 33 paying families in the 288 with a
-    child under 18, and the share paying among them is 15.1% (11.5% of all families with
-    a child). The Hawaii sample is small, so the bins are one child and two or more, the
-    cap's own break, and income is not a bin: the earned-income limit and the credit's
-    percentage carry the income gradient.
+
+def pay_probability(agi) -> np.ndarray:
+    """Probability that a family with a child under 13 pays for work-related care, by AGI.
+
+    Below $50,000 the pooled CPS ASEC Hawaii donors' rate for families with household income under $50,000. From
+    $50,000 up, the rate that makes the model's federal credit claims match IRS SOI Table 2's child and dependent
+    care credit returns for Hawaii in each class (scaled to the resident universe as the family margins are,
+    ``scripts/build_care_pay_rates.py``); the same rate is used for the Hawaii credit, which has the same payers. Applied
+    to the Hawaii AGI in the state credit and to federal AGI in the federal check (the two differ by under 2% on average).
     """
-    from tax_modeler.benefits.childcare_expense import _DEFAULT_DONOR_PATH
+    r = pay_rates()
+    a = np.nan_to_num(np.asarray(agi, dtype=float), nan=0.0)
+    return np.asarray(r["rates"], dtype=float)[np.searchsorted(np.asarray(r["edges"], dtype=float), a, side="right")]
 
-    raw = pd.read_parquet(donor_path or _DEFAULT_DONOR_PATH)
-    g = raw.groupby("PH_SEQ")
-    fam = pd.DataFrame({
-        "x": g["childcare_expense"].first(), "w": g["weight"].first(),
-        "n13": g["age"].apply(lambda a: int((a < 13).sum())),
-    })
-    fam = fam[fam["n13"] > 0]
+
+def donor_expense_distribution(donor_path=None) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Pooled CPS ASEC Hawaii donors' work-related childcare expense, by number of children under 13, conditional on paying.
+
+    Returns ``{1: (x, p), 2: (x, p)}`` (2 meaning two or more): the dollar amounts ``x`` (calendar-2023 dollars) of
+    the donor families with a child under 13 that paid anything, and ``p`` their weights as shares of the paying
+    families in the bin, so ``p.sum()`` is one. Whether a family pays is a separate question
+    (:func:`pay_probability`, by AGI); this is how much it spends if it does. Donors are the households with a
+    child under 13 in ASEC 2022-2025 (calendar 2021-2024; ``scripts/pool_cps_care_donors.py``), each year weighted
+    equally. The Hawaii sample is small, so the bins are one child and two or more, the cap's own break, and
+    income is not a bin: the earned-income limit and the credit's percentage carry the income gradient.
+    """
+    fam = pd.read_parquet(donor_path or DONOR_FAMILIES_PATH)
     out = {}
     for b, sel in ((1, fam["n13"] == 1), (2, fam["n13"] >= 2)):
-        d = fam[sel]
-        share = d["w"].to_numpy(dtype=float) / d["w"].sum()
-        pays = d["x"].to_numpy(dtype=float) > 0
-        out[b] = (d["x"].to_numpy(dtype=float)[pays], share[pays])
+        d = fam[sel & (fam["expense"] > 0)]
+        out[b] = (d["expense"].to_numpy(dtype=float), d["weight"].to_numpy(dtype=float) / d["weight"].sum())
     return out
 
 
 @functools.cache
 def default_donors() -> dict[int, tuple[np.ndarray, np.ndarray]]:
-    """:func:`donor_expense_distribution` from the CPS ASEC file in the package, read once."""
+    """:func:`donor_expense_distribution` from the pooled file in the package, read once."""
     return donor_expense_distribution()
 
 
-def expected_capped_expense(n_children, earned_limit, caps: Caps, donors=None) -> np.ndarray:
-    """Expected employment-related expenses the credit counts, per unit: the donor families'
-    mean of ``min(spending, dollar limit, earned income limit)``.
+def conditional_capped_expense(n_children, earned_limit, caps: Caps, donors=None) -> np.ndarray:
+    """Expected employment-related expenses the credit counts for a family that pays, per unit: the donor families'
+    mean of ``min(spending, dollar limit, earned income limit)`` over those that paid.
 
     ``n_children``: children under 13 (qualifying individuals); 1 uses the one-child donors, 2 or more
     the two-or-more donors, 0 gives 0. ``earned_limit``: subsection (d)(1)'s limit (the lower earner's
-    earnings; ``np.inf`` for none). The credit is then ``applicable_percentage(agi)`` times this: the
-    scoring path's care credit for current law and for both bills, which differ in ``caps`` and
-    percentage schedule only. The statute's $1 floor applies to a single claim and is ignored in
-    the expectation (a sub-dollar effect). The donors' amounts are summed in file order, which the
-    simulator kernel repeats.
+    earnings; ``np.inf`` for none). The donors' amounts are summed in file order, which the simulator kernel repeats.
     """
     dist = donors if donors is not None else default_donors()
     n = np.asarray(n_children)
@@ -192,6 +205,18 @@ def expected_capped_expense(n_children, earned_limit, caps: Caps, donors=None) -
         for xj, pj in zip(x, p, strict=True):
             out[idx] += pj * np.minimum(np.minimum(xj, cap[idx]), earn[idx])
     return out
+
+
+def expected_capped_expense(n_children, earned_limit, caps: Caps, donors=None, agi=None) -> np.ndarray:
+    """Expected expenses the credit counts, per unit: :func:`pay_probability` at ``agi`` times
+    :func:`conditional_capped_expense`. The credit is then ``applicable_percentage(agi)`` times this: the scoring path's
+    care credit for current law and for both bills, which differ in ``caps`` and percentage schedule only. The
+    statute's $1 floor applies to a single claim and is ignored in the expectation (a sub-dollar effect).
+    ``agi=None`` (no income known) uses the rate for families under $50,000.
+    """
+    n = np.asarray(n_children)
+    pay = pay_probability(np.zeros(n.shape) if agi is None else np.broadcast_to(np.asarray(agi, dtype=float), n.shape))
+    return pay * conditional_capped_expense(n_children, earned_limit, caps, donors)
 
 
 def compute_hi_cdcc_expected(units: pd.DataFrame, *, expanded: Caps = ACT163_CAPS,
@@ -214,12 +239,13 @@ def compute_hi_cdcc_expected(units: pd.DataFrame, *, expanded: Caps = ACT163_CAP
     (the probability the credit is positive), and ``cdcc_loss_prob`` (the probability the
     expanded credit is larger than the reverted one).
     """
-    dist = donors if donors is not None else donor_expense_distribution()
+    dist = donors if donors is not None else default_donors()
     n13 = units["dependents_details"].apply(count_children_under_13).to_numpy()
     agi = (units["federal_agi"] if "federal_agi" in units.columns else units["income"]).fillna(0).to_numpy(dtype=float)
     earn = earned_income_limit(units)
     status = units["filing_status"].astype(str).to_numpy()
     eligible = (n13 > 0) & (earn > 0) & (status != "married_filing_separately")
+    pay = pay_probability(agi)
     laws = {"cdcc_expanded": expanded, "cdcc_reverted": reverted if reverted is not None else expanded}
     n = len(units)
     out = {k: np.zeros(n) for k in laws}
@@ -233,9 +259,9 @@ def compute_hi_cdcc_expected(units: pd.DataFrame, *, expanded: Caps = ACT163_CAP
             cr = {k: cdcc_credit(agi[idx], n13[idx], np.full(len(idx), xj), earn[idx], caps)
                   for k, caps in laws.items()}
             for k in laws:
-                out[k][idx] += pj * cr[k]
-                claim[k][idx] += pj * (cr[k] > 0)
-            loss[idx] += pj * (cr["cdcc_expanded"] > cr["cdcc_reverted"])
+                out[k][idx] += pj * pay[idx] * cr[k]
+                claim[k][idx] += pj * pay[idx] * (cr[k] > 0)
+            loss[idx] += pj * pay[idx] * (cr["cdcc_expanded"] > cr["cdcc_reverted"])
     res = pd.DataFrame({**out, **{f"{k}_claim_prob": v for k, v in claim.items()}, "cdcc_loss_prob": loss},
                        index=units.index)
     return res
@@ -255,6 +281,7 @@ def compute_hi_cdcc_for_units(units: pd.DataFrame, *, tax_year: int | None = Non
 __all__ = [
     "ACT163_CAPS", "PRIOR_CAPS", "PERCENT_SCHEDULE", "caps_for_year", "applicable_percentage",
     "expense_limit", "cdcc_credit", "count_children_under_13", "earned_income_limit",
-    "donor_expense_distribution", "default_donors", "expected_capped_expense",
+    "donor_expense_distribution", "default_donors", "pay_probability", "pay_rates", "conditional_capped_expense",
+    "expected_capped_expense",
     "compute_hi_cdcc_expected", "compute_hi_cdcc_for_units",
 ]

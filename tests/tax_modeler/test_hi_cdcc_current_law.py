@@ -18,11 +18,12 @@ from tax_modeler.simulator.systems import food_excise_tables
 DONORS = hi_cdcc.donor_expense_distribution()
 
 
-def expected_expense(n, caps, earned=np.inf):
-    """The definition, written out: donors' mean of min(spending, limit, earnings); no one pays 0."""
+def expected_expense(n, caps, earned=np.inf, agi=0.0):
+    """The definition, written out: the probability of paying at this AGI times the paying donors' mean of
+    min(spending, limit, earnings)."""
     x, p = DONORS[1 if n == 1 else 2]
     cap = caps[0] if n == 1 else caps[1]
-    return float(sum(pj * min(xj, cap, earned) for xj, pj in zip(x, p, strict=True)))
+    return float(hi_cdcc.pay_probability(agi)) * float(sum(pj * min(xj, cap, earned) for xj, pj in zip(x, p, strict=True)))
 
 
 @pytest.mark.parametrize("year", [2022, 2023, 2025, 2027, 2028, 2031])
@@ -30,7 +31,7 @@ def expected_expense(n, caps, earned=np.inf):
 @pytest.mark.parametrize("deps", [1, 2, 4])
 def test_current_law_is_the_statute_times_expected_expenses(year, agi, deps):
     got = HawaiiTaxCredits(year).child_dependent_care_credit(agi, "single", deps)
-    want = float(hi_cdcc.applicable_percentage(agi)) * expected_expense(deps, hi_cdcc.caps_for_year(year))
+    want = float(hi_cdcc.applicable_percentage(agi)) * expected_expense(deps, hi_cdcc.caps_for_year(year), agi=agi)
     assert got == pytest.approx(want, rel=1e-12)
 
 
@@ -42,11 +43,11 @@ def test_the_limits_follow_the_tax_year():
 
 
 def test_expected_expenses_are_not_every_filer_hitting_the_limit():
-    """The credit is a small share of percentage x limit: only some donor families pay, and few pay a lot."""
+    """The credit is a small share of percentage x limit: only some families pay, and few pay a lot."""
     c = HawaiiTaxCredits(2027).child_dependent_care_credit(20_000, "single", 1)
     assert 0 < c < 0.25 * 10_000 * 0.2
     x, p = DONORS[1]
-    assert p.sum() < 0.25 and (x > 10_000).any()
+    assert hi_cdcc.pay_probability(20_000) < 0.25 and (x > 10_000).any()
 
 
 def test_only_children_under_13_with_earnings_qualify():
@@ -75,9 +76,9 @@ def test_the_credit_is_paid_when_there_is_no_tax():
 def test_bills_keep_their_percentages_and_limits_and_use_the_same_expenses():
     c = HawaiiTaxCredits(2027)
     hb = c.child_dependent_care_credit(50_000, "head_of_household", 2, credit_scenario="hb2306_hd1")
-    assert hb == pytest.approx(0.50 * expected_expense(2, (10_000, 20_000)), rel=1e-12)
+    assert hb == pytest.approx(0.50 * expected_expense(2, (10_000, 20_000), agi=50_000), rel=1e-12)
     sd1 = c.child_dependent_care_credit(43_000, "single", 1, credit_scenario="sb3125_sd1")
-    assert sd1 == pytest.approx(0.35 * expected_expense(1, (10_000, 20_000)), rel=1e-12)
+    assert sd1 == pytest.approx(0.35 * expected_expense(1, (10_000, 20_000), agi=43_000), rel=1e-12)
     # the bills' limits do not revert in 2028: only current law's do
     c28 = HawaiiTaxCredits(2028)
     assert c28.child_dependent_care_credit(43_000, "single", 1, credit_scenario="sb3125_sd1") == sd1

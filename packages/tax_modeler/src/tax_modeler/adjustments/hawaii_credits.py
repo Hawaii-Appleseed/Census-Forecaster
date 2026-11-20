@@ -145,7 +145,7 @@ class HawaiiTaxCredits:
         children = num_dependents if care_children is None else care_children
         earned = np.inf if care_earned is None else care_earned
         expenses = float(hi_cdcc.expected_capped_expense(
-            np.array([children]), np.array([earned]), caps)[0])
+            np.array([children]), np.array([earned]), caps, agi=np.array([agi]))[0])
         return expenses * pct
 
     def low_income_renters_credit(self, agi: float, filing_status: str) -> float:
@@ -287,7 +287,7 @@ class HawaiiTaxCredits:
             pct = hi_cdcc.applicable_percentage(agi)
         children = deps if care_children is None else np.asarray(care_children)
         earned = np.inf if care_earned is None else np.asarray(care_earned, dtype=float)
-        expenses = hi_cdcc.expected_capped_expense(children, earned, caps)
+        expenses = hi_cdcc.expected_capped_expense(children, earned, caps, agi=agi)
         child_care = np.where(deps == 0, 0.0, expenses * pct)
 
         # Low-income renters

@@ -26,7 +26,7 @@ import pandas as pd
 
 from tax_modeler.units.earnings import lower_earner_income
 
-from .hi_cdcc import default_donors
+from .hi_cdcc import default_donors, pay_probability
 
 CAPS = (3_000.0, 6_000.0)
 
@@ -53,6 +53,7 @@ def federal_cdcc_expected(units: pd.DataFrame, donors=None, caps=CAPS) -> pd.Dat
     earn = np.maximum(lower_earner_income(units), 0.0)
     ok = (n13 > 0) & (units["filing_status"].to_numpy() != "married_filing_separately")
     pct = applicable_percentage(agi)
+    pay = pay_probability(agi)
     cap = np.where(n13 >= 2, caps[1], caps[0])
     credit = np.zeros(len(units))
     prob = np.zeros(len(units))
@@ -60,6 +61,6 @@ def federal_cdcc_expected(units: pd.DataFrame, donors=None, caps=CAPS) -> pd.Dat
         idx = ok & ((n13 >= 2) if b == 2 else (n13 == 1))
         for xj, pj in zip(x, p, strict=True):
             c = np.minimum(pct[idx] * np.minimum(np.minimum(xj, cap[idx]), earn[idx]), tax[idx])
-            credit[idx] += pj * c
-            prob[idx] += pj * (c > 0)
+            credit[idx] += pj * pay[idx] * c
+            prob[idx] += pj * pay[idx] * (c > 0)
     return pd.DataFrame({"federal_cdcc": credit, "federal_cdcc_claim_prob": prob}, index=units.index)
