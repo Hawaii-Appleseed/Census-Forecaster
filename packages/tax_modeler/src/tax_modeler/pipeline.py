@@ -37,15 +37,17 @@ Skip PUMS loading by supplying pre-built calibrated units::
 Approximations
 --------------
 Without a person-level join, dependent ages are not available from
-TaxUnitConstructor alone.  The enrichment step creates synthetic dependent
-dicts with ``age=10`` for every counted dependent, so all dependents are
-treated as qualifying children under 17.  This slightly overestimates CTC
-for non-child dependents (e.g. elderly relatives) but is conservative for
-EITC (which has a broader age cap).  Supply a pre-enriched ``tax_units_df``
-to bypass this approximation.
+TaxUnitConstructor alone.  The enrichment step reads each unit's per-dependent records (age,
+relationship, citizenship; stored as the ``repr`` of a list in the raw cache) and only
+falls back to synthetic dependents with ``age=10`` for a unit whose records are
+missing or do not match ``num_dependents``. Before 2026-11-20 every unit loaded from the
+cache got the placeholders, so all dependents were treated as qualifying children under 17;
+from then real ages and relationships decide the federal credits.  Supply a pre-enriched
+``tax_units_df`` to bypass this approximation.
 """
 from __future__ import annotations
 
+import ast
 import logging
 import time
 import warnings
@@ -195,15 +197,36 @@ def enrich_for_credits(df: pd.DataFrame) -> pd.DataFrame:
             {"age": 10, "relationship": 25, "citizenship": 1, "months_in_home": 12}  # RELSHIPP 25 = own child
         ] * max(0, int(n))
 
+    def _parse_records(real):
+        """The per-dependent records as a list of dicts, or None. The raw tax-unit cache is a parquet
+        file, which stores each unit's records as the ``repr`` of a list; before 2026-11-20 only a real
+        list was trusted, so every unit loaded from the cache got the age-10 placeholders below."""
+        if isinstance(real, str):
+            try:
+                real = ast.literal_eval(real)
+            except (ValueError, SyntaxError):
+                return None
+        if isinstance(real, (list, tuple)) and all(isinstance(x, dict) for x in real):
+            return list(real)
+        return None
+
     def _coerce_dep_details(row):
-        real = row.get("dependents_details")
+        real = _parse_records(row.get("dependents_details"))
         n = int(row.get("num_dependents", 0) or 0)
-        is_real_list = (
-            isinstance(real, (list, tuple))
-            and len(real) == n
-            and all(isinstance(x, dict) for x in real)
-        )
-        return list(real) if is_real_list else _synthetic_dep_dicts(n)
+        return real if real is not None and len(real) == n else _synthetic_dep_dicts(n)
+
+    # Children under 13 (the care credit's qualifying individuals): from the real records, NaN where a
+    # unit has none (synthetic rows; units whose records do not match ``num_dependents`` fall back to
+    # placeholders below but keep their real ages here).
+    if "num_children_under_13" not in df.columns:
+        from tax_modeler.credits.hi_cdcc import count_children_under_13
+
+        def _under_13(real):
+            recs = _parse_records(real)
+            return float(count_children_under_13(recs)) if recs is not None else float("nan")
+
+        df["num_children_under_13"] = (df["dependents_details"].apply(_under_13)
+                                       if "dependents_details" in df.columns else float("nan"))
 
     df["dependents_details"] = df.apply(_coerce_dep_details, axis=1)
     df["dependents"] = df["dependents_details"]
