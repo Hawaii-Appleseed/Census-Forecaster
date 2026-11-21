@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-11-20T21:08:46+00:00",
-  "git_sha": "fc599d3",
+  "created_at": "2026-11-20T23:00:55+00:00",
+  "git_sha": "627f7bb",
   "script": "chain/forecast_working_family_credits.py",
   "params": {
     "years": [
@@ -22,7 +22,7 @@
     ],
     "takeup_eitc": 0.9784,
     "takeup_food": 0.7321,
-    "takeup_cdcc": 0.9525,
+    "takeup_cdcc": 0.7626,
     "cdcc_caps": {
       "expanded": [
         10000.0,
@@ -66,11 +66,11 @@
       "ess_after": 4300.9225
     }
   },
-  "params_fingerprint": "82556175f7b4f0b7",
+  "params_fingerprint": "cd4c14218b1c1ed0",
   "inputs": {
     "pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
     "dotax": "Tax Credits Claimed by Hawai\u02bbi Taxpayers, TY2022-2023, Tables A-1/A-2 (EITC, food/excise, child and dependent care)",
-    "cps_donors": "CPS ASEC Hawaii childcare spending (tax_modeler/data/cps_donor), families with a child under 13",
+    "cps_donors": "CPS ASEC Hawaii 2022-2025 childcare spending (tax_modeler/data/cps_donor), families with a child under 13; payment probability by AGI class (care_pay_rates.json)",
     "dotax_eitc": "Earned Income Tax Credit Report, TY2024 (Act 107), Tables 1-4 (data/calibration/dotax_eitc_2024.json)"
   },
   "outputs": [
@@ -84,5 +84,5 @@
     "revenue_by_year.csv",
     "sampling_error_ty2028.csv"
   ],
-  "published_at": "2026-11-20T21:16:03+00:00"
+  "published_at": "2026-11-20T23:00:55+00:00"
 }

@@ -36,9 +36,10 @@ const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 const VIEWS = { f8: Float64Array, u4: Uint32Array, u1: Uint8Array };
 // population.json's web_format_version this kernel reads
-// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 4 added care_exp_<year>; 2 added the gains anchor,
+// (tax_modeler.simulator.web.WEB_FORMAT_VERSION; 4 added care_exp_<year>; 5 made it the expenses of a family
+// that pays, with the payment probability applied here; 2 added the gains anchor,
 // 3 dropped hhfw for per-unit filer weights)
-export const WEB_FORMAT_VERSION = 4;
+export const WEB_FORMAT_VERSION = 5;
 
 /** Typed-array views over the decompressed population.bin. */
 export function decodePopulation(meta, buffer) {
@@ -169,10 +170,10 @@ function foodExcisePerExemption(agi, table, factor) {
   return k < table.length ? table[k][1] : 0;
 }
 
-/** Expected expenses the care credit counts for a household with `children` children under 13 and no
- * earnings limit: the donor families' mean of min(spending, limit)
- * (credits.hi_cdcc.expected_capped_expense, summed in file order). The population carries each unit's
- * own (care_exp_<year>), which also applies the unit's earnings limit. */
+/** Expected expenses the care credit counts for a household with `children` children under 13 that pays and no
+ * earnings limit: the paying donor families' mean of min(spending, limit)
+ * (credits.hi_cdcc.conditional_capped_expense, summed in file order). The population carries each unit's
+ * own (care_exp_<year>), which also applies the unit's earnings limit. credits() applies the probability of paying. */
 export function householdCare(c, children) {
   if (children === 0) return 0;
   const d = c.donors[children >= 2 ? "2" : "1"];
@@ -182,8 +183,15 @@ export function householdCare(c, children) {
   return acc;
 }
 
+/** credits.hi_cdcc.pay_probability: the rate of the AGI class (the number of edges at or below agi) */
+function payRate(c, agi) {
+  let k = 0;
+  while (k < c.pay.edges.length && c.pay.edges[k] <= agi) k++;
+  return c.pay.rates[k];
+}
+
 /** HawaiiTaxCredits.calculate_total_credits, credit_scenario None. `care` is the unit's expected
- * care-credit expenses (care_exp_<year>, or householdCare). */
+ * care-credit expenses if it pays (care_exp_<year>, or householdCare). */
 export function credits(fe, agi, fs, deps, taxBefore, care) {
   // food/excise (refundable): joint table for every status but single
   const nEx = 1 + deps + (fs === MFJ ? 1 : 0);
@@ -205,7 +213,7 @@ export function credits(fe, agi, fs, deps, taxBefore, care) {
     for (const [ceiling, rate] of c.percent) {
       if (agi <= ceiling) { pct = rate; break; }
     }
-    cdcc = care * pct;
+    cdcc = care * payRate(c, agi) * pct;
   }
   // low-income renters (expected value, refundable)
   const threshold = fs === MFJ ? 40000 : fs === HOH ? 35000 : fs === 3 ? 20000 : 30000;

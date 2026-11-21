@@ -1,0 +1,63 @@
+{
+ "edges": [
+  50000.0,
+  75000.0,
+  100000.0,
+  200000.0,
+  500000.0
+ ],
+ "rates": [
+  0.06711977298959705,
+  0.21867827716054677,
+  0.25357547612143627,
+  0.27174471196771766,
+  0.415103674705829,
+  0.26330296178801654
+ ],
+ "note": "rates[0] below $50,000 (pooled CPS ASEC donors); rates[1..] for [50k,75k), [75k,100k), [100k,200k), [200k,500k), $500k and up from IRS SOI Table 2 Hawaii TY2023 child and dependent care credit returns, resident-scaled class by class",
+ "below_50k": {
+  "rate": 0.06711977298959705,
+  "families": 147,
+  "paying": 10,
+  "se": 0.021729571915869703
+ },
+ "classes_50k_up": [
+  {
+   "class": "50,000-75,000",
+   "irs_claims": 2670.0,
+   "irs_claims_resident": 2260.9423076923076,
+   "model_units_that_could_claim": 10339.126213402506,
+   "rate": 0.21867827716054677
+  },
+  {
+   "class": "75,000-100,000",
+   "irs_claims": 2460.0,
+   "irs_claims_resident": 1913.8627925746569,
+   "model_units_that_could_claim": 7547.5074397893095,
+   "rate": 0.25357547612143627
+  },
+  {
+   "class": "100,000-200,000",
+   "irs_claims": 8070.0,
+   "irs_claims_resident": 5902.102867164862,
+   "model_units_that_could_claim": 21719.292436005202,
+   "rate": 0.27174471196771766
+  },
+  {
+   "class": "200,000-500,000",
+   "irs_claims": 3570.0,
+   "irs_claims_resident": 2633.1516452074393,
+   "model_units_that_could_claim": 6343.359034519441,
+   "rate": 0.415103674705829
+  },
+  {
+   "class": "500,000-1,000,000",
+   "irs_claims": 330.0,
+   "irs_claims_resident": 272.5366795366795,
+   "model_units_that_could_claim": 1035.068795603207,
+   "rate": 0.26330296178801654
+  }
+ ],
+ "irs_year": 2023,
+ "built_from": "Act 24 calibrated base (chain/forecast_sb3125_enhanced.py --cd 2), MID alpha and premium"
+}

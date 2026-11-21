@@ -93,8 +93,8 @@ def test_a_frame_without_the_federal_credit_columns_has_no_margins():
 
 def test_the_rake_with_the_margins_moves_toward_them_and_keeps_the_total():
     u = _units(3000, seed=4)
-    off = apply_ipf_calibration_via_rake(u, calibrate_families=False)
-    on = apply_ipf_calibration_via_rake(u, calibrate_families=True)
+    off = apply_ipf_calibration_via_rake(u, calibrate_families=False, method="legacy")
+    on = apply_ipf_calibration_via_rake(u, calibrate_families=True, method="legacy")
     codes_on = fm.margin_codes(on)
     codes_off = fm.margin_codes(off)
 
@@ -114,6 +114,16 @@ def test_the_rake_with_the_margins_moves_toward_them_and_keeps_the_total():
 def test_without_the_option_or_the_columns_the_rake_is_the_old_one():
     u = _units(1500)
     bare = u.drop(columns=["ctc_refundable"])
-    a = apply_ipf_calibration_via_rake(bare, calibrate_families=True)
-    b = apply_ipf_calibration_via_rake(bare, calibrate_families=False)
+    a = apply_ipf_calibration_via_rake(bare, calibrate_families=True, method="legacy")
+    b = apply_ipf_calibration_via_rake(bare, calibrate_families=False, method="legacy")
     np.testing.assert_array_equal(a["weight"].to_numpy(), b["weight"].to_numpy())
+
+
+def test_validation_table_reports_the_irs_counts_without_fitting_to_them():
+    u = _units(2000, seed=7)
+    v = fm.validation_table(u)
+    assert set(v["margin"]) == set(fm.MARGIN_EDGES)
+    assert np.allclose(v["relative_miss"], v["value"] / v["target"] - 1)
+    assert fm.validation_table(u.drop(columns=["ctc_refundable"])) is None
+    w = fm.validation_table(u, np.ones(len(u)))
+    assert (w.groupby("margin")["value"].sum() <= len(u)).all()      # a unit is in at most one class of a margin

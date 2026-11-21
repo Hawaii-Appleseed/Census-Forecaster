@@ -6,6 +6,15 @@ import pandas as pd
 import pytest
 from tax_modeler.credits.federal_cdcc import applicable_percentage, federal_cdcc_expected
 
+
+@pytest.fixture(autouse=True)
+def _everyone_pays(monkeypatch):
+    """These tests use toy donors whose weights already say how many families pay; the AGI-class payment probability is
+    tested in test_hi_cdcc_pay_rates.py."""
+    from tax_modeler.credits import hi_cdcc
+    monkeypatch.setattr(hi_cdcc, "pay_rates", lambda: {"edges": [50_000.0], "rates": [1.0, 1.0]})
+
+
 DONORS = {1: (np.array([2_000.0]), np.array([0.10])), 2: (np.array([9_000.0]), np.array([0.20]))}
 
 

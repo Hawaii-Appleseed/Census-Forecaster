@@ -46,7 +46,8 @@ from .systems import food_excise_tables, system_to_json
 
 # 3 dropped hhfw: distribution totals sum each unit's own filer weight.
 # 4 added care_exp_<year>: each unit's expected care-credit expenses.
-WEB_FORMAT_VERSION = 4
+# 5 made care_exp_<year> the expenses of a family that pays; the kernel applies the AGI-class payment probability.
+WEB_FORMAT_VERSION = 5
 
 # The code behind the simulator's published data and page, relative to the
 # repository root. The run manifest records the commit that holds it

@@ -84,6 +84,20 @@ def margin_targets(key: str, year: int = IRS_YEAR) -> dict[int, float]:
     return out
 
 
+def agi_targets_M(year: int = IRS_YEAR) -> dict[int, float]:
+    """IRS federal AGI, $M, in the aligned classes under $1M, scaled to the resident universe by each class's
+    ratio (aligned class index -> $M; class edges ``ALIGNED_EDGES``). The IRS class "Under $1" includes the negative
+    AGI of loss returns, so the lowest class is net of it."""
+    ratio = [r["ratio"] for r in universe_ratios(year)]
+    out = {i: 0.0 for i in range(len(ALIGNED_EDGES) - 1)}
+    for (lo, _), v in zip(_IRS_EDGES, irs_soi_hi_table2.values("agi_amount_k", year), strict=True):
+        if lo >= TOP:
+            continue
+        i = _aligned_index(lo)
+        out[i] += v / 1e3 * ratio[i]
+    return out
+
+
 def odc_amount(units: pd.DataFrame) -> np.ndarray:
     """Other dependent credit available to each unit before the federal tax limit: $500 for each dependent who
     is not a CTC child (age 17 or older, from the real records), phase-out ignored (it starts at $200,000 /
@@ -137,3 +151,25 @@ def margin_codes(units: pd.DataFrame) -> dict[str, tuple[np.ndarray, dict[str, f
         targets["0"] = total - sum(targets.values())
         out[key] = (codes, targets)
     return out
+
+
+def validation_table(units: pd.DataFrame, weights=None) -> pd.DataFrame | None:
+    """The IRS family counts the base is checked against, not fitted to (since 2026-11-20; #82 raked to them): per
+    margin and class, the IRS target scaled to the resident universe, the base's weighted count and the relative
+    miss. ``weights`` defaults to the frame's ``weight``. ``None`` when the frame lacks the federal credit columns."""
+    codes = margin_codes(units)
+    if codes is None:
+        return None
+    w = (units["weight"] if weights is None else pd.Series(weights)).to_numpy(float)
+    rows = []
+    for key, (c, tg) in codes.items():
+        edges = MARGIN_EDGES[key]
+        for k, target in tg.items():
+            if k == "0":
+                continue
+            i = int(k) - 1
+            hi = edges[i + 1] if i + 1 < len(edges) else TOP
+            value = float(w[c == int(k)].sum())
+            rows.append({"margin": key, "class": f"{edges[i]:,.0f} to {hi:,.0f}", "target": target, "value": value,
+                         "relative_miss": value / target - 1.0})
+    return pd.DataFrame(rows)

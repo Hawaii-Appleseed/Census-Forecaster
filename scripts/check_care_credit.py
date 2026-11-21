@@ -6,14 +6,15 @@ Reads the Act 24 calibrated base (``chain/forecast_sb3125_enhanced.py --cd 2`` w
 ``runs/care_credit_check/*.csv``:
 
 1. **Hawaiʻi credit, TY2023** (HRS §235-55.6): the model's credit on the base at the TY2023 limits, expected
-   over the CPS ASEC donors' spending, with no take-up factor, against the Department of Taxation's
+   over the pooled CPS ASEC donors' spending and the AGI-class payment probability
+   (``hi_cdcc.pay_probability``, set from the IRS federal claim counts above $50,000), with no take-up factor, against the Department of Taxation's
    "Tax Credits Claimed by Hawaiʻi Taxpayers" Table A-1 and A-2 ($14.82M on 18,119 claims). The pass band is
    plus or minus 15%.
 2. **Federal credit, TY2023** (IRC §21, ``credits/federal_cdcc``): claims and dollars by AGI class against
    IRS SOI Table 2 for Hawaiʻi, "Child and dependent care credit" rows, raw and scaled to the Department's
    resident universe class by class. The federal credit is non-refundable, so under about $50,000 of AGI it
    is mostly unusable and the classes below are not comparable; only $50,000 and above is judged.
-3. The family counts the rake targets, against their IRS targets.
+3. The IRS family counts (head of household, CTC/ODC, ACTC), which are validation only.
 """
 from __future__ import annotations
 
@@ -56,8 +57,7 @@ def main() -> int:
     hi_m = TaxCalculator().calculate_revenue_vectorized(units, cfg)["total_cdcc_millions"]
     kids, earn = care_credit_inputs(units)
     from tax_modeler.credits import hi_cdcc
-    donors = hi_cdcc.default_donors()
-    share = np.where(kids >= 2, donors[2][1].sum(), donors[1][1].sum())
+    share = hi_cdcc.pay_probability(units["income"].fillna(0).to_numpy(float))
     eligible = (kids > 0) & (earn > 0)
     claims = float((w * share)[eligible].sum())
     target_m, target_claims = claimed.dollars_M("cdcc", 2023), claimed.claims("cdcc", 2023)
@@ -93,10 +93,10 @@ def main() -> int:
     for col, tgt in (("model_claims", "irs_claims_resident"), ("model_$k", "irs_$k_resident")):
         print(f"  {col} {j[col].sum():,.0f} vs {j[tgt].sum():,.0f} resident-scaled ({j[col].sum() / j[tgt].sum() - 1:+.1%})")
 
-    # 3. the family counts the rake targets
+    # 3. the IRS family counts (validation, not fitted)
     w_ = units["weight"].to_numpy(float)
     codes = fm.margin_codes(units)
-    print("\nFamily margins (model vs IRS-scaled target)")
+    print("\nIRS family counts (model vs IRS-scaled target; validation only)")
     for key, (c, tg) in codes.items():
         edges = fm.MARGIN_EDGES[key]
         print("  " + key + ": " + "; ".join(

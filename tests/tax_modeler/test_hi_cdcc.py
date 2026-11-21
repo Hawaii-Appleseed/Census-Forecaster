@@ -107,6 +107,14 @@ def test_earned_income_limit_is_the_lesser_spouses_for_joint_returns():
     assert got == pytest.approx([40_000, 25_000, 0, 25_000])
 
 
+@pytest.fixture(autouse=True)
+def _everyone_pays(monkeypatch):
+    """These tests use toy donors whose weights already say how many families pay; the AGI-class payment probability is
+    tested in test_hi_cdcc_pay_rates.py."""
+    from tax_modeler.credits import hi_cdcc
+    monkeypatch.setattr(hi_cdcc, "pay_rates", lambda: {"edges": [50_000.0], "rates": [1.0, 1.0]})
+
+
 DONORS = {1: (np.array([3_000.0, 12_000.0]), np.array([0.10, 0.05])),     # 85% pay nothing
           2: (np.array([6_000.0]), np.array([0.20]))}
 
@@ -158,9 +166,9 @@ def test_donor_distribution_from_the_cps_file():
     d = C.donor_expense_distribution()
     assert set(d) == {1, 2}
     for x, p in d.values():
-        assert (x > 0).all() and 0 < p.sum() < 0.5 and len(x) == len(p)
-    # the CPS sample behind it: 33 paying families with a child under 13
-    assert len(d[1][0]) + len(d[2][0]) == 33
+        assert (x > 0).all() and p.sum() == pytest.approx(1.0) and len(x) == len(p)      # conditional on paying
+    # the pooled CPS sample behind it (ASEC 2022-2025): 123 paying families with a child under 13
+    assert len(d[1][0]) + len(d[2][0]) == 123
 
 
 def test_compute_for_units_uses_the_law_of_the_year():

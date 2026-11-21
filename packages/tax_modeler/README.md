@@ -65,7 +65,7 @@ The most common entry points:
 | `run_pipeline`             | End-to-end run; returns `PipelineResult`.        |
 | `enrich_for_credits`       | Stage 3: derive EITC/CTC inputs from PUMS units. |
 | `compute_base_tax`         | Stage 4: Hawaii liability + federal credits.     |
-| `calibrate`                | Stage 5: IPF rake against DOTAX benchmarks.      |
+| `calibrate`                | Stage 5: bounded raking to DOTAX benchmarks.     |
 | `TaxUnitConstructor`       | Build tax units from person + household frames.  |
 | `TaxCalculator`            | Bracket-walk computation primitive.              |
 | `TaxSystemRegistry`        | Pre-built Hawaii bills (Act 46, SB 3125, …).     |

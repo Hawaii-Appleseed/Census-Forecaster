@@ -21,9 +21,10 @@ order (``order_<year>``), so the browser kernel and :func:`frame_for`
 reproduce the published tables.
 
 Care credit: each unit's children under 13 (``care_n``), the lower earner's earnings per year
-(``care_earn_<year>``) and the expected expenses the credit counts under that year's current-law
-limits (``care_exp_<year>``, ``credits.hi_cdcc.expected_capped_expense``), which the browser kernel
-reads instead of redoing the donor sums. LOW and HIGH use MID's: their differing units are
+(``care_earn_<year>``) and the expected expenses the credit counts for a family that pays, under that year's
+current-law limits (``care_exp_<year>``, ``credits.hi_cdcc.conditional_capped_expense``), which the browser kernel
+reads instead of redoing the donor sums and multiplies by the AGI-class payment probability
+(``hi_cdcc.pay_probability``, in the system tables) at the unit's AGI in the scenario. LOW and HIGH use MID's: their differing units are
 top-income rows with no children under 13 in the population.
 
 Capital gains: the arrays carry the model's own gains share (``cg``). The
@@ -202,7 +203,7 @@ def build_population(calibrated_path, *, years=YEARS, max_workers: int | None = 
         earn = np.empty(len(canon_ids))
         earn[pos] = lower_earner_income(proj)
         arrays[f"care_earn_{y}"] = earn
-        arrays[f"care_exp_{y}"] = hi_cdcc.expected_capped_expense(kids13, earn, hi_cdcc.caps_for_year(y))
+        arrays[f"care_exp_{y}"] = hi_cdcc.conditional_capped_expense(kids13, earn, hi_cdcc.caps_for_year(y))
 
         fifth = _household_quintiles(proj, breaks, y)
         hh_of = {h: i for i, h in enumerate(hh_ids)}

@@ -1243,8 +1243,8 @@ calculation, which is weight-invariant). The function emits
 gap-closed cell on every aggregated DataFrame.
 
 **Calibration interaction.** This codebase calibrates *tax-unit*
-weights via IPF in `tax_modeler.calibration.*` to match DOTAX
-filer-status totals. The SPM aggregator
+weights by bounded raking in `tax_modeler.calibration.act24_calibration` to match DOTAX
+filer, filing-status, tax and family totals. The SPM aggregator
 (`aggregate_to_spm_units`) discards the calibrated tax-unit weight
 and uses raw household `WGTP` for the SPM-unit weight, because
 person-level poverty accounting needs a person-grained denominator
