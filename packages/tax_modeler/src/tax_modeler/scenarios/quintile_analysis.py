@@ -42,6 +42,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from common import fallbacks
 
 # DOTAX claim counts / amounts / returns by AGI class, from
 # scripts/fetch_dotax_credit_claims.py. The claim-rate year matches _REEC_BINS.
@@ -392,7 +393,7 @@ def _load_cor_projections() -> dict[int, float]:
         from census_forecaster.cor import load_cor_iit_projections
 
         return load_cor_iit_projections(by="tax_year")
-    except Exception:  # noqa: BLE001 - never let a data-file problem break scoring
+    except Exception as exc:  # noqa: BLE001 - recorded (common.fallbacks); never let a data-file problem break scoring
         warnings.warn(
             "bundled COR projections unavailable; falling back to the "
             "hardcoded May 21, 2026 vintage. Run "
@@ -400,6 +401,9 @@ def _load_cor_projections() -> dict[int, float]:
             RuntimeWarning,
             stacklevel=2,
         )
+        fallbacks.record("cor_projections:quintile_analysis",
+                         f"bundled COR projections unavailable ({type(exc).__name__}: {exc}); "
+                         "the hardcoded May 21, 2026 vintage used")
         return dict(_COR_FALLBACK_M)
 
 

@@ -21,6 +21,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 
@@ -180,6 +182,8 @@ def build_growth_factors(project_root=None):
         return resident, nonresident
 
     except Exception as e:
+        fallbacks.record("income_growth:data_driven_factors",
+                         f"data-driven growth factors failed ({type(e).__name__}: {e}); hardcoded defaults used")
         logger.warning(f"Failed to build data-driven growth factors: {e}. Using hardcoded defaults.")
         return RESIDENT_GROWTH, NONRESIDENT_GROWTH
 
@@ -241,8 +245,13 @@ def apply_income_growth(income: float, is_resident: bool) -> float:
             )
             if ensemble_factor is not None:
                 return income * ensemble_factor
-        except Exception as e:  # pragma: no cover - defensive guard
-            # Defensive: ensemble path must never break income calculation.
+            fallbacks.record("income_growth:resident_ensemble",
+                             f"no Hawaii ensemble factor {factors.base_year}->{factors.target_year}; "
+                             f"hardcoded {factors.real_growth:.4f} used")
+        except Exception as e:  # noqa: BLE001 - recorded (common.fallbacks); must never break income calculation
+            fallbacks.record("income_growth:resident_ensemble",
+                             f"Hawaii ensemble factor failed ({type(e).__name__}: {e}); "
+                             f"hardcoded {factors.real_growth:.4f} used")
             logger.warning(
                 "Resident ensemble factor failed (%s); using hardcoded %.4f",
                 e, factors.real_growth,
@@ -258,7 +267,13 @@ def apply_income_growth(income: float, is_resident: bool) -> float:
             )
             if ensemble_factor is not None:
                 return income * ensemble_factor
-        except Exception as e:  # pragma: no cover - defensive guard
+            fallbacks.record("income_growth:nonresident_ensemble",
+                             f"no national ensemble factor {factors.base_year}->{factors.target_year}; "
+                             f"hardcoded {factors.real_growth:.4f} used")
+        except Exception as e:  # noqa: BLE001 - recorded (common.fallbacks)
+            fallbacks.record("income_growth:nonresident_ensemble",
+                             f"national ensemble factor failed ({type(e).__name__}: {e}); "
+                             f"hardcoded {factors.real_growth:.4f} used")
             logger.warning(
                 "Nonresident ensemble factor failed (%s); using hardcoded %.4f",
                 e, factors.real_growth,

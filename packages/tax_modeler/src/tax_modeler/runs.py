@@ -49,6 +49,9 @@ def write_run_manifest(
         git_sha: the commit to record; defaults to HEAD's. A run whose
             outputs cite their code's commit passes
             ``artifacts.git_sha_for_code``, which marks uncommitted code.
+
+    Any fallback the run recorded (``common.fallbacks``) is written as
+    ``fallbacks``: {name: what failed and what was used}.
     """
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -57,6 +60,8 @@ def write_run_manifest(
             p.name for p in run_dir.iterdir()
             if p.is_file() and p.name != MANIFEST_NAME
         )
+    from common import fallbacks
+
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_sha": git_sha if git_sha is not None else _git_sha(),
@@ -66,6 +71,9 @@ def write_run_manifest(
         "inputs": inputs,
         "outputs": list(outputs),
     }
+    # Defaults the run substituted for data or a computation that failed (common.fallbacks); absent when none.
+    if used := fallbacks.recorded():
+        manifest["fallbacks"] = used
     path = run_dir / MANIFEST_NAME
     with open(path, "w") as f:
         json.dump(manifest, f, indent=2)

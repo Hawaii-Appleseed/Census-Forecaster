@@ -59,6 +59,8 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -369,8 +371,10 @@ def project_revenue_per_filer(
                     "Rebuild the panel with B19082_005E to activate Phase H.",
                     geoid,
                 )
-        except Exception as exc:
-            logger.debug("B19082 computation failed (%s); using uniform growth", exc)
+        except Exception as exc:  # noqa: BLE001 - recorded (common.fallbacks)
+            fallbacks.record("b19082_concentration", f"top-quintile concentration failed ({type(exc).__name__}: "
+                                                     f"{exc}); uniform growth used")
+            logger.warning("B19082 computation failed (%s); using uniform growth", exc)
             top_income_scale = None
             b19082_status = "inactive:error"
 
