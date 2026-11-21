@@ -39,11 +39,20 @@ def max_workers(n_items: int) -> int:
     return max(1, min(n_items, cap))
 
 
+def _share_fallbacks() -> None:
+    """Workers record fallbacks (``common.fallbacks``) to a file the parent reads; name one before they start."""
+    from common import fallbacks
+
+    if fallbacks.ENV not in os.environ:
+        fallbacks.share_with_workers()
+
+
 def fork_map(fn: Callable[[Any], Any], items: Iterable[Any]) -> list[Any]:
     items = list(items)
     workers = max_workers(len(items))
     if workers == 1 or "fork" not in mp.get_all_start_methods():
         return [fn(x) for x in items]
+    _share_fallbacks()
     _FORK_FN.append(fn)
     try:
         with ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("fork")) as pool:
@@ -58,6 +67,7 @@ def process_pool(max_workers: int) -> ProcessPoolExecutor:
     pandas, numpy and the model again, and spawned (the default) elsewhere.
     Submit to it inside :func:`forking`."""
     context = mp.get_context("fork") if "fork" in mp.get_all_start_methods() else None
+    _share_fallbacks()
     return ProcessPoolExecutor(max_workers=max_workers, mp_context=context)
 
 

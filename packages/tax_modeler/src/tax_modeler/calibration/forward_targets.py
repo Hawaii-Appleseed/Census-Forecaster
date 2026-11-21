@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+from common import fallbacks
 
 from tax_modeler.calibration import dotax_base
 from tax_modeler.projection.options import CboAging, GrowthAssumptions
@@ -86,7 +87,7 @@ def _load_cor_projections() -> dict[int, float]:
         from census_forecaster.cor import load_cor_iit_projections
 
         return load_cor_iit_projections(by="tax_year")
-    except Exception:  # noqa: BLE001 - never let a data-file problem break calibration
+    except Exception as exc:  # noqa: BLE001 - recorded (common.fallbacks); never let a data-file problem break calibration
         warnings.warn(
             "bundled COR projections unavailable; falling back to the "
             "hardcoded March 10, 2026 vintage. Run "
@@ -94,6 +95,9 @@ def _load_cor_projections() -> dict[int, float]:
             RuntimeWarning,
             stacklevel=2,
         )
+        fallbacks.record("cor_projections:forward_targets",
+                         f"bundled COR projections unavailable ({type(exc).__name__}: {exc}); "
+                         "the hardcoded March 10, 2026 vintage used")
         return dict(_COR_FALLBACK_M)
 
 
@@ -386,6 +390,8 @@ def build_targets(
             agi_mass_targets = agi.bracket_agi_targets
             tier_agi_targets = agi.tier_agi_targets if agi.tier_agi_targets else None
         except Exception as exc:
+            fallbacks.record("forward_agi_targets",
+                             f"forward AGI targets unavailable ({type(exc).__name__}: {exc}); calibrated without them")
             logger.warning("Forward AGI targets unavailable — proceeding without: %s", exc)
 
     return ForwardTargets(

@@ -62,6 +62,8 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 BASE_YEAR = 2023
@@ -317,6 +319,8 @@ def _hawaii_nominal_growth(target_year: int) -> float:
     except Exception as e:
         years = target_year - BASE_YEAR
         fallback = (1.04) ** years
+        fallbacks.record("reec_nominal_growth:4pct",
+                         f"Hawaii nominal growth unavailable ({type(e).__name__}: {e}); 4%/yr used")
         logger.warning(
             "Hawaii nominal growth unavailable (%s); falling back to 4%%/yr -> factor=%.4f",
             e, fallback,

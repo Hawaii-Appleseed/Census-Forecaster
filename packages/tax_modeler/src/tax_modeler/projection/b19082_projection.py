@@ -61,6 +61,8 @@ import functools
 import logging
 import math
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 # ACS indicator code for top-quintile income share
@@ -105,8 +107,9 @@ def _load_b19082_series(geoid: str) -> tuple:
 
     try:
         panel = acs_panel()
-    except Exception as exc:
-        logger.debug("Could not load ACS panel: %s", exc)
+    except Exception as exc:  # noqa: BLE001 - recorded (common.fallbacks)
+        fallbacks.record("b19082_panel", f"ACS panel failed to load ({type(exc).__name__}: {exc}); no B19082 series")
+        logger.warning("Could not load ACS panel: %s", exc)
         return ()
 
     obs = [

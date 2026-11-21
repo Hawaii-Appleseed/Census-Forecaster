@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+from common import fallbacks
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,7 @@ def _load_params(config_path: Path = _CONFIG_PATH) -> dict:
         except Exception as e:
             logger.warning(f"Failed to load {config_path}: {e}. Using hardcoded fallbacks.")
 
+    fallbacks.record("deduction_params", f"{config_path} missing or unreadable; hardcoded parameters used")
     logger.info("Using hardcoded deduction parameter fallbacks")
     _PARAMS = fallback
     return _PARAMS

@@ -13,7 +13,12 @@ import sys
 import warnings
 from pathlib import Path
 
+from common import fallbacks
 from common.fingerprint import REPO, fingerprint
+
+# This script's own record of defaults substituted for failed data (written into its run manifests), shared with
+# the worker processes it forks.
+fallbacks.share_with_workers()
 
 # Raw PUMS location (only needed when rebuilding the tax-unit cache).
 #

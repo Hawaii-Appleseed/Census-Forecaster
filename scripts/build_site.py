@@ -8,7 +8,8 @@ Two steps, on purpose. Model runs write to runs/ (gitignored, and the capital
 gains run alone takes ~25 minutes against a local tax-unit cache), so CI can
 never reproduce them. `--import-runs` copies a run's outputs into site/data/,
 where they are committed and reviewed like code; it refuses a run whose
-manifest cites uncommitted code or a commit the model code has changed since
+manifest cites uncommitted code or a commit the model code has changed since,
+or lists defaults it substituted for failed data (`common.fallbacks`)
 (`stale_run`; `--allow-stale-runs` overrides). Every page is then rendered
 from those committed copies only, so the numbers in the prose, the charts, and
 the downloadable CSVs cannot disagree, and `tests/test_site_build.py` can check
@@ -151,7 +152,8 @@ RUN_CODE = ("packages", "chain", "scripts", "pyproject.toml", "uv.lock")
 
 
 def stale_run(manifest_path: Path) -> str | None:
-    """Why the run behind ``manifest_path`` does not match HEAD's code, or None.
+    """Why the run behind ``manifest_path`` should not be published as it is, or None: it substituted defaults for
+    failed data (its manifest lists ``fallbacks``, ``common.fallbacks``), or it does not match HEAD's code.
 
     ``runs/`` is gitignored and ``scripts/new_worktree.py`` copies the main
     checkout's into every worktree, so a run from an older commit is always
@@ -159,7 +161,10 @@ def stale_run(manifest_path: Path) -> str | None:
     """
     import subprocess
 
-    sha = json.loads(manifest_path.read_text()).get("git_sha") or "unknown"
+    manifest = json.loads(manifest_path.read_text())
+    if used := manifest.get("fallbacks"):
+        return "it substituted built-in defaults for failed data: " + "; ".join(f"{k} ({v})" for k, v in used.items())
+    sha = manifest.get("git_sha") or "unknown"
     if sha.endswith("-dirty"):
         return f"made from uncommitted code ({sha})"
 

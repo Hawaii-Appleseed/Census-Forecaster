@@ -87,3 +87,11 @@ def test_import_refuses_a_stale_run_unless_allowed(repo, monkeypatch, tmp_path_f
         build_site.import_runs(est)
     build_site.import_runs(est, allow_stale=True)
     assert (build_site.DATA / "x" / "out.csv").exists()
+
+
+def test_a_run_that_used_fallbacks_is_not_published(repo):
+    sha = _git(repo, "rev-parse", "--short", "HEAD")
+    path = repo / "manifest.json"
+    path.write_text(json.dumps({"git_sha": sha, "fallbacks": {"cor_projections:forward_targets": "file missing"}}))
+    why = build_site.stale_run(path)
+    assert "substituted built-in defaults" in why and "cor_projections:forward_targets (file missing)" in why

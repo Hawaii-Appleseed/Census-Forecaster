@@ -92,6 +92,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.resources import files
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 
@@ -541,7 +543,9 @@ def _compute_real_growth_detail(
 
     try:
         calibration = load_calibration()
-    except Exception as e:  # pragma: no cover - load_calibration is robust
+    except Exception as e:  # noqa: BLE001 - recorded (common.fallbacks)
+        fallbacks.record("acs_calibration:income_forecast",
+                         f"load_calibration failed ({type(e).__name__}: {e}); forecasts made uncalibrated")
         logger.warning("load_calibration failed: %s", e)
         calibration = None
 

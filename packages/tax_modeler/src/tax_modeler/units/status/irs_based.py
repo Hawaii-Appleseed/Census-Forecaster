@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from common import fallbacks
 
 from tax_modeler.units.relshipp_codes import PARENT, PARENT_IN_LAW
 
@@ -66,6 +67,7 @@ def _load_fs_params(config_path: Path = _CONFIG_PATH) -> dict:
         except Exception as e:
             logger.warning(f"Failed to load {config_path}: {e}. Using hardcoded fallbacks.")
 
+    fallbacks.record("filing_status_params", f"{config_path} missing or unreadable; hardcoded parameters used")
     _FS_PARAMS = fallback
     return _FS_PARAMS
 

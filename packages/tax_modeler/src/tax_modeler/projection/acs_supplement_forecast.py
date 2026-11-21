@@ -48,6 +48,8 @@ import logging
 from dataclasses import dataclass
 from importlib.resources import files
 
+from common import fallbacks
+
 logger = logging.getLogger(__name__)
 
 # All three supplement indicators.
@@ -249,7 +251,9 @@ def project_acs_supplement(
     try:
         from census_forecaster.acs.anchors import load_calibration
         calibration = load_calibration()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - recorded (common.fallbacks)
+        fallbacks.record("acs_calibration:acs_supplement",
+                         f"load_calibration failed ({type(exc).__name__}: {exc}); forecasts made uncalibrated")
         logger.warning("load_calibration failed: %s; proceeding without anchors", exc)
         calibration = None
 
