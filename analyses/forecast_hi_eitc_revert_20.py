@@ -153,12 +153,15 @@ def _children_newly_poor(
     result.units). Returns weighted child count newly below threshold.
     """
     thr = units["spm_threshold"].to_numpy(dtype=float)
-    base_poor = units["spm_resources"].to_numpy(dtype=float) < thr
-    scn_poor = units[f"spm_resources_{scenario}"].to_numpy(dtype=float) < thr
-    newly_poor = scn_poor & ~base_poor
+    # each unit's probability of being poor where credits are drawn (poor_prob_*), else the indicator
+    base_poor = (units["poor_prob_baseline"].to_numpy(dtype=float) if "poor_prob_baseline" in units.columns
+                 else (units["spm_resources"].to_numpy(dtype=float) < thr).astype(float))
+    scn_poor = (units[f"poor_prob_{scenario}"].to_numpy(dtype=float) if f"poor_prob_{scenario}" in units.columns
+                else (units[f"spm_resources_{scenario}"].to_numpy(dtype=float) < thr).astype(float))
+    newly_poor = scn_poor - base_poor
     n_kids = units["n_children"].fillna(0).to_numpy(dtype=float)
     w = units["weight"].astype(float).to_numpy()
-    return float((n_kids[newly_poor] * w[newly_poor]).sum())
+    return float((n_kids * w * newly_poor).sum())
 
 
 def _bootstrap_persons_newly_poor(
@@ -225,6 +228,29 @@ def _bootstrap_persons_newly_poor(
             },
         }
     return out
+
+
+def _exit_draws(units):
+    """The behavioral scenario's labor-force exit as draws, not an expected loss: each affected head of household
+    exits with probability ``_lfp_exit_prob`` and then loses ``loss if exit`` less the SNAP it would gain (the
+    columns hold probability times those); the intensive-margin loss stays an expected value. The static cut is
+    discrete already (it halves the take-up-imputed state EITC), and the baseline is unchanged. An SPM unit with
+    two affected tax units draws their exits independently. Returns a :class:`tax_modeler.poverty.draws.DrawSpec`."""
+    import numpy as np
+    from tax_modeler.poverty.draws import ClaimBlock, DrawSpec
+    from tax_modeler.scenarios.eitc_labor_response import LFP_EXIT_PROB_COLUMN
+
+    scn = "hi_eitc_revert_20_behavioral"
+    p = units[LFP_EXIT_PROB_COLUMN].fillna(0).to_numpy(dtype=float)
+    lfp = units["lfp_behavioral_resource_loss"].fillna(0).to_numpy(dtype=float)
+    snap = units["lfp_behavioral_snap_offset"].fillna(0).to_numpy(dtype=float)
+    loss = np.divide(np.maximum(lfp - snap, 0.0), p, out=np.zeros(len(p)), where=p > 0)
+    block = ClaimBlock(units["spm_unit_id"].to_numpy(), p, np.zeros(len(p)), {scn: -loss})
+
+    def fixed(df):
+        return (df["spm_resources"] - 0.5 * df["hi_eitc_amount"] - df["intensive_resource_loss"]).to_numpy(dtype=float)
+
+    return DrawSpec(blocks=(block,), baseline_fixed=None, scenario_fixed={scn: fixed})
 
 
 def main(argv: list | None = None) -> int:
@@ -357,9 +383,11 @@ def main(argv: list | None = None) -> int:
         scenarios.append("hi_eitc_revert_20_behavioral")
 
     from tax_modeler.poverty.impact import compute_poverty_impact
+    draws = _exit_draws(units) if (args.behavioral and args.lfp_elasticity > 0) else None
     result = compute_poverty_impact(
         poverty_frame, tax_year=args.tax_year,
         scenarios=tuple(scenarios),
+        draws=draws,
     )
     result.by_state.to_csv(args.out / "by_state.csv", index=False)
     result.by_county.to_csv(args.out / "by_county.csv", index=False)
@@ -402,6 +430,12 @@ def main(argv: list | None = None) -> int:
         lines.append(f"    Additional poverty gap (incl. beh): ${beh_gap_m:>+9,.1f}M")
         lines.append(f"    → behavioral CHANNEL ADDS         : {beh_persons - static_persons:>+10,.0f} persons, "
                      f"${beh_gap_m - static_gap_m:+,.1f}M gap")
+        info = result.draw_info.get("hi_eitc_revert_20_behavioral")
+        if info:
+            lines.append(f"    (mean over {info['n_draws']:,} draws of who exits (Monte Carlo SE "
+                         f"{info['persons_lifted_mc_se']:,.0f} persons); expected-exit headcount "
+                         f"{info['persons_lifted_expectation']:,.0f}; gap by draws "
+                         f"${info['gap_closed_draw_$'] / 1e6:+,.1f}M vs expected ${info['gap_closed_expectation_$'] / 1e6:+,.1f}M)")
 
     # HoH (single-mother proxy) — composition-derived (1 adult + ≥1 child).
     lines.append("")

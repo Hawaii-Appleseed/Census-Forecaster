@@ -555,7 +555,7 @@ def run(irs_reweight: bool | None = None) -> None:
     outputs[f"distribution_ty{POVERTY_YEAR}.csv"] = distribution(u)
     outputs[f"by_family_type_ty{POVERTY_YEAR}.csv"] = by_family_type(u)
     outputs[f"by_credit_ty{POVERTY_YEAR}.csv"] = by_credit(u)
-    outputs[f"poverty_ty{POVERTY_YEAR}.csv"] = poverty(u, persons)
+    outputs[f"poverty_ty{POVERTY_YEAR}.csv"] = poverty(u, persons, draws=claim_draws(u, c, p_eitc, p_food, p_cdcc))
     outputs[f"sampling_error_ty{POVERTY_YEAR}.csv"] = sampling_error(
         frames, u, c, p_eitc, p_food, p_cdcc, eitc_dotax["dollars_M"], ratios,
         None if rake is None else rake.replicates)
@@ -818,8 +818,49 @@ def sampling_error(frames, u28: pd.DataFrame, c28: pd.DataFrame, p_eitc: float, 
     return pd.DataFrame(rows)
 
 
-def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
-    """SPM poverty in POVERTY_YEAR, expansions renewed (baseline) vs expired."""
+#: Draws of who claims each credit behind the poverty headcounts (tax_modeler.poverty.draws): 2,000 give a Monte
+#: Carlo standard error under 0.5% of the persons headcount (the rule is under 2%).
+DRAW_COUNT = 2_000
+
+
+def claim_draws(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, p_food: float, p_cdcc: float,
+                n_draws: int = DRAW_COUNT):
+    """Who claims each credit, as draws: every tax unit claims or not with the probability its take-up factor says
+    (capped at one; a factor above one scales the dollars), and the household's claim is the same in the renewed and
+    the expired case. The expected-credit headcount gave every unit ``probability x amount`` and put households near
+    the line on one side of it; this gives each its probability of being poor.
+
+    * earned income tax credit: claims with probability ``min(p_eitc, 1)`` where the renewed credit is positive;
+    * food/excise credit: ``min(p_food, 1)`` where positive;
+    * care credit: ``P(credit > 0) x min(p_cdcc, 1)``, the dollars if it claims being the conditional amount
+      (expected credit over the claim probability).
+
+    Same mean as the expectation for every unit. Returns a :class:`tax_modeler.poverty.draws.DrawSpec`."""
+    from tax_modeler.poverty.draws import DEFAULT_SEED, ClaimBlock, DrawSpec
+
+    sid = u["spm_unit_id"].to_numpy()
+    blocks = []
+    for ren_col, exp_col, prob_factor in (("eitc_expanded", "eitc_reverted", p_eitc), ("food_expanded", "food_reverted", p_food)):
+        ren, exp_ = c[ren_col].to_numpy(dtype=float), c[exp_col].to_numpy(dtype=float)
+        pc_, scale = min(prob_factor, 1.0), prob_factor / min(prob_factor, 1.0)
+        blocks.append(ClaimBlock(sid, np.where(ren > 0, pc_, 0.0), ren * scale, {"act163_sunset": exp_ * scale}))
+    q = np.clip(c["cdcc_expanded_claim_prob"].to_numpy(dtype=float), 0.0, 1.0)
+    pc_, scale = min(p_cdcc, 1.0), p_cdcc / min(p_cdcc, 1.0)
+    ren, exp_ = c["cdcc_expanded"].to_numpy(dtype=float), c["cdcc_reverted"].to_numpy(dtype=float)
+    cond_ren = np.divide(ren, q, out=np.zeros(len(q)), where=q > 0) * scale
+    cond_exp = np.divide(exp_, q, out=np.zeros(len(q)), where=q > 0) * scale
+    blocks.append(ClaimBlock(sid, q * pc_, cond_ren, {"act163_sunset": cond_exp}))
+
+    def without_credits(df: pd.DataFrame) -> np.ndarray:
+        return (df["spm_resources"] - df["hi_eitc_amount"] - df["hi_food_excise_amount"] - df["hi_cdcc_amount"]).to_numpy(dtype=float)
+
+    return DrawSpec(blocks=tuple(blocks), baseline_fixed=without_credits,
+                    scenario_fixed={"act163_sunset": without_credits}, n_draws=n_draws, seed=DEFAULT_SEED)
+
+
+def poverty(u: pd.DataFrame, persons: pd.DataFrame, draws=None) -> pd.DataFrame:
+    """SPM poverty in POVERTY_YEAR, expansions renewed (baseline) vs expired. With ``draws`` (:func:`claim_draws`)
+    the headcounts are means over draws of who claims each credit; without, every unit gets its expected credits."""
     import poverty_impact_report as pir
     from tax_modeler.benefits.childcare_expense import compute_childcare_expense_for_units
     from tax_modeler.benefits.moop import compute_moop_for_units
@@ -857,7 +898,7 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     u = compute_work_expense_for_units(u)
     frame = aggregate_to_spm_units(u, persons)
     res = compute_poverty_impact_with_se(frame, tax_year=yr, scenarios=("act163_sunset",),
-                                         extrapolate_thresholds=True)
+                                         extrapolate_thresholds=True, draws=draws)
     s = res.by_state.iloc[0]
     hoh = res.by_household_type
     row = {
@@ -870,16 +911,36 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
         "persons_into_poverty_se": float(s["persons_lifted_act163_sunset_se"]),
         "poverty_gap_increase_se_$M": float(s["gap_closed_act163_sunset_$_se"]) / 1e6,
     }
-    # Children newly below the threshold (SPM-unit child counts).
+    # Children newly below the threshold (SPM-unit child counts): each unit's probability of being poor in the
+    # expired case and not in the renewed one (0 or 1 for a unit when nothing is drawn).
     f = res.units
     thr = f["spm_threshold"].to_numpy(dtype=float)
-    newly = ((f["spm_resources_act163_sunset"].to_numpy(dtype=float) < thr)
-             & ~(f["spm_resources"].to_numpy(dtype=float) < thr))
+    p_new = (f["poor_prob_act163_sunset"].to_numpy(dtype=float) if "poor_prob_act163_sunset" in f.columns
+             else (f["spm_resources_act163_sunset"].to_numpy(dtype=float) < thr).astype(float))
+    p_old = (f["poor_prob_baseline"].to_numpy(dtype=float) if "poor_prob_baseline" in f.columns
+             else (f["spm_resources"].to_numpy(dtype=float) < thr).astype(float))
+    newly = p_new - p_old
     kids = f["n_children"].fillna(0).to_numpy(dtype=float)
-    row["children_into_poverty"] = float((kids * f["weight"].to_numpy(dtype=float))[newly].sum())
+    row["children_into_poverty"] = float((kids * f["weight"].to_numpy(dtype=float) * newly).sum())
     rep_cols = [c for c in f.columns if c.startswith("weight_r") and c[8:].isdigit()]
-    child_r = np.array([(kids * f[c].to_numpy(dtype=float))[newly].sum() for c in rep_cols])
+    child_r = np.array([(kids * f[c].to_numpy(dtype=float) * newly).sum() for c in rep_cols])
     row["children_into_poverty_se"] = float(np.sqrt(4 / len(rep_cols) * ((child_r - row["children_into_poverty"]) ** 2).sum()))
+    z = 1.645                      # 90 percent, as the Census Bureau publishes
+    row["persons_into_poverty_low90"] = row["persons_into_poverty"] - z * row["persons_into_poverty_se"]
+    row["persons_into_poverty_high90"] = row["persons_into_poverty"] + z * row["persons_into_poverty_se"]
+    row["children_into_poverty_low90"] = row["children_into_poverty"] - z * row["children_into_poverty_se"]
+    row["children_into_poverty_high90"] = row["children_into_poverty"] + z * row["children_into_poverty_se"]
+    info = res.draw_info.get("act163_sunset")
+    row["headcount_method"] = "mean over draws of who claims each credit" if info else "expected credits"
+    if info:
+        row["n_draws"] = info["n_draws"]
+        row["draw_seed"] = info["seed"]
+        row["persons_into_poverty_mc_se"] = info["persons_lifted_mc_se"]
+        row["persons_into_poverty_expectation"] = info["persons_lifted_expectation"]
+        row["children_into_poverty_mc_se"] = info["children_lifted_mc_se"]
+        row["children_into_poverty_expectation"] = info["children_lifted_expectation"]
+        row["poverty_gap_increase_draws_$M"] = info["gap_closed_draw_$"] / 1e6
+        row["poverty_gap_increase_expectation_$M"] = info["gap_closed_expectation_$"] / 1e6
     # SPM household types: head_of_household = one adult with children.
     for _, r in hoh.iterrows():
         row[f"persons_into_poverty_{r['filing_status']}"] = float(r["persons_lifted_act163_sunset"])
