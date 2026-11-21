@@ -208,6 +208,7 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
         RULE,
         TEAL,
         TXT_GREY,
+        TablePage,
         make_quintile_pdf,
     )
     from tax_modeler.scenarios.sb3125_cd1_credits import (
@@ -463,16 +464,24 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
     make_quintile_pdf(
         df, PDF_OUT,
         q_labels=QUINTILE_LABELS,
-        table_title=f"SB 3125 {cd_label} vs Act 46 — Distributional Impact (MID Scenario)",
-        table_subtitle=(
-            "Per-filer bracket-change impact by income quintile, TY 2027–2031  "
-            "·  §235-51 only  ·  REEC/CGEC/TCRA shown separately on pages 5–6"
+        table=TablePage(
+            title=f"SB 3125 {cd_label} vs Act 46 — Distributional Impact (MID Scenario)",
+            subtitle=(
+                "Per-filer bracket-change impact by income quintile, TY 2027–2031  "
+                "·  §235-51 only  ·  REEC/CGEC/TCRA shown separately on pages 5–6"
+            ),
+            specs=[
+                ("Avg Tax Change per Filer",        "avg_delta_per_filer_$",  "dollar"),
+                ("Share of Filers with Any Change", "pct_filers_with_change", "pct"),
+                ("Total Tax Change for Quintile",   "delta_total_$M",         "millions"),
+            ],
+            footnote=(
+                f"Positive = filer pays more under SB 3125 {cd_label} vs Act 46 (bracket change only). "
+                "Bottom quintiles see tax cuts from lower mid-bracket rates; top quintile sees "
+                "increases from the new 13% bracket. Credit-cap savings (REEC) shown on pages 5–6."
+            ),
+            bottom=0.06,
         ),
-        table_specs=[
-            ("Avg Tax Change per Filer",        "avg_delta_per_filer_$",  "dollar"),
-            ("Share of Filers with Any Change", "pct_filers_with_change", "pct"),
-            ("Total Tax Change for Quintile",   "delta_total_$M",         "millions"),
-        ],
         chart_specs=[
             ("Average Tax Change per Filer by Quintile", subtitle,
              "avg_delta_per_filer_$", "dollar", BLUE),
@@ -481,12 +490,6 @@ def _make_pdf(df: pd.DataFrame, *, cd: str = "2") -> None:
             ("Total Tax Change by Quintile", subtitle,
              "delta_total_$M", "millions", BLUE),
         ],
-        table_footnote=(
-            f"Positive = filer pays more under SB 3125 {cd_label} vs Act 46 (bracket change only). "
-            "Bottom quintiles see tax cuts from lower mid-bracket rates; top quintile sees "
-            "increases from the new 13% bracket. Credit-cap savings (REEC) shown on pages 5–6."
-        ),
-        table_bottom=0.06,
         extra_pages=extra_pages,
         pdf_meta={
             "Title":   f"SB 3125 {cd_label} Distributional Analysis",

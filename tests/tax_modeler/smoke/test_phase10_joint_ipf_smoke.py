@@ -12,6 +12,7 @@ from tax_modeler import (
     validate_joint_distribution,
 )
 from tax_modeler.errors import ConfigError
+from tax_modeler.projection.demographic import JointIpf
 
 pytestmark = pytest.mark.smoke
 
@@ -143,7 +144,7 @@ def test_validate_joint_distribution_after_rake(taxed_units):
 
 
 # ---------------------------------------------------------------------------
-# project_demographics_forward(use_joint_ipf=True)
+# project_demographics_forward(joint_ipf=JointIpf())
 # ---------------------------------------------------------------------------
 
 
@@ -152,8 +153,7 @@ def test_demographic_projection_via_joint_ipf(taxed_units):
         taxed_units,
         target_year=2040,
         dimensions=["senior", "hh_size", "disability"],
-        use_joint_ipf=True,
-        joint_ipf_tol=5e-3,
+        joint_ipf=JointIpf(tol=5e-3),
     )
     # The joint-IPF path populates per_dim_results in the same shape
     assert set(result.per_dim_results) == {"senior", "hh_size", "disability"}
@@ -171,14 +171,13 @@ def test_joint_ipf_better_than_independent_rakes_on_correlated_dims(taxed_units)
     indep_out, indep_res = project_demographics_forward(
         taxed_units, target_year=2040,
         dimensions=["senior", "hh_size", "disability"],
-        use_joint_ipf=False,
     )
 
     # Joint IPF (Phase 10)
     joint_out, joint_res = project_demographics_forward(
         taxed_units, target_year=2040,
         dimensions=["senior", "hh_size", "disability"],
-        use_joint_ipf=True,
+        joint_ipf=JointIpf(),
     )
 
     # Check the senior marginal AFTER all rakes ran

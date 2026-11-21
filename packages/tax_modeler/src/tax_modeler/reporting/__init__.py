@@ -13,6 +13,7 @@ from tax_modeler.reporting.quintile_pdf import (
     RULE,
     TEAL,
     TXT_GREY,
+    TablePage,
     fmt_value,
     make_quintile_pdf,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "RULE",
     "TEAL",
     "TXT_GREY",
+    "TablePage",
     "fmt_value",
     "make_quintile_pdf",
 ]

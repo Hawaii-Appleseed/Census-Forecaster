@@ -1047,6 +1047,30 @@ def _marginalised_v2_se_overrides(
 # Public v3 calibration entry point
 # -----------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class MLFeatureData:
+    """The data channels the ML pass of :func:`run_stratified_calibration`
+    builds its panel from (``ml_features.build_panel_index``). A channel left
+    ``None`` loads its bundled file; ``{}`` switches it off, which is how the
+    ablation scripts build a baseline arm.
+
+    county:
+        County registry series (BPS permits, LAUS, SAIPE, ...).
+    market:
+        Market-signal series (FHFA, Realtor, ...).
+    national:
+        National macro series.
+    state:
+        {series_name -> {state_fips -> {year -> value}}}: the bundled
+        STATE_SERIES channel (DOL UI claims).
+    """
+
+    county: dict | None = None
+    market: dict | None = None
+    national: dict | None = None
+    state: dict | None = None
+
+
 def run_stratified_calibration(
     series_by_key: dict[tuple[str, str], Sequence[AcsObservation]],
     anchor_years: Sequence[int],
@@ -1056,10 +1080,7 @@ def run_stratified_calibration(
     bias_clamp_log: float = DEFAULT_BIAS_CLAMP_LOG,
     as_of_mode: str = "instant",
     include_ml: bool = False,
-    county_data: dict | None = None,
-    market_data: dict | None = None,
-    national_data: dict | None = None,
-    state_data: dict | None = None,
+    ml_features: MLFeatureData | None = None,
     include_kalman: bool = False,
     include_conformal: bool = False,
     enable_phi: bool = False,
@@ -1096,11 +1117,9 @@ def run_stratified_calibration(
         in log space. Default `log(1.10)` ≈ ±10% multiplicative.
     include_conformal : when True, split anchor_years and compute
         per-stratum conformal quantiles (requires ≥ 3 anchor years).
-    state_data : optional {series_name → {state_fips → {year → value}}}
-        Overrides the bundled STATE_SERIES channel (DOL UI claims) for
-        the ML pass. Pass ``{}`` to run an arm with the channel switched
-        off — that is how ``compare_ui_claims_ablation`` builds its
-        baseline. ``None`` (default) loads the bundled file.
+    ml_features : optional :class:`MLFeatureData`
+        Overrides the bundled feature channels of the ML pass; a channel left
+        ``None`` loads its bundled file.
     bias_half_life_years : when set, Pass A weights fold log-ratios by
         recency (half-life in anchor-years) so old-regime bias decays
         out of the correction; None keeps the historical unweighted
@@ -1394,10 +1413,11 @@ def run_stratified_calibration(
             train_ml_model as _train_ml_model,
         )
 
-        _cty = county_data if county_data is not None else _load_cty()
-        _mkt = market_data if market_data is not None else _load_mkt()
-        _nm = national_data if national_data is not None else _load_nm()
-        _st = state_data if state_data is not None else _load_st()
+        _feat = ml_features if ml_features is not None else MLFeatureData()
+        _cty = _feat.county if _feat.county is not None else _load_cty()
+        _mkt = _feat.market if _feat.market is not None else _load_mkt()
+        _nm = _feat.national if _feat.national is not None else _load_nm()
+        _st = _feat.state if _feat.state is not None else _load_st()
         ml_panel = _build_panel_index(
             series_by_key,
             county_data=_cty,

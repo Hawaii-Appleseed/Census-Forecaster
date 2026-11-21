@@ -14,6 +14,7 @@ tax_modeler.reporting does not require it.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 # ── Shared constants (previously duplicated in every _make_pdf) ────────────
@@ -51,20 +52,42 @@ def fmt_value(val: float, fmt: str) -> str:
     return str(val)
 
 
+@dataclass(frozen=True)
+class TablePage:
+    """The table page of :func:`make_quintile_pdf`.
+
+    title, subtitle:
+        Heading and italic line under it.
+    specs:
+        Three ``(block_title, column, fmt)`` row-blocks.
+    footnote:
+        Static italic footnote.
+    cor_footnote:
+        Second line of the COR-anchored diagnostics footer; when set and
+        ``total_change_cor_$M`` exists, per-year raw vs COR-anchored totals
+        are printed above it.
+    bottom:
+        Lowest edge of the row-blocks (raise it to leave room for a long
+        footnote).
+    """
+
+    title: str
+    subtitle: str
+    specs: Sequence[tuple[str, str, str]]
+    footnote: str | None = None
+    cor_footnote: str | None = None
+    bottom: float = 0.03
+
+
 def make_quintile_pdf(
     df,
     out_path: Path | str,
     *,
     q_labels: Sequence[str],
-    table_title: str,
-    table_subtitle: str,
-    table_specs: Sequence[tuple[str, str, str]],
+    table: TablePage,
     chart_specs: Sequence[tuple[str, str, str, str, str]],
     pdf_meta: dict[str, str],
-    table_footnote: str | None = None,
-    cor_footnote: str | None = None,
     chart_years: tuple[int, int] = (2027, 2031),
-    table_bottom: float = 0.03,
     source_note: str = (
         "Source: Census-Forecaster microsim. Quintiles defined on 2026 "
         "household income."
@@ -78,15 +101,10 @@ def make_quintile_pdf(
             ``q_labels``) plus every metric column named in the specs.
         q_labels: quintile values as they appear in ``df['quintile']``
             (label case differs between the dynamic and static pipelines).
-        table_specs: three ``(block_title, column, fmt)`` row-blocks for
-            the table page.
+        table: the table page (:class:`TablePage`).
         chart_specs: three ``(title, subtitle, column, fmt, bar_color)``
             chart pages.
         pdf_meta: PDF info dict entries (``Title``/``Author``/…).
-        table_footnote: static italic footnote on the table page.
-        cor_footnote: second line of the COR-anchored diagnostics footer;
-            when set and ``total_change_cor_$M`` exists, per-year raw vs
-            COR-anchored totals are printed above it.
         extra_pages: callables ``f(pdf)`` appended after the chart pages
             (e.g. the static CD2 REEC incidence/time-series pages).
 
@@ -111,14 +129,14 @@ def make_quintile_pdf(
     # ── Page 1: tables ──────────────────────────────────────────────────
     def table_page(pdf):
         fig = plt.figure(figsize=(11, 11))
-        fig.suptitle(table_title, fontsize=15, fontweight="bold", y=0.97,
+        fig.suptitle(table.title, fontsize=15, fontweight="bold", y=0.97,
                      color=NAVY)
-        fig.text(0.5, 0.935, table_subtitle, ha="center", fontsize=10,
+        fig.text(0.5, 0.935, table.subtitle, ha="center", fontsize=10,
                  style="italic", color=TXT_GREY)
-        n = len(table_specs)
-        top, bot, pad = 0.90, table_bottom, 0.025
+        n = len(table.specs)
+        top, bot, pad = 0.90, table.bottom, 0.025
         ph = (top - bot - (n - 1) * pad) / n
-        for i, (title, col, fmt) in enumerate(table_specs):
+        for i, (title, col, fmt) in enumerate(table.specs):
             y0 = top - i * (ph + pad)
             ax = fig.add_axes([0.05, y0 - ph, 0.90, ph])
             ax.axis("off")
@@ -155,10 +173,10 @@ def make_quintile_pdf(
                         c.set_facecolor(PILL_BG)
                     if r == len(rows) and j >= 2:
                         c.set_facecolor("#fff5f5")
-        if table_footnote:
-            fig.text(0.05, 0.025, table_footnote, ha="left", fontsize=7.5,
+        if table.footnote:
+            fig.text(0.05, 0.025, table.footnote, ha="left", fontsize=7.5,
                      style="italic", color=TXT_GREY)
-        if cor_footnote and has_cor:
+        if table.cor_footnote and has_cor:
             diag_lines = []
             for yr in years:
                 sub = df[df["tax_year"] == yr]
@@ -171,7 +189,7 @@ def make_quintile_pdf(
                      "Aggregate impact (raw / COR-anchored statewide):  "
                      + "  |  ".join(diag_lines),
                      ha="left", fontsize=7.5, color=TXT_GREY)
-            fig.text(0.05, 0.005, cor_footnote,
+            fig.text(0.05, 0.005, table.cor_footnote,
                      ha="left", fontsize=7, style="italic", color=TXT_GREY)
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)

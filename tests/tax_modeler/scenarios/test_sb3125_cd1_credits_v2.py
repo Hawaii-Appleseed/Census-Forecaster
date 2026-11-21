@@ -15,6 +15,7 @@ from tax_modeler.scenarios.sb3125_cd1_credits import (
     _DOTAX_HISTORICAL,
     REEC_CAP_2027_2030_M,
     REEC_REFUNDABLE_SHARE_INDIVIDUAL,
+    CarryforwardPool,
     _certified_credits_for_vintage,
     _historical_reec_corporate,
     _historical_reec_individual,
@@ -225,8 +226,8 @@ def test_compute_credit_overlay_vintage_with_new_knobs_returns_diagnostics():
     """The new diagnostic keys appear when the vintage path runs."""
     r = compute_credit_overlay(
         2027, reec_effective_claim_share=0.65, cgec_annual_growth=0.015,
-        model_carryforward_pool=True, pro_rata_elasticity=0.3,
-        dynamic_refundable_share=True, interpretation="A",
+        carryforward_pool=CarryforwardPool(
+            pro_rata_elasticity=0.3, dynamic_refundable_share=True, interpretation="A"),
     )
     assert "reec_eligibility_share" in r
     assert "reec_pro_rata_factor" in r
@@ -256,7 +257,7 @@ def test_compute_credit_overlay_ci_band_vintage_path():
     """CI keys also appear on the vintage-simulation path."""
     r = compute_credit_overlay(
         2027, reec_effective_claim_share=0.65, cgec_annual_growth=0.015,
-        model_carryforward_pool=True, interpretation="A",
+        carryforward_pool=CarryforwardPool(interpretation="A"),
     )
     assert (r["reec_savings_ci90_low_$M"]
             <= r["reec_savings_$M"]

@@ -42,7 +42,7 @@ logging.disable(logging.WARNING)
 
 import pandas as pd
 from tax_modeler.config.tax_system_config import TaxCalculator
-from tax_modeler.reporting import BLUE, GREEN, NAVY, make_quintile_pdf
+from tax_modeler.reporting import BLUE, GREEN, NAVY, TablePage, make_quintile_pdf
 from tax_modeler.scenarios import recalibrated_population
 from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 from tax_modeler.scenarios.quintile_analysis import (
@@ -259,13 +259,16 @@ def main(bill: str = "sb3125_cd1") -> None:
     make_quintile_pdf(
         all_quintiles, Path(spec["pdf"]),
         q_labels=Q_LABELS,
-        table_title=f"{label} vs Act 46 — Distributional Impact (MID Scenario)",
-        table_subtitle=spec["table_subtitle"],
-        table_specs=[
-            ("Avg Tax Change per Household",           "avg_per_hh_total_change", "dollar"),
-            ("Share of Households with Tax Increase",  "pct_pay_more",            "pct"),
-            ("Total Tax Change for Quintile",          "total_change_$M",         "millions"),
-        ],
+        table=TablePage(
+            title=f"{label} vs Act 46 — Distributional Impact (MID Scenario)",
+            subtitle=spec["table_subtitle"],
+            specs=[
+                ("Avg Tax Change per Household",           "avg_per_hh_total_change", "dollar"),
+                ("Share of Households with Tax Increase",  "pct_pay_more",            "pct"),
+                ("Total Tax Change for Quintile",          "total_change_$M",         "millions"),
+            ],
+            cor_footnote=spec["cor_footnote"],
+        ),
         chart_specs=[
             ("Average Tax Change per Household by Quintile", subtitle,
              "avg_per_hh_total_change", "dollar", spec["accent"]),
@@ -274,7 +277,6 @@ def main(bill: str = "sb3125_cd1") -> None:
             ("Total Tax Change by Quintile", subtitle,
              "total_change_$M", "millions", spec["accent"]),
         ],
-        cor_footnote=spec["cor_footnote"],
         pdf_meta={"Title": spec["pdf_title"], "Author": "Census-Forecaster"},
     )
 

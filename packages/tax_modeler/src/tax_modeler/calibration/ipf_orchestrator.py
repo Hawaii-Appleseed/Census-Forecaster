@@ -37,6 +37,61 @@ class CalibrationTarget:
     weight: float = 1.0  # Relative importance (for prioritization)
 
 
+@dataclass(frozen=True)
+class SoiMargin:
+    """IRS SOI Hawaii Table 2 AGI-total targets for :meth:`IPFCalibrationOrchestrator.calibrate_via_rake`.
+
+    agi_targets_M:
+        {(lo, hi): target AGI in $ millions} per SOI bin. Build via
+        ``irs_soi_state_targets.build_soi_calibration_margins``.
+    universe_scale:
+        Multiplier applied to the targets to match the calibrated universe.
+        SOI Hawaii has 674,660 returns; DOTAX has 618,423 (SOI counts
+        federal-only filers DOTAX excludes). Pass ``DOTAX_total / SOI_total
+        ~ 0.917`` to scale SOI AGI down.
+    """
+
+    agi_targets_M: dict[tuple[float, float], float]
+    universe_scale: float = 1.0
+
+
+@dataclass(frozen=True)
+class RakeTuning:
+    """Iteration and damping settings of ``calibrate_via_rake``'s outer loop.
+
+    max_outer_iters:
+        Cap on outer iterations. Convergence is normally hit in 10-25.
+    outer_tolerance:
+        Joint convergence threshold (max relative deviation across all
+        margins).
+    tax_total_max_adjustment:
+        Per-bin scaling cap for ONE tax-total step, for damping: each outer
+        iteration nudges weights only part of the way toward the tax target
+        so the count rake can keep up. Effective amplification across N
+        iterations is up to ``cap^N``.
+    soi_max_adjustment:
+        Per-bin scaling cap for the SOI AGI step. SOI AGI is more achievable
+        than DOTAX tax (PUMS records have AGI directly), so the cap is tighter.
+    skip_synthesis_bin:
+        When True, omits the $1M+ bin from tax-total raking (and the SOI
+        $200K+ bin from the SOI margin). PUMS topcodes top incomes, so these
+        bins are unreachable pre-synthesis; including them would consume cap
+        headroom and cause non-convergence. Synthesis fills them downstream.
+    infeasibility_threshold:
+        Bins are dropped from the tax-total margin if their target implies a
+        per-filer tax more than this fraction higher than the bin's actual
+        per-filer tax distribution allows. Prevents the rake from oscillating
+        against impossible targets.
+    """
+
+    max_outer_iters: int = 30
+    outer_tolerance: float = 0.01
+    tax_total_max_adjustment: float = 5.0
+    soi_max_adjustment: float = 1.10
+    skip_synthesis_bin: bool = True
+    infeasibility_threshold: float = 0.25
+
+
 class IPFCalibrationOrchestrator:
     """
     Multi-stage IPF calibrator for tax microsimulation.
@@ -307,15 +362,8 @@ class IPFCalibrationOrchestrator:
         calibrate_filer_counts: bool = True,
         calibrate_tax_totals: bool = True,
         calibrate_filing_status: bool = True,
-        calibrate_soi_agi: bool = True,
-        soi_agi_targets_M: dict[tuple[float, float], float] | None = None,
-        soi_universe_scale: float = 1.0,
-        max_outer_iters: int = 30,
-        outer_tolerance: float = 0.01,
-        tax_total_max_adjustment: float = 5.0,
-        soi_max_adjustment: float = 1.10,
-        skip_synthesis_bin: bool = True,
-        infeasibility_threshold: float = 0.25,
+        soi: SoiMargin | None = None,
+        tuning: RakeTuning = RakeTuning(),
         extra_margins: dict[str, tuple[np.ndarray, dict[str, float]]] | None = None,
     ) -> pd.DataFrame:
         """Joint multi-pass IPF calibration.
@@ -347,43 +395,6 @@ class IPFCalibrationOrchestrator:
             Scale weights to DOTAX tax-total targets by AGI bracket.
         calibrate_filing_status:
             Rake to DOTAX filing-status distribution.
-        max_outer_iters:
-            Cap on outer iterations. Convergence is normally hit in 10-25.
-        outer_tolerance:
-            Joint convergence threshold (max relative deviation across all
-            three margins). Default 1%.
-        tax_total_max_adjustment:
-            Per-bin scaling cap for ONE tax-total step. Kept small (1.15x)
-            for damping: each outer iteration nudges weights only ~15%
-            toward the tax target so the count rake can keep up. Effective
-            amplification across N iterations is up to ``cap^N`` (1.15^30 ≈ 66x).
-        skip_synthesis_bin:
-            When True, omits the $1M+ bin from tax-total raking. PUMS
-            topcodes top incomes, so this bin is unreachable pre-synthesis;
-            including it would consume cap headroom and cause
-            non-convergence. Synthesis fills this bin downstream.
-        infeasibility_threshold:
-            Bins are dropped from the tax-total margin if their target
-            implies a per-filer tax > this fraction higher than the bin's
-            actual per-filer tax distribution allows. Prevents the rake
-            from oscillating against impossible targets (e.g., DOTAX bin
-            tax $21M with count target 64K but PUMS-derived per-filer tax
-            of only ~$200 → max feasible $13M). Default 0.50 (50%).
-        calibrate_soi_agi:
-            Also rake against IRS SOI Hawaii Table 2 AGI-total targets
-            (per SOI bin). DOTAX provides only **tax** anchors per bin;
-            SOI provides **income** anchors that constrain the income
-            distribution underlying those taxes. SOI uses 6 coarser bins
-            ($25K boundaries vs DOTAX $10K/$50K).
-        soi_agi_targets_M:
-            Dict keyed by (lo, hi) tuple → target AGI in $millions per
-            SOI bin. Required when ``calibrate_soi_agi`` is True. Build
-            via ``irs_soi_state_targets.build_soi_calibration_margins``.
-        soi_universe_scale:
-            Multiplier applied to SOI targets to match the calibrated
-            universe. SOI Hawaii has 674,660 returns; DOTAX has 618,423
-            (SOI counts federal-only filers DOTAX excludes). Pass
-            ``DOTAX_total / SOI_total ≈ 0.917`` to scale SOI AGI down.
         extra_margins:
             More count margins raked jointly with the filer-count and filing-status margins:
             ``{name: (codes, targets)}``, ``codes`` an integer array with one code per unit and
@@ -391,10 +402,14 @@ class IPFCalibrationOrchestrator:
             :mod:`tax_modeler.calibration.family_margins` (head of household, nonrefundable
             CTC/ODC and ACTC returns by AGI class). Code 0 carries the remainder of the total,
             so the population total is unchanged. ``None``: no extra margin.
-        soi_max_adjustment:
-            Per-bin scaling cap for the SOI AGI step. SOI AGI is more
-            achievable than DOTAX tax (PUMS records have AGI directly),
-            so a tighter cap is appropriate. Default 2.0x.
+        soi:
+            Also rake against IRS SOI Hawaii Table 2 AGI-total targets (per SOI
+            bin), a :class:`SoiMargin`. DOTAX provides only **tax** anchors per
+            bin; SOI provides **income** anchors that constrain the income
+            distribution underlying those taxes. SOI uses 6 coarser bins
+            ($25K boundaries vs DOTAX $10K/$50K). ``None``: no SOI margin.
+        tuning:
+            Iteration caps, step limits and bin handling (:class:`RakeTuning`).
         """
         from pums_estimator.estimation.rake import rake_arrays  # lazy cross-package import
 
@@ -444,7 +459,7 @@ class IPFCalibrationOrchestrator:
             extra_dev[name] = (col, {int(k): float(v) for k, v in targets.items() if int(k) != 0})
 
         # --- prepare tax-total targets (skip synthesis-handled bin) ------
-        if calibrate_tax_totals and skip_synthesis_bin:
+        if calibrate_tax_totals and tuning.skip_synthesis_bin:
             tax_targets = {
                 k: v for k, v in self.DOTAX_TAX_TARGETS.items()
                 if k[0] < 1_000_000
@@ -454,7 +469,7 @@ class IPFCalibrationOrchestrator:
 
         # --- drop infeasible bins from tax-total margin ------------------
         # If hitting the bin's tax target would require multiplying the
-        # per-filer tax by more than (1 + infeasibility_threshold) over what
+        # per-filer tax by more than (1 + tuning.infeasibility_threshold) over what
         # the count-target population can produce, the constraint is
         # arithmetically inconsistent (PUMS-derived per-filer tax doesn't
         # match DOTAX). Skip raking it so the multi-pass IPF can converge.
@@ -478,7 +493,7 @@ class IPFCalibrationOrchestrator:
                     # Negative-tax bins (EITC-driven); rake can't fix.
                     infeasible_bins.append((lo, hi))
                     continue
-                if tgt > feasible_tax_m * (1 + infeasibility_threshold):
+                if tgt > feasible_tax_m * (1 + tuning.infeasibility_threshold):
                     infeasible_bins.append((lo, hi))
             for k in infeasible_bins:
                 del tax_targets[k]
@@ -514,7 +529,7 @@ class IPFCalibrationOrchestrator:
             m = 0.0
             for (lo, hi), tgt in self.DOTAX_FILER_TARGETS.items():
                 # Skip $1M+ — PUMS topcodes; synthesis fills this bin.
-                if skip_synthesis_bin and lo >= 1_000_000:
+                if tuning.skip_synthesis_bin and lo >= 1_000_000:
                     continue
                 cur = d.loc[(d["agi"] >= lo) & (d["agi"] < hi), "weight"].sum()
                 if tgt > 0:
@@ -557,14 +572,14 @@ class IPFCalibrationOrchestrator:
         # with target tax of $663M, which dominates this SOI bin's AGI.
         # Including it would force the rake to fight synthesis.
         soi_targets_scaled: dict[tuple[float, float], float] = {}
-        if calibrate_soi_agi and soi_agi_targets_M:
-            for (lo, hi), tgt in soi_agi_targets_M.items():
-                if skip_synthesis_bin and lo >= 200_000:
+        if soi is not None and soi.agi_targets_M:
+            for (lo, hi), tgt in soi.agi_targets_M.items():
+                if tuning.skip_synthesis_bin and lo >= 200_000:
                     continue
-                soi_targets_scaled[(lo, hi)] = tgt * soi_universe_scale
+                soi_targets_scaled[(lo, hi)] = tgt * soi.universe_scale
 
         def _max_dev_soi_agi(d: pd.DataFrame) -> float:
-            if not calibrate_soi_agi or not soi_targets_scaled:
+            if soi is None or not soi_targets_scaled:
                 return 0.0
             m = 0.0
             for (lo, hi), tgt in soi_targets_scaled.items():
@@ -581,7 +596,7 @@ class IPFCalibrationOrchestrator:
         STALE_LIMIT = 3  # iterations with no meaningful improvement → fixed point
         STALE_TOL = 1e-4
         stale_count = 0
-        for outer in range(max_outer_iters):
+        for outer in range(tuning.max_outer_iters):
             # Step 1: count rake (filer-count + filing-status, jointly)
             if margin_cols:
                 result["weight"] = _run_count_rake(
@@ -592,15 +607,15 @@ class IPFCalibrationOrchestrator:
             if calibrate_tax_totals:
                 result = self.ipf_adjust_weights_to_tax_totals(
                     result, tax_targets,
-                    max_adjustment=tax_total_max_adjustment,
+                    max_adjustment=tuning.tax_total_max_adjustment,
                 )
 
             # Step 3: SOI AGI-total scaling (SOI bins)
-            if calibrate_soi_agi and soi_targets_scaled:
+            if soi is not None and soi_targets_scaled:
                 result = self.ipf_adjust_weights_to_weighted_sum(
                     result, soi_targets_scaled,
                     value_col="agi",
-                    max_adjustment=soi_max_adjustment,
+                    max_adjustment=tuning.soi_max_adjustment,
                 )
 
             # Step 4: convergence check
@@ -616,7 +631,7 @@ class IPFCalibrationOrchestrator:
                 "(filer_count=%.4f, filing_status=%.4f, tax_total=%.4f, soi_agi=%.4f, families=%.4f)",
                 outer + 1, max_dev, fc_d, fs_d, tt_d, soi_d, fam_d,
             )
-            if max_dev < outer_tolerance:
+            if max_dev < tuning.outer_tolerance:
                 converged = True
                 logger.info(
                     "Joint IPF converged in %d outer iterations (max_dev=%.4f)",
@@ -648,7 +663,7 @@ class IPFCalibrationOrchestrator:
             logger.warning(
                 "Joint IPF did not converge in %d outer iterations "
                 "(final max_dev=%.4f)",
-                max_outer_iters,
+                tuning.max_outer_iters,
                 max(history[-1][1:]) if history else float("nan"),
             )
 
@@ -934,7 +949,6 @@ def apply_ipf_calibration_via_rake(
         calibrate_filer_counts=calibrate_filer_counts,
         calibrate_tax_totals=calibrate_tax_totals,
         calibrate_filing_status=calibrate_filing_status,
-        calibrate_soi_agi=calibrate_soi_agi,
-        soi_agi_targets_M=soi_agi_targets_M,
-        soi_universe_scale=soi_universe_scale,
+        soi=(SoiMargin(soi_agi_targets_M, soi_universe_scale)
+             if calibrate_soi_agi and soi_agi_targets_M else None),
     )

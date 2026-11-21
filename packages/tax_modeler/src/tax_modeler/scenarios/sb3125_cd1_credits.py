@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -906,6 +907,30 @@ def simulate_reec_state_cost_path(
     return out
 
 
+@dataclass(frozen=True)
+class CarryforwardPool:
+    """The round-2 REEC knobs of the vintage carryforward simulation
+    (:func:`simulate_reec_state_cost_path`), which :func:`compute_credit_overlay`
+    runs when it is given one (``None`` keeps the static overlay).
+
+    agi_eligibility_by_year:
+        Per-year override for the individual AGI eligibility share; a year
+        not listed falls back to the static TY2023 share.
+    pro_rata_elasticity:
+        Demand suppression when the $40M cap binds pro rata (0 = none).
+    interpretation:
+        "A" applies the $40M cap to TY2026 too; "B" starts it TY2027.
+    dynamic_refundable_share:
+        Recompute the individual refundable share each certification year
+        from the realized AGI-eligibility share (default: the TY2023 23%).
+    """
+
+    agi_eligibility_by_year: dict[int, float] | None = None
+    pro_rata_elasticity: float = 0.0
+    interpretation: str = "B"
+    dynamic_refundable_share: bool = False
+
+
 def compute_credit_overlay(
     target_year: int,
     reec_demand_scenario: str = DEFAULT_REEC_DEMAND_SCENARIO,
@@ -913,11 +938,7 @@ def compute_credit_overlay(
     reec_effective_claim_share: float = 1.0,
     cgec_annual_growth: float = 0.030,
     reec_carryforward_utilization_m: float = 0.0,
-    model_carryforward_pool: bool = False,
-    agi_eligibility_by_year: dict[int, float] | None = None,
-    pro_rata_elasticity: float = 0.0,
-    interpretation: str = "B",
-    dynamic_refundable_share: bool = False,
+    carryforward_pool: CarryforwardPool | None = None,
     _ci_pass: bool = False,
 ) -> dict[str, float]:
     """Compute SB 3125 CD1 credit-cap fiscal impact for ``target_year``.
@@ -937,10 +958,10 @@ def compute_credit_overlay(
         ``_reec_baseline_M`` docstring). Default False.
     reec_carryforward_utilization_m : float
         TY2031 carryforward utilization ($M) under the static overlay
-        (legacy path; ignored when ``model_carryforward_pool=True``).
+        (legacy path; ignored when ``carryforward_pool`` is given).
         Default 0.0.
-    model_carryforward_pool : bool
-        If True, replace the static REEC savings calc with a vintage-level
+    carryforward_pool : CarryforwardPool | None
+        If given, replace the static REEC savings calc with a vintage-level
         simulation that tracks nonrefundable stock from TY2010 onward and
         applies §235-12.5(j) "until exhausted" carryforward dynamics.
         Bill scenario: AGI filter from TY2027, $40M cap on TY2027-2029
@@ -950,7 +971,7 @@ def compute_credit_overlay(
         usage in target_year. Pre-2027 stock drawdown is identical in
         both scenarios and cancels; the differential captures (a) ineligible
         demand permanently lost in cap years and (b) reduced future
-        drawdown from capped vintages. Default False (legacy behavior).
+        drawdown from capped vintages. Default None (legacy behavior).
 
     Returns a dict with the breakdown described in the module docstring.
     """
@@ -969,7 +990,8 @@ def compute_credit_overlay(
     )
 
     cf_keys: dict[str, float] = {}
-    if model_carryforward_pool:
+    pool = carryforward_pool
+    if pool is not None:
         # Vintage simulation: derive util rates per pool from the same
         # refundable/nonrefundable split logic as the static overlay.
         _util_ind  = _effective_claim_share_individual(reec_effective_claim_share)
@@ -991,7 +1013,7 @@ def compute_credit_overlay(
             corp_subject_to_agi_limit=corp_subject_to_agi_limit,
             agi_eligibility_by_year=None,  # baseline never applies AGI filter
             pro_rata_elasticity=0.0,        # baseline has no cap, no suppression
-            interpretation=interpretation,
+            interpretation=pool.interpretation,
             dynamic_refundable_share=False,
         )[target_year]
         sim_bill = simulate_reec_state_cost_path(
@@ -1002,10 +1024,10 @@ def compute_credit_overlay(
             demand_scenario=reec_demand_scenario,
             cgec_annual_growth=cgec_annual_growth,
             corp_subject_to_agi_limit=corp_subject_to_agi_limit,
-            agi_eligibility_by_year=agi_eligibility_by_year,
-            pro_rata_elasticity=pro_rata_elasticity,
-            interpretation=interpretation,
-            dynamic_refundable_share=dynamic_refundable_share,
+            agi_eligibility_by_year=pool.agi_eligibility_by_year,
+            pro_rata_elasticity=pool.pro_rata_elasticity,
+            interpretation=pool.interpretation,
+            dynamic_refundable_share=pool.dynamic_refundable_share,
         )[target_year]
 
         reec_after_bill = sim_bill["total"]
@@ -1030,7 +1052,7 @@ def compute_credit_overlay(
             "reec_pro_rata_factor":          round(sim_bill["pro_rata_factor"], 4),
             "reec_suppression_factor":       round(sim_bill["suppression_factor"], 4),
             "reec_ind_refundable_share":     round(sim_bill["ind_ref_share"], 4),
-            "reec_interpretation":           interpretation,
+            "reec_interpretation":           pool.interpretation,
             # Individual-return share of the savings, for distributional
             # attribution (quintile_analysis.attribute_credit_loss). The
             # corporate pool's savings are not attributed to households.
@@ -1095,7 +1117,7 @@ def compute_credit_overlay(
         "reec_demand_factor":    round(reec["demand_factor"], 4),
         "reec_demand_scenario":  reec_demand_scenario,
         "corp_subject_to_agi_limit": corp_subject_to_agi_limit,
-        "model_carryforward_pool":   model_carryforward_pool,
+        "model_carryforward_pool":   pool is not None,
         # REEC breakdown
         "reec_individual_eligible_$M":   round(reec["individual_eligible"], 2),
         "reec_individual_ineligible_$M": round(reec["individual_ineligible"], 2),
@@ -1150,11 +1172,7 @@ def compute_credit_overlay(
                 reec_effective_claim_share=reec_effective_claim_share,
                 cgec_annual_growth=cgec_annual_growth,
                 reec_carryforward_utilization_m=reec_carryforward_utilization_m,
-                model_carryforward_pool=model_carryforward_pool,
-                agi_eligibility_by_year=agi_eligibility_by_year,
-                pro_rata_elasticity=pro_rata_elasticity,
-                interpretation=interpretation,
-                dynamic_refundable_share=dynamic_refundable_share,
+                carryforward_pool=pool,
                 _ci_pass=True,
             )
             bounds = {}

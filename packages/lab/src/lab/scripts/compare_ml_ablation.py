@@ -34,6 +34,7 @@ from census_forecaster.acs.calibration import (
     COVERAGE_LOWER_BOUND,
     COVERAGE_UPPER_BOUND,
     FoldResidual,
+    MLFeatureData,
     run_stratified_calibration,
 )
 from census_forecaster.acs.ml_features import load_county_data
@@ -460,7 +461,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         horizons=horizons,
         populations=populations,
         include_ml=True,
-        county_data=county_no_bps,   # registry minus bps → no BPS features
+        ml_features=MLFeatureData(county=county_no_bps),   # registry minus bps → no BPS features
     )
 
     print(
@@ -474,7 +475,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         horizons=horizons,
         populations=populations,
         include_ml=True,
-        county_data=county,
+        ml_features=MLFeatureData(county=county),
     )
 
     # Apply v3 bias + κ corrections to each method's residuals.

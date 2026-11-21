@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from common.models import AcsObservation, ForecastPoint
 from common.moe import ci_from_se, moe_to_se
@@ -887,6 +888,31 @@ def _combine_two_with_rho(
     )
 
 
+@dataclass(frozen=True)
+class MLPanel:
+    """What the cross-county ``ml_trend`` member of :func:`project_ensemble_multi`
+    trains and predicts from. Each field left ``None`` is filled from the
+    bundled calibration panel when ``use_ml`` is on.
+
+    series_by_key:
+        The calibration panel, {(geoid, indicator): [AcsObservation, ...]}.
+    populations:
+        {geoid: 2020 population}.
+    model_cache:
+        Mutable dict keyed by (indicator, cutoff_year) -> TrainedMlModel. Pass
+        the same dict across many forecasts at one cutoff to amortise
+        training (~2 s per indicator).
+    panel:
+        Pre-built panel index (``ml_features.build_panel_index``); pass it when
+        projecting many counties at one cutoff.
+    """
+
+    series_by_key: dict[tuple[str, str], Sequence[AcsObservation]] | None = None
+    populations: dict[str, int] | None = None
+    model_cache: dict | None = None
+    panel: object | None = None
+
+
 def project_ensemble_multi(
     series_observations: Sequence[AcsObservation],
     target_year: int,
@@ -896,10 +922,7 @@ def project_ensemble_multi(
     correlation_rho_anchor: float = 0.5,
     populations: dict[str, int] | None = None,
     use_ml: bool = True,
-    ml_series_by_key: dict[tuple[str, str], Sequence[AcsObservation]] | None = None,
-    ml_populations: dict[str, int] | None = None,
-    ml_model_cache: dict | None = None,
-    ml_panel=None,
+    ml: MLPanel | None = None,
     use_kalman: bool | None = None,
 ) -> ForecastPoint | None:
     """Multi-source anchor ensemble.
@@ -957,24 +980,18 @@ def project_ensemble_multi(
         band at the production ρ=0.7 — the flip condition documented in
         METHODOLOGY §"Why opt-in". See
         backtests/results/ml_default_ablation_2026-08-21.md.
-        When ``ml_series_by_key``/``ml_populations`` are not supplied,
+        When ``ml.series_by_key``/``ml.populations`` are not supplied,
         the bundled calibration panel is lazily loaded (once per
         process, with a shared model cache) — the same training set the
         shipped ml_trend calibration records were fit on; expect a
         several-second first-call cost per (indicator, cutoff). Falls
         back gracefully (ml_fp = None) when the panel is unavailable or
         sklearn is not importable.
-    ml_series_by_key, ml_populations : the calibration panel + 2020
-        population lookup needed by the HGB trainer. Pass the same dicts
-        across many forecasts so the model cache (below) is effective.
-    ml_model_cache : dict, optional
-        Mutable cache keyed by (indicator, cutoff_year) → TrainedMlModel.
-        Pass the same dict across many forecasts at the same cutoff to
-        amortise training cost (~2s per indicator × 16 indicators).
-    ml_panel : PanelIndex, optional
-        Pre-built panel index (output of ``ml_features.build_panel_index``).
-        Pass it explicitly when projecting many counties at the same
-        cutoff to avoid rebuilding it for each forecast.
+    ml : MLPanel, optional
+        The calibration panel, 2020 populations, model cache and panel index
+        the HGB trainer needs; each left ``None`` is filled from the bundled
+        panel (above). Pass the same one across many forecasts so the model
+        cache is effective.
     use_kalman : bool or None, default None
         ``None`` (default): the Kalman state-space member replaces the
         Bates-Granger blend only for indicators in
@@ -1001,6 +1018,9 @@ def project_ensemble_multi(
 
     if not series_observations:
         return None
+    _ml = ml if ml is not None else MLPanel()
+    ml_series_by_key, ml_populations = _ml.series_by_key, _ml.populations
+    ml_model_cache, ml_panel = _ml.model_cache, _ml.panel
     indicator = series_observations[-1].indicator
     geoid = series_observations[-1].geoid
     if end_year is None:

@@ -63,7 +63,7 @@ from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
-from census_forecaster.acs.calibration import run_stratified_calibration
+from census_forecaster.acs.calibration import MLFeatureData, run_stratified_calibration
 from census_forecaster.acs.ml_features import (
     load_market_signals_data,
     load_national_macro_data,
@@ -291,14 +291,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     cal_a = run_stratified_calibration(
         series_by_key=series, anchor_years=anchor_years, horizons=horizons,
         populations=populations, include_ml=True,
-        market_data=market, national_data=national, state_data={},
+        ml_features=MLFeatureData(market=market, national=national, state={}),
     )
     print("[ui-ablation] arm B: ML + state UI-claims channel ...",
           file=sys.stderr)
     cal_b = run_stratified_calibration(
         series_by_key=series, anchor_years=anchor_years, horizons=horizons,
         populations=populations, include_ml=True,
-        market_data=market, national_data=national, state_data=state,
+        ml_features=MLFeatureData(market=market, national=national, state=state),
     )
 
     res_a = _apply_v3_corrections(_residuals_from_calibration(cal_a), cal_a)

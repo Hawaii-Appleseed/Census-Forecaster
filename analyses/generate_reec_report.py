@@ -120,22 +120,22 @@ def _load_historical():
 
 def _compute_scenarios(cd: str, compute_fn, agi_elig_share: float):
     import pandas as pd
+    from tax_modeler.scenarios.sb3125_cd1_credits import CarryforwardPool
     rows = []
     for scen_key, scen_label in zip(SCENARIO_KEYS, SCENARIO_SHORT, strict=False):
         for year in TARGET_YEARS:
-            cd2_kw: dict = {}
             if cd == "2":
-                cd2_kw = dict(agi_eligibility_by_year={year: agi_elig_share}, **_CD2_KNOBS)
+                pool = CarryforwardPool(agi_eligibility_by_year={year: agi_elig_share},
+                                        **_CD2_KNOBS)
             else:
-                cd2_kw = dict(interpretation="A")
+                pool = CarryforwardPool(interpretation="A")
             result = compute_fn(
                 year,
                 reec_demand_scenario=scen_key,
                 corp_subject_to_agi_limit=False,
                 reec_effective_claim_share=UTIL_RATE,
                 cgec_annual_growth=0.030,
-                model_carryforward_pool=True,
-                **cd2_kw,
+                carryforward_pool=pool,
             )
             rows.append({"tax_year": year, "scenario": scen_label, **result})
     return pd.DataFrame(rows)
@@ -152,7 +152,6 @@ def _compute_demand_projection(compute_fn):
                 corp_subject_to_agi_limit=False,
                 reec_effective_claim_share=1.0,
                 cgec_annual_growth=0.030,
-                model_carryforward_pool=False,
             )
             rows.append({"tax_year": year, "scenario": scen_label,
                          "baseline_$M": result["reec_baseline_$M"]})
@@ -774,6 +773,7 @@ def _compute_savings_band(results_df, cd: str, compute_fn, agi_bins: list):
         (unindexed thresholds). ~25 extra compute_credit_overlay calls.
     """
     import pandas as pd
+    from tax_modeler.scenarios.sb3125_cd1_credits import CarryforwardPool
 
     years = sorted(results_df["tax_year"].unique())
     band = {y: [] for y in years}
@@ -795,21 +795,24 @@ def _compute_savings_band(results_df, cd: str, compute_fn, agi_bins: list):
         # this scenario extends the band's upper bound.
         combos.append((0.0, UTIL_RATE, None, "safe_harbor_mid"))
         for elast, util, elig, scen in combos:
+            if cd == "2":
+                pool = CarryforwardPool(
+                    agi_eligibility_by_year=elig, pro_rata_elasticity=elast,
+                    interpretation=_CD2_KNOBS["interpretation"],
+                    dynamic_refundable_share=_CD2_KNOBS["dynamic_refundable_share"],
+                )
+            else:
+                pool = CarryforwardPool(
+                    agi_eligibility_by_year=elig, pro_rata_elasticity=elast,
+                    interpretation="A",
+                )
             kw = dict(
                 reec_demand_scenario=scen,
                 corp_subject_to_agi_limit=False,
                 reec_effective_claim_share=util,
                 cgec_annual_growth=0.030,
-                model_carryforward_pool=True,
-                pro_rata_elasticity=elast,
+                carryforward_pool=pool,
             )
-            if cd == "2":
-                kw["interpretation"] = _CD2_KNOBS["interpretation"]
-                kw["dynamic_refundable_share"] = _CD2_KNOBS["dynamic_refundable_share"]
-            else:
-                kw["interpretation"] = "A"
-            if elig is not None:
-                kw["agi_eligibility_by_year"] = elig
             v = compute_fn(year, **kw).get("reec_savings_$M")
             if v is not None and v == v:
                 band[year].append(float(v))

@@ -234,6 +234,7 @@ def credit_overlay(scenario, year, cd, projected):
     thresholds ($175K/$350K) are unindexed, so nominal income growth erodes
     them and fewer filers are eligible each forecast year."""
     from tax_modeler.scenarios.sb3125_cd1_credits import (
+        CarryforwardPool,
         compute_credit_overlay,
         compute_dynamic_agi_eligibility_share,
     )
@@ -249,11 +250,12 @@ def credit_overlay(scenario, year, cd, projected):
         return compute_credit_overlay(year, **knobs)
     return compute_credit_overlay(
         year, **knobs,
-        model_carryforward_pool=True,
-        agi_eligibility_by_year={year: compute_dynamic_agi_eligibility_share(projected)},
-        pro_rata_elasticity=float(scenario.get("pro_rata_elasticity", 0.0)),
-        interpretation=scenario.get("interpretation", "B"),
-        dynamic_refundable_share=bool(scenario.get("dynamic_refundable_share", False)),
+        carryforward_pool=CarryforwardPool(
+            agi_eligibility_by_year={year: compute_dynamic_agi_eligibility_share(projected)},
+            pro_rata_elasticity=float(scenario.get("pro_rata_elasticity", 0.0)),
+            interpretation=scenario.get("interpretation", "B"),
+            dynamic_refundable_share=bool(scenario.get("dynamic_refundable_share", False)),
+        ),
     )
 
 

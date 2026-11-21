@@ -17,7 +17,7 @@ This implementation is generic — it accepts any list of
 :class:`Dimension` specs (each with a cell-assignment function + target
 shares). The Hawaii demographic-projection use case calls into it
 through :func:`tax_modeler.projection.demographic.project_demographics_forward`
-with ``use_joint_ipf=True``.
+with ``joint_ipf=JointIpf()``.
 
 Algorithm (per Lovelace, *spatial-microsim-book*; Beckman et al.,
 *JASSS* 1996):
