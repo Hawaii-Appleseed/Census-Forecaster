@@ -192,9 +192,16 @@ def working_family(rev: pd.DataFrame, pov: pd.DataFrame) -> str:
                       ["l", "r", "r", "r", "r"], rows))
     if len(pov):
         p = pov.iloc[0]
-        out += (f"\n\nPoverty (TY{int(p['tax_year'])}): {int(p['persons_into_poverty']):,} more "
-                f"people ({int(p['children_into_poverty']):,} children), poverty gap "
-                f"{money(p['poverty_gap_increase_$M'])}.")
+        if "n_draws" in p.index:
+            out += (f"\n\nPoverty (TY{int(p['tax_year'])}): poverty gap {money(p['poverty_gap_increase_$M'])}; "
+                    f"{int(round(p['persons_into_poverty'], -1)):,} more people "
+                    f"(90% range {int(round(max(0, p['persons_into_poverty_low90']), -1)):,} to "
+                    f"{int(round(p['persons_into_poverty_high90'], -1)):,}; {int(round(p['children_into_poverty'], -1)):,} children), "
+                    f"the mean over {int(p['n_draws']):,} draws of who claims each credit.")
+        else:
+            out += (f"\n\nPoverty (TY{int(p['tax_year'])}): {int(p['persons_into_poverty']):,} more "
+                    f"people ({int(p['children_into_poverty']):,} children), poverty gap "
+                    f"{money(p['poverty_gap_increase_$M'])}.")
     return out
 
 
