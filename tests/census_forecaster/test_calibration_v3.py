@@ -300,6 +300,35 @@ class TestStratifiedCalibration:
         assert "rmse_by_indicator_method" in payload
         assert "ci90_coverage_by_indicator_method" in payload
 
+    def test_a_failed_phi_pass_is_logged_and_recorded(self, simple_panel, simple_populations, monkeypatch,
+                                                      caplog):
+        import census_forecaster.acs.acs_volatility as vol
+
+        def boom(*a, **k):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(vol, "decompose_series", boom)
+        with caplog.at_level("WARNING", logger="census_forecaster.acs.calibration"):
+            payload = run_stratified_calibration(
+                series_by_key=simple_panel,
+                anchor_years=[2015, 2017, 2019, 2021],
+                horizons=[1, 2, 3],
+                populations=simple_populations,
+            )
+        assert payload["schema_version"] == 3
+        assert payload["phi_error"] == "RuntimeError: boom"
+        assert payload["strata_records"]["phi"] == []
+        assert "phi calibration pass failed (RuntimeError: boom)" in caplog.text
+
+    def test_a_clean_phi_pass_records_no_error(self, simple_panel, simple_populations):
+        payload = run_stratified_calibration(
+            series_by_key=simple_panel,
+            anchor_years=[2015, 2017, 2019, 2021],
+            horizons=[1, 2, 3],
+            populations=simple_populations,
+        )
+        assert "phi_error" not in payload
+
     def test_strata_records_round_trip(self, simple_panel, simple_populations):
         payload = run_stratified_calibration(
             series_by_key=simple_panel,

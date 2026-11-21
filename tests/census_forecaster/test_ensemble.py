@@ -454,3 +454,85 @@ class TestAnchorSeFoldParity:
         assert prod.point == pytest.approx(fold.point, rel=1e-12)
         assert prod.se_forecast == pytest.approx(fold.se_forecast, rel=1e-12)
         assert prod.se_total == pytest.approx(fold.se_total, rel=1e-12)
+
+
+class TestDegradedMembersAreReported:
+    """A member of the ensemble that fails is logged and named in the forecast's notes, never dropped silently."""
+
+    def _series(self, indicator="B19013_001E", n=12):
+        return [
+            AcsObservation(estimate=100.0 * (1.02 ** i), moe=5.0, year=2010 + i, vintage="1y",
+                           geoid="15003", indicator=indicator)
+            for i in range(n)
+        ]
+
+    @staticmethod
+    def _boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    def test_kalman_failure_falls_back_and_says_so(self, monkeypatch, caplog):
+        import census_forecaster.kalman as kalman
+        from census_forecaster.acs.ensemble import project_ensemble_multi
+        monkeypatch.setattr(kalman, "project_kalman", self._boom)
+        with caplog.at_level("WARNING", logger="census_forecaster.acs.ensemble"):
+            fp = project_ensemble_multi(self._series(), target_year=2023, use_ml=False, use_kalman=True)
+        assert fp is not None and fp.method != kalman.METHOD_NAME
+        assert "DEGRADED: kalman failed (RuntimeError: boom)" in fp.notes
+        assert "kalman failed (RuntimeError: boom)" in caplog.text
+
+    def test_ml_failure_says_so(self, monkeypatch, caplog):
+        import census_forecaster.acs.ml_trend as ml_trend
+        from census_forecaster.acs.ensemble import MLPanel, project_ensemble_multi
+        series = {("15003", "B19013_001E"): self._series()}
+        monkeypatch.setattr(ml_trend, "project_ml_trend_one_shot", self._boom)
+        with caplog.at_level("WARNING", logger="census_forecaster.acs.ensemble"):
+            fp = project_ensemble_multi(self._series(), target_year=2023, use_kalman=False,
+                                        populations={"15003": 1_000_000},
+                                        ml=MLPanel(series_by_key=series, populations={"15003": 1_000_000}))
+        assert fp is not None
+        assert "DEGRADED: ml_trend failed (RuntimeError: boom)" in fp.notes
+        assert "ml_trend failed" in caplog.text
+
+    def test_level_anchor_failure_says_so(self, monkeypatch):
+        import census_forecaster.acs.anchors as anchors
+        from census_forecaster.acs.ensemble import project_ensemble_multi
+        # S2301_C04_001E (unemployment rate) has a level source (BLS LAUS); calibration={} lets it into the blend.
+        monkeypatch.setattr(anchors, "combined_level_anchor", self._boom)
+        fp = project_ensemble_multi(self._series("S2301_C04_001E"), target_year=2023, calibration={},
+                                    use_ml=False, use_kalman=False, populations={"15003": 1_000_000})
+        assert fp is not None
+        assert "DEGRADED: level anchor failed (RuntimeError: boom)" in fp.notes
+
+    def test_bundled_ml_panel_failure_is_named_in_every_forecast(self, monkeypatch, caplog):
+        import census_forecaster.acs.ensemble as ens
+        import census_forecaster.scripts.load_calibration_panel as lcp
+        monkeypatch.setattr(ens, "_ML_BUNDLED", None)
+        monkeypatch.setattr(ens, "_ML_BUNDLED_ERROR", None)
+        monkeypatch.setattr(lcp, "load_panel", self._boom)
+        with caplog.at_level("WARNING", logger="census_forecaster.acs.ensemble"):
+            a = ens.project_ensemble_multi(self._series(), target_year=2023, use_kalman=False,
+                                           populations={"15003": 1_000_000})
+            b = ens.project_ensemble_multi(self._series(), target_year=2023, use_kalman=False,
+                                           populations={"15003": 1_000_000})
+        for fp in (a, b):
+            assert "DEGRADED: loading the bundled ML panel failed (RuntimeError: boom)" in fp.notes
+        assert caplog.text.count("loading the bundled ML panel failed") == 1      # probed and logged once
+
+    def test_population_failure_says_so_and_clears_when_it_loads(self, monkeypatch, caplog):
+        import census_forecaster.acs.ensemble as ens
+        import census_forecaster.scripts.load_calibration_panel as lcp
+        monkeypatch.setattr(ens, "_POPULATIONS_ERROR", None)
+        monkeypatch.setattr(lcp, "load_populations", self._boom)
+        with caplog.at_level("WARNING", logger="census_forecaster.acs.ensemble"):
+            fp = ens.project_ensemble_multi(self._series(), target_year=2023, use_ml=False, use_kalman=False)
+        assert "DEGRADED: loading county populations failed (RuntimeError: boom)" in fp.notes
+        assert "loading county populations failed" in caplog.text
+        monkeypatch.setattr(lcp, "load_populations", lambda: {"15003": 1_000_000})
+        fp = ens.project_ensemble_multi(self._series(), target_year=2023, use_ml=False, use_kalman=False)
+        assert "DEGRADED" not in fp.notes
+
+    def test_a_clean_forecast_carries_no_degraded_note(self):
+        from census_forecaster.acs.ensemble import project_ensemble_multi
+        fp = project_ensemble_multi(self._series(), target_year=2023, use_ml=False, use_kalman=False,
+                                    populations={"15003": 1_000_000})
+        assert fp is not None and "DEGRADED" not in fp.notes

@@ -264,50 +264,45 @@ def write_cache_sidecar(
     return sidecar
 
 
+def cache_status(
+    cache_path: Path | str,
+    *,
+    code_key: str | None = None,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """``(reason, meta)``: why the cache cannot be shown to come from the current
+    construction code (None when its sidecar's ``code_key`` is the current
+    :func:`construction_code_key`), and the sidecar's metadata (None without one).
+    The git SHA is never compared."""
+    sidecar = _sidecar_path(cache_path)
+    if not sidecar.exists():
+        return (f"{cache_path} has no provenance sidecar: it predates cache versioning", None)
+    meta = json.loads(sidecar.read_text())
+    recorded = meta.get("code_key")
+    current = code_key or construction_code_key()
+    if recorded is None:
+        return (f"{cache_path} has no code key in its sidecar (built at git {meta.get('git_sha')}, "
+                f"created {meta.get('created_at')}), so its construction code cannot be checked", meta)
+    if recorded != current:
+        return (f"{cache_path} was built by different construction code (code key {recorded[:12]}, "
+                f"current {current[:12]}; built at git {meta.get('git_sha')}, created {meta.get('created_at')})",
+                meta)
+    return None, meta
+
+
 def check_cache_sidecar(
     cache_path: Path | str,
     *,
     code_key: str | None = None,
 ) -> dict[str, Any] | None:
-    """Warn (loudly, to stdout AND the log) if a cache predates current code.
-
-    Returns the sidecar metadata, or ``None`` when no sidecar exists. A
-    missing sidecar, a sidecar without a ``code_key`` (written before the
-    content key) or a ``code_key`` that differs from the current one
-    (:func:`construction_code_key`) does NOT abort — unit construction is
-    expensive and the cache may still be intentional — but the warning tells
-    the user the cache predates the current construction code and should be
-    deleted to force a rebuild. The git SHA is never compared.
-    """
-    sidecar = _sidecar_path(cache_path)
-    if not sidecar.exists():
-        msg = (
-            f"WARNING: {cache_path} has no provenance sidecar — it predates "
-            "cache versioning. If unit-construction code changed since it was "
-            "built, delete it to force a rebuild."
-        )
-        print(msg, flush=True)
-        logger.warning(msg)
-        return None
-    meta = json.loads(sidecar.read_text())
-    recorded = meta.get("code_key")
-    current = code_key or construction_code_key()
-    if recorded is None:
-        msg = (
-            f"WARNING: {cache_path} has no code key in its sidecar (built at git "
-            f"{meta.get('git_sha')}, created {meta.get('created_at')}), so its "
-            "construction code cannot be checked. If it changed since, delete the "
-            "cache to rebuild."
-        )
-    elif recorded != current:
-        msg = (
-            f"WARNING: {cache_path} was built by different construction code "
-            f"(code key {recorded[:12]}, current {current[:12]}; built at git "
-            f"{meta.get('git_sha')}, created {meta.get('created_at')}). If unit "
-            "construction changed in between, delete the cache to rebuild."
-        )
-    else:
+    """Warn (to stdout AND the log) if a cache cannot be shown to come from the
+    current code (:func:`cache_status`), and return the sidecar metadata (None
+    without a sidecar). It does not abort or rebuild:
+    :func:`tax_modeler.base.load_or_build_raw_units` rebuilds a cache that is not
+    current."""
+    reason, meta = cache_status(cache_path, code_key=code_key)
+    if reason is None:
         return meta
+    msg = f"WARNING: {reason}. If unit construction changed since, delete the cache to rebuild."
     print(msg, flush=True)
     logger.warning(msg)
     return meta

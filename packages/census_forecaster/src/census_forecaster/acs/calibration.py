@@ -49,6 +49,7 @@ threads it through `project_ensemble_multi`.
 from __future__ import annotations
 
 import json
+import logging
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -74,6 +75,8 @@ from .projection import (
     project_damped_trend,
 )
 from .sources import available_sources
+
+logger = logging.getLogger(__name__)
 
 # Coverage band: if 90% CI hits anything outside this, we adjust the
 # per-method inflator. 85% and 95% are textbook tolerances around 90%.
@@ -1176,6 +1179,7 @@ def run_stratified_calibration(
     # Uses only the series data (no new fetches) — SE is derived from AcsObservation.moe.
     phi_strata_records: list = []
     _phi_pass_run = False
+    phi_error: str | None = None
     try:
         from .acs_volatility import PHI_HI, PHI_LO, cell_phi, decompose_series
         from .strata import (
@@ -1254,8 +1258,12 @@ def run_stratified_calibration(
                 extra={"phi_lo": PHI_LO, "phi_hi": PHI_HI},
             ))
         _phi_pass_run = True
-    except Exception:
-        pass  # phi calibration is optional; fall back to DEFAULT_PHI everywhere
+    except Exception as exc:  # noqa: BLE001 - optional pass: logged, and recorded in the payload as phi_error
+        # phi calibration is optional; fall back to DEFAULT_PHI everywhere, but say so.
+        phi_error = f"{type(exc).__name__}: {exc}"
+        phi_strata_records = []
+        logger.warning("phi calibration pass failed (%s); every cell uses DEFAULT_PHI", phi_error,
+                       exc_info=True)
 
     # Per-cell phi for Pass 2 fold projection — only when enable_phi. The
     # lookup mirrors ensemble._lookup_phi (same records, same threshold) so
@@ -1730,6 +1738,8 @@ def run_stratified_calibration(
         # ensemble apply it (ensemble._lookup_phi). Records are always
         # emitted below for diagnostics.
         "phi_enabled": bool(enable_phi and _phi_pass_run),
+        # Set only when the phi pass raised (records empty, DEFAULT_PHI everywhere).
+        **({"phi_error": phi_error} if phi_error is not None else {}),
         # Pass 1 (h-marginalised): per-source RMSE
         "rmse_by_indicator_source": rmse_by_indicator_source,
         # v3 strata records
