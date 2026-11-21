@@ -1,0 +1,46 @@
+{
+  "uniform": {},
+  "eitc_dotax_agi": {
+    "eitc": {
+      "source": "DOTAX Earned Income Tax Credit Report TY2024, Table 1 new-credit claims by federal AGI",
+      "coefficients": {
+        "$15,000 to $29,999": 4.505475504606712,
+        "$30,000 to $44,999": 1.228184243548507,
+        "$45,000 to $54,999": 2.323382348669001,
+        "$55,000 or more": -1.2651414945616346
+      }
+    }
+  },
+  "food_low_x0.25": {
+    "food": {
+      "source": "WHAT-IF, not an estimate: under $15,000 of federal AGI: 0.25 times the odds of claiming",
+      "coefficients": {
+        "federal_agi_under_15000": -1.3862943611198906
+      }
+    }
+  },
+  "food_low_x0.5": {
+    "food": {
+      "source": "WHAT-IF, not an estimate: under $15,000 of federal AGI: 0.5 times the odds of claiming",
+      "coefficients": {
+        "federal_agi_under_15000": -0.6931471805599453
+      }
+    }
+  },
+  "food_low_x2": {
+    "food": {
+      "source": "WHAT-IF, not an estimate: under $15,000 of federal AGI: 2 times the odds of claiming",
+      "coefficients": {
+        "federal_agi_under_15000": 0.6931471805599453
+      }
+    }
+  },
+  "food_low_x4": {
+    "food": {
+      "source": "WHAT-IF, not an estimate: under $15,000 of federal AGI: 4 times the odds of claiming",
+      "coefficients": {
+        "federal_agi_under_15000": 1.3862943611198906
+      }
+    }
+  }
+}
