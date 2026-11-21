@@ -1021,6 +1021,63 @@ The take-up *rate* is treated as behavioral and constant across
 forward projection; only the target count is anchored at the 2022
 vintage. Re-run when newer IRS SOI Hawaii state-totals publish.
 
+### Take-up propensity: who claims, tested (November 2026)
+
+Every take-up step fixes *how many* claim from an administrative total and
+assumes *who*: the federal step keeps the largest credits first, the state
+credits in `chain/forecast_working_family_credits.py` give every eligible unit
+one factor per credit. `tax_modeler.calibration.takeup_propensity` separates
+the two. A `PropensityModel` is the log-odds of claiming as coefficients on
+terms of tax-unit columns (the shape); `claim_probabilities` moves the
+intercept until the weighted dollars or claims meet the administrative target
+(the level). With no terms it is the uniform factor. The shape can come from
+
+* an administrative table of claims by class (`fit_from_margins`), or
+* a survey that asks who claimed (`fit_from_survey`). A survey nobody sampled
+  at random is first weighted to the tax units on the columns both have
+  (`pseudo_weights`, bounded raking), and then has to pass
+  `known_answer_test`: it predicts something the PUMS already records (SNAP
+  receipt `FS`, tenure, health coverage) and the prediction is set against the
+  record, overall and in groups the fit did not use. A survey that fails is
+  selected on things the weights cannot see and is not used for an outcome
+  nobody can check. A survey therefore needs the ACS's own questions for the
+  linking columns, worded as the ACS words them.
+
+Nothing on the published chain calls this module.
+`analyses/takeup_propensity_sensitivity.py` reruns the Act 163 sunset step's
+population and credits under different shapes, each meeting the same
+Department of Taxation dollars (its uniform variant reproduces the chain's
+figures, and the script stops if it does not). TY2028, run of 2026-11-21:
+
+| take-up shape | total loss | persons into poverty (SE 733) | poverty gap increase | lowest fifth of households losing |
+|---|---|---|---|---|
+| uniform (published) | $85.79M | 2,123 | $16.20M | 74.5% |
+| EITC by federal AGI range, fitted to DOTAX's claims | $85.65M | 2,103 | $16.11M | 74.5% |
+| food/excise, under $15,000 AGI: 1/4 the odds | $86.01M | 2,144 | $15.60M | 71.7% |
+| food/excise, under $15,000 AGI: 1/2 the odds | $85.91M | 2,129 | $15.88M | 73.0% |
+| food/excise, under $15,000 AGI: 2x the odds | $85.67M | 2,113 | $16.55M | 76.0% |
+| food/excise, under $15,000 AGI: 4x the odds | $85.56M | 2,122 | $16.88M | 77.5% |
+
+The food/excise rows are what-ifs, not estimates: no table of that credit's
+claims by income is in the repo. Across a sixteen-fold range of odds the cost
+moves by a quarter of one percent and the poverty headcount by 1% (its
+sampling error is 35%); the poverty gap moves by 4%. The Department's dollars
+pin the cost whatever the shape, and the credits are small against the
+distance of most households from the line. **The uniform factor stays.**
+
+Two things the test showed that take-up cannot fix:
+
+* The EITC's misfit by federal AGI range is a shortage of eligible units, not
+  of claims: the model has 16,800 eligible units at $15,000 to $29,999 against
+  21,269 DOTAX claims, and 35,350 under $15,000 against 28,306. No take-up
+  shape can claim more credits than there are eligible units.
+* For the federal EITC, the rank rule only bites on childless units (26,729
+  claim of 36,319 eligible; nearly every unit with children claims). Drawing
+  the same number of childless claimants at random instead gives 40% of
+  federal EITC of $77.1M against $78.7M under the rank rule and DOTAX's
+  $77.0M: the dollar total cannot tell the two rules apart, and at most $1.6M
+  of credit depends on the choice.
+
 ### CBPP comparison caveats
 
 `scripts/eitc_ctc_geo_report.py --compare-cbpp` produces a senate-
