@@ -20,12 +20,15 @@ too, so it matches production.
 """
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 BASE_TAX_YEAR = 2023  # the DOTAX Table A8 calibration anchor
 
@@ -48,6 +51,11 @@ def build_raw_units(
     return constructor.create_rule_based_units(parallel=parallel)
 
 
+#: Set to ``1`` to load a tax-unit cache that cannot be shown to come from the current construction code instead of
+#: rebuilding it (about two and a half minutes on the mini): for quick iteration, never for figures that are published.
+ALLOW_STALE_CACHE_ENV = "CF_ALLOW_STALE_CACHE"
+
+
 def load_or_build_raw_units(
     cache_file: Path | str,
     data_dir: Path | str,
@@ -57,49 +65,114 @@ def load_or_build_raw_units(
     built_by: str = "tax_modeler.base",
     log: Callable[..., None] = print,
 ) -> pd.DataFrame:
-    """The raw tax-unit cache, built from PUMS in ``data_dir`` when missing.
+    """The raw tax-unit cache, rebuilt from PUMS in ``data_dir`` when it is missing or not current.
 
-    A cache hit is checked against its sidecar (``check_cache_sidecar`` warns if
-    it predates the current code). A miss loads PUMS (``MissingDataError`` with
-    download guidance if it is absent), constructs units, and writes the parquet
-    (object columns as ``str``, which parquet needs) plus the sidecar, recording
-    ``built_by``. The returned frame is what the cache would load, except on a
-    build, where it is the in-memory units (object columns intact).
+    A cache is current when its sidecar's code key is that of the code that builds it
+    (:func:`tax_modeler.artifacts.cache_status`). One that is not is rebuilt, and the log says whether the units
+    came out the same as the cache they replace. It is loaded as it is, with a warning, only when
+    ``CF_ALLOW_STALE_CACHE=1`` or when PUMS is not there to rebuild from. A build with neither cache nor PUMS
+    raises ``MissingDataError`` with download guidance. Builds hold a lock beside the cache, so two processes
+    do not build it at once, and the parquet is replaced in one step. The returned frame is always the cache as
+    read back from disk (object columns as ``str``), built or not, so a run gives the same units either way.
     """
-    from tax_modeler.artifacts import check_cache_sidecar, write_cache_sidecar
-    from tax_modeler.loaders.pums_loader import PUMSDataLoader
+    import os
+
+    from tax_modeler.artifacts import cache_status
+    from tax_modeler.errors import MissingDataError
 
     cache_file = Path(cache_file)
     if cache_file.exists():
-        log(f"Loading cached units from {cache_file}...", flush=True)
-        check_cache_sidecar(cache_file)
-        units = pd.read_parquet(cache_file)
-        log(f"  {len(units):,} units loaded from cache", flush=True)
-        return units
+        reason, _ = cache_status(cache_file)
+        if reason is None:
+            return _read_units_cache(cache_file, log)
+        if os.environ.get(ALLOW_STALE_CACHE_ENV) == "1":
+            _warn(f"WARNING: {reason}; loading it anyway ({ALLOW_STALE_CACHE_ENV}=1). Do not publish from this run.")
+            return _read_units_cache(cache_file, log)
+        log(f"{reason}: rebuilding it.", flush=True)
+    try:
+        return _build_units_cache(cache_file, Path(data_dir), state=state, pums_type=pums_type,
+                                  built_by=built_by, log=log)
+    except MissingDataError:
+        if not cache_file.exists():
+            raise
+        _warn(f"WARNING: {cache_status(cache_file)[0]}, and there is no PUMS in {data_dir} to rebuild it from; "
+              "loading it anyway. Do not publish from this run.")
+        return _read_units_cache(cache_file, log)
 
-    t0 = time.perf_counter()
-    log("Loading PUMS...", flush=True)
-    person_df, hh_df = PUMSDataLoader(data_dir=Path(data_dir)).load_data(state=state, pums_type=pums_type)
-    log(f"  {len(person_df):,} persons, {len(hh_df):,} households in {time.perf_counter()-t0:.1f}s", flush=True)
 
-    t0 = time.perf_counter()
-    log("Constructing tax units...", flush=True)
-    units = build_raw_units(person_df, hh_df)
-    log(f"  {len(units):,} units in {time.perf_counter()-t0:.1f}s", flush=True)
+def _warn(msg: str) -> None:
+    print(msg, flush=True)
+    logger.warning(msg)
 
-    safe_units = units.copy()
-    for col in safe_units.columns:
-        if safe_units[col].dtype == object:
-            safe_units[col] = safe_units[col].astype(str)
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    safe_units.to_parquet(cache_file, index=False)
-    write_cache_sidecar(cache_file, extra={
-        "built_by": built_by,
-        "pums": "HI 5yr 2020-24",
-        "n_units": int(len(safe_units)),
-    })
-    log(f"  Units cached to {cache_file}", flush=True)
+
+def _read_units_cache(cache_file: Path, log: Callable[..., None]) -> pd.DataFrame:
+    log(f"Loading cached units from {cache_file}...", flush=True)
+    units = pd.read_parquet(cache_file)
+    log(f"  {len(units):,} units loaded from cache", flush=True)
     return units
+
+
+def _build_units_cache(cache_file: Path, data_dir: Path, *, state: str, pums_type: str, built_by: str,
+                       log: Callable[..., None]) -> pd.DataFrame:
+    import fcntl
+
+    from tax_modeler.artifacts import cache_status, write_cache_sidecar
+    from tax_modeler.loaders.pums_loader import PUMSDataLoader
+
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_file.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # Another process may have rebuilt it while this one waited.
+        if cache_file.exists() and cache_status(cache_file)[0] is None:
+            return _read_units_cache(cache_file, log)
+
+        t0 = time.perf_counter()
+        log("Loading PUMS...", flush=True)
+        person_df, hh_df = PUMSDataLoader(data_dir=data_dir).load_data(state=state, pums_type=pums_type)
+        log(f"  {len(person_df):,} persons, {len(hh_df):,} households in {time.perf_counter()-t0:.1f}s",
+            flush=True)
+
+        t0 = time.perf_counter()
+        log("Constructing tax units...", flush=True)
+        units = build_raw_units(person_df, hh_df)
+        log(f"  {len(units):,} units in {time.perf_counter()-t0:.1f}s", flush=True)
+
+        safe_units = units.copy()
+        for col in safe_units.columns:
+            if safe_units[col].dtype == object:
+                safe_units[col] = safe_units[col].astype(str)
+        tmp = cache_file.with_suffix(".tmp.parquet")
+        safe_units.to_parquet(tmp, index=False)
+        built = pd.read_parquet(tmp)
+        if cache_file.exists():
+            log(f"  {_compare_units(pd.read_parquet(cache_file), built)}", flush=True)
+        tmp.replace(cache_file)
+        write_cache_sidecar(cache_file, extra={
+            "built_by": built_by,
+            "pums": "HI 5yr 2020-24",
+            "n_units": int(len(built)),
+        })
+        log(f"  Units cached to {cache_file}", flush=True)
+        return built
+
+
+def _compare_units(old: pd.DataFrame, new: pd.DataFrame) -> str:
+    """One line on how the rebuilt units differ from the cache they replace."""
+    if old.equals(new):
+        return "rebuilt units are identical to the cache they replace"
+    parts = []
+    if len(old) != len(new):
+        parts.append(f"{len(old):,} -> {len(new):,} units")
+    added, dropped = sorted(set(new.columns) - set(old.columns)), sorted(set(old.columns) - set(new.columns))
+    if added:
+        parts.append(f"new columns {added}")
+    if dropped:
+        parts.append(f"dropped columns {dropped}")
+    if len(old) == len(new):
+        changed = [c for c in old.columns if c in new.columns and not old[c].equals(new[c])]
+        if changed:
+            parts.append(f"{len(changed)} columns changed: {changed[:12]}{' ...' if len(changed) > 12 else ''}")
+    return "REBUILT UNITS DIFFER from the cache they replace: " + "; ".join(parts or ["dtypes or order"])
 
 
 def build_calibrated_base(

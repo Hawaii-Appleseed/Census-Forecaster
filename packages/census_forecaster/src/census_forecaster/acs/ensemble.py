@@ -42,9 +42,10 @@ Cleveland Fed WP 22-38r — anchor-blend pattern (used in the existing
 """
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from common.models import AcsObservation, ForecastPoint
 from common.moe import ci_from_se, moe_to_se
@@ -55,6 +56,8 @@ from .projection import (
     project_ar1_log_diff,
     project_damped_trend,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _inverse_variance_weights(forecasts: Sequence[ForecastPoint]) -> list[float]:
@@ -438,11 +441,27 @@ KALMAN_PROMOTED_INDICATORS: frozenset[str] = frozenset({
 # records were fit on. The sentinel {} marks "tried and unavailable" so
 # a missing panel is probed only once per process.
 _ML_BUNDLED: dict | None = None
+_ML_BUNDLED_ERROR: str | None = None     # why the bundled panel could not be loaded, once tried
 _ML_DEFAULT_MODEL_CACHE: dict = {}
+# Why the bundled county populations could not be loaded on the last try (None: loaded, or not tried).
+_POPULATIONS_ERROR: str | None = None
+
+
+def _failure(what: str, exc: BaseException) -> str:
+    return f"{what} failed ({type(exc).__name__}: {exc})"
+
+
+def _mark_degraded(fp: ForecastPoint | None, degraded: list[str]) -> ForecastPoint | None:
+    """``fp`` with every part of the ensemble that failed named in its notes, so a forecast made without one of its
+    members says so wherever the notes go (they are never silent)."""
+    if fp is None or not degraded:
+        return fp
+    tag = "DEGRADED: " + "; ".join(degraded)
+    return replace(fp, notes=f"{fp.notes} | {tag}" if fp.notes else tag)
 
 
 def _load_bundled_ml_panel() -> dict | None:
-    global _ML_BUNDLED
+    global _ML_BUNDLED, _ML_BUNDLED_ERROR
     if _ML_BUNDLED is None:
         try:
             from ..scripts.load_calibration_panel import load_panel
@@ -471,8 +490,10 @@ def _load_bundled_ml_panel() -> dict | None:
                     state_data=load_state_data(),
                 ),
             }
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - reported: logged here, named in every forecast it degrades
             _ML_BUNDLED = {}
+            _ML_BUNDLED_ERROR = _failure("loading the bundled ML panel", exc)
+            logger.warning("%s; forecasts that ask for the ML member are made without it", _ML_BUNDLED_ERROR)
     return _ML_BUNDLED or None
 
 
@@ -823,13 +844,19 @@ def _resolve_pop_bucket(
     Returns None when the county has no known population (the v3 lookup
     chain treats this as "skip exact, go to global marginalised").
     """
+    global _POPULATIONS_ERROR
     from .strata import classify_pop
     if populations is None:
         try:
             from ..scripts.load_calibration_panel import load_populations as _lp
             populations = _lp()
-        except Exception:  # PanelMissingError or any I/O error
+        except Exception as exc:  # noqa: BLE001 - reported: logged once, named in every forecast it degrades
+            error = _failure("loading county populations", exc)
+            if error != _POPULATIONS_ERROR:
+                logger.warning("%s; forecasts fall back to the population-marginalised calibration strata", error)
+            _POPULATIONS_ERROR = error
             return None
+        _POPULATIONS_ERROR = None
     pop = populations.get(geoid) if populations else None
     return classify_pop(pop)
 
@@ -1033,6 +1060,10 @@ def project_ensemble_multi(
     horizon_years = target_year - end_year
     h_bucket = classify_horizon(horizon_years) if horizon_years > 0 else None
     pop_bucket = _resolve_pop_bucket(geoid, populations)
+    # Parts of the ensemble that failed: logged where they fail, named in the notes of what is returned.
+    degraded: list[str] = []
+    if populations is None and _POPULATIONS_ERROR is not None:
+        degraded.append(_POPULATIONS_ERROR)
 
     # Kalman state-space path — replaces the Bates-Granger blend when
     # requested (True), never runs when False, and with the default None
@@ -1052,8 +1083,11 @@ def project_ensemble_multi(
                 calibration=calibration,
                 geoid=geoid,
             )
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # noqa: BLE001 - reported: logged and named in the forecast's notes
             kal_fp = None
+            degraded.append(_failure("kalman", exc))
+            logger.warning("project_ensemble_multi(%s, %s): %s; the classical ensemble is used",
+                           indicator, geoid, degraded[-1])
         if kal_fp is not None:
             kal_fp = _apply_bias_correction(
                 kal_fp, indicator, _KAL_METHOD, calibration,
@@ -1068,7 +1102,7 @@ def project_ensemble_multi(
                 kal_fp, indicator, _KAL_METHOD, calibration,
                 _se_pre_kappa_kal, pop_bucket=pop_bucket, h_bucket=h_bucket,
             )
-            return kal_fp
+            return _mark_degraded(kal_fp, degraded)
 
     # Trend ensemble first.
     phi = _lookup_phi(calibration, indicator, "trend_ensemble", pop_bucket, h_bucket)
@@ -1112,6 +1146,8 @@ def project_ensemble_multi(
         # calibration records were fit on), with a shared module-level
         # model cache so repeated calls amortise HGB training.
         _bundled = _load_bundled_ml_panel()
+        if _bundled is None and _ML_BUNDLED_ERROR is not None:
+            degraded.append(_ML_BUNDLED_ERROR)
         if _bundled is not None:
             if ml_series_by_key is None:
                 ml_series_by_key = _bundled["series"]
@@ -1134,8 +1170,11 @@ def project_ensemble_multi(
                 model_cache=ml_model_cache,
                 panel=ml_panel,
             )
-        except Exception:  # pragma: no cover — graceful degradation
+        except Exception as exc:  # noqa: BLE001 - reported: logged and named in the forecast's notes
             ml_fp = None
+            degraded.append(_failure("ml_trend", exc))
+            logger.warning("project_ensemble_multi(%s, %s): %s; forecast made without it",
+                           indicator, geoid, degraded[-1])
         if ml_fp is not None:
             ml_fp = _apply_bias_correction(
                 ml_fp, indicator, _ML_METHOD, calibration,
@@ -1247,8 +1286,11 @@ def project_ensemble_multi(
                         target_year=target_year,
                         level_anchor=_level_anchor,
                     )
-        except Exception:  # pragma: no cover — graceful degradation
+        except Exception as exc:  # noqa: BLE001 - reported: logged and named in the forecast's notes
             level_anchor_fp = None
+            degraded.append(_failure("level anchor", exc))
+            logger.warning("project_ensemble_multi(%s, %s): %s; forecast made without it",
+                           indicator, geoid, degraded[-1])
 
     if level_anchor_fp is not None:
         level_anchor_fp = _apply_bias_correction(
@@ -1268,7 +1310,7 @@ def project_ensemble_multi(
     if inner is None and anchor_fp is None and level_anchor_fp is None:
         return None
     if inner is None and anchor_fp is None:
-        return level_anchor_fp
+        return _mark_degraded(level_anchor_fp, degraded)
 
     # Build the rate-anchor blend (inner + anchor_fp) first.
     if inner is None:
@@ -1313,7 +1355,7 @@ def project_ensemble_multi(
     # inverse-variance combination at ρ=0.5 (lower correlation than within the
     # classical trend ensemble since level and rate anchors use independent data).
     if level_anchor_fp is None:
-        return rate_blend
+        return _mark_degraded(rate_blend, degraded)
 
     assert rate_blend is not None
     final = _combine_two_with_rho(
@@ -1322,4 +1364,4 @@ def project_ensemble_multi(
         method_label="ensemble_multi_anchor",
         rho=0.5,
     )
-    return final if final is not None else rate_blend
+    return _mark_degraded(final if final is not None else rate_blend, degraded)
