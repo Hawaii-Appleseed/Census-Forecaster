@@ -209,3 +209,27 @@ def test_register_tax_system_extension_point():
     assert d["tax_system"] == "my_custom_bill"
     # Cleanup
     del TAX_SYSTEM_FACTORY_REGISTRY["my_custom_bill"]
+
+
+def test_credit_assumptions_have_one_definition():
+    """The chain's LOW/MID/HIGH/RECESSION, MacroScenario's presets and the bill-quintile MID all read
+    scenario_params.CREDIT_KNOBS (until 2026-11-21 there were three hand-typed copies that disagreed)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    from tax_modeler.scenarios.scenario_params import CREDIT_KNOBS, MID_CREDITS
+
+    repo = Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(repo / "scripts"))
+    spec = importlib.util.spec_from_file_location("_enhanced", repo / "chain" / "forecast_sb3125_enhanced.py")
+    enhanced = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(enhanced)
+    for s in enhanced.SCENARIOS:
+        knobs = CREDIT_KNOBS["MID" if s["label"] == "RECESSION" else s["label"]]
+        assert {k: s[k] for k in knobs.scenario_fields()} == knobs.scenario_fields(), s["label"]
+    for label, preset in (("LOW", MacroScenario.low()), ("MID", MacroScenario.mid()), ("HIGH", MacroScenario.high())):
+        k = CREDIT_KNOBS[label]
+        assert (preset.reec_demand_scenario, preset.cgec_growth_pct, preset.reec_eff_share) == (
+            k.reec, k.cgec_growth, k.reec_eff_share)
+    assert MID_CREDITS.overlay_kwargs()["reec_effective_claim_share"] == 0.65

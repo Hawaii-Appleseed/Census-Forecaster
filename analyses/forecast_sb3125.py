@@ -116,7 +116,11 @@ if __name__ == "__main__":
             scen_row = cmp[cmp["system"] == scenario_cfg.name].iloc[0]
             diff_row = cmp[cmp["system"] == "Difference"].iloc[0]
 
-            credit = compute_credit_overlay(year)
+            # The chain's MID credit assumptions (scenario_params.MID_CREDITS). Until 2026-11-21 this
+            # called the overlay with its own defaults (100% effective share, 3% CGEC growth, no
+            # carryforward), so its credit figures were not the MID figures published elsewhere.
+            from tax_modeler.scenarios.scenario_params import MID_CREDITS
+            credit = compute_credit_overlay(year, **MID_CREDITS.overlay_kwargs())
 
             row = {
                 "tax_year": year,

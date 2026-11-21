@@ -59,13 +59,9 @@ sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
 
 from _forecast_common import TARGET_YEARS, open_calibrated  # noqa: E402
 
-# MID scenario parameters (matches chain/forecast_sb3125_enhanced.py MID; alpha
-# and top premium are act24_population's MID_ALPHA / MID_TOP_PREMIUM).
-MID_REEC            = "obbba_mid"
-MID_REEC_EFF_SHARE  = 0.65
-MID_CGEC_GROWTH     = 0.015
-MID_REEC_CF_M       = 6.0
-MID_CORP_AGI_LIMIT  = False
+# MID scenario parameters: alpha and top premium are act24_population's MID_ALPHA /
+# MID_TOP_PREMIUM; the credit assumptions are scenario_params.MID_CREDITS, the chain's MID.
+from tax_modeler.scenarios.scenario_params import MID_CREDITS  # noqa: E402
 
 Q_LABELS = ["Q1 (bottom 20%)", "Q2", "Q3", "Q4", "Q5 (top 20%)"]
 
@@ -174,13 +170,9 @@ def main(bill: str = "sb3125_cd1") -> None:
     mid_scenario_params = {
         "label":          "MID",
         "alpha":          MID_ALPHA,
-        "reec":           MID_REEC,
         "behav":          "mid",
-        "corp_agi_limit": MID_CORP_AGI_LIMIT,
         "top_premium":    MID_TOP_PREMIUM,
-        "reec_eff_share": MID_REEC_EFF_SHARE,
-        "cgec_growth":    MID_CGEC_GROWTH,
-        "reec_cf_m":      MID_REEC_CF_M,
+        **MID_CREDITS.scenario_fields(),
     } if scenario.overlay != "none" else None
 
     for yr in TARGET_YEARS:
@@ -215,14 +207,7 @@ def main(bill: str = "sb3125_cd1") -> None:
 
         if scenario.overlay != "none":
             # REEC + CGEC + TCRA credit overlay for this year
-            credit_overlay = compute_credit_overlay(
-                yr,
-                reec_demand_scenario=MID_REEC,
-                corp_subject_to_agi_limit=MID_CORP_AGI_LIMIT,
-                reec_effective_claim_share=MID_REEC_EFF_SHARE,
-                cgec_annual_growth=MID_CGEC_GROWTH,
-                reec_carryforward_utilization_m=MID_REEC_CF_M,
-            )
+            credit_overlay = compute_credit_overlay(yr, **MID_CREDITS.overlay_kwargs())
         else:
             # Bill does not restrict REEC — empty overlay dict makes
             # generate_quintile_report skip credit-loss distribution.
