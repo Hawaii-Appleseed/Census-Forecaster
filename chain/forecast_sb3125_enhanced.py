@@ -126,6 +126,7 @@ from _forecast_common import (  # noqa: E402
     silence_noise,
 )
 from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM  # noqa: E402
+from tax_modeler.scenarios.scenario_params import CREDIT_KNOBS  # noqa: E402
 
 # Three calibrated scenarios. Calibration is anchored to (a) the official
 # 5yr fiscal-impact estimate of ~$680M, (b) state-level ETI literature
@@ -141,14 +142,10 @@ SCENARIOS = [
     {
         "label":  "LOW",
         "alpha":  1.7,                # steeper top tail (less concentration)
-        "reec":   "obbba_severe",
         "behav":  "high",             # strong behavioral response (low revenue gain)
-        "corp_agi_limit": True,
         "top_premium":     0.003,     # +0.3%/yr: MID – 1.0pp (strong outmigration)
-        "reec_eff_share":  0.50,      # IRS §25D 25th-pct in-year offset for HI nonref
-        "cgec_growth":     0.010,     # 1%/yr: pre-COVID long-run floor
         "macro_shock":     None,
-        "reec_cf_m":       4.0,       # TY2031 REEC carryforward utilization ($M)
+        **CREDIT_KNOBS["LOW"].scenario_fields(),   # reec, corp_agi_limit, reec_eff_share, cgec_growth, reec_cf_m
         # CD2 round-2 knobs
         "pro_rata_elasticity":      0.5,    # strong demand response
         "interpretation":           "A",    # conservative: TY2026 cap binds
@@ -157,14 +154,10 @@ SCENARIOS = [
     {
         "label":  "MID",
         "alpha":  MID_ALPHA,          # 1.5, shared with every step that scores MID
-        "reec":   "obbba_mid",
         "behav":  "mid",              # ETI=0.40, migr=0.0025, pte=0
-        "corp_agi_limit": False,
         "top_premium":     MID_TOP_PREMIUM,  # +1.0%/yr: IRS SOI 1.8pp – 0.8pp Hawaii haircut
-        "reec_eff_share":  0.65,      # IRS §25D median full-year offset
-        "cgec_growth":     0.015,     # 1.5%/yr: pre-COVID average
         "macro_shock":     None,
-        "reec_cf_m":       6.0,
+        **CREDIT_KNOBS["MID"].scenario_fields(),
         # CD2 round-2 knobs
         "pro_rata_elasticity":      0.3,    # mid demand response
         "interpretation":           "B",
@@ -173,14 +166,10 @@ SCENARIOS = [
     {
         "label":  "HIGH",
         "alpha":  1.4,
-        "reec":   "pre_obbba",
         "behav":  "low",              # weak behavioral (high revenue gain)
-        "corp_agi_limit": False,
         "top_premium":     0.023,     # +2.3%/yr: MID + 1.0pp (national-rate convergence)
-        "reec_eff_share":  0.80,      # IRS §25D 75th-pct full-use share
-        "cgec_growth":     0.025,     # 2.5%/yr: moderate growth assumption
         "macro_shock":     None,
-        "reec_cf_m":       9.0,
+        **CREDIT_KNOBS["HIGH"].scenario_fields(),
         # CD2 round-2 knobs
         "pro_rata_elasticity":      0.15,   # weak demand response
         "interpretation":           "B",
@@ -190,14 +179,10 @@ SCENARIOS = [
         # Recession scenario: MID behavioral params + moderate recession macro shock.
         "label":  "RECESSION",
         "alpha":  MID_ALPHA,          # same as MID
-        "reec":   "obbba_mid",
         "behav":  "mid",              # MID behavioral: ETI=0.40, migr=0.10, pte=0.70
-        "corp_agi_limit": False,
         "top_premium":     0.013,
-        "reec_eff_share":  0.65,
-        "cgec_growth":     0.015,     # same as MID
         "macro_shock":     "moderate",
-        "reec_cf_m":       6.0,
+        **CREDIT_KNOBS["MID"].scenario_fields(),   # same credits as MID
         # CD2 round-2 knobs
         "pro_rata_elasticity":      0.3,
         "interpretation":           "B",

@@ -118,6 +118,75 @@ class TopIncomeParams:
 
 
 # ---------------------------------------------------------------------------
+# Credit-overlay assumptions (the one definition)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CreditKnobs:
+    """The REEC / CGEC overlay assumptions of one scenario: the arguments of
+    ``sb3125_cd1_credits.compute_credit_overlay`` that are assumptions rather
+    than law. :data:`CREDIT_KNOBS` holds the chain's LOW, MID and HIGH; every
+    script that scores a scenario's credits reads them from there, so a figure
+    labelled MID always means these.
+
+    reec:
+        Post-OBBBA REEC demand regime (``"obbba_severe"``, ``"obbba_mid"``,
+        ``"pre_obbba"``).
+    corp_agi_limit:
+        Whether corporate claimants are subject to the §235-12.5 AGI limit.
+    reec_eff_share:
+        Nonrefundable utilization: the share of a capped REEC claim that
+        offsets tax in the year (IRS §25D offset percentiles: 25th, median,
+        75th).
+    cgec_growth:
+        Annual growth of CGEC outlays before the 12/31/2027 sunset.
+    reec_cf_m:
+        TY2031 REEC carryforward utilization, $M.
+    """
+
+    reec: str
+    corp_agi_limit: bool
+    reec_eff_share: float
+    cgec_growth: float
+    reec_cf_m: float
+
+    def overlay_kwargs(self) -> dict:
+        """Keyword arguments for ``compute_credit_overlay``."""
+        return {
+            "reec_demand_scenario": self.reec,
+            "corp_subject_to_agi_limit": self.corp_agi_limit,
+            "reec_effective_claim_share": self.reec_eff_share,
+            "cgec_annual_growth": self.cgec_growth,
+            "reec_carryforward_utilization_m": self.reec_cf_m,
+        }
+
+    def scenario_fields(self) -> dict:
+        """The keys a chain scenario dict carries for these knobs."""
+        return {
+            "reec": self.reec,
+            "corp_agi_limit": self.corp_agi_limit,
+            "reec_eff_share": self.reec_eff_share,
+            "cgec_growth": self.cgec_growth,
+            "reec_cf_m": self.reec_cf_m,
+        }
+
+
+CREDIT_KNOBS: dict[str, CreditKnobs] = {
+    # IRS §25D 25th-pct in-year offset; 1%/yr CGEC (pre-COVID long-run floor)
+    "LOW": CreditKnobs(reec="obbba_severe", corp_agi_limit=True, reec_eff_share=0.50,
+                       cgec_growth=0.010, reec_cf_m=4.0),
+    # IRS §25D median full-year offset; 1.5%/yr CGEC (pre-COVID average)
+    "MID": CreditKnobs(reec="obbba_mid", corp_agi_limit=False, reec_eff_share=0.65,
+                       cgec_growth=0.015, reec_cf_m=6.0),
+    # IRS §25D 75th-pct full-use share; 2.5%/yr CGEC (moderate growth)
+    "HIGH": CreditKnobs(reec="pre_obbba", corp_agi_limit=False, reec_eff_share=0.80,
+                        cgec_growth=0.025, reec_cf_m=9.0),
+}
+MID_CREDITS = CREDIT_KNOBS["MID"]
+
+
+# ---------------------------------------------------------------------------
 # Macro / credit-overlay scenario
 # ---------------------------------------------------------------------------
 
@@ -145,30 +214,37 @@ class MacroScenario:
         Council on Revenues March-2026 projections. Default 1.0 (raw
         microsim).
     reec_eff_share:
-        Fraction of REEC outlays that effectively reduce state
-        revenue (the rest is federal pass-through). Default 0.30.
+        Nonrefundable utilization: the share of a capped REEC claim that
+        offsets tax in the year (:class:`CreditKnobs`).
+
+    The presets take their credit assumptions from :data:`CREDIT_KNOBS`, the
+    chain's. (Until 2026-11-21 they carried their own: CGEC growth 1.5 / 2.5 /
+    3.5% and an effective share of 0.30, which no published figure used.)
     """
 
     reec_demand_scenario: str
-    cgec_growth_pct: float = 0.025
+    cgec_growth_pct: float = MID_CREDITS.cgec_growth
     macro_shock: str = "none"
     cor_scale_factor: float = 1.0
-    reec_eff_share: float = 0.30
+    reec_eff_share: float = MID_CREDITS.reec_eff_share
+
+    @classmethod
+    def _from_knobs(cls, label: str, macro_shock: str) -> MacroScenario:
+        k = CREDIT_KNOBS[label]
+        return cls(reec_demand_scenario=k.reec, cgec_growth_pct=k.cgec_growth,
+                   macro_shock=macro_shock, reec_eff_share=k.reec_eff_share)
 
     @classmethod
     def low(cls) -> MacroScenario:
-        return cls(reec_demand_scenario="obbba_severe",
-                   cgec_growth_pct=0.015, macro_shock="recession_2027_mild")
+        return cls._from_knobs("LOW", "recession_2027_mild")
 
     @classmethod
     def mid(cls) -> MacroScenario:
-        return cls(reec_demand_scenario="obbba_mid",
-                   cgec_growth_pct=0.025, macro_shock="none")
+        return cls._from_knobs("MID", "none")
 
     @classmethod
     def high(cls) -> MacroScenario:
-        return cls(reec_demand_scenario="pre_obbba",
-                   cgec_growth_pct=0.035, macro_shock="none")
+        return cls._from_knobs("HIGH", "none")
 
     @classmethod
     def named(cls, name: str) -> MacroScenario:
@@ -265,6 +341,9 @@ class ForecastScenario:
 
 
 __all__ = [
+    "CREDIT_KNOBS",
+    "MID_CREDITS",
+    "CreditKnobs",
     "TopIncomeParams",
     "MacroScenario",
     "ForecastScenario",

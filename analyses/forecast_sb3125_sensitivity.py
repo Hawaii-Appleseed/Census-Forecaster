@@ -82,7 +82,13 @@ def run_one_scenario(
         diff_row = cmp[cmp["system"] == "Difference"].iloc[0]
         bracket_delta = float(diff_row["revenue_millions"])
 
-        credit = compute_credit_overlay(year, reec_demand_scenario=reec_scenario)
+        # The chain's credit assumptions for this label (scenario_params.CREDIT_KNOBS). Until 2026-11-21
+        # only the REEC regime varied and the rest were the overlay's own defaults, not the chain's.
+        from tax_modeler.scenarios.scenario_params import CREDIT_KNOBS
+        knobs = CREDIT_KNOBS[label]
+        if knobs.reec != reec_scenario:
+            raise ValueError(f"{label}: REEC regime {reec_scenario!r} is not the chain's {knobs.reec!r}")
+        credit = compute_credit_overlay(year, **knobs.overlay_kwargs())
         total = bracket_delta + credit["total_credit_savings_$M"]
 
         rows.append({
