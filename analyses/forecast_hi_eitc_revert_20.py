@@ -434,8 +434,8 @@ def main(argv: list | None = None) -> int:
         if info:
             lines.append(f"    (mean over {info['n_draws']:,} draws of who exits (Monte Carlo SE "
                          f"{info['persons_lifted_mc_se']:,.0f} persons); expected-exit headcount "
-                         f"{info['persons_lifted_expectation']:,.0f}; gap by draws "
-                         f"${info['gap_closed_draw_$'] / 1e6:+,.1f}M vs expected ${info['gap_closed_expectation_$'] / 1e6:+,.1f}M)")
+                         f"{info['persons_lifted_expectation']:,.0f}; the gap above is the mean over the draws, the gap of the "
+                         f"expected resources, which understates it, is ${info['gap_closed_expectation_$'] / 1e6:+,.1f}M)")
 
     # HoH (single-mother proxy) — composition-derived (1 adult + ≥1 child).
     lines.append("")

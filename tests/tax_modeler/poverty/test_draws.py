@@ -95,8 +95,14 @@ def test_an_expansion_scenario_counts_claimants_not_a_fraction_of_everyone():
     np.testing.assert_allclose(df["poor_prob_hi_ctc_650"].to_numpy(), want)
     s = drawn.by_state.iloc[0]
     assert s["persons_lifted_hi_ctc_650"] == pytest.approx(float(pw @ ((r < thr) - want)))
-    # the gap is the expected-resources one in both
-    assert s["gap_closed_hi_ctc_650_$"] == pytest.approx(expected.by_state.iloc[0]["gap_closed_hi_ctc_650_$"])
+    # the gap is the expectation of the gap over who claims; the gap of the expected resources is kept beside it
+    fw = df["weight"].to_numpy()
+    gap_scn = rate * np.maximum(thr - (r + 650.0 * kids), 0.0) + (1 - rate) * np.maximum(thr - r, 0.0)
+    assert s["gap_closed_hi_ctc_650_$"] == pytest.approx(float(fw @ (np.maximum(thr - r, 0.0) - gap_scn)))
+    e = expected.by_state.iloc[0]["gap_closed_hi_ctc_650_$"]
+    assert s["gap_closed_hi_ctc_650_expected_$"] == pytest.approx(e)
+    assert s["gap_closed_hi_ctc_650_$"] <= e + 1e-6                     # convex: the expected-resources gap overstates the closing
+    assert "gap_closed_hi_ctc_650_expected_$" not in expected.by_state.columns
     assert "poor_prob_hi_ctc_650" not in expected.units.columns
     # at take-up 1 and 0 the two agree
     for r_ in (0.0, 1.0):
@@ -119,6 +125,11 @@ def test_draws_through_compute_poverty_impact_report_the_monte_carlo_error():
     assert info["n_draws"] == 800 and info["persons_lifted_mc_se"] >= 0
     assert info["persons_lifted_mean"] == pytest.approx(res.by_state.iloc[0]["persons_lifted_no_hi_eitc"], rel=1e-9)
     assert "poor_prob_baseline" in res.units.columns and np.isfinite(base).all()
+    # the gap is the mean over the draws, which is at least the gap of the expected resources (convexity)
+    s = res.by_state.iloc[0]
+    assert "gap_closed_no_hi_eitc_expected_$" in res.by_state.columns
+    assert info["gap_closed_draw_$"] == pytest.approx(s["gap_closed_no_hi_eitc_$"], rel=1e-9)
+    assert info["gap_closed_expectation_$"] == pytest.approx(s["gap_closed_no_hi_eitc_expected_$"], rel=1e-9)
 
 
 @pytest.fixture(scope="module")

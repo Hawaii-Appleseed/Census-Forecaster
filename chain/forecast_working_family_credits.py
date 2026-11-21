@@ -939,8 +939,10 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame, draws=None) -> pd.DataFrame:
         row["persons_into_poverty_expectation"] = info["persons_lifted_expectation"]
         row["children_into_poverty_mc_se"] = info["children_lifted_mc_se"]
         row["children_into_poverty_expectation"] = info["children_lifted_expectation"]
-        row["poverty_gap_increase_draws_$M"] = info["gap_closed_draw_$"] / 1e6
-        row["poverty_gap_increase_expectation_$M"] = info["gap_closed_expectation_$"] / 1e6
+        # the gap above is the expectation of the gap over the draws; the gap of the expected resources (which
+        # understates it where credits are drawn: a gap is convex at the line) is kept beside it
+        row["poverty_gap_increase_expected_resources_$M"] = float(s["gap_closed_act163_sunset_expected_$"]) / 1e6
+        row["poverty_gap_increase_expected_resources_se_$M"] = float(s["gap_closed_act163_sunset_expected_$_se"]) / 1e6
     # SPM household types: head_of_household = one adult with children.
     for _, r in hoh.iterrows():
         row[f"persons_into_poverty_{r['filing_status']}"] = float(r["persons_lifted_act163_sunset"])

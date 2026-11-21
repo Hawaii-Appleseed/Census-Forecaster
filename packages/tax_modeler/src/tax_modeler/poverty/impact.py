@@ -421,18 +421,25 @@ def _aggregate(
     scn_resources = {scn: units[f"spm_resources_{scn}"].to_numpy(dtype=float) for scn in scenarios}
     # Headcounts use each unit's probability of being poor where the frame carries one (``poor_prob_baseline``,
     # ``poor_prob_<scenario>``: credits drawn, not given in expectation); else the indicator on its resources.
-    # The poverty gap is continuous and stays on the expected resources.
+    # The poverty gap likewise uses each unit's mean gap over the draws (``gap_draw_baseline``,
+    # ``gap_draw_<scenario>``) where there is one: the gap is convex at the line, so the gap of the expected
+    # resources understates the expected gap. The gap of the expected resources is kept beside it as
+    # ``*_expected_$`` for the drawn baseline and scenarios.
     prob_baseline = (units["poor_prob_baseline"].to_numpy(dtype=float) if "poor_prob_baseline" in units.columns
                      else (resources < threshold).astype(float))
     prob_scn = {scn: (units[f"poor_prob_{scn}"].to_numpy(dtype=float) if f"poor_prob_{scn}" in units.columns
                       else (scn_resources[scn] < threshold).astype(float)) for scn in scenarios}
+    gap_expected_base = np.maximum(threshold - resources, 0.0)
+    gap_base = (units["gap_draw_baseline"].to_numpy(dtype=float) if "gap_draw_baseline" in units.columns
+                else gap_expected_base)
+    gap_expected_scn = {scn: np.maximum(threshold - scn_resources[scn], 0.0) for scn in scenarios}
+    gap_scn = {scn: (units[f"gap_draw_{scn}"].to_numpy(dtype=float) if f"gap_draw_{scn}" in units.columns
+                     else gap_expected_scn[scn]) for scn in scenarios}
 
     rows = []
     for key, pos in groups:
         pw = person_weight[pos]
         fw = filer_weight[pos]
-        thr = threshold[pos]
-        baseline_r = resources[pos]
 
         # Persons in poverty baseline (using person weights).
         persons_in_poverty_baseline = float(pw.dot(prob_baseline[pos]))
@@ -441,7 +448,7 @@ def _aggregate(
         pov_rate_baseline = (
             persons_in_poverty_baseline / weighted_persons if weighted_persons > 0 else 0.0
         )
-        gap_baseline = float(np.maximum(thr - baseline_r, 0.0).dot(fw))
+        gap_baseline = float(gap_base[pos].dot(fw))
 
         row: dict[str, float | str] = {
             "weighted_persons": weighted_persons,
@@ -454,12 +461,11 @@ def _aggregate(
             row[group_col] = key
 
         for scn in scenarios:
-            scn_r = scn_resources[scn][pos]
             persons_in_poverty_scn = float(pw.dot(prob_scn[scn][pos]))
             pov_rate_scn = (
                 persons_in_poverty_scn / weighted_persons if weighted_persons > 0 else 0.0
             )
-            gap_scn = float(np.maximum(thr - scn_r, 0.0).dot(fw))
+            gap_scn_total = float(gap_scn[scn][pos].dot(fw))
 
             # For removal-shaped scenarios: persons lifted = persons_in_poverty_scn - baseline.
             # Positive ⇒ credit lifts people out of poverty (counterfactual poorer).
@@ -467,14 +473,18 @@ def _aggregate(
             removal_like = scn.startswith("no_") or scn in _REMOVAL_LIKE_SCENARIOS
             if removal_like:
                 persons_lifted = persons_in_poverty_scn - persons_in_poverty_baseline
-                gap_closed = gap_scn - gap_baseline
+                gap_closed = gap_scn_total - gap_baseline
             else:
                 persons_lifted = persons_in_poverty_baseline - persons_in_poverty_scn
-                gap_closed = gap_baseline - gap_scn
+                gap_closed = gap_baseline - gap_scn_total
 
             row[f"poverty_rate_{scn}"] = pov_rate_scn
             row[f"persons_lifted_{scn}"] = persons_lifted
             row[f"gap_closed_{scn}_$"] = gap_closed
+            if f"gap_draw_{scn}" in units.columns or "gap_draw_baseline" in units.columns:
+                e_scn = float(gap_expected_scn[scn][pos].dot(fw))
+                e_base = float(gap_expected_base[pos].dot(fw))
+                row[f"gap_closed_{scn}_expected_$"] = (e_scn - e_base) if removal_like else (e_base - e_scn)
 
         rows.append(row)
 
@@ -603,6 +613,8 @@ def compute_poverty_impact(
             if claim is not None:
                 inc, rate = claim
                 df[f"poor_prob_{scn}"] = rate * (baseline_r + inc < threshold) + (1.0 - rate) * poor_b
+                df[f"gap_draw_{scn}"] = (rate * np.maximum(threshold - (baseline_r + inc), 0.0)
+                                         + (1.0 - rate) * np.maximum(threshold - baseline_r, 0.0))
     draw_info: dict = {}
     if draws is not None:
         n_ch = df["n_children"].fillna(0).to_numpy(dtype=float) if "n_children" in df.columns else None
@@ -612,9 +624,11 @@ def compute_poverty_impact(
         res = poverty_draws(draws, df, threshold, weights)
         if "baseline" in res.poor_prob:
             df["poor_prob_baseline"] = res.poor_prob["baseline"]
+            df["gap_draw_baseline"] = res.gap["baseline"]
         for scn, prob in res.poor_prob.items():
             if scn != "baseline":
                 df[f"poor_prob_{scn}"] = prob
+                df[f"gap_draw_{scn}"] = res.gap[scn]
         for scn in (s for s in res.poor_prob if s != "baseline"):
             sign = 1.0 if (scn.startswith("no_") or scn in _REMOVAL_LIKE_SCENARIOS) else -1.0
             info = {"n_draws": res.n_draws, "seed": res.seed}
