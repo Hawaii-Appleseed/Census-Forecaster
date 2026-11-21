@@ -34,7 +34,7 @@ from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
-from census_forecaster.acs.calibration import run_stratified_calibration
+from census_forecaster.acs.calibration import MLFeatureData, run_stratified_calibration
 from census_forecaster.acs.ml_features import load_market_signals_data
 from census_forecaster.acs.sources import base as sources_base
 from census_forecaster.scripts.load_calibration_panel import load_panel
@@ -186,14 +186,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         cal_a = run_stratified_calibration(
             series_by_key=series, anchor_years=anchor_years,
             horizons=horizons, populations=populations,
-            include_ml=True, market_data={},
+            include_ml=True, ml_features=MLFeatureData(market={}),
         )
         print("[mkt-ablation] arm B: ML with mkt features ...",
               file=sys.stderr)
         cal_b = run_stratified_calibration(
             series_by_key=series, anchor_years=anchor_years,
             horizons=horizons, populations=populations,
-            include_ml=True, market_data=market,
+            include_ml=True, ml_features=MLFeatureData(market=market),
         )
         res_a = _apply_v3_corrections(_residuals_from_calibration(cal_a), cal_a)
         res_b = _apply_v3_corrections(_residuals_from_calibration(cal_b), cal_b)

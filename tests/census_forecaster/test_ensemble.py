@@ -236,7 +236,7 @@ class TestEnsembleMultiWithMl:
         assert "ml_trend" in fp.notes
 
     def test_use_ml_true_inserts_third_member(self):
-        from census_forecaster.acs.ensemble import project_ensemble_multi
+        from census_forecaster.acs.ensemble import MLPanel, project_ensemble_multi
         from census_forecaster.acs.ml_features import build_panel_index
         series, pops = self._toy_panel()
         obs = [o for o in series[("15030", "B19013_001E")] if o.year <= 2020]
@@ -245,8 +245,9 @@ class TestEnsembleMultiWithMl:
 
         fp = project_ensemble_multi(
             obs, target_year=2022, populations=pops,
-            use_ml=True, ml_series_by_key=series, ml_populations=pops,
-            ml_model_cache=cache, ml_panel=panel,
+            use_ml=True,
+            ml=MLPanel(series_by_key=series, populations=pops,
+                       model_cache=cache, panel=panel),
         )
         assert fp is not None
         # ml_trend should appear in the ensemble notes
@@ -272,7 +273,7 @@ class TestEnsembleMultiWithMl:
         )
         fp = ens.project_ensemble_multi(
             obs, target_year=2022, populations=pops,
-            use_ml=True, ml_series_by_key=None, ml_populations=None,
+            use_ml=True,
         )
         assert fp is not None
         assert "ml_trend" in fp.notes
@@ -286,7 +287,7 @@ class TestEnsembleMultiWithMl:
         monkeypatch.setattr(ens, "_load_bundled_ml_panel", lambda: None)
         fp = ens.project_ensemble_multi(
             obs, target_year=2022, populations=pops,
-            use_ml=True, ml_series_by_key=None, ml_populations=None,
+            use_ml=True,
         )
         assert fp is not None  # falls back to trend+anchor only
         assert "ml_trend" not in fp.notes

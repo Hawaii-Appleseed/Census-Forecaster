@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import logging
 import math
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -315,6 +316,22 @@ def compute_snap_offset_for_lfp_exit(
     return out, diagnostics
 
 
+@dataclass(frozen=True)
+class IntensiveColumns:
+    """The unit-frame columns :func:`apply_hi_eitc_intensive_response` reads
+    (``earned_income`` .. ``exit_prob``; ``exit_prob`` is optional on the frame
+    and counts as zero when absent) and the one it writes (``out``). Override
+    one with ``IntensiveColumns(hi_eitc="my_col")``."""
+
+    earned_income: str = "earned_income"
+    hi_eitc: str = "hi_eitc_amount"
+    filing_status: str = "filing_status"
+    num_kids: str = "num_qualifying_children"
+    weight: str = "weight"
+    exit_prob: str = LFP_EXIT_PROB_COLUMN
+    out: str = INTENSIVE_LOSS_COLUMN
+
+
 def apply_hi_eitc_intensive_response(
     df: pd.DataFrame,
     *,
@@ -322,13 +339,7 @@ def apply_hi_eitc_intensive_response(
     hi_rate_baseline: float = 0.40,
     hi_rate_scenario: float = 0.20,
     tax_year: int = 2025,
-    earned_income_col: str = "earned_income",
-    hi_eitc_col: str = "hi_eitc_amount",
-    filing_status_col: str = "filing_status",
-    num_kids_col: str = "num_qualifying_children",
-    weight_col: str = "weight",
-    exit_prob_col: str = LFP_EXIT_PROB_COLUMN,
-    out_col: str = INTENSIVE_LOSS_COLUMN,
+    columns: IntensiveColumns = IntensiveColumns(),
     inplace: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
     """Intensive-margin (hours) hours response to HI EITC cut, phase-in region only.
@@ -371,29 +382,30 @@ def apply_hi_eitc_intensive_response(
     from tax_modeler.credits.eitc import classify_eitc_region, eitc_parameters_for_year
 
     out = df if inplace else df.copy()
+    c = columns
 
-    required = [earned_income_col, hi_eitc_col, filing_status_col, num_kids_col, weight_col]
-    missing = [c for c in required if c not in out.columns]
+    required = [c.earned_income, c.hi_eitc, c.filing_status, c.num_kids, c.weight]
+    missing = [name for name in required if name not in out.columns]
     if missing:
         raise KeyError(
             f"apply_hi_eitc_intensive_response: missing required columns {missing}"
         )
 
     if elasticity_phase_in <= 0:
-        out[out_col] = 0.0
+        out[c.out] = 0.0
         return out, {
             "elasticity_phase_in": float(elasticity_phase_in),
             "affected_filers_weighted": 0.0,
             "aggregate_resource_loss_$M": 0.0,
         }
 
-    earned = out[earned_income_col].fillna(0).to_numpy(dtype=float)
-    hi_eitc = out[hi_eitc_col].fillna(0).to_numpy(dtype=float)
-    fs = out[filing_status_col].to_numpy()
-    n_kids = np.clip(out[num_kids_col].fillna(0).to_numpy(dtype=int), 0, 3)
-    weight = out[weight_col].fillna(0).to_numpy(dtype=float)
-    if exit_prob_col in out.columns:
-        p_exit = out[exit_prob_col].fillna(0).to_numpy(dtype=float)
+    earned = out[c.earned_income].fillna(0).to_numpy(dtype=float)
+    hi_eitc = out[c.hi_eitc].fillna(0).to_numpy(dtype=float)
+    fs = out[c.filing_status].to_numpy()
+    n_kids = np.clip(out[c.num_kids].fillna(0).to_numpy(dtype=int), 0, 3)
+    weight = out[c.weight].fillna(0).to_numpy(dtype=float)
+    if c.exit_prob in out.columns:
+        p_exit = out[c.exit_prob].fillna(0).to_numpy(dtype=float)
     else:
         p_exit = np.zeros_like(earned)
 
@@ -423,7 +435,7 @@ def apply_hi_eitc_intensive_response(
         (1.0 - p_exit) * abs_delta_h * earned * loss_per_dollar,
         0.0,
     )
-    out[out_col] = intensive_loss
+    out[c.out] = intensive_loss
 
     affected_w = float(weight[affected].sum())
     diagnostics = {

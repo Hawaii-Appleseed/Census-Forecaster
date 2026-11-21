@@ -17,6 +17,7 @@ from tax_modeler.scenarios.quintile_analysis import (
 )
 from tax_modeler.scenarios.sb3125_cd1_credits import (
     REEC_SUNSET_LAST_VINTAGE,
+    CarryforwardPool,
     compute_credit_overlay,
 )
 
@@ -75,7 +76,7 @@ def test_a_claimants_loss_can_outweigh_a_bracket_cut():
 
 @pytest.mark.parametrize("year", [2028, REEC_SUNSET_LAST_VINTAGE + 1])
 def test_cd2_overlay_reports_the_individual_pool(year):
-    ov = compute_credit_overlay(year, model_carryforward_pool=True, _ci_pass=True)
+    ov = compute_credit_overlay(year, carryforward_pool=CarryforwardPool(), _ci_pass=True)
     assert 0 < ov["reec_individual_savings_$M"] <= ov["reec_savings_$M"] + 0.01
     assert 0 <= ov["reec_eligible_retained_share"] <= 1
     if year > REEC_SUNSET_LAST_VINTAGE:

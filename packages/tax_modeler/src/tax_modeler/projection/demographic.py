@@ -426,6 +426,22 @@ def _apply_disability_rake(
     return df, info
 
 
+@dataclass(frozen=True)
+class JointIpf:
+    """Route the multi-dimension projection through the joint IPF engine
+    (``calibration.joint_ipf``), which iterates until every marginal converges
+    together instead of running independent rakes that can interfere.
+
+    max_iter:
+        Iteration cap.
+    tol:
+        Convergence tolerance on the largest marginal miss.
+    """
+
+    max_iter: int = 50
+    tol: float = 1e-3
+
+
 def project_demographics_forward(
     units: pd.DataFrame,
     *,
@@ -437,9 +453,7 @@ def project_demographics_forward(
     senior_share_target: float | None = None,
     dimensions: list | None = None,
     targets: dict | None = None,
-    use_joint_ipf: bool = False,
-    joint_ipf_max_iter: int = 50,
-    joint_ipf_tol: float = 1e-3,
+    joint_ipf: JointIpf | None = None,
 ) -> tuple[pd.DataFrame, DemographicProjectionResult]:
     """Reweight ``units`` so the implied senior share matches ``target_year``.
 
@@ -484,15 +498,15 @@ def project_demographics_forward(
         if targets is None:
             targets = hawaii_demographic_targets(target_year)
 
-        # Phase 10: use_joint_ipf=True routes through the proper joint IPF
+        # Phase 10: a JointIpf routes through the proper joint IPF
         # which iterates until ALL marginals converge simultaneously rather
         # than running independent rakes that can interfere.
-        if use_joint_ipf:
+        if joint_ipf is not None:
             return _project_via_joint_ipf(
                 units, target_year=target_year, dimensions=dimensions,
                 targets=targets, age_threshold=age_threshold,
                 age_col=age_col, weight_col=weight_col,
-                max_iter=joint_ipf_max_iter, tol=joint_ipf_tol,
+                max_iter=joint_ipf.max_iter, tol=joint_ipf.tol,
             )
 
         df = units.copy()
