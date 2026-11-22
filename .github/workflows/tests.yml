@@ -48,6 +48,8 @@ jobs:
         run: uv run ruff check .
 
       - name: Run smoke tests
+        env:
+          CF_SKIP_GUARD: "1"   # fail on any skip tests/conftest.py does not allow
         run: uv run pytest -m smoke -v --tb=short
 
       # The tax simulator's browser kernel against the Python model: golden
@@ -91,10 +93,14 @@ jobs:
       # the suite a second time for the summary (that doubled its job to ~11 min).
       - name: Run full test suite
         if: matrix.python-version != '3.12'
+        env:
+          CF_SKIP_GUARD: "1"
         run: uv run pytest tests/ -v --tb=short
 
       - name: Run full test suite (with coverage)
         if: matrix.python-version == '3.12'
+        env:
+          CF_SKIP_GUARD: "1"
         run: uv run coverage run --source=packages -m pytest tests/ -v --tb=short
 
       - name: Show coverage summary

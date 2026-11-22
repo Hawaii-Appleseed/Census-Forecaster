@@ -66,6 +66,8 @@ from common import fallbacks
 
 logger = logging.getLogger(__name__)
 
+# The year of the hand-typed DOTAX credit baselines below, NOT calibration.dotax_base.BASE_YEAR (the newest
+# individual-income edition): when that edition moves, these baselines stay TY2023 until they are retyped.
 BASE_YEAR = 2023
 
 # ---------------------------------------------------------------------------

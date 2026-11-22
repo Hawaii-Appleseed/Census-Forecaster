@@ -22,8 +22,10 @@ import json
 from functools import cache
 from pathlib import Path
 
+from tax_modeler.calibration.dotax_base import BASE_YEAR as _DOTAX_BASE_YEAR
+
 #: The year the Department's tables are anchored on, so the two benchmarks describe the same year.
-BASE_YEAR = 2023
+BASE_YEAR = _DOTAX_BASE_YEAR
 
 _PATH = Path(__file__).resolve().parents[1] / "data" / "calibration" / "irs_soi_hi_table2.json"
 

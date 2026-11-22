@@ -28,9 +28,11 @@ from typing import Any
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from tax_modeler.calibration.dotax_base import (
+    BASE_YEAR as BASE_TAX_YEAR,  # the DOTAX Table A8 calibration anchor
+)
 
-BASE_TAX_YEAR = 2023  # the DOTAX Table A8 calibration anchor
+logger = logging.getLogger(__name__)
 
 
 def build_raw_units(

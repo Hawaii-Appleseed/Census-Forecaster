@@ -41,7 +41,8 @@ CALIBRATED_PKL = ARTIFACT_DIR / "sb3125_calibrated_base.pkl"
 # Manifested run outputs (Phase 1, docs/archive/DASHBOARD_PIPELINE_SCOPE.md).
 # One directory per script invocation family, each with a manifest.json
 # written via tax_modeler.runs.write_run_manifest.
-RUNS_DIR = REPO / "runs"
+# CF_RUNS_DIR redirects every step's outputs (tests/test_headline_figures.py runs the chain into a temporary one).
+RUNS_DIR = Path(os.environ.get("CF_RUNS_DIR") or REPO / "runs")
 
 TARGET_YEARS = [2027, 2028, 2029, 2030, 2031]
 

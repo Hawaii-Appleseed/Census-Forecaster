@@ -80,6 +80,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 import warnings
@@ -111,7 +112,7 @@ from tax_modeler.scenarios.act24_population import MID_ALPHA, MID_TOP_PREMIUM
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))   # _forecast_common
-OUT_DIR = REPO / "runs" / "cg_rate_options"
+OUT_DIR = Path(os.environ.get("CF_RUNS_DIR") or REPO / "runs") / "cg_rate_options"
 
 YEARS = [2026, 2027, 2028, 2029, 2030, 2031]
 DIST_YEAR = 2027          # the charted year: a 2027 bill's first tax year

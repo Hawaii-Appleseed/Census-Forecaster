@@ -91,11 +91,19 @@ def test_ssi_hi_supplement_requires_federal_ssi(taxed_units):
 
 
 def test_ssi_federal_payment_pct_override(taxed_units):
-    base = compute_ssi_for_units(taxed_units)
-    cut = compute_ssi_for_units(taxed_units, overrides={"federal_payment_pct": 0.5})
+    # The synthetic fixture has no SSI-eligible unit, so this test used to skip every time and test nothing.
+    # Add two: an aged single filer with no income and an aged couple with a little.
+    import pandas as pd
+
+    rows = taxed_units.iloc[[0, 0]].copy()
+    rows["primary_agep"] = [70, 72]
+    rows["income"] = [0.0, 3_000.0]
+    rows["filing_status"] = ["single", "married_filing_jointly"]
+    units = pd.concat([taxed_units, rows], ignore_index=True)
+    base = compute_ssi_for_units(units)
+    cut = compute_ssi_for_units(units, overrides={"federal_payment_pct": 0.5})
     base_total = base["ssi_amount"].sum()
-    if base_total == 0:
-        pytest.skip("no SSI-eligible units on this fixture")
+    assert base_total > 0
     assert cut["ssi_amount"].sum() == pytest.approx(base_total * 0.5, rel=1e-6)
 
 

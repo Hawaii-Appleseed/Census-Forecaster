@@ -123,6 +123,7 @@ from __future__ import annotations
 import argparse
 import functools
 import logging
+import os
 import sys
 import time
 import warnings
@@ -135,7 +136,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
-OUT_DIR = REPO / "runs" / "working_family_credits"   # also population_agreement's
+OUT_DIR = Path(os.environ.get("CF_RUNS_DIR") or REPO / "runs") / "working_family_credits"   # also population_agreement's
 PUMS_DIR = REPO / "packages" / "data" / "raw" / "pums_2024_1yr"
 
 YEARS = [2022, 2023, 2024, 2027, 2028, 2029, 2030, 2031]
@@ -580,7 +581,7 @@ def run(irs_reweight: bool | None = None) -> None:
                               "(data/calibration/dotax_eitc_2024.json)"},
     )
     _print_summary(rev, cal)
-    print(f"\nDone in {time.perf_counter() - t0:.0f}s -> {OUT_DIR.relative_to(REPO)}")
+    print(f"\nDone in {time.perf_counter() - t0:.0f}s -> {OUT_DIR}")
 
 
 EITC_RANGES = [("Under $15,000", -np.inf, 15_000), ("$15,000 to $29,999", 15_000, 30_000),
