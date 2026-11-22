@@ -11,6 +11,11 @@ File format (2 header rows, then data):
 We sum the Units columns (indices 7, 10, 13, 16) across the four unit types
 (1-unit, 2-units, 3-4 units, 5+ units) to get total permitted residential units.
 
+Years run from ``--start-year`` to ``--end-year``, by default the latest year Census has published (it tries
+last year and the year before; until 2026-11-21 the default was a fixed 2024, so the monthly job never picked up 2025).
+A year whose download fails keeps the values already in the file and makes the script exit 1, so the monthly job
+reports it (until 2026-11-21 such a year was dropped from the file and the script exited 0).
+
 Usage
 -----
     python -m census_forecaster.scripts.refresh_bps_permits
@@ -20,10 +25,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import io
 import json
 import sys
 import time
+import urllib.error
 import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
@@ -151,12 +158,38 @@ def fetch_bps_year(year: int, geoid_set: set[str]) -> dict[str, int]:
     return _parse_bps_csv(raw, geoid_set)
 
 
+def _published(year: int) -> bool:
+    """Whether Census has posted the county annual file for ``year`` (HTTP 404 means not yet)."""
+    req = urllib.request.Request(_BPS_URL_TMPL.format(year=year), method="HEAD",
+                                 headers={"User-Agent": "census-forecaster/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30):
+            return True
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return False
+        raise
+
+
+def latest_published_year(today: datetime.date | None = None) -> int:
+    """The newest year with a county annual file: last year once Census posts it (around May), else the year before."""
+    year = (today or datetime.date.today()).year - 1
+    return year if _published(year) else year - 1
+
+
+def _committed(path: Path) -> dict[str, dict[str, int]]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text()).get("values_by_geoid_year", {})
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refresh county BPS permit counts from Census BPS CSVs.",
     )
     parser.add_argument("--start-year", type=int, default=2008)
-    parser.add_argument("--end-year", type=int, default=2024)
+    parser.add_argument("--end-year", type=int, default=None,
+                        help="last year to fetch (default: the latest year Census has published)")
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Fetch and parse but do not write output file.",
@@ -174,11 +207,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     geoid_set = set(geoids)
     print(f"[bps] panel covers {len(geoids)} geoids", file=sys.stderr)
 
+    end_year = args.end_year if args.end_year is not None else latest_published_year()
+    committed = _committed(out_path)
     values_by_geoid_year: dict[str, dict[str, int]] = {g: {} for g in geoids}
     years_ok: list[int] = []
     years_fail: list[int] = []
 
-    for year in range(args.start_year, args.end_year + 1):
+    for year in range(args.start_year, end_year + 1):
         try:
             counts = fetch_bps_year(year, geoid_set)
             for geoid, total in counts.items():
@@ -187,8 +222,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             n_covered = sum(1 for g in geoids if str(year) in values_by_geoid_year[g])
             print(f"[bps] {year}: {n_covered}/{len(geoids)} counties", file=sys.stderr)
         except Exception as exc:
-            print(f"[bps] {year}: FAILED — {exc}", file=sys.stderr)
+            print(f"[bps] {year}: FAILED — {exc}; keeping the committed values for it", file=sys.stderr)
             years_fail.append(year)
+            for geoid in geoids:
+                if str(year) in committed.get(geoid, {}):
+                    values_by_geoid_year[geoid][str(year)] = committed[geoid][str(year)]
 
     print(
         f"[bps] fetched {len(years_ok)} years "
@@ -203,7 +241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             for g, d in list(values_by_geoid_year.items())[:3]
         }
         print(f"[bps] dry-run sample: {sample}", file=sys.stderr)
-        return 0
+        return 1 if years_fail else 0
 
     payload = {
         "source": "Census Building Permits Survey",
@@ -225,6 +263,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     tmp.replace(out_path)
     size_kb = out_path.stat().st_size // 1024
     print(f"[bps] wrote {out_path} ({size_kb} KB)", file=sys.stderr)
+    if years_fail:
+        print(f"::warning::BPS years failed and kept their committed values: {years_fail}", file=sys.stderr)
+        return 1
     return 0
 
 

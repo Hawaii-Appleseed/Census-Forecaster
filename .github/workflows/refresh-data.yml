@@ -19,6 +19,9 @@ name: refresh-data
 # same file (national-macro, EIA, HTA, DBEDT, UI-claims) — reversing the
 # order would silently drop whatever those steps last wrote.
 #
+# A last step (check_data_freshness) fails the job when a source has stopped updating even though its step exited
+# 0 (most keep the committed file on a failed fetch, by design).
+#
 # Each fetch and calibration step is continue-on-error: one source failing
 # (a layout change, a 429) keeps its committed data and no longer skips every
 # later step and the commit, which lost all of November 2026's refresh to a
@@ -454,6 +457,18 @@ jobs:
             git pull --rebase origin main || { git rebase --abort; exit 1; }
           done
           exit 1
+
+      - name: Check data freshness
+        id: data-freshness
+        continue-on-error: true
+        run: |
+          # Most refresh steps keep the committed file and exit 0 when their source fails (or skip without a key),
+          # so a source can stop updating while every step is green. This reads what the files say about
+          # themselves: each series' latest observation against its source's usual lag, each file's refresh date,
+          # and the annual sources (including the hand-built ACS panel and Urban Hawaii CPI anchors) against what
+          # has been published. A stale source fails the job below, so the alert issue opens. Runs after the
+          # commit, so whatever did refresh is still committed. Known source-side gaps: EXEMPT in the script.
+          uv run python -m census_forecaster.scripts.check_data_freshness
 
       - name: Fail if any refresh step failed
         env:

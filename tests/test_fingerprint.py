@@ -236,3 +236,50 @@ def test_repo_root_is_checked_at_import_and_can_be_overridden(tmp_path):
     good = run(tmp_path)
     assert good.returncode == 0 and good.stdout.strip() == str(tmp_path.resolve())
     assert (REPO / "pyproject.toml").exists() and (REPO / "packages").is_dir()
+
+
+# -- what else the key covers (2026-11-21)
+
+def test_a_model_environment_variable_changes_the_key_only_when_set(monkeypatch):
+    for name in fp.MODEL_ENV:
+        monkeypatch.delenv(name, raising=False)
+    unset = fingerprint(b"x")
+    monkeypatch.setenv("DOTAX_TOP_CLASS_WINDOW", "none")
+    none = fingerprint(b"x")
+    monkeypatch.setenv("DOTAX_TOP_CLASS_WINDOW", "2019-2023")
+    window = fingerprint(b"x")
+    assert len({unset, none, window}) == 3
+    monkeypatch.delenv("DOTAX_TOP_CLASS_WINDOW")
+    assert fingerprint(b"x") == unset            # unset: the key the default runs always had
+
+
+def test_every_model_environment_variable_is_one_the_model_reads():
+    """A name listed here that no package reads any more is dead weight; one the packages read that is not listed is
+    the gap this list closes. The second half is checked by reading the source for os.environ lookups of names that
+    look like model switches."""
+    import re
+
+    read = set()
+    for src in (REPO / "packages").glob("*/src"):
+        for f in src.rglob("*.py"):
+            read |= set(re.findall(r"""environ\.get\(\s*["']([A-Z_]+)["']""", f.read_text()))
+            read |= set(re.findall(r"""_ENV_VAR\s*=\s*["']([A-Z_]+)["']""", f.read_text()))
+    assert set(fp.MODEL_ENV) <= read
+    # Names the packages read that do not change model results: API keys, paths, process plumbing.
+    not_model = {n for n in read if n.endswith(("_API_KEY", "_DIR")) or n in {
+        "CF_MAX_WORKERS", "CF_REPO_ROOT", "CF_NARROW_FINGERPRINT", "CF_FALLBACK_FILE", "CF_ALLOW_STALE_CACHE"}}
+    assert read - not_model - set(fp.MODEL_ENV) == set(), "add it to common.fingerprint.MODEL_ENV, or to not_model"
+
+
+def test_two_scripts_with_one_name_are_refused(tmp_path, monkeypatch):
+    import pytest
+
+    _fake_repo(tmp_path, monkeypatch)
+    (tmp_path / "chain").mkdir()
+    (tmp_path / "chain" / "step.py").write_text("X = 1\n")
+    with pytest.raises(RuntimeError, match="share a module name"):
+        fp.code_closure("pkg.used")
+
+
+def test_the_repo_has_no_two_scripts_with_one_name():
+    fp._workspace_modules()
