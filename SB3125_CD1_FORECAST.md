@@ -7,7 +7,7 @@
 > are the ones to cite as "Act 24." CD1 is retained for continuity — its bracket
 > schedule is identical to CD2 and only the REEC credit model differs.
 
-**Last updated:** November 20, 2026
+**Last updated:** November 21, 2026
 **Analyst:** Hawaii Appleseed Center for Law and Economic Justice
 **Model version:** CD2 vintage carryforward model + Round-2 REEC refinements (May 14, 2026), on the corrected Hawaii CPI basis (July 30, 2026).
 
@@ -85,6 +85,29 @@
 
 Poverty (TY2028): poverty gap $16.2M; 2,120 more people (90% range 920 to 3,330; 590 children), the mean over 2,000 draws of who claims each credit.
 <!-- generated:results end -->
+
+---
+
+## Legacy static scripts retired — November 21, 2026 (no published figure changes)
+
+`analyses/forecast_sb3125.py` (static CD1/CD2 forecast with a TY2027 decile
+snapshot) and `analyses/forecast_sb3125_sensitivity.py` (Pareto α × REEC
+regime sweep) are deleted, with the `sensitivity` runner in
+`scripts/run_scenario.py`. Both wrote only to `/tmp` and fed nothing published.
+`chain/forecast_sb3125_enhanced.py` (LOW/MID/HIGH/RECESSION, with behavior,
+CBO aging, per-year COR anchoring and, for CD2, the vintage carryforward
+model) has replaced them.
+
+Their tables in the dated sections below are kept as written, with this
+caveat: until November 21 both scripts scored credits with
+`compute_credit_overlay`'s own defaults (100% REEC effective share, 3%/yr CGEC
+growth, no carryforward), not the chain's LOW/MID/HIGH assumptions, which now
+have one definition (`tax_modeler.scenarios.scenario_params.CREDIT_KNOBS`).
+On those assumptions `forecast_sb3125.py --cd 2`'s credit savings were
+$62.7M to $148.4M a year; on MID's they are $43.4M to $100.8M. So the "MID"
+columns of the "CD2 sensitivity" tables (August 3 and the update after it) are
+not the chain's MID, and their credit components run high. The sensitivity
+script also used α = 1.6 for LOW against the chain's 1.7.
 
 ---
 
@@ -3981,8 +4004,8 @@ columns.
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `forecast_sb3125_cd1.py` | Original forecast with decile snapshot | `/tmp/sb3125_cd1_fiscal_impact_2027_2031.csv` |
-| `forecast_sb3125_cd1_sensitivity.py` | Sensitivity across Pareto α × REEC scenarios (pre-behavioral) | `/tmp/sb3125_cd1_sensitivity_2027_2031.csv` |
+| `forecast_sb3125_cd1.py` | Original forecast with decile snapshot (retired November 21, 2026) | `/tmp/sb3125_cd1_fiscal_impact_2027_2031.csv` |
+| `forecast_sb3125_cd1_sensitivity.py` | Sensitivity across Pareto α × REEC scenarios (pre-behavioral; retired November 21, 2026) | `/tmp/sb3125_cd1_sensitivity_2027_2031.csv` |
 | `forecast_sb3125_cd1_enhanced.py` | **Primary forecast** — 3 behavioral scenarios + RECESSION macro scenario | `/tmp/sb3125_cd1_enhanced_2027_2031.csv` |
 | `forecast_sb3125_cd1_quintile.py` | Distributional analysis by income quintile (MID) | `/tmp/sb3125_cd1_quintile_2027_2031.csv` |
 
@@ -3990,8 +4013,8 @@ columns.
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `forecast_sb3125_cd2.py` | Static forecast vs Act 46 baseline | `/tmp/sb3125_cd2_fiscal_impact_2027_2031.csv` |
-| `forecast_sb3125_cd2_sensitivity.py` | Sensitivity across Pareto α × REEC scenarios (static, no behavioral) | `/tmp/sb3125_cd2_sensitivity_2027_2031.csv` |
+| `forecast_sb3125_cd2.py` | Static forecast vs Act 46 baseline (retired November 21, 2026) | `/tmp/sb3125_cd2_fiscal_impact_2027_2031.csv` |
+| `forecast_sb3125_cd2_sensitivity.py` | Sensitivity across Pareto α × REEC scenarios (static, no behavioral; retired November 21, 2026) | `/tmp/sb3125_cd2_sensitivity_2027_2031.csv` |
 | `forecast_sb3125_cd2_enhanced.py` | **Primary CD2 forecast** — 4 scenarios (LOW/MID/HIGH/RECESSION) with behavioral response | `/tmp/sb3125_cd2_enhanced_2027_2031.csv` |
 | `forecast_sb3125_cd2_quintile.py` | Distributional quintile analysis (bracket only, all 5 years) | `/tmp/sb3125_cd2_quintile_2027_2031.csv` |
 | `forecast_sb3125_vs_fy26base.py --cd 2` | ITEP-comparable: CD2 vs FY2026-frozen baseline | `runs/sb3125_cd2_fy26base/` |

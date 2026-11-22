@@ -59,7 +59,7 @@ and the delta.
 
 ### Step 4: write a forecast script
 
-Mirror `analyses/forecast_sb3125.py` (or, for a step of the published chain,
+Mirror `analyses/forecast_bill_quintile.py` (or, for a step of the published chain,
 `chain/forecast_sb3125_enhanced.py`).  Both put `scripts/` on `sys.path` for
 `_forecast_common` (paths, `--cd` parsing, the tax-unit cache) and import
 everything else from the installed `tax_modeler` package.  To score a bill

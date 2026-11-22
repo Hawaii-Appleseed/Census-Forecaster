@@ -91,13 +91,6 @@ RUNNERS: dict[str, Runner] = {
             slugs=("sb3125_cd1", "sb3125_cd2"),
             build_args=_cd_args,
         ),
-        Runner(
-            name="sensitivity",
-            script="analyses/forecast_sb3125_sensitivity.py",
-            describe="LOW/MID/HIGH sweep over Pareto alpha x REEC demand",
-            slugs=("sb3125_cd1", "sb3125_cd2"),
-            build_args=_cd_args,
-        ),
     ]
 }
 
