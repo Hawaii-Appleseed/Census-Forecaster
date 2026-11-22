@@ -30,8 +30,6 @@ jobs:
     # the direct indicators after 60 minutes. The API responses are cached across runs (below), so a run that is
     # cut off leaves its work for the next.
     timeout-minutes: 300
-    env:
-      CENSUS_FORECASTER_CACHE_DIR: ${{ runner.temp }}/acs-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -52,7 +50,7 @@ jobs:
       - name: Restore cached API responses
         uses: actions/cache/restore@v6
         with:
-          path: ${{ runner.temp }}/acs-cache
+          path: ~/.cache/census-forecaster   # AcsClient's default cache location
           key: acs-api-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: acs-api-
 
@@ -70,7 +68,7 @@ jobs:
         if: always()   # also when the build fails or is cut off: the next run resumes from here
         uses: actions/cache/save@v6
         with:
-          path: ${{ runner.temp }}/acs-cache
+          path: ~/.cache/census-forecaster
           key: acs-api-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload the panel
