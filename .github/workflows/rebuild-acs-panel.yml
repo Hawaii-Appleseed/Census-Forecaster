@@ -26,7 +26,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A cold build makes every call (the runner starts with no cache): the first run, 2026-11-22, had fetched only
+    # the direct indicators after 60 minutes. The API responses are cached across runs (below), so a run that is
+    # cut off leaves its work for the next.
+    timeout-minutes: 300
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -44,6 +47,13 @@ jobs:
       - name: Install workspace
         run: uv sync --all-packages --extra dev
 
+      - name: Restore cached API responses
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/census-forecaster   # AcsClient's default cache location
+          key: acs-api-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: acs-api-
+
       - name: Build the panel
         env:
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
@@ -53,6 +63,13 @@ jobs:
             echo "::error::CENSUS_API_KEY secret is not set"; exit 1
           fi
           uv run python -m census_forecaster.scripts.build_calibration_panel ${END_YEAR:+--end-year "$END_YEAR"}
+
+      - name: Save cached API responses
+        if: always()   # also when the build fails or is cut off: the next run resumes from here
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/census-forecaster
+          key: acs-api-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload the panel
         uses: actions/upload-artifact@v7
