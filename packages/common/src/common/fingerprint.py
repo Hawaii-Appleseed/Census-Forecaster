@@ -41,6 +41,14 @@ SCRIPT_DIRS = ("chain", "analyses", "scripts")
 # The narrow cache key (fingerprint(code=...)); CF_NARROW_FINGERPRINT=0 hashes the whole packages.
 NARROW_FINGERPRINT = os.environ.get("CF_NARROW_FINGERPRINT", "1") != "0"
 
+# Environment variables the model reads that change its results; each one that is set goes into every key (an unset
+# one leaves the key as it was, so the defaults' caches carry over). Add a variable here when model code starts
+# reading one: a cache built under another setting would otherwise be reused.
+MODEL_ENV = (
+    "DOTAX_TOP_CLASS_WINDOW",            # calibration.dotax_base: the $1M+ class's share window
+    "TAX_MODELER_USE_ENSEMBLE_GROWTH",   # projection.income_forecast: the ensemble growth path on or off
+)
+
 
 def _workspace_modules() -> dict[str, Path]:
     """Every importable workspace module, by dotted name: the packages under
@@ -49,7 +57,11 @@ def _workspace_modules() -> dict[str, Path]:
     mods: dict[str, Path] = {}
     for d in SCRIPT_DIRS:
         for f in sorted((REPO / d).glob("*.py")):
-            mods.setdefault(f.stem, f.resolve())
+            if f.stem in mods:
+                # Both directories are on sys.path, so one name means two files and the key would hash the wrong one.
+                raise RuntimeError(f"common.fingerprint: {mods[f.stem].relative_to(REPO)} and {f.relative_to(REPO)} "
+                                   "share a module name; rename one")
+            mods[f.stem] = f.resolve()
     for src in sorted((REPO / "packages").glob("*/src")):
         for f in sorted(src.rglob("*.py")):
             parts = f.relative_to(src).with_suffix("").parts
@@ -236,8 +248,9 @@ def closure_guard(code: tuple):
 
 def fingerprint(*parts, code: tuple | None = None) -> str:
     """A sha256 key for a cached step output: the model code, the Python,
-    numpy and pandas versions, and *parts* — Paths (a file's bytes, a
-    directory's files), bytes, or anything ``json.dumps`` takes.
+    numpy and pandas versions, the :data:`MODEL_ENV` variables that are set,
+    and *parts* — Paths (a file's bytes, a directory's files), bytes, or
+    anything ``json.dumps`` takes.
 
     The model code is every file under each workspace package's ``src``
     (``tax_modeler`` and the ``census_forecaster``, ``pums_estimator`` and
@@ -285,6 +298,9 @@ def fingerprint(*parts, code: tuple | None = None) -> str:
                             and "__pycache__" not in f.parts):
                 add_file(f)
     h.update(f"{sys.version}|numpy {np.__version__}|pandas {pd.__version__}".encode())
+    for name in MODEL_ENV:
+        if (value := os.environ.get(name)) is not None:
+            h.update(f"|env {name}={value}".encode())
     for part in parts:
         if isinstance(part, Path):
             add_path(part)
