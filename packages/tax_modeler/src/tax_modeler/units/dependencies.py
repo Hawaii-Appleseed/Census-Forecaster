@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from tax_modeler.calibration.dotax_base import BASE_YEAR as _DOTAX_BASE_YEAR
 from tax_modeler.units.relshipp_codes import (
     FOSTER_CHILD,
     GRANDCHILD,
@@ -22,7 +23,7 @@ from tax_modeler.units.relshipp_codes import (
 # adjustments). A would-be qualifying relative earning at/above this cannot be
 # claimed as a dependent.
 _QR_GROSS_INCOME_LIMIT_BY_YEAR = {2022: 4_400, 2023: 4_700, 2024: 5_050, 2025: 5_200}
-_DEFAULT_DEP_TAX_YEAR = 2023  # matches the DOTAX Table A8 calibration anchor
+_DEFAULT_DEP_TAX_YEAR = _DOTAX_BASE_YEAR  # the DOTAX Table A8 calibration anchor (calibration.dotax_base)
 
 
 def _qr_gross_income_limit(tax_year: int) -> int:

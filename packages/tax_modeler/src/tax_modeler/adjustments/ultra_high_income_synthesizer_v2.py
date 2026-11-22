@@ -112,7 +112,10 @@ class UltraHighIncomeSynthesizerV2:
     Pareto-based ultra-high-income synthesis with tax-target feedback.
     """
 
-    def __init__(self, pareto_alpha: float = 1.5, total_1m_filers: int = 1_824):
+    # No default for the targets: they were the TY2022 printed values (1,824 returns, $663M), which a direct call got
+    # silently after the base edition moved on. scenarios.top_income_synthesis passes the base edition's
+    # (calibration.dotax_base).
+    def __init__(self, *, total_1m_filers: int, pareto_alpha: float = 1.5):
         self.pareto_alpha = pareto_alpha
         self.total_1m_filers = total_1m_filers
 
@@ -148,7 +151,7 @@ class UltraHighIncomeSynthesizerV2:
     def redistribute_within_million_plus(
         self,
         df: pd.DataFrame,
-        target_tax_m: float = 663.0,
+        target_tax_m: float,
     ) -> pd.DataFrame:
         """
         Replace existing $1M+ filers with Pareto-derived synthetic filers,
@@ -294,16 +297,17 @@ class UltraHighIncomeSynthesizerV2:
 
         return result
 
-    def calibrate(self, df: pd.DataFrame, target_tax_m: float = 663.0) -> pd.DataFrame:
+    def calibrate(self, df: pd.DataFrame, target_tax_m: float) -> pd.DataFrame:
         """Main entry point."""
         return self.redistribute_within_million_plus(df, target_tax_m)
 
 
 def apply_ultra_high_income_synthesis_v2(
     df: pd.DataFrame,
-    target_tax_m: float = 663.0,
+    *,
+    target_tax_m: float,
+    total_1m_filers: int,
     pareto_alpha: float = 1.5,
-    total_1m_filers: int = 1_824,
 ) -> pd.DataFrame:
     """Convenience function for pipeline use."""
     synthesizer = UltraHighIncomeSynthesizerV2(pareto_alpha=pareto_alpha, total_1m_filers=total_1m_filers)

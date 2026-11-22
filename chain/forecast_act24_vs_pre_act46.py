@@ -158,7 +158,8 @@ def main() -> None:
                 "top_premium": MID_TOP_PREMIUM, "tail_k": tail_k, "cal_tax_year": base.tax_year,
                 "tieout_checked": page is not None},
         inputs={"tax_units_cache": cache_provenance(),
-                "act24_page": str(ENHANCED.relative_to(REPO)) if page is not None else None},
+                # as runs/<step>/<file> wherever CF_RUNS_DIR puts the runs
+                "act24_page": f"runs/{ENHANCED.relative_to(RUNS_DIR)}" if page is not None else None},
     )
 
     pd.set_option("display.width", 200)

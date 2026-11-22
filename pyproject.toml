@@ -21,4 +21,5 @@ markers = [
     "smoke: fast end-to-end and per-stage tests on the synthetic fixture; safe to run on a fresh clone without DOTAX/IRS data.",
     "requires_dotax_raw: needs ~83 MB of Hawaii DOTAX SOI tables in data/tax_modeler/raw/.",
     "requires_irs_external: needs ~639 MB of IRS national SOI files in data/tax_modeler/external/.",
+    "headline: runs the chain into a temporary directory and compares the published site/data files (local only, about a minute).",
 ]
