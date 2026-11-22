@@ -2,7 +2,7 @@
 
 Raw PUMS is gitignored, so a fresh clone rebuilding the tax-unit cache
 reaches these paths with nothing to load. The direct callers of this
-loader (analyses/forecast_sb3125.py, poverty_impact_report.py,
+loader (the tax-unit cache build, poverty_impact_report.py,
 eitc_ctc_geo_report.py) bypass pipeline._load_pums and so used to get an
 unadorned FileNotFoundError with no hint about where to get the data.
 """

@@ -48,7 +48,7 @@ def test_arg_spelling_per_runner():
 
 def test_runners_for_lookup():
     names = {r.name for r in run_scenario.runners_for("sb3125_cd1")}
-    assert names == {"quintile", "enhanced", "fy26base", "static_quintile", "sensitivity"}
+    assert names == {"quintile", "enhanced", "fy26base", "static_quintile"}
     assert [r.name for r in run_scenario.runners_for("hb2306_hd1")] == ["quintile"]
     assert run_scenario.runners_for("millionaire_tax") == []
 

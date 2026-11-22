@@ -8,7 +8,7 @@ Replaces:
   forecast_sb3125_cd1_enhanced.py
   forecast_sb3125_cd2_enhanced.py
 
-Improvements over analyses/forecast_sb3125.py:
+Improvements over the static forecast it replaced (analyses/forecast_sb3125.py, retired 2026-11-21):
 
   1. **ETI behavioral response** — per-filer taxable-income elasticity.
      Each filer's marginal rate is computed under both the Act 46 baseline
