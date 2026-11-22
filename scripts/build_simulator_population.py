@@ -490,7 +490,8 @@ def main() -> int:
         return 1
     credit_table = load_credit_table(wfc, pop.years)
     (OUT / "credits.json").write_text(json.dumps(credit_table, indent=1) + "\n")
-    print(f"  credits priced from {wfc.relative_to(REPO)} (git_sha {credit_table['source']['git_sha']})",
+    shown = wfc.relative_to(REPO) if wfc.is_relative_to(REPO) else wfc   # CF_RUNS_DIR may be outside the repo
+    print(f"  credits priced from {shown} (git_sha {credit_table['source']['git_sha']})",
           flush=True)
     kernel = (REPO / "site/assets/simulator/kernel.js").read_bytes()
     web = write_web_files(pop, OUT / "web", kernel_source=kernel, credits=credit_table)

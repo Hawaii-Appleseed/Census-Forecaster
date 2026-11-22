@@ -423,3 +423,24 @@ def test_cbo_path_money_income_ages_the_transfers_income_leaves_out():
     assert f > 1.0
     assert proj["income"].iloc[0] == pytest.approx(8_500.0 * f)
     assert proj["spm_money_income"].iloc[0] == pytest.approx(13_500.0 * f)
+
+
+def test_growth_runs_from_the_incomes_dollar_year_not_the_latest_vintage():
+    """The factor scales incomes in PUMS dollars (_DEFAULT_BASE_YEAR), so it must start there whatever the panel's
+    latest year is. It used to start at the latest year: harmless while both were 2024, a lost year of growth once the
+    2025 ACS vintage arrived."""
+    from tax_modeler.projection import tax_unit_projector as p
+    from tax_modeler.projection.revenue_projection import project_revenue_per_filer
+
+    y0 = p._DEFAULT_BASE_YEAR
+    last = int(project_revenue_per_filer(target_year=y0 + 3, geoid="15003", method="ensemble",
+                                         anchor_year=None).anchor_year)
+    observed = {y: project_revenue_per_filer(target_year=y, geoid="15003", method="ensemble",
+                                             anchor_year=y).anchor_income for y in range(y0, last + 1)}
+    assert p._fetch_growth_factor("15003", None, y0, "ensemble").factor == pytest.approx(1.0)
+    for y in range(y0 + 1, last + 1):                         # observed years: their own ratio to the dollar year
+        assert p._fetch_growth_factor("15003", None, y, "ensemble").factor == pytest.approx(observed[y] / observed[y0])
+    target = last + 2                                         # beyond the panel: the projection from its last year
+    projected = project_revenue_per_filer(target_year=target, geoid="15003", method="ensemble",
+                                          anchor_year=None).projected_income
+    assert p._fetch_growth_factor("15003", None, target, "ensemble").factor == pytest.approx(projected / observed[y0])

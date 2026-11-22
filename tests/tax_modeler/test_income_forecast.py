@@ -220,17 +220,19 @@ def test_apply_income_growth_nonresident_uses_ensemble_by_default(monkeypatch):
     get_hawaii_real_growth_factor.cache_clear()
     get_national_real_growth_factor.cache_clear()
 
+    from common import fallbacks
+
+    fallbacks.reset()
     income = 100_000
     result = apply_income_growth(income, is_resident=False)
-    hardcoded = income * NONRESIDENT_GROWTH.real_growth
 
-    # The ensemble forecast meaningfully diverges from the (stale) hardcoded.
-    # Allow up to 30% gap in absolute dollar terms — anything tighter would
-    # be brittle to calibration updates.
-    assert abs(result - hardcoded) > 100, (
-        f"Nonresident ensemble path appears to be returning the hardcoded "
-        f"value ({hardcoded:.2f}); got {result:.2f}"
-    )
+    # The result is the national ensemble factor itself, and no fallback to the hardcoded factor was recorded.
+    # (Until 2026-11-22 this asserted the result differed from the hardcoded factor by more than $100; with the 2025
+    # ACS vintage the two happen to land $32 apart, so that proved nothing about the wiring.)
+    factor = get_national_real_growth_factor(NONRESIDENT_GROWTH.base_year, NONRESIDENT_GROWTH.target_year)
+    assert factor is not None
+    assert result == pytest.approx(income * factor, rel=1e-12)
+    assert "income_growth:nonresident_ensemble" not in fallbacks.recorded()
     # Sanity: the ensemble result is in a reasonable band (50% loss to 100% gain).
     assert 50_000 < result < 200_000
 
@@ -668,3 +670,17 @@ def test_detail_identity_at_zero_horizon():
     assert d.real_factor == 1.0
     assert d.se_log_real == 0.0
     assert d.real_ci90_low == 1.0 and d.real_ci90_high == 1.0
+
+
+def test_an_observed_target_year_is_read_off_the_panel_not_the_latest_year():
+    """A target at or before the panel's last year used to come back as the last year's income (the ensemble returns
+    its last observation for a non-positive horizon): Honolulu 2023 -> 2024 gave 2025 / 2023."""
+    from tax_modeler.projection.income_forecast import _forecast_one_county, _load_b19013_series
+
+    series = {o.year: o.estimate for o in _load_b19013_series("15003")}
+    latest = max(series)
+    target = latest - 1
+    ratio, log_var = _forecast_one_county("15003", target - 1, target, None)
+    assert ratio == pytest.approx(series[target] / series[target - 1], rel=1e-12)
+    assert ratio != pytest.approx(series[latest] / series[target - 1])
+    assert log_var > 0
