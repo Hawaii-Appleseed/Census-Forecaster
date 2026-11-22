@@ -11,10 +11,11 @@ import os
 
 import pytest
 
-#: Node-id prefixes allowed to skip, and why.
+#: Test files allowed to skip, and why. A skip at collection is reported under the bare file path, a skip inside a
+#: test under ``file::test``; both match the file.
 ALLOWED_SKIPS = {
-    "tests/tax_modeler/test_cex_loader.py::": "the CEX interview files are not committed",
-    "tests/test_headline_figures.py::": "needs the local PUMS and tax-unit cache, which are not committed",
+    "tests/tax_modeler/test_cex_loader.py": "the CEX interview files are not committed",
+    "tests/test_headline_figures.py": "needs the local PUMS and tax-unit cache, which are not committed",
 }
 
 
@@ -24,7 +25,7 @@ def pytest_sessionfinish(session, exitstatus):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     skipped = [r.nodeid for r in (reporter.stats.get("skipped", []) if reporter else [])]
-    unexpected = sorted({n for n in skipped if not n.startswith(tuple(ALLOWED_SKIPS))})
+    unexpected = sorted({n for n in skipped if n.split("::")[0] not in ALLOWED_SKIPS})
     if unexpected:
         lines = "\n  ".join(unexpected)
         print(f"\nCF_SKIP_GUARD: {len(unexpected)} test(s) skipped that tests/conftest.py does not allow:\n  {lines}\n"
