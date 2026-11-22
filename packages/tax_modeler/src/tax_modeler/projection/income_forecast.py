@@ -432,8 +432,22 @@ def _forecast_one_county(
         logger.warning("Invalid B19013 base value at %s/%s: %s", geoid, base_year, base_obs.estimate)
         return None
 
+    # The ensemble projects from the last observation it is given, and a target at or before that observation comes
+    # back as the observation itself. Given the whole series, 2022 -> 2024 returned 2025's income once the 2025
+    # vintage was in the panel (and, before it, any target up to 2023 returned 2024's). So an observed target year is
+    # read off the panel, and an unobserved one inside the series (2020's missing 1-year) is projected from the years
+    # before it.
+    target_obs = next((o for o in series if o.year == target_year and o.estimate > 0), None)
+    if target_obs is not None:
+        from common.moe import moe_to_se
+
+        se = moe_to_se(target_obs.moe)
+        log_var = (se / target_obs.estimate) ** 2 if math.isfinite(se) and se > 0 else float("nan")
+        return target_obs.estimate / base_obs.estimate, log_var
+    train = [o for o in series if o.year < target_year]
+
     forecast = project_ensemble_multi(
-        series_observations=list(series),
+        series_observations=train,
         target_year=target_year,
         calibration=calibration,
         use_ml=False,
