@@ -70,8 +70,8 @@ yet.
 |---|---|---|---|---|---|
 | **Statutory · 3 mo (default)** | Medicaid OR ≤300% FPL | $1,500 + $500×3 | **~$21M** | ~$22M | **7,969 births** |
 | Statutory · 6 mo | Medicaid OR ≤300% FPL | $1,500 + $500×6 | ~$31M | ~$34M | 7,969 births |
-| **Universal · 6 mo** | every birth family | $1,500 + $500×6 | **~$52M** | ~$56M | 13,225 births |
-| **Universal · 12 mo** | every birth family | $1,500 + $500×12 | **~$88M** | ~$95M | 13,225 births |
+| **Universal · 6 mo** | every birth family | $1,500 + $500×6 | **~$52M** | ~$56M | 13,228 births |
+| **Universal · 12 mo** | every birth family | $1,500 + $500×12 | **~$88M** | ~$95M | 13,228 births |
 
 Going universal at 6 months adds ~$22M (it reaches ~9,600 more recipients); the
 extra 6 months of payments on top adds ~$37M more (the postnatal arm doubles,
@@ -1258,7 +1258,7 @@ two policy levers — the **eligibility gate** and the **postnatal duration**:
 | `universal_12mo` | universal (no test) | 12 mo | $7,500 | **~$88M** | ~$95M | ~22,900 | ~$53M–$112M |
 
 - **Universal eligibility** (`income_fpl_cap=100.0`, ≈ no income/Medicaid test)
-  reaches essentially every birth family — 13,225 births served vs 7,969 under
+  reaches essentially every birth family — 13,228 births served vs 7,969 under
   the statutory gate. Going universal at 6 months adds **~$18M** in cash cost
   (it pulls in the ~7,700 birth families above the statutory gate).
 - **The extra 6 months** (`postnatal_months=12`) doubles the postnatal arm and

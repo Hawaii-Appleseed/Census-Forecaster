@@ -29,8 +29,8 @@ for the 6-month variant — serve exactly the same births:
 |---|---|---|---|---|
 | **`statutory_3mo` (default)** | **$3,000** | **~$21M** | ~$22M | **7,969** |
 | `statutory_6mo` | $4,500 | ~$31M | ~$34M | 7,969 |
-| `universal_6mo` | $4,500 | ~$52M | ~$56M | 13,225 |
-| `universal_12mo` | $7,500 | ~$88M | ~$95M | 13,225 |
+| `universal_6mo` | $4,500 | ~$52M | ~$56M | 13,228 |
+| `universal_12mo` | $7,500 | ~$88M | ~$95M | 13,228 |
 
 Note the first two rows: **halving the postnatal window cuts cost 34% and
 serves the identical number of births.** Window length is a pure cost lever;
