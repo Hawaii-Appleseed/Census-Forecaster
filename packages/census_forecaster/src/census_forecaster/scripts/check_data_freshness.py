@@ -82,8 +82,8 @@ ANNUAL = (
     Annual("anchors/cpi_honolulu_rent.json", (3, 1),
            "hand-built (no job refreshes it): add the BLS Urban Hawaii rent (CUUSS49FSEHA) annual average"),
     Annual("calibration_panel/acs_panel.json", (10, 1),
-           "the ACS 1-year release is out each September; rebuild with "
-           "census_forecaster.scripts.build_calibration_panel (manual, needs CENSUS_API_KEY; moves forecasts)"),
+           "the ACS 1-year release is out each September; run the rebuild-acs-panel workflow and commit its panel "
+           "with the regenerated calibration and a republished site (it moves forecasts)"),
 )
 
 #: Series that stopped at the source: name -> (reason, look again after YYYY-MM).
