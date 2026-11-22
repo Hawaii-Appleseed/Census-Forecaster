@@ -52,6 +52,13 @@ from common import fallbacks
 
 logger = logging.getLogger(__name__)
 
+# The year growth factors run from when the caller names none: the PUMS incomes' dollar year, the year every
+# projected amount starts from. It used to be the panel's latest year, which was the same year (2024) until the 2025
+# ACS vintage, then moved every factor's start a year later (Honolulu home-value growth to 2027: 1.194 -> 1.079)
+# while the amounts they scale had not moved. The deduction parameters' own dollar year is a separate question
+# (their docstring calls 2022 the SOI calibration year); this keeps them where the published figures had them.
+from tax_modeler.loaders.pums_loader import PUMS_INCOME_DOLLAR_YEAR as DEFAULT_ANCHOR_YEAR  # noqa: E402
+
 # All three supplement indicators.
 _SUPPLEMENT_INDICATORS: tuple[str, ...] = (
     "B25064_001E",    # median gross rent
@@ -159,9 +166,10 @@ def _project_one_indicator(
     Returns ``(projected_level, growth_factor, actual_anchor_year)`` or
     ``None`` if the panel or ensemble fails for this indicator.
 
-    ``growth_factor = projected_level / anchor_level`` where
-    ``anchor_level`` is the estimate at ``anchor_year`` (defaults to the
-    most recent year in the series when ``anchor_year`` is ``None``).
+    ``growth_factor = target_level / anchor_level`` where ``anchor_level`` is
+    the estimate at ``anchor_year`` (:data:`DEFAULT_ANCHOR_YEAR` when ``None``)
+    and ``target_level`` is the target year's own estimate when the panel has
+    it, else the projection from the panel's last year.
     """
     from census_forecaster.acs.ensemble import project_ensemble_multi
 
@@ -172,7 +180,7 @@ def _project_one_indicator(
         )
         return None
 
-    actual_anchor_year: int = anchor_year if anchor_year is not None else series[-1].year
+    actual_anchor_year: int = anchor_year if anchor_year is not None else DEFAULT_ANCHOR_YEAR
 
     anchor_obs = next((o for o in series if o.year == actual_anchor_year), None)
     if anchor_obs is None:
@@ -192,8 +200,14 @@ def _project_one_indicator(
     if target_year <= actual_anchor_year:
         return float(anchor_obs.estimate), 1.0, actual_anchor_year
 
+    # An observed target is read off the panel: the ensemble returns its last observation for any target at or
+    # before it. An unobserved one is projected from the years before it.
+    target_obs = next((o for o in series if o.year == target_year and o.estimate > 0), None)
+    if target_obs is not None:
+        return float(target_obs.estimate), float(target_obs.estimate) / float(anchor_obs.estimate), actual_anchor_year
+
     forecast = project_ensemble_multi(
-        series_observations=list(series),
+        series_observations=[o for o in series if o.year < target_year],
         target_year=target_year,
         calibration=calibration,
         use_ml=False,
@@ -236,7 +250,7 @@ def project_acs_supplement(
         (15005) is proxied to Maui (15009).
     anchor_year:
         Observation year used as the base for growth factors. Defaults to
-        the most recent observed year in the panel (currently 2024).
+        :data:`DEFAULT_ANCHOR_YEAR` (the PUMS dollar year), not the panel's latest year.
 
     Returns
     -------
@@ -324,8 +338,8 @@ def scale_mortgage_deductions(
         Hawaii county FIPS used for the B25077 lookup. Defaults to Honolulu
         (15003), the most data-rich county and the state-wide proxy.
     anchor_year:
-        Anchor year for the growth factor computation. Defaults to the most
-        recent observed year in the bundled panel.
+        Anchor year for the growth factor computation. Defaults to
+        :data:`DEFAULT_ANCHOR_YEAR` (the PUMS dollar year).
 
     Returns
     -------
