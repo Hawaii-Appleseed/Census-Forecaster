@@ -128,28 +128,48 @@ def _fetch_growth_factor(
     method: str,
 ) -> _GrowthFactorResult | None:
     """
-    Return the nominal B19013 income growth factor and 90% CI for a geoid.
+    Return the nominal B19013 income growth factor and 90% CI for a geoid, from the incomes' dollar year to
+    ``target_year``.
 
-    The point factor is ``projected_income / anchor_income`` (both in nominal
-    ACS dollars).  CI bounds are derived from ``income_se`` via
-    ``factor ± Z90 × income_se / anchor_income``.
+    The dollar year is ``anchor_year`` when given, else :data:`_DEFAULT_BASE_YEAR` (the PUMS incomes' dollar year).
+    The factor is the target year's B19013 over the observed B19013 in the dollar year: the target year's observation
+    when the panel has it, else the projection from the panel's latest year (every year of the panel is used). CI
+    bounds are ``factor ± Z90 × income_se / base_income``.
 
-    Returns None if the geoid is absent from the census_forecaster panel or
-    the projector fails.
+    Until 2026-11-22 a missing ``anchor_year`` meant the panel's latest year, so the factor ran from the latest ACS
+    vintage while the incomes it scaled were in PUMS dollars: right only while the two years matched (both 2024). The
+    2025 vintage would have dropped 2024 -> 2025 growth from every projection (Act 24 MID TY2027 -2.8% of the Act 46
+    baseline), and each later vintage another year.
+
+    Returns None if the geoid is absent from the census_forecaster panel or the projector fails.
     """
     from tax_modeler.projection.revenue_projection import project_revenue_per_filer
 
-    proj = project_revenue_per_filer(
-        target_year=target_year,
-        geoid=geoid,
-        method=method,
-        anchor_year=anchor_year,
-    )
-    if proj is None or proj.anchor_income <= 0:
+    from_year = anchor_year if anchor_year is not None else _DEFAULT_BASE_YEAR
+    latest = project_revenue_per_filer(target_year=target_year, geoid=geoid, method=method, anchor_year=None)
+    if latest is None:
+        return None
+    if target_year <= latest.anchor_year:
+        # Observed: anchoring at the target reads its own observation (horizon 0).
+        at_target = project_revenue_per_filer(target_year=target_year, geoid=geoid, method=method,
+                                              anchor_year=target_year)
+        if at_target is None:
+            return None
+        target_income, target_se = at_target.anchor_income, 0.0
+    else:
+        target_income, target_se = latest.projected_income, latest.income_se
+    if from_year == latest.anchor_year:
+        base_income = latest.anchor_income
+    else:
+        base = project_revenue_per_filer(target_year=target_year, geoid=geoid, method=method, anchor_year=from_year)
+        if base is None:
+            return None
+        base_income = base.anchor_income
+    if base_income <= 0:
         return None
 
-    factor = proj.projected_income / proj.anchor_income
-    half_se = _Z90 * proj.income_se / proj.anchor_income
+    factor = target_income / base_income
+    half_se = _Z90 * target_se / base_income
     return _GrowthFactorResult(
         factor=factor,
         factor_ci90_low=max(0.0, factor - half_se),
