@@ -5,7 +5,8 @@ ACS API and persists three bundled JSON files in
 `src/census_forecaster/data/calibration_panel/`:
 
 * `acs_panel.json` — flat list of 1-year ACS observations across the
-  selected counties × 4 indicators × 15 years (2010-2024). The
+  selected counties × indicators × years (2010 through the latest 1-year
+  release; ``--end-year`` overrides). The
   calibration generator reads this to run multi-horizon walk-forward
   back-tests.
 * `county_population_2020.json` — `{geoid: population_2020}` lookup,
@@ -180,9 +181,28 @@ INDICATORS: tuple[str, ...] = DIRECT_INDICATORS + tuple(
     name for name, *_ in DERIVED_INDICATORS
 )
 
-# Year range. 2010 is the first year of stable post-redesign 1-year
-# ACS for small geographies; 2024 is the latest released as of v3.
-PANEL_YEARS: tuple[int, ...] = tuple(range(2010, 2025))
+# Year range. 2010 is the first year of stable post-redesign 1-year ACS for small geographies. The last year is the
+# latest 1-year release (latest_released_year, resolved when the script runs). It used to be a fixed 2024, so a
+# rebuild after the 2025 release (September 2026) would still have stopped there. PANEL_YEARS is only the default
+# for direct calls to the fetch functions.
+FIRST_YEAR = 2010
+PANEL_YEARS: tuple[int, ...] = tuple(range(FIRST_YEAR, 2026))
+ACS1_URL = "https://api.census.gov/data/{year}/acs/acs1.json"
+
+
+def latest_released_year(today: date | None = None) -> int:
+    """The newest 1-year ACS the Census API serves: last year once it is out (mid-September), else the year before."""
+    import urllib.error
+    import urllib.request
+
+    year = (today or date.today()).year - 1
+    try:
+        with urllib.request.urlopen(ACS1_URL.format(year=year), timeout=30):
+            return year
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return year - 1
+        raise
 
 # Sampling targets per bucket.
 DEFAULT_SAMPLE_TARGETS: dict[str, int] = {
@@ -485,6 +505,7 @@ def write_panel_files(
     median_cv: dict[str, dict[str, float]],
     seed: int,
     targets: dict[str, int],
+    years: Sequence[int] = PANEL_YEARS,
 ) -> None:
     """Persist the three bundled files atomically (write-temp + rename)."""
     panel_dir.mkdir(parents=True, exist_ok=True)
@@ -547,7 +568,7 @@ def write_panel_files(
             "counties": sum(len(gs) for gs in selected.values()),
             "observations": len(observations),
             "indicators": len(INDICATORS),
-            "year_range": [min(PANEL_YEARS), max(PANEL_YEARS)],
+            "year_range": [min(years), max(years)],
         },
         "median_cv_by_county_indicator": median_cv,
         "notes": {
@@ -612,6 +633,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--cache", type=Path, default=None,
         help="Path to AcsClient cache file (overrides default).",
     )
+    parser.add_argument(
+        "--end-year", type=int, default=None,
+        help="Last ACS 1-year to fetch (default: the latest the Census API serves).",
+    )
     args = parser.parse_args(argv)
 
     api_key = os.environ.get("CENSUS_API_KEY")
@@ -661,11 +686,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("[main] --dry-run: skipping panel fetch and write", file=sys.stderr)
         return 0
 
+    years = tuple(range(FIRST_YEAR, (args.end_year or latest_released_year()) + 1))
+    print(f"[main] years {years[0]}-{years[-1]}", file=sys.stderr)
+
     observations = fetch_panel_observations(
         client=client,
         selected=selected,
         indicators=DIRECT_INDICATORS,
-        years=PANEL_YEARS,
+        years=years,
     )
     print(f"[main] fetched {len(observations)} direct observations", file=sys.stderr)
 
@@ -673,7 +701,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         client=client,
         selected=selected,
         derived_specs=DERIVED_INDICATORS,
-        years=PANEL_YEARS,
+        years=years,
     )
     observations = observations + derived_obs
     print(f"[main] fetched {len(observations)} observations total "
@@ -692,6 +720,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         median_cv=median_cv,
         seed=args.seed,
         targets=targets,
+        years=years,
     )
     print(f"[main] wrote panel files to {out_dir}", file=sys.stderr)
     return 0

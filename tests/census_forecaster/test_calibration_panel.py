@@ -239,7 +239,29 @@ class TestPanelSchema:
         # downstream filters drop it.
         assert 2020 in PANEL_YEARS
         assert min(PANEL_YEARS) == 2010
-        assert max(PANEL_YEARS) == 2024
+        assert max(PANEL_YEARS) >= 2025
+
+    def test_end_year_follows_the_latest_release(self, monkeypatch):
+        """The last year is the newest 1-year the Census API serves (it used to be a fixed 2024)."""
+        import io
+        import urllib.error
+        import urllib.request
+        from datetime import date
+
+        from census_forecaster.scripts import build_calibration_panel as b
+
+        served = {2024, 2025}
+
+        def urlopen(url, timeout=None):
+            if int(url.split("/data/")[1].split("/")[0]) not in served:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return io.BytesIO(b"{}")
+
+        monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+        assert b.latest_released_year(date(2026, 11, 21)) == 2025
+        assert b.latest_released_year(date(2027, 3, 1)) == 2025      # 2026's release not out yet
+        served.add(2026)
+        assert b.latest_released_year(date(2027, 10, 1)) == 2026
 
     def test_indicators_include_v2_set(self):
         # The original v2 dollar-denominated indicators must remain in

@@ -1,0 +1,66 @@
+name: rebuild-acs-panel
+
+# Rebuild the bundled ACS calibration panel (calibration_panel/acs_panel.json and its manifest) through the latest
+# 1-year release, on demand. The build needs the CENSUS_API_KEY secret (~8,000 calls; unauthenticated, the 500/day cap
+# makes it take days), which is why it runs here and not on a laptop. It does NOT commit: a new ACS vintage moves the
+# calibration, the forecasts and the published figures, so the panel comes back as an artifact to be committed with
+# the regenerated calibration and a republished site in one reviewed branch:
+#
+#   gh workflow run rebuild-acs-panel.yml
+#   gh run download <run-id> -n acs-calibration-panel -D packages/census_forecaster/src/census_forecaster/data/calibration_panel
+#
+# The monthly refresh's data-freshness check fails once a 1-year release is out (from October) and the panel lacks
+# it; that is the signal to run this.
+
+on:
+  workflow_dispatch:
+    inputs:
+      end_year:
+        description: "Last ACS 1-year to fetch (blank: the latest the Census API serves)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3   # no moving major tag: setup-uv publishes exact versions only
+        with:
+          version: "0.11.8"
+
+      - name: Install workspace
+        run: uv sync --all-packages --extra dev
+
+      - name: Build the panel
+        env:
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          END_YEAR: ${{ inputs.end_year }}
+        run: |
+          if [ -z "${CENSUS_API_KEY}" ]; then
+            echo "::error::CENSUS_API_KEY secret is not set"; exit 1
+          fi
+          uv run python -m census_forecaster.scripts.build_calibration_panel ${END_YEAR:+--end-year "$END_YEAR"}
+
+      - name: Upload the panel
+        uses: actions/upload-artifact@v7
+        with:
+          name: acs-calibration-panel
+          path: |
+            packages/census_forecaster/src/census_forecaster/data/calibration_panel/acs_panel.json
+            packages/census_forecaster/src/census_forecaster/data/calibration_panel/county_population_2020.json
+            packages/census_forecaster/src/census_forecaster/data/calibration_panel/manifest.json
+          if-no-files-found: error
+          retention-days: 30
