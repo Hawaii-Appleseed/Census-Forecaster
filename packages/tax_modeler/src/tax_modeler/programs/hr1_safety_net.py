@@ -12,6 +12,13 @@ Two populations, each read where it is recorded best:
   adults section 71119 covers and sorts them into exempt, already meeting the test, and neither. The survey
   undercounts Medicaid, so the analysis script scales the group to Med-QUEST's enrollment count.
 
+* **SNAP on the ACS population**, for poverty and geography: the QC file has no county and no household around
+  the SNAP unit, so the SPM run in the analysis script needs SNAP on ACS households. :func:`acs_snap_baseline`
+  builds it (FY2027 Hawaiʻi rules, households that report SNAP, scaled to the DHS caseload and issuance),
+  :func:`classify_acs_snap_adults` applies the same groups and statuses to ACS adults, and
+  :func:`calibrate_to_qc` sets each adult's probability of losing SNAP so that, cell by cell, the ACS reproduces
+  who the QC file says loses it.
+
 Neither source says who will fail to keep benefits they qualify for. That is the :class:`LossRates` assumption,
 given as LOW / MID / HIGH; ``HR1_SNAP_MEDICAID_METHODOLOGY.md`` has the evidence behind each rate.
 
@@ -212,6 +219,232 @@ def snap_state_share(payment_error_rate: float) -> float:
 
 
 # --------------------------------------------------------------------------------------------------------------
+# SNAP on the ACS population (poverty and geography)
+# --------------------------------------------------------------------------------------------------------------
+
+# Hawaiʻi FY2027 (October 2026 to September 2027), USDA FNS cost-of-living memo of August 21, 2026. Hawaiʻi uses
+# broad-based categorical eligibility: a gross limit of 200 percent of poverty and, since February 2025, no net
+# income test (Hawaiʻi DHS).
+HI_GROSS_LIMIT_200PCT_FY2027 = (3060, 4150, 5238, 6326, 7416, 8506, 9596, 10686)
+HI_GROSS_LIMIT_EXTRA_PERSON_FY2027 = 1090
+HI_STANDARD_DEDUCTION_FY2027 = {1: 306, 2: 306, 3: 306, 4: 306, 5: 309, 6: 354}
+# ACS codes: employed at work or with a job (ESR); enrolled in public or private school (SCH); served on active
+# duty in the past, not now (MIL).
+_ACS_EMPLOYED = (1, 2, 4, 5)
+_ACS_IN_SCHOOL = (2, 3)
+_ACS_VETERAN = 2
+NEWLY_SUBJECT_GROUPS = ("age_55_64", "child_14_17", "removed_exception")
+
+
+def snap_parameters_fy2027():
+    """:class:`tax_modeler.benefits.snap.SnapParameters` for Hawaiʻi in FY2027 under categorical eligibility.
+
+    The module has no shelter or dependent-care deduction, so its benefits run low for households with high
+    housing costs; :func:`acs_snap_baseline` scales the total to the issuance DHS reports.
+    """
+    from tax_modeler.benefits.snap import SnapParameters
+
+    return SnapParameters(
+        max_benefit_by_size=dict(enumerate(HI_MAX_ALLOTMENT[2027], start=1)),
+        max_benefit_increment_per_extra_person=HI_MAX_ALLOTMENT_EXTRA_PERSON[2027],
+        gross_income_limit_by_size=dict(enumerate(HI_GROSS_LIMIT_200PCT_FY2027, start=1)),
+        gross_income_increment_per_extra_person=HI_GROSS_LIMIT_EXTRA_PERSON_FY2027,
+        standard_deduction_by_size=dict(HI_STANDARD_DEDUCTION_FY2027),
+        net_income_limit_factor=1e6,          # no net income test
+    )
+
+
+@dataclass(frozen=True)
+class AcsSnapBaseline:
+    """SNAP on ACS tax units (``units["snap_amount"]``, annual), and what it took to get there."""
+
+    units: pd.DataFrame
+    # one row per household: hh_id, snap (monthly, before scaling), income, earned, WGTP, FS, n_persons, recipient
+    households: pd.DataFrame
+    dollar_scale: float
+    reported: float               # weighted households that report SNAP (all kept)
+    reported_ineligible: float    # of which fail the FY2027 gross test on annual income (given the size average)
+    imputed: float                # eligible non-reporters drawn to reach the caseload
+    draw_rate: float              # the probability each eligible non-reporter was drawn with
+
+
+def _hash_uniform(keys: pd.Index, salt: str) -> np.ndarray:
+    """A uniform number per key, the same on every run (the same idea as assign_geography's district draw)."""
+    import hashlib
+
+    return np.array([int(hashlib.md5(f"{salt}_{k}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF for k in keys])
+
+
+def acs_snap_baseline(
+    units: pd.DataFrame, households: pd.DataFrame, persons: pd.DataFrame, *,
+    target_households: float, target_dollars: float, fallback_benefit_by_size: Mapping[int, float],
+    params=None,
+) -> AcsSnapBaseline:
+    """SNAP on the ACS population: who gets it from the survey, how much from the rules, the level from DHS.
+
+    Every household that reports SNAP (``FS`` = 1) is a recipient. Its benefit is computed by
+    :func:`tax_modeler.benefits.snap.compute_snap_for_units` under :func:`snap_parameters_fy2027`; a reporting
+    household that fails the gross test on its annual survey income (income from members outside the SNAP unit,
+    or months before or after receiving it) gets ``fallback_benefit_by_size[min(n, 6)]`` a month instead. The
+    survey misses about a third of recipients, so eligible households that do not report SNAP are each drawn,
+    with one probability, until the weighted count (``WGTP``) reaches ``target_households``; the draw is a hash
+    of the household id, so it is the same on every run. Every benefit is then scaled by one factor so the
+    annual total equals ``target_dollars``. ``households`` needs ``SERIALNO``, ``WGTP`` and ``FS``; ``persons``
+    ``SERIALNO``.
+    """
+    from tax_modeler.benefits.snap import compute_snap_for_units
+
+    for col in ("SERIALNO", "WGTP", "FS"):
+        if col not in households.columns:
+            raise DataValidationError(f"households frame needs column {col!r}")
+    prm = params or snap_parameters_fy2027()
+    u = compute_snap_for_units(units, params=prm, months=1)
+    earned_col = "earned_income" if "earned_income" in u.columns else "income"
+    hh = u.assign(_earned=u[earned_col]).groupby(u["hh_id"].astype(str)).agg(
+        snap=("snap_amount", "sum"), income=("income", "sum"), earned=("_earned", "sum"))
+    h = households.assign(hh_id=households["SERIALNO"].astype(str)).set_index("hh_id")[["WGTP", "FS"]]
+    hh = hh.join(h, how="left")
+    sizes = persons.groupby(persons["SERIALNO"].astype(str)).size()
+    hh["n_persons"] = sizes.reindex(hh.index).fillna(0).astype(int)
+    eligible = hh["snap"] > 0
+    reports = hh["FS"] == 1
+    fallback = hh["n_persons"].clip(1, 6).map(lambda n: float(fallback_benefit_by_size[int(n)]))
+    formula = hh["snap"].copy()
+    hh.loc[reports & ~eligible, "snap"] = fallback[reports & ~eligible]
+    hh["recipient"] = reports.copy()
+    reported = float(hh.loc[reports, "WGTP"].sum())
+    pool = eligible & ~reports
+    pool_w = float(hh.loc[pool, "WGTP"].sum())
+    rate = min(1.0, max(0.0, (target_households - reported) / pool_w)) if pool_w > 0 else 0.0
+    drawn = pool & (_hash_uniform(hh.index, "snap_takeup") < rate)
+    hh.loc[drawn, "recipient"] = True
+    imputed = float(hh.loc[drawn, "WGTP"].sum())
+    monthly = float((hh["WGTP"] * hh["snap"] * hh["recipient"]).sum())
+    if monthly <= 0:
+        raise DataValidationError("no SNAP recipients on the ACS population")
+    scale = target_dollars / (12.0 * monthly)
+    # Spread each recipient household's benefit over its tax units by the module's member shares, or evenly
+    # where the formula gave the household nothing.
+    hid = u["hh_id"].astype(str)
+    unit_share = np.where(hid.map(formula).to_numpy() > 0,
+                          u["snap_amount"].to_numpy() / hid.map(formula).replace(0, np.nan).to_numpy(),
+                          1.0 / hid.map(hid.value_counts()).to_numpy())
+    unit_share = np.nan_to_num(unit_share)
+    keep = hid.map(hh["recipient"]).fillna(False).to_numpy(dtype=bool)
+    u["snap_amount"] = np.where(keep, hid.map(hh["snap"]).to_numpy() * unit_share * 12.0 * scale, 0.0)
+    return AcsSnapBaseline(
+        units=u, households=hh.rename_axis("hh_id").reset_index(), dollar_scale=scale, reported=reported,
+        reported_ineligible=float(hh.loc[reports & ~eligible, "WGTP"].sum()), imputed=imputed, draw_rate=rate,
+    )
+
+
+def classify_acs_snap_adults(persons: pd.DataFrame, recipient_households) -> pd.DataFrame:
+    """ACS adults 18 to 64 in SNAP households, with the groups and statuses of :func:`classify_snap_adults`.
+
+    The ACS cannot see a homeless or former-foster-youth exception, so ``removed_exception`` holds veterans only.
+    Status: ``exempt`` (an ACS disability, SSI, or in school), ``meets`` (employed and usually working 20 or more
+    hours a week), ``at_risk``. Children are the household's: the ACS does not say which members share a SNAP
+    unit.
+    """
+    need = ("SERIALNO", "AGEP", "DIS", "SSIP", "SCH", "ESR", "WKHP", "MIL", "PWGTP")
+    missing = [c for c in need if c not in persons.columns]
+    if missing:
+        raise DataValidationError(f"persons frame is missing PUMS columns {missing}")
+    p = persons.assign(SERIALNO=persons["SERIALNO"].astype(str))
+    p = p[p["SERIALNO"].isin({str(x) for x in recipient_households})]
+    youngest = p[p["AGEP"] < 18].groupby("SERIALNO")["AGEP"].min()
+    a = p[(p["AGEP"] >= 18) & (p["AGEP"] <= 64)].copy()
+    a["youngest_child"] = a["SERIALNO"].map(youngest)
+    y = a["youngest_child"].fillna(99)
+    a["group"] = np.select(
+        [y < 14, a["AGEP"] >= 55, y < 18, a["MIL"] == _ACS_VETERAN],
+        ["not_subject", "age_55_64", "child_14_17", "removed_exception"], default="already_subject")
+    exempt = (a["DIS"] == 1) | (a["SSIP"].fillna(0) > 0) | a["SCH"].isin(_ACS_IN_SCHOOL)
+    meets = a["ESR"].isin(_ACS_EMPLOYED) & (a["WKHP"].fillna(0) >= 20)
+    a["status"] = np.select([exempt, meets], ["exempt", "meets"], default="at_risk")
+    a["newly_subject"] = a["group"].isin(NEWLY_SUBJECT_GROUPS)
+    return a
+
+
+def calibrate_to_qc(adults: pd.DataFrame, qc_cells: pd.DataFrame, rates: LossRates,
+                    weight_col: str = "PWGTP") -> tuple[np.ndarray, pd.DataFrame]:
+    """Each newly subject ACS adult's probability of losing SNAP, set so the ACS matches the QC file by cell.
+
+    ``qc_cells`` has ``group``, ``status`` and ``persons`` (weighted QC adults, from :func:`classify_snap_adults`).
+    The target for a (group, status) cell is its QC count times the status's loss rate; the cell's ACS adults
+    each get ``target / weighted ACS adults``, but no more than 1. A cell the ACS sample lacks, or one held to 1,
+    passes its shortfall to the group's other cells in proportion to their targets. Returns the probabilities
+    (0 for adults not newly subject) and a table of target and achieved expected losers by cell.
+    """
+    w = adults[weight_col].to_numpy(dtype=float)
+    new = adults["newly_subject"].to_numpy(dtype=bool)
+    prob = np.zeros(len(adults))
+    rows = []
+    cells = qc_cells[qc_cells["group"].isin(NEWLY_SUBJECT_GROUPS)]
+    for group, q in cells.groupby("group"):
+        statuses = list(q["status"])
+        target = {st: float(n) * float(rates.rate(pd.Series([st]))[0])
+                  for st, n in zip(statuses, q["persons"], strict=True)}
+        masks = {st: new & (adults["group"] == group).to_numpy() & (adults["status"] == st).to_numpy()
+                 for st in statuses}
+        have = {st: float(w[m].sum()) for st, m in masks.items()}
+        goal = dict(target)
+        for _ in range(10):
+            short = sum(g - min(g, have[st]) for st, g in goal.items())
+            room = {st: g for st, g in goal.items() if have[st] > g and g > 0}
+            if short <= 1e-9 or not room:
+                break
+            total = sum(room.values())
+            goal = {st: min(g, have[st]) + (short * room[st] / total if st in room else 0.0)
+                    for st, g in goal.items()}
+        for st, m in masks.items():
+            pr = min(1.0, goal[st] / have[st]) if have[st] > 0 else 0.0
+            prob[m] = pr
+            rows.append({"group": group, "status": st,
+                         "qc_adults": float(q.loc[q["status"] == st, "persons"].sum()),
+                         "qc_expected_losers": target[st], "acs_adults": have[st], "acs_sample": int(m.sum()),
+                         "probability": pr, "acs_expected_losers": pr * have[st]})
+    return prob, pd.DataFrame(rows)
+
+
+def acs_snap_loss(adults: pd.DataFrame, baseline: AcsSnapBaseline, persons: pd.DataFrame,
+                  params=None) -> np.ndarray:
+    """Annual SNAP each ACS adult's household loses if that adult alone becomes ineligible.
+
+    The household is recomputed one person smaller with all but ``1/n`` of the adult's income still counted
+    (7 CFR 273.11(c)(2)), and the change scaled like the baseline. The adult's income is their share of the
+    household's personal income (``PINCP``) applied to the household's aged income. A household on the size
+    average (it reports SNAP but fails the gross test on annual income) loses ``1/n`` of it.
+    """
+    from tax_modeler.benefits.snap import _compute_household_snap
+
+    prm = params or snap_parameters_fy2027()
+    hh = baseline.households.set_index("hh_id")
+    inc = persons["PINCP"].fillna(0).clip(lower=0)
+    hh_pin = inc.groupby(persons["SERIALNO"].astype(str)).sum()
+    loss = np.zeros(len(adults))
+    serials = adults["SERIALNO"].astype(str).to_numpy()
+    own_inc = adults["PINCP"].fillna(0).clip(lower=0).to_numpy(dtype=float)
+    for k, (serial, own) in enumerate(zip(serials, own_inc, strict=True)):
+        row = hh.loc[serial]
+        if not bool(row["recipient"]):
+            continue
+        n = max(int(row["n_persons"]), 1)
+        gross, earned = float(row["income"]) / 12.0, float(row["earned"]) / 12.0
+        before = _compute_household_snap(gross, earned, n, prm)
+        if before <= 0:          # on the size average: lose a member's share of it
+            loss[k] = float(row["snap"]) / n * 12.0 * baseline.dollar_scale
+            continue
+        if n == 1:
+            after = 0.0
+        else:
+            share = own / hh_pin[serial] if hh_pin.get(serial, 0) > 0 else 0.0
+            after = _compute_household_snap(gross * (1 - share / n), max(earned * (1 - share / n), 0.0), n - 1, prm)
+        loss[k] = max(before - after, 0.0) * 12.0 * baseline.dollar_scale
+    return loss
+
+
+# --------------------------------------------------------------------------------------------------------------
 # Medicaid
 # --------------------------------------------------------------------------------------------------------------
 
@@ -359,6 +592,9 @@ class Hr1Parameters:
 
     # SNAP: benefits issued, annualized from July-September 2026 (Hawaii DHS monthly participation file).
     snap_annual_benefits_2027: float = 607.4e6
+    # Households and persons a month, the same three months (the SPM run's SNAP is scaled to these).
+    snap_households_2027: float = 77_985
+    snap_persons_2027: float = 157_850
     snap_admin_cost_shift: float = 14.8e6          # DHS, January 2026 budget briefing
     snap_error_rate_fy2025: float = 10.92          # USDA FNS, June 2026
     # Medicaid: expansion adults enrolled, September 2026 (Med-QUEST enrollment report, November 6, 2026).

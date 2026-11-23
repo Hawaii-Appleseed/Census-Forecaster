@@ -143,7 +143,27 @@ TAX_SIMULATOR = Estimate(
     stamp=("manifest.json",),
     extra=(("tests/simulator/golden.json.gz", "tax_simulator/golden.json.gz"),),
 )
-ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR)
+HR1 = Estimate(
+    slug="hr1-snap-medicaid",
+    files={f: f"hr1_snap_medicaid/{f}" for f in (
+        "snap_adults.csv",
+        "snap_losses.csv",
+        "snap_income_depth.csv",
+        "snap_state_cost.csv",
+        "snap_baseline_check.csv",
+        "snap_calibration.csv",
+        "medicaid_groups.csv",
+        "medicaid_adults.csv",
+        "medicaid_losses.csv",
+        "poverty.csv",
+        "by_geography.csv",
+        "summary.json",
+        "manifest.json",
+    )},
+    stamp=("manifest.json",),
+)
+
+ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR, HR1)
 
 
 # What a run's outputs depend on: a commit that changed none of these since the
@@ -1576,6 +1596,308 @@ def build_conveyance() -> tuple[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# H.R.1: SNAP and Medicaid work rules
+# ---------------------------------------------------------------------------
+
+HR1_CASES = ("LOW", "MID", "HIGH")
+HR1_CASE_LABEL = {"LOW": "Low", "MID": "Middle", "HIGH": "High"}
+HR1_GROUP_LABEL = {"age_55_64": "Ages 55 to 64, no child under 14",
+                   "child_14_17": "Ages 18 to 54, youngest child 14 to 17",
+                   "removed_exception": "Ages 18 to 54, veteran, houseless or former foster youth"}
+HR1_STATUS_LABEL = {"exempt": "Exempt", "meets": "Already meets the test", "at_risk": "Neither"}
+
+
+def _n10(v: float) -> str:
+    """A count rounded to the nearest 10, for prose and tables (the estimates are not finer than that)."""
+    return f"{round(v, -1):,.0f}"
+
+
+def _usd_m(v: float, digits: int = 1) -> str:
+    return f"${v / 1e6:,.{digits}f} million"
+
+
+def build_hr1() -> tuple[str, dict]:
+    d = DATA / HR1.slug
+    manifest = json.loads((d / "manifest.json").read_text())
+    s = json.loads((d / "summary.json").read_text())
+    prm = s["parameters"]
+    run = datetime.fromisoformat(manifest["created_at"]).astimezone(HST).isoformat()
+    year = datetime.fromisoformat(run).year
+    notes = Notes()
+
+    qc_cells = read_csv(d / "snap_adults.csv")
+    snap = {(r["scenario"], r["group"]): r for r in read_csv(d / "snap_losses.csv")}
+    depth = {r["measure"]: r["value"] for r in read_csv(d / "snap_income_depth.csv")}
+    cost = read_csv(d / "snap_state_cost.csv")
+    pov = {r["scenario"]: r for r in read_csv(d / "poverty.csv")}
+    pums = s["pums"]
+    mstat = {r["status"]: r for r in read_csv(d / "medicaid_adults.csv") if r["pums"] == pums}
+    med = {r["scenario"]: r for r in read_csv(d / "medicaid_losses.csv") if r["pums"] == pums}
+    med_check = {r["scenario"]: r for r in read_csv(d / "medicaid_losses.csv") if r["pums"] != pums}
+    geo = read_csv(d / "by_geography.csv")
+
+    all_new = {c: snap[(c, "all_newly_subject")] for c in HR1_CASES}
+    sm, mm, pm = all_new["MID"], med["MID"], pov["MID"]
+    new_cells = [r for r in qc_cells if r["group"] in HR1_GROUP_LABEL]
+    newly = sum(r["persons"] for r in new_cells)
+    by_group = {g: sum(r["persons"] for r in new_cells if r["group"] == g) for g in HR1_GROUP_LABEL}
+    by_status = {st: sum(r["persons"] for r in new_cells if r["status"] == st) for st in HR1_STATUS_LABEL}
+    already = [r for r in qc_cells if r["group"] == "already_subject"]
+    already_risk = sum(r["persons"] for r in already if r["status"] == "at_risk")
+    share_tier = next(r for r in cost if r["item"].startswith("benefit share on the FY2025"))["annual_state_cost_usd"]
+    admin = next(r for r in cost if r["item"].startswith("administrative"))["annual_state_cost_usd"]
+    state_snap = share_tier + admin
+    exp_adults = prm["medicaid_expansion_adults"]
+    fed_share = prm["medicaid_expansion_federal_share"]
+    per_adult = prm["medicaid_cost_per_expansion_adult"]
+
+    T_law = ('Public Law 119-21, An Act to provide for reconciliation pursuant to title II of H. Con. Res. 14, July 4, '
+             '2025, sections 10102, 10105, 10106, 71107 and 71119. '
+             '<a href="https://www.congress.gov/bill/119th-congress/house-bill/1/text">congress.gov</a>')
+    T_dhs_faq = ('Hawaiʻi Department of Human Services, “Changes to Able-Bodied Adult Work Requirements for SNAP: FAQs,” '
+                 'October 9, 2025. <a href="https://humanservices.hawaii.gov/changes-to-able-bodied-adult-work-requirements-for-snap-faqs/">humanservices.hawaii.gov</a>')
+    T_dhs_brief = ('Hawaiʻi Department of Human Services, 2026 legislative budget briefing to the House Committee on '
+                   'Finance, January 2026. <a href="https://data.capitol.hawaii.gov/CommitteeFiles/HOUSE/FIN/FINfiles/2026_HMS.pdf">data.capitol.hawaii.gov</a>')
+    T_mq = ('Med-QUEST Division, “H.R. 1 Work Requirements” one-page summary, revised July 2026, and enrollment report '
+            'of November 6, 2026. <a href="https://medquest.hawaii.gov/content/dam/medquest/docs/staywell/H.R.1%20WR%20One-Pager_Flyer%2020260728_V6_FINAL.pdf">medquest.hawaii.gov</a>')
+    T_hold = ('Honolulu Star-Advertiser, “Hawaiʻi providers welcome delay for Med-QUEST work requirements,” republished '
+              'by the Hawaiʻi Tribune-Herald, November 17, 2026. '
+              '<a href="https://www.hawaiitribune-herald.com/2026/11/17/hawaii-news/hawaii-providers-welcome-delay-for-med-quest-work-requirements/">hawaiitribune-herald.com</a>')
+    T_qc = ('U.S. Department of Agriculture, Food and Nutrition Service, SNAP Quality Control public-use file, fiscal '
+            'year 2024, and its technical documentation, prepared by Mathematica. '
+            '<a href="https://snapqcdata.net/datafiles">snapqcdata.net</a>')
+    T_per = ('U.S. Department of Agriculture, Food and Nutrition Service, “SNAP Payment Error Rates, Fiscal Year 2025,” '
+             'June 2026. <a href="https://www.fns.usda.gov/sites/default/files/resource-files/snap-qcfy25-per.pdf">fns.usda.gov</a>')
+    T_dhs_part = ('Hawaiʻi Department of Human Services, SNAP participation and benefit summaries by month, state fiscal '
+                  'years 2023 to 2027. <a href="https://humanservices.hawaii.gov/bessd/snap/">humanservices.hawaii.gov</a>')
+    T_waiver = ('U.S. Department of Agriculture, Food and Nutrition Service, ABAWD waiver status reports for fiscal years '
+                '2024 and 2025, and its response to Hawaiʻi’s fiscal year 2024 waiver request. '
+                '<a href="https://www.fns.usda.gov/sites/default/files/resource-files/hi-abawd-response-fy2024.pdf">fns.usda.gov</a>')
+    T_gray = ('Gray, Colin, Adam Leive, Elena Prager, Kelsey Pukelis and Mary Zaki, “Employed in a SNAP? The Impact of '
+              'Work Requirements on Program Participation and Labor Supply,” American Economic Journal: Economic '
+              'Policy 15, no. 1 (2023): 306–41. <a href="https://www.aeaweb.org/articles?id=10.1257/pol.20200561">aeaweb.org</a>')
+    T_ku = ('Ku, Leighton, Erin Brantley and Drishti Pillai, “The Effects of SNAP Work Requirements in Reducing '
+            'Participation and Benefits From 2013 to 2017,” American Journal of Public Health 109, no. 10 (2019): '
+            '1446–51. <a href="https://doi.org/10.2105/AJPH.2019.305232">doi.org</a>')
+    T_sommers = ('Sommers, Benjamin D., Anna L. Goldman, Robert J. Blendon, E. John Orav and Arnold M. Epstein, '
+                 '“Medicaid Work Requirements: Results from the First Year in Arkansas,” New England Journal of '
+                 'Medicine 381 (2019): 1073–82. <a href="https://doi.org/10.1056/NEJMsr1901772">doi.org</a>')
+    T_cbo = ('Congressional Budget Office, “Estimated Effects on Direct Spending, Revenues, and the Number of People '
+             'With Health Insurance of Public Law 119-21, Title VII, Subtitle B, Chapter 1 (Medicaid),” October 28, '
+             '2025. <a href="https://www.cbo.gov/system/files/2025-10/PL-119-21-Medicaid%20_0.pdf">cbo.gov</a>')
+    T_kff = ('KFF, “Medicaid Spending per Full-Benefit Enrollee,” 2024, and “Medicaid Expansion Spending,” fiscal year '
+             '2024. <a href="https://www.kff.org/medicaid/state-indicator/medicaid-spending-per-full-benefit-enrollee/">kff.org</a>')
+    T_xwalk = ('U.S. Census Bureau, 2020 Census redistricting data (P.L. 94-171), 2022 state legislative district block '
+               'equivalency files and 2020 census tract to 2020 PUMA relationship file, combined in '
+               f'<a href="{REPO_URL}/blob/main/scripts/build_puma_district_crosswalk.py"><code>build_puma_district_crosswalk.py</code></a>.')
+    T_code = (f'Hawaiʻi Appleseed, <code>analyses/forecast_hr1_snap_medicaid.py</code>, Census-Forecaster model, commit '
+              f'<code>{esc(manifest["git_sha"])}</code>; method and sources in '
+              f'<a href="{REPO_URL}/blob/main/HR1_SNAP_MEDICAID_METHODOLOGY.md"><code>HR1_SNAP_MEDICAID_METHODOLOGY.md</code></a>.')
+
+    def rng(c: dict, k: str) -> str:
+        return f"{_n10(c[k + '_p5'])} to {_n10(c[k + '_p95'])}"
+
+    hero = f"""
+<section class="ha-est__hero"><div class="ha-est__hero-inner">
+<p class="ha-est__eyebrow">Current policy · SNAP and Medicaid</p>
+<h1>Work Rules, Lost Benefits</h1>
+<hr class="ha-est__hero-rule">
+<p class="ha-est__deck">What the work rules in the 2025 federal budget law, H.R. 1, take from SNAP and Medicaid in Hawaiʻi in a full year: how many people lose benefits, how much federal money leaves the state, and what the law moves onto the State’s budget.</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · A full year under the new rules, 2027</p>
+</div></section>
+<div class="ha-est__stats">
+<div class="ha-est__stat"><div class="ha-est__stat-num">{_n10(mm["lose_coverage_total"])}</div><div class="ha-est__stat-label"><strong>Adults lose Medicaid</strong>, of {exp_adults:,.0f} in the expansion group; {_n10(med["LOW"]["lose_coverage_total"])} to {_n10(med["HIGH"]["lose_coverage_total"])} across the assumptions below.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{_n10(sm["adults_losing_snap"])}</div><div class="ha-est__stat-label"><strong>Adults lose SNAP</strong> under the wider time limit; {_n10(all_new["LOW"]["adults_losing_snap"])} to {_n10(all_new["HIGH"]["adults_losing_snap"])} across the assumptions.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions((mm["annual_federal_dollars_lost_usd"] + sm["annual_benefits_lost_fy2027_usd"]) / 1e6)}</div><div class="ha-est__stat-label"><strong>Federal money lost a year</strong>: {millions(mm["annual_federal_dollars_lost_usd"] / 1e6)} for Medicaid and {millions(sm["annual_benefits_lost_fy2027_usd"] / 1e6)} in SNAP benefits.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(state_snap / 1e6)}</div><div class="ha-est__stat-label"><strong>SNAP costs moved to the State</strong> each year from October 2027, for benefits and administration.</div></div>
+</div>"""
+
+    # --- 1: the law
+    law_rows = [
+        ["SNAP time limit widened", "10102", "November 1, 2025"],
+        ["SNAP administration: State share 75 percent", "10106", "October 1, 2026"],
+        ["SNAP benefits: State share up to 15 percent", "10105", "October 1, 2027"],
+        ["Medicaid work requirement", "71119", "January 1, 2027"],
+        ["Medicaid renewals every six months", "71107", "January 1, 2027"],
+    ]
+    s1 = section("What the Law Changes", f"""
+{lead("The 2025 federal budget law", f"cut SNAP and Medicaid largely through paperwork. It widens who must prove they work to keep food assistance, adds a monthly work test to Medicaid for adults covered under the Affordable Care Act’s expansion, renews that coverage twice as often, and shifts part of SNAP’s cost from the federal government to the states.{notes.ref(T_law)}")}
+<p>SNAP’s three-month time limit, which ends benefits for adults who do not work or train 80 hours a month, now reaches adults 55 to 64, parents whose youngest child is 14 or older, and veterans, houseless residents and former foster youth, whom it used to exempt. The Department of Human Services applied the new rules on November 1, 2025.{notes.ref(T_dhs_brief)}</p>
+<p>For Medicaid, adults 19 to 64 in the expansion group must show 80 hours of work, service or school, or $580 of income, in one of the six months before each renewal. Med-QUEST{notes.ref(T_mq)} begins on January 1, 2027, and will not remove anyone for it before July.{notes.ref(T_hold)} The estimates here describe a full year once the rules are in force.</p>
+{table(["Change", "Section of the law", "Starts in Hawaiʻi"], law_rows, caption="Table 1. The H.R. 1 Changes Estimated Here")}
+<p class="ha-est__source">Source: Public Law 119-21; Hawaiʻi Department of Human Services; Med-QUEST Division.</p>
+""", "law")
+
+    # --- 2: SNAP
+    grows = []
+    for g, label in HR1_GROUP_LABEL.items():
+        cells = {r["status"]: r["persons"] for r in new_cells if r["group"] == g}
+        grows.append([label, _n10(by_group[g]), _n10(cells.get("exempt", 0)), _n10(cells.get("meets", 0)),
+                      _n10(cells.get("at_risk", 0))])
+    grows.append(["All newly subject", _n10(newly), _n10(by_status["exempt"]), _n10(by_status["meets"]),
+                  _n10(by_status["at_risk"])])
+    lrows = [[HR1_CASE_LABEL[c], _n10(all_new[c]["adults_losing_snap"]), rng(all_new[c], "adults_losing_snap"),
+              m1(all_new[c]["annual_benefits_lost_fy2027_usd"] / 1e6),
+              f"{m1(all_new[c]['annual_benefits_lost_fy2027_p5'] / 1e6)} to {m1(all_new[c]['annual_benefits_lost_fy2027_p95'] / 1e6)}"]
+             for c in HR1_CASES]
+    series = [("Adults losing SNAP, middle case", C_PRIMARY,
+               [snap[("MID", g)]["adults_losing_snap"] for g in HR1_GROUP_LABEL])]
+    chart = hbar_chart([HR1_GROUP_LABEL[g] for g in HR1_GROUP_LABEL], series,
+                       label=("Adults losing SNAP in the middle case: "
+                              + "; ".join(f"{HR1_GROUP_LABEL[g]}, {_n10(snap[('MID', g)]['adults_losing_snap'])}"
+                                          for g in HR1_GROUP_LABEL) + "."),
+                       fmt=lambda v: _n10(v))
+    s2 = section("Who the SNAP Rules Reach", f"""
+{lead("About " + _n10(newly) + " adults", f"on SNAP fall under the three-month time limit for the first time, most of them between 55 and 64. Of those, {_n10(by_status['exempt'])} are exempt because of a disability or another recognized reason, and {_n10(by_status['meets'])} already work at least 20 hours a week. The other {_n10(by_status['at_risk'])} have to find work or a training slot, or prove an exemption, within three months.{notes.ref(T_qc)}")}
+<p>These counts come from the federal government’s audit sample of active SNAP cases, which records each household member’s age, disability, work registration and hours the way a caseworker sees them. The Department estimated about 16,000 members aged 55 to 64 newly covered; the audit sample gives {_n10(by_group['age_55_64'])}.{notes.ref(T_dhs_faq)}</p>
+{table(["Group", "Newly subject", "Exempt", "Already meets the test", "Neither"], grows,
+       caption="Table 2. SNAP Adults Newly Under the Time Limit", em_rows={len(grows) - 1})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the SNAP Quality Control file, fiscal year 2024 (October 2023 to September 2024). Counts are adults in an average month.</p>
+<p>How many of those adults actually lose SNAP is the estimate’s main assumption. In Virginia, the time limit cut participation among the adults it covered by 53 percent, with no gain in employment.{notes.ref(T_gray)} A national study found more than a third leaving.{notes.ref(T_ku)} The middle case here assumes 70 percent of adults who neither work nor qualify for an exemption lose SNAP, and a few who should keep it lose it anyway. The low and high cases use 50 and 90 percent.</p>
+{table(["Case", "Adults losing SNAP", "90 percent sampling range", "Benefits lost a year ($ millions)", "90 percent sampling range ($ millions)"],
+       lrows, caption="Table 3. Adults Losing SNAP and Benefits Lost", em_rows={1})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates. Benefits at the October 2026 maximum allotments. Sampling ranges are from 2,000 resamples of the audit cases.</p>
+{figure(1, "Adults Losing SNAP by Group, Middle Case", chart, "Source: Hawaiʻi Appleseed estimates from the SNAP Quality Control file.")}
+<p>The figures leave out adults 18 to 54 without children, who were already under the time limit when Hawaiʻi’s statewide waiver ended on June 30, 2024; the audit sample shows {_n10(already_risk)} of them neither working 20 hours nor exempt. Maui and Kauaʻi counties kept a waiver until June 30, 2025,{notes.ref(T_waiver)} and the new law’s test for a waiver rules out another, so these estimates are low by whatever a renewed waiver would have protected there.</p>
+""", "snap")
+
+    # --- 3: poverty
+    def share(k: str) -> str:
+        return pct(100 * depth[k])
+
+    prows = [[HR1_CASE_LABEL[c], _n10(pov[c]["persons_into_poverty"]),
+              f"{_n10(pov[c]['persons_into_poverty_low90'])} to {_n10(pov[c]['persons_into_poverty_high90'])}",
+              _n10(pov[c]["children_into_poverty"]), m1(pov[c]["poverty_gap_increase_usd"] / 1e6),
+              pct(100 * pov[c]["share_of_losers_already_in_poverty"])]
+             for c in HR1_CASES]
+    s3 = section("Deeper Poverty for People Already Below the Line", f"""
+{lead("Most adults who lose SNAP", f"have almost nothing else. In the middle case, {share('share with countable income under half the poverty line')} percent of them live in SNAP households with countable income under half the federal poverty line, and {share('share with no countable income')} percent have no countable income at all. The average adult who loses SNAP loses ${depth['mean monthly benefit lost, FY2024 dollars']:,.0f} a month, about {share('benefit lost as a share of income plus SNAP')} percent of their household’s income and benefits together.")}
+<p>The Census Bureau’s Supplemental Poverty Measure counts everyone a family shares resources with, and many adults who lose SNAP live with relatives whose earnings keep the family above the line. On that measure, {pct(100 * pm['share_of_losers_already_in_poverty'])} percent of the adults who lose SNAP are already in poverty before the cut. The cut pushes about {_n10(pm['persons_into_poverty'])} more people below the line, {_n10(pm['children_into_poverty'])} of them children, and deepens poverty for those already there: the total shortfall below the line grows by {_usd_m(pm['poverty_gap_increase_usd'])}, about {pct(100 * pm['poverty_gap_increase_usd'] / pm['snap_benefits_lost_usd'])} percent of the benefits lost.</p>
+{table(["Case", "People pushed into poverty", "90 percent sampling range", "Children", "Added shortfall below the line ($ millions)", "Already in poverty before (percent)"],
+       prows, caption=f"Table 4. Supplemental Poverty Measure, Tax Year {int(pm['tax_year'])}", em_rows={1})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates on the American Community Survey 2020–24 population, aged to {int(pm['tax_year'])}. Baseline poverty rate {pct(100 * pm['poverty_rate_baseline'], 1)} percent. Sampling ranges from the survey’s 80 replicate weights.</p>
+""", "poverty")
+
+    # --- 4: Medicaid
+    mrows = [[HR1_CASE_LABEL[c], _n10(med[c]["lose_coverage_work_requirement"]), _n10(med[c]["lose_coverage_six_month_renewals"]),
+              _n10(med[c]["lose_coverage_total"]), pct(100 * med[c]["share_of_expansion_adults"]),
+              m1(med[c]["annual_federal_dollars_lost_usd"] / 1e6)]
+             for c in HR1_CASES]
+    s4 = section("Medicaid Coverage at Stake", f"""
+{lead(f"Med-QUEST covered {exp_adults:,.0f} adults", f"in the expansion group in September 2026.{notes.ref(T_mq)} By the American Community Survey’s account of their work, school and family, {pct(100 * mstat['meets']['share'])} percent already meet the new test, {pct(100 * mstat['exempt']['share'])} percent are exempt as parents of a child 13 or younger, people with a disability or for another reason the survey records, and {pct(100 * mstat['at_risk']['share'])} percent, about {_n10(mstat['at_risk']['expansion_adults'])} adults, are neither.")}
+<p>In Arkansas, the only state to end coverage under a similar rule, more than 95 percent of the adults it covered already worked enough or should have been exempt, yet coverage among them fell by 13 percentage points, mostly because people could not get the reporting done.{notes.ref(T_sommers)} The middle case here assumes 80 percent of adults who neither work nor qualify for an exemption lose coverage, along with 9 percent of those who do, and that renewing coverage every six months drops another 5 percent of those still enrolled.{notes.ref(T_cbo)}</p>
+{table(["Case", "Work requirement", "Six-month renewals", "Total losing coverage", "Share of expansion adults (percent)", "Federal dollars lost a year ($ millions)"],
+       mrows, caption="Table 5. Expansion Adults Losing Medicaid", em_rows={1})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the American Community Survey 2020–24, scaled to Med-QUEST enrollment. Federal dollars at ${per_adult:,.0f} per expansion adult a year, {pct(100 * fed_share)} percent federal.{notes.ref(T_kff)} The survey’s sampling range on the middle case is {_n10(mm['sampling_p5'])} to {_n10(mm['sampling_p95'])}; the 2024 one-year survey gives {_n10(med_check['MID']['lose_coverage_total'])}.</p>
+<p>The Department’s own estimate is 19,000 to 38,000 adults losing coverage from the two changes together.{notes.ref(T_dhs_brief)} The middle case sits just above that range, likely because the survey cannot see many of the conditions that make someone medically frail and so exempt. Those adults would still have to prove it.</p>
+""", "medicaid")
+
+    # --- 5: state budget
+    cost_labels = ["Benefits, error rate under 6 percent: no share",
+                   "Benefits, error rate 6 to 8 percent: 5 percent share",
+                   "Benefits, error rate 8 to 10 percent: 10 percent share",
+                   "Benefits, error rate 10 percent or more: 15 percent share",
+                   "Benefits on Hawaiʻi’s fiscal year 2025 rate, 10.92 percent: 15 percent share",
+                   "Administration, State share rising from 50 to 75 percent (Department estimate)"]
+    if len(cost) != len(cost_labels):
+        raise SystemExit("snap_state_cost.csv has changed shape; update build_hr1's labels")
+    crow = [[lab, m1(r["annual_state_cost_usd"] / 1e6)] for lab, r in zip(cost_labels, cost, strict=True)]
+    s5 = section("What the State Is Asked to Pay", f"""
+{lead("From October 2027,", f"Hawaiʻi pays a share of SNAP benefits set by its payment error rate. The rate was 10.92 percent in federal fiscal year 2025,{notes.ref(T_per)} which puts Hawaiʻi in the top tier: 15 percent of benefits, about {_usd_m(share_tier)} a year at current issuance.{notes.ref(T_dhs_part)} The State may use its 2026 rate instead, not yet published, and each tier lower cuts the bill by about {_usd_m(prm['snap_annual_benefits_2027'] * 0.05)}. The State also now pays three-quarters of SNAP’s administrative costs, about {_usd_m(admin)} more a year.{notes.ref(T_dhs_brief)}")}
+{table(["Item", "State cost a year ($ millions)"], crow, caption="Table 6. SNAP Costs the Law Moves to the State", em_rows={4})}
+<p class="ha-est__source">Source: Public Law 119-21, sections 10105 and 10106; Hawaiʻi Appleseed estimates on {_usd_m(prm['snap_annual_benefits_2027'], 0)} of benefits a year, the Department’s issuance from July to September 2026 at an annual rate.</p>
+<p>Medicaid works the other way. Each adult who loses coverage saves the State its 10 percent share, about {_usd_m(mm['annual_state_savings_usd'])} a year in the middle case, while {_usd_m(mm['annual_federal_dollars_lost_usd'])} in federal money leaves Hawaiʻi’s clinics and hospitals. Covering those adults with state funds would cost about {_usd_m(mm['annual_cost_to_cover_with_state_funds_usd'])} a year.</p>
+""", "state-cost")
+
+    # --- 6: geography
+    mid_geo = [r for r in geo if r["scenario"] == "MID"]
+
+    def gkey(r):
+        return (int(r["geography"]) if isinstance(r["geography"], float) else r["geography"])
+
+    counties = sorted((r for r in mid_geo if r["geography_type"] == "county"), key=lambda r: -r["medicaid_lose_coverage"])
+    county_names = {"Hawaii": "Hawaiʻi", "Honolulu": "Honolulu", "Kauai": "Kauaʻi", "Maui": "Maui"}
+    worst = max(counties, key=lambda r: r["medicaid_lose_coverage"] / r["persons"])
+    crows = [[county_names.get(r["geography"], r["geography"]), _n10(r["medicaid_lose_coverage"]),
+              f"± {_n10(1.645 * r['medicaid_lose_coverage_se'])}", _n10(r["snap_adults_losing"]),
+              _n10(r["persons_into_poverty"]), pct(100 * r["poverty_rate_baseline"], 1)] for r in counties]
+
+    def district_rows(kind: str) -> list[list[str]]:
+        rows = sorted((r for r in mid_geo if r["geography_type"] == kind), key=gkey)
+        return [[str(gkey(r)), _n10(r["medicaid_lose_coverage"]), f"± {_n10(1.645 * r['medicaid_lose_coverage_se'])}",
+                 _n10(r["snap_adults_losing"]), m1(r["snap_benefits_lost_usd"] / 1e6)] for r in rows]
+
+    dh = ["District", "Adults losing Medicaid", "90 percent sampling range", "Adults losing SNAP", "SNAP benefits lost ($ millions)"]
+    s6 = section("County and District Figures", f"""
+{lead("Every county loses coverage and food aid,", f"and {county_names.get(worst['geography'], worst['geography'])} County loses the most Medicaid coverage for its size, about {pct(100 * worst['medicaid_lose_coverage'] / worst['persons'], 1)} percent of its residents. The American Community Survey identifies nothing smaller than areas of about 100,000 people, so these figures give each part of such an area that area’s average, weighted by where people lived in the 2020 census.{notes.ref(T_xwalk)} The House and Senate districts are the 2022 plan, still in force. District figures carry the whole survey’s uncertainty and more: a district inside a large survey area cannot differ from it here.")}
+{table(["County", "Adults losing Medicaid", "90 percent sampling range", "Adults losing SNAP", "People pushed into poverty", "Poverty rate before (percent)"],
+       crows, caption="Table 7. By County, Middle Case")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates. Kalawao is counted with Maui. Poverty is the Supplemental Poverty Measure.</p>
+{table(dh, district_rows("house district"), caption="Table 8. By State House District, Middle Case")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, apportioned by 2020 census population. Poverty figures are not shown for districts: at a few dozen people each, they are within sampling error of zero.</p>
+{table(dh, district_rows("senate district"), caption="Table 9. By State Senate District, Middle Case")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, apportioned by 2020 census population. Low and high cases for every area are in <code>by_geography.csv</code> below.</p>
+""", "places")
+
+    # --- 7: method
+    rates = s["snap_rates"], s["medicaid_rates"]
+    rrows = [["SNAP: neither works nor exempt", *(pct(100 * rates[0][c]["at_risk"]) for c in HR1_CASES)],
+             ["SNAP: already meets the test", *(pct(100 * rates[0][c]["meets"]) for c in HR1_CASES)],
+             ["SNAP: exempt", *(pct(100 * rates[0][c]["exempt"]) for c in HR1_CASES)],
+             ["Medicaid: neither works nor exempt", *(pct(100 * rates[1][c]["at_risk"]) for c in HR1_CASES)],
+             ["Medicaid: meets the test or exempt", *(pct(100 * rates[1][c]["meets"]) for c in HR1_CASES)],
+             ["Medicaid: six-month renewals, of those still enrolled", *(pct(100 * rates[1][c]["six_month_renewal"]) for c in HR1_CASES)]]
+    s7 = section("How These Estimates Are Calculated", f"""
+{lead("Three sources,", "each used where it is strongest. SNAP’s work rules are applied to the federal audit sample of Hawaiʻi’s active SNAP cases, 571 households representing about 83,000, because only it records SNAP households as the program defines them. Medicaid is estimated from the American Community Survey’s adults who report Medicaid, scaled up to Med-QUEST’s enrollment, since the survey misses about a third of enrollees. Poverty and geography come from the survey population used on this site’s other pages." + notes.ref(T_code))}
+<p>For the poverty estimate, SNAP is placed on survey households: every household that reports receiving it, plus eligible households drawn at random until the count matches the Department’s {_n10(prm['snap_households_2027'])} households, with benefits under the October 2026 rules scaled to the Department’s issuance. Adults in those households are sorted into the same groups as in the audit sample, and each one’s chance of losing SNAP is set so that the survey reproduces the audit sample’s results group by group and dollar for dollar. Who loses SNAP is then drawn 2,000 times, and the poverty counts are the average.</p>
+<p>The counts of who is subject, exempt and working are measured. The share of each group that loses benefits is assumed, because no data yet show how Hawaiʻi’s rules will play out. The ranges come from the research above: Virginia’s time limit for SNAP,{notes.ref(T_gray)} and for Medicaid, Arkansas’s work requirement{notes.ref(T_sommers)} and the Congressional Budget Office’s national estimate.{notes.ref(T_cbo)}</p>
+{table(["Assumed share losing benefits (percent)", "Low", "Middle", "High"], rrows, caption="Table 10. The Assumptions Behind the Three Cases")}
+<p>Not included: the SNAP changes to utility and internet deductions, the cap on future food-plan updates, Medicaid’s new limits on provider taxes and state-directed payments, cost sharing from October 2028, shorter retroactive coverage, the new limits on coverage for some lawfully present immigrants, and the end of enhanced marketplace premium credits. The estimates hold today’s population and wages fixed and allow for no change in work in response to the rules, which research on these programs has not found.{notes.ref(T_gray)}</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
+<ul class="ha-est__downloads">
+<li><a href="../data/{HR1.slug}/snap_losses.csv"><code>snap_losses.csv</code></a>: adults losing SNAP and benefits lost by group and case, with sampling ranges (Table 3)</li>
+<li><a href="../data/{HR1.slug}/snap_adults.csv"><code>snap_adults.csv</code></a>: SNAP adults by group and status (Table 2)</li>
+<li><a href="../data/{HR1.slug}/snap_income_depth.csv"><code>snap_income_depth.csv</code></a>: income of the households that lose SNAP</li>
+<li><a href="../data/{HR1.slug}/poverty.csv"><code>poverty.csv</code></a>: Supplemental Poverty Measure results by case (Table 4)</li>
+<li><a href="../data/{HR1.slug}/medicaid_losses.csv"><code>medicaid_losses.csv</code></a>: Medicaid coverage and dollars lost by case, both survey files (Table 5)</li>
+<li><a href="../data/{HR1.slug}/medicaid_adults.csv"><code>medicaid_adults.csv</code></a>: expansion adults by status</li>
+<li><a href="../data/{HR1.slug}/medicaid_groups.csv"><code>medicaid_groups.csv</code></a>: survey counts against Med-QUEST enrollment</li>
+<li><a href="../data/{HR1.slug}/snap_state_cost.csv"><code>snap_state_cost.csv</code></a>: SNAP costs moved to the State (Table 6)</li>
+<li><a href="../data/{HR1.slug}/by_geography.csv"><code>by_geography.csv</code></a>: every county and district, all three cases, with sampling errors (Tables 7 to 9)</li>
+<li><a href="../data/{HR1.slug}/snap_baseline_check.csv"><code>snap_baseline_check.csv</code></a>: SNAP on the survey population against the Department’s counts</li>
+<li><a href="../data/{HR1.slug}/snap_calibration.csv"><code>snap_calibration.csv</code></a>: the survey matched to the audit sample, group by group</li>
+<li><a href="../data/{HR1.slug}/summary.json"><code>summary.json</code></a>: parameters and assumptions</li>
+<li><a href="../data/{HR1.slug}/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
+</ul>
+""", "method")
+
+    close = section("What Comes Next", """
+<p>How many people lose benefits depends on choices still open to the State: how much Med-QUEST can confirm from records it already holds instead of asking enrollees, how quickly the Department can screen SNAP households for exemptions, and whether the Legislature funds the SNAP share when the first bill arrives in October 2027. Every adult kept on through better verification is food and care that stays in Hawaiʻi.</p>
+<p>These figures will be updated as data from the first months under the new rules come in.</p>
+""", "next")
+
+    endnotes = section("Endnotes", notes.html(), "endnotes")
+    body = hero + s1 + s2 + s3 + s4 + s5 + s6 + close + s7 + endnotes
+    desc = (f"H.R. 1’s work rules would cost about {_n10(mm['lose_coverage_total'])} Hawaiʻi adults their Medicaid and "
+            f"{_n10(sm['adults_losing_snap'])} their SNAP in a full year, and move about {millions(state_snap / 1e6)} a "
+            f"year of SNAP costs to the State.")
+    card = {
+        "slug": HR1.slug,
+        "category": "current",
+        "eyebrow": "SNAP and Medicaid",
+        "title": "Work Rules, Lost Benefits",
+        "text": "What the work rules in the 2025 federal budget law take from SNAP and Medicaid in Hawaiʻi: people, federal dollars, poverty and the State’s new costs, by county and legislative district.",
+        "stat": _n10(mm["lose_coverage_total"]),
+        "stat_label": "adults losing Medicaid in a full year, middle case",
+        "date": long_date(run),
+        "year": year,
+    }
+    html_out = page(title="Work Rules, Lost Benefits: H.R. 1, SNAP and Medicaid | Hawaiʻi Appleseed Estimates",
+                    description=desc, body=body, depth=1, year=year)
+    return html_out, card
+
+
+# ---------------------------------------------------------------------------
 # hub
 # ---------------------------------------------------------------------------
 
@@ -1765,7 +2087,7 @@ def _card(c: dict) -> str:
 
 HOW_WE_ESTIMATE = """
 <section class="ha-est__section" id="how"><div class="ha-est__section-inner"><h2>How These Estimates Are Calculated</h2><hr class="ha-est__h2-rule">
-<p>The income tax and credit estimates on this site come from the same approach: a model of Hawaiʻi’s taxpayers is taxed under current law and again under the proposed change, and the difference between the two is the estimate. The conveyance tax estimate works differently, from county records of home sales, and its page explains how. Each page ends with its own detailed method and the data needed to check it.</p>
+<p>The income tax and credit estimates on this site come from the same approach: a model of Hawaiʻi’s taxpayers is taxed under current law and again under the proposed change, and the difference between the two is the estimate. The conveyance tax estimate works differently, from county records of home sales, and so does the SNAP and Medicaid estimate, which adds the federal audit sample of SNAP cases and Med-QUEST’s enrollment counts; each page explains how. Each page ends with its own detailed method and the data needed to check it.</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Building the Model</h3>
 <p>No one publishes every Hawaiʻi tax return, so the model uses a stand-in made of tax units, meaning the individuals and families who file together, drawn from the Census Bureau’s American Community Survey, which records income, family type, age and where people live. The income tax estimates use about 40,000 of these units, calibrated to Department of Taxation statistics, with filers whose incomes are above $1 million, whom survey data miss, added from IRS and Department of Taxation statistics, and each unit’s income is then grown year by year with Congressional Budget Office projections, out to tax years 2027 through 2031.</p>
 <p>The model then computes each unit’s tax under current law and again under the proposal, using the statute’s own rates, brackets, deductions and credit schedules. The estimate is the difference, added up across the state and by income group, which shows who would pay more or less as well as the total.</p>
@@ -1820,13 +2142,15 @@ def build(out: Path = SITE) -> list[Path]:
     wf_html, wf_card = build_working_families()
     cv_html, cv_card = build_conveyance()
     ts_html, ts_card = build_tax_simulator()
+    hr_html, hr_card = build_hr1()
     written = {
         out / "act-24" / "index.html": a24_html,
         out / "working-family-credits" / "index.html": wf_html,
         out / "capital-gains" / "index.html": cg_html,
         out / "conveyance-tax" / "index.html": cv_html,
         out / "tax-simulator" / "index.html": ts_html,
-        out / "index.html": build_index([a24_card, wf_card, cg_card, cv_card, ts_card]),
+        out / HR1.slug / "index.html": hr_html,
+        out / "index.html": build_index([a24_card, wf_card, hr_card, cg_card, cv_card, ts_card]),
         out / ".nojekyll": "",
     }
     for slug in cider_managed():

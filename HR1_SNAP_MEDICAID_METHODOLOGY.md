@@ -1,29 +1,49 @@
 # H.R.1 in Hawaiʻi: SNAP and Medicaid losses — methodology
 
-**Status (November 22, 2026): first estimate, not published.** Script: `analyses/forecast_hr1_snap_medicaid.py`.
-Logic: `tax_modeler.programs.hr1_safety_net`. Outputs: `reports/hr1_snap_medicaid/`. Nothing here is on the
-published chain or the site.
+**Status (November 22, 2026): published at `site/hr1-snap-medicaid/` ("Work Rules, Lost Benefits").** Script:
+`analyses/forecast_hr1_snap_medicaid.py`. Logic: `tax_modeler.programs.hr1_safety_net`. Run outputs:
+`runs/hr1_snap_medicaid/` (gitignored), published to `site/data/hr1-snap-medicaid/`. Not on the published chain:
+`scripts/publish.py` does not rerun it ([Refreshing](#refreshing) says how).
 
 The question: in a full year under the 2025 reconciliation law (H.R.1, Public Law 119-21), how many people in
-Hawaiʻi lose SNAP or Medicaid because of the new work rules, how many federal dollars go with them, and what does
-the State pay, either because the law bills it or because it chooses to replace what was lost.
+Hawaiʻi lose SNAP or Medicaid because of the new work rules, how many federal dollars go with them, what that does
+to poverty, where in the state it falls, and what the State pays, either because the law bills it or because it
+chooses to replace what was lost.
 
-## Results (generated November 22, 2026)
+## Changelog
+
+- **November 22, 2026 (second version, PR after #97).** Added SPM poverty, counties and all 51 House and 25 Senate
+  districts, and the site page. Medicaid's main run moved from the 2024 one-year ACS to the 2020–24 five-year file
+  (5,788 non-disabled Medicaid adults in sample instead of 1,118); MID moves from 39,269 to 39,140, and the
+  one-year file stays as the check. Outputs moved from `reports/` to `runs/` with a manifest. SNAP figures
+  unchanged.
+- **November 22, 2026 (PR #97).** First estimate: SNAP from the QC file, Medicaid from the ACS.
+
+## Results (run of November 22, 2026, commit `2b1b2bf`)
 
 | | LOW | MID | HIGH |
 |---|---|---|---|
 | SNAP: adults losing eligibility | 4,950 | 7,250 | 9,630 |
 | SNAP: benefits lost a year, FY2027 allotments | $22.9M | $33.3M | $44.0M |
-| Medicaid: expansion adults losing coverage | 24,500 | 39,300 | 51,900 |
-| Medicaid: federal dollars lost a year | $107M | $172M | $227M |
+| SPM: people pushed into poverty | 420 | 610 | 740 |
+| SPM: children among them | 37 | 54 | 68 |
+| SPM: added shortfall below the line | $12.3M | $17.6M | $22.1M |
+| Medicaid: expansion adults losing coverage | 24,400 | 39,140 | 51,800 |
+| Medicaid: federal dollars lost a year | $106.6M | $171.0M | $226.2M |
 
-- SNAP, 90% sampling interval on the MID case: 5,600 to 9,000 adults; $25.5M to $41.1M.
-- SNAP costs moved to the State from federal fiscal year 2028: $91.1M a year for benefits at the 15% rate
+- SNAP, 90% sampling interval on MID: 5,620 to 8,990 adults; $25.5M to $41.1M.
+- SPM, 90% sampling interval on MID: 359 to 865 people (ACS replicate weights); Monte Carlo error 1.3 persons.
+  Baseline SPM rate 9.38% (TY2027).
+- 48% of the adults who lose SNAP (MID) are in SPM units already in poverty; 19% under half the line.
+- SNAP costs moved to the State from federal fiscal year 2028: $91.1M a year for benefits at the 15% tier
   Hawaiʻi's FY2025 error rate implies ($0, $30.4M or $60.7M at the lower tiers), plus $14.8M for administration.
-- Medicaid: of 129,577 expansion adults, 42% already meet the test, 33% are exempt on what the survey shows, and
-  24% (31,400) are neither.
-- Replacing the lost Medicaid coverage with state funds would cost $191M a year in the MID case; the State's own
+- Medicaid: of 129,577 expansion adults, 48% already meet the test, 28% are exempt on what the survey shows, and
+  24% (30,780) are neither. Sampling interval on MID: 37,920 to 40,360. The 2024 one-year file gives 39,270.
+- Replacing the lost Medicaid coverage with state funds would cost $190M a year in the MID case; the State's own
   share of that coverage today is $19M.
+- By county (MID): Honolulu 24,460 lose Medicaid, 4,490 lose SNAP, 320 pushed into poverty; Hawaiʻi 7,760,
+  1,610, 70; Maui 4,800, 800, 150; Kauaʻi 2,130, 350, 70. Hawaiʻi County loses the most Medicaid coverage for its
+  size (4.1% of residents).
 
 LOW, MID and HIGH differ only in the share of people who fail to keep a benefit. That share is an assumption
 (see "Loss rates"). The counts of who is subject, exempt and working are measured.
@@ -47,7 +67,7 @@ holds people harmless through June 30, 2027.
 
 **Medicaid, section 71107.** Expansion adults are renewed every six months, not every twelve, from January 2027.
 
-## SNAP
+## SNAP: who and how much
 
 **Data.** Hawaiʻi's 571 units in the FY2024 SNAP Quality Control public-use file (October 2023 to September
 2024), tracked in `data/snap_qc/` and rebuilt by `scripts/fetch_snap_qc_hawaii.py`. They weight to 83,109 units,
@@ -64,16 +84,17 @@ benefit. The ACS has none of the program's own facts and finds a third fewer SNA
 | 18 to 54, repealed exception (veteran, homeless, foster) | 1,072 | 7 |
 | **Newly subject** | **20,916** | **145** |
 
-DHS counted 16,570 members aged 55 to 64 in April 2025.
+DHS estimated about 16,000 members aged 55 to 64 newly covered (FAQ, October 2025); Hawaiʻi Appleseed's timeline
+gives 16,570 from DHS's April 2025 data.
 
 Each is `exempt` (a disability, or a work-registration exemption that carries to the time limit: unfit for work,
 caring for a child under 6 or an incapacitated person, student, TANF work compliance, unemployment compensation,
 treatment), `meets` (20 or more hours a week, the 30-hour registration exemption, or a qualifying work program) or
 `at_risk`. Of the 20,916: 7,845 exempt, 3,163 meet the test, 9,908 at risk.
 
-**Not counted.** Adults 18 to 54 with no child were already under the time limit when Hawaiʻi's waiver ended on
-June 30, 2024, before H.R.1. The file shows 6,900 of them neither exempt nor working 20 hours. Maui and Kauaʻi
-counties kept a waiver until June 30, 2025, four days before the law was signed, and the law's new test
+**Not counted.** Adults 18 to 54 with no child were already under the time limit when Hawaiʻi's statewide waiver
+ended on June 30, 2024, before H.R.1. The file shows 6,900 of them neither exempt nor working 20 hours. Maui and
+Kauaʻi counties kept a waiver until June 30, 2025, four days before the law was signed, and the law's new test
 (unemployment of 1.5 times the national rate) rules out another. The public file has no county, so those adults
 are left out with the rest; the estimate is low by whatever a renewed Maui and Kauaʻi waiver would have protected.
 
@@ -89,22 +110,98 @@ base already reflects whatever the time limit has removed since November 2025.
 The MID case here is 7,250 adults. Other things moved the caseload in those months, so this is a plausibility
 check only.
 
+## SNAP: poverty, on the ACS population
+
+The QC file has no county and no household around the SNAP unit, and the SPM counts the whole family's
+resources. So SNAP is put on the ACS population the rest of the site uses (2020–24 five-year file, aged to
+TY2027 with CBO component growth; the credits and other benefits as the working-family credits step builds them,
+on their latest tables, TY2025), and the QC results are carried over to it.
+
+**SNAP baseline** (`acs_snap_baseline`). The poverty pipeline's own SNAP (`benefits/snap.py` through
+`poverty_impact_report._apply_snap`) is not used: it hands $355M to the lowest-income eligible tax units, and only
+1,145 of the 3,302 sample households that report SNAP are among them. Instead:
+
+1. Every household that reports SNAP (`FS` = 1) is a recipient: 56,579 weighted households. Its benefit is the
+   module's formula under FY2027 Hawaiʻi rules (`snap_parameters_fy2027`: the October 2026 allotments, standard
+   deductions, a 200%-of-poverty gross limit and no net test, as categorical eligibility gives). 23,350 of them
+   fail the gross test on annual survey income (income of members outside the SNAP unit, or months off SNAP);
+   they get the QC file's average benefit for their size instead of being dropped.
+2. Eligible households that do not report SNAP are drawn at random (a hash of the household id, the same on every
+   run), each with probability 0.31, to reach DHS's 77,985 households a month: 20,758 added, 77,337 in all.
+3. Every benefit is scaled by one factor (0.74) to DHS's annualized issuance, $607.4M.
+
+The first version of step 2 added the lowest-income non-reporters first. That put SNAP on the very poorest
+households and pulled the baseline SPM rate down to 8.3%; the random draw gives 9.38%, against 9.22% with the
+pipeline's own SNAP on the same population (`snap_baseline_check.csv` carries both). The published working-family
+credits page has 8.66% for TY2028.
+
+Persons in SNAP households come to 266,000 against DHS's 157,850: ACS households are larger than SNAP units,
+which is also why many adults who lose SNAP live in SPM units above the line.
+
+**Who loses it on the ACS** (`classify_acs_snap_adults`, `calibrate_to_qc`). Adults 18 to 64 in recipient
+households get the QC file's groups: 55 to 64 with no child under 14 in the household; 18 to 54 whose youngest
+child in the household is 14 to 17; 18 to 54 veterans with no child (the ACS cannot see homelessness or foster
+history, so the repealed-exception group is veterans only). Status: `exempt` (ACS disability, SSI or in school),
+`meets` (employed and usually working 20 or more hours), `at_risk`. Each adult's probability of losing SNAP is then
+set cell by cell, (group, status), so the ACS's expected losers equal the QC file's under the same loss rates. A cell
+the ACS lacks, or one held to probability 1, passes its shortfall to the group's other cells. In MID the 55-to-64
+at-risk cell needs a probability of 0.97 (the ACS finds 5,760 such adults, the QC file 7,990). In LOW the veteran
+at-risk cell is held to 1 with no other cell to take the rest, so the ACS run has 4,870 losers against the QC
+file's 4,950 (`snap_calibration.csv`).
+
+**Dollars on the ACS** (`acs_snap_loss`). Each adult's loss is the household's benefit recomputed one person smaller
+with 1/n of the adult's income still counted, or 1/n of the household's benefit where it is on the size average.
+The total is then scaled, per case, to the QC file's dollars (MID: the ACS gives $21.6M, the QC file $33.3M; scale
+1.54).
+
+**Poverty.** Who loses SNAP is drawn 2,000 times (`tax_modeler.poverty.draws`, one block per case), and each SPM
+unit's probability of being poor is the mean over the draws. The poverty engine reads the expected loss as the
+`hr1_snap_<case>_loss` column (`_LOSS_COLUMN_SCENARIOS` in `poverty/impact.py`). Standard errors are the ACS
+successive-difference replicates; children into poverty are computed from the SPM units' child counts as in the
+working-family credits step.
+
 ## Medicaid
 
-**Data.** ACS PUMS persons aged 19 to 64 who report Medicaid (`HINS4`). The 2024 one-year file is the main run
-(1,118 non-disabled adults in sample); the 2020–24 five-year file is a second run and agrees within 1%.
+**Data.** ACS PUMS persons aged 19 to 64 who report Medicaid (`HINS4`). The 2020–24 five-year file is the main run
+(5,788 non-disabled adults in sample); the 2024 one-year file is the check and agrees within 0.5%.
 
-**Scaling** (`split_expansion`). The survey finds 107,600 non-disabled Medicaid adults; Med-QUEST enrolled
+**Scaling** (`split_expansion`). The survey finds 117,300 non-disabled Medicaid adults; Med-QUEST enrolled
 179,583 in September 2026 (129,577 expansion, 50,006 parents and caretakers). Every weight is scaled by one
-factor (1.67) to the pool, then parents are assigned to the parent and caretaker group from the lowest family
-income up until its count is met. The rest are expansion adults.
+factor (1.53) to the pool, then parents are assigned to the parent and caretaker group from the lowest family
+income up until its count is met. The rest are expansion adults. Each of the 80 replicates is scaled to the same
+Med-QUEST count, so the sampling error is about who, not how many.
 
 **Status** (`classify_medicaid_adults`). `exempt`: a child 13 or under of their own, an ACS disability, a birth
 in the last year, American Indian or Alaska Native. `meets`: employed at the interview, enrolled in school, or
 worked in the last year at $580 a month or more, with the probability that a six-month window catches a spell of
-that length. `at_risk`: neither. Of the at-risk group, 88% are out of the labor force and 31% are 55 to 64.
+that length. `at_risk`: neither. Of the at-risk group, 82% are out of the labor force and 30% are 55 to 64.
 
 **Dollars.** $4,853 per expansion adult per year (KFF from T-MSIS, 2024), 90% federal. Not indexed to 2027.
+
+Medicaid is not in the SPM (coverage is not a resource), and the model's medical out-of-pocket costs do not depend
+on coverage, so losing Medicaid moves no one across the poverty line here.
+
+## Counties and districts
+
+The ACS identifies nothing below the PUMA (ten in Hawaiʻi, about 100,000 to 240,000 people each). Every figure is
+computed by PUMA and spread over the areas each PUMA touches in proportion to their 2020 census population
+(`puma_crosswalk.apportion`), so an area gets its PUMAs' averages. Totals match across counties, House and Senate
+districts (each sums to the statewide figure). Replicate totals are apportioned the same way for the standard
+errors, which therefore carry PUMA-level sampling error only: a district inside one PUMA cannot differ from it, and
+the districts of PUMA 200 (Hawaiʻi County) all show the same rates.
+
+The crosswalk (`data/crosswalks/hawaii_puma_district_population_2022.csv`, 112 pieces) is built from census blocks
+by `scripts/build_puma_district_crosswalk.py`: 2020 P.L. 94-171 block populations, the Census Bureau's 2022 state
+legislative block equivalency files (Hawaiʻi is not in the 2024 release, which covers only states that redrew),
+and the 2020 tract-to-PUMA file. It has all 51 House and 25 Senate districts and 1,455,271 people.
+
+It replaces, for this analysis only, `assign_geography`'s per-household district draw. That draw uses
+`hawaii_puma_districts_official_2022.csv`, which lists only 35 House and 18 Senate districts and gives each of a
+PUMA's districts an equal chance regardless of population. Other reports still use it (see "Known issues
+elsewhere").
+
+The site shows poverty only by county: by district the MID figures are a few dozen people each, within sampling
+error of zero. `by_geography.csv` has every area, all three cases, with standard errors.
 
 ## Loss rates
 
@@ -131,14 +228,14 @@ exempt; LOW (2%) assumes the State verifies nearly everyone from data it holds, 
 than Arkansas. For people who neither work nor qualify for an exemption, CBO assumes about 5% keep coverage (HIGH
 here). MID is 80% because Hawaiʻi asks for one qualifying month in six and because part of this group is
 medically frail in ways the survey does not record. CBO splits its national loss about evenly between people who
-do not meet the requirement (2.9 million) and people dropped by verification (2.8 million); MID here is 25,100
-and 9,400. For six-month renewals CBO has 10% of expansion adults losing coverage at the first one, 70% of them
+do not meet the requirement (2.9 million) and people dropped by verification (2.8 million); MID here is 24,600
+and 9,800. For six-month renewals CBO has 10% of expansion adults losing coverage at the first one, 70% of them
 for procedural reasons, and a net 0.7 million more uninsured; the 3% to 8% used here is the range DHS drew from
 CBO for Hawaiʻi (4,000 to 10,000 of 119,000).
 
 For comparison: DHS estimates 19,000 to 38,000 expansion adults (16% to 32%) lose coverage from the work
 requirement and six-month renewals together; CBO's national estimate scaled to Hawaiʻi is 33,000 to 34,000 for
-the work requirement. MID here is 39,300 (30%): 34,500 from the work requirement and 4,800 from renewals.
+the work requirement. MID here is 39,140 (30%): 34,380 from the work requirement and 4,760 from renewals.
 
 ## Known weaknesses
 
@@ -148,8 +245,10 @@ the work requirement. MID here is 39,300 (30%): 34,500 from the work requirement
    exempt in law. They still have to prove it.
 3. **Adults 60 to 64 on SNAP were never screened.** They were exempt from work registration by age, so the file
    records no fitness finding for them. Some of the at-risk 60-to-64-year-olds will be found unfit for work.
-4. **The Medicaid undercount may not be random.** The scaling assumes the 40% of enrollees the survey misses look
-   like the 60% it finds.
+4. **The Medicaid undercount may not be random.** The scaling assumes the 35% of enrollees the survey misses look
+   like the 65% it finds. Record-linkage studies find the misreporters have higher incomes and more often a
+   working household head (Boudreaux et al., *HSR* 2015), which would put more of them in `meets` and lower the
+   estimate.
 5. **Small samples.** 145 newly subject SNAP adults; the child-14-to-17 and repealed-exception groups (24 and 7)
    should not be quoted alone. FY2023 uses an older time-limit coding and is not pooled.
 6. **Composition is 2024.** The SNAP file predates the law; the caseload has shrunk since.
@@ -157,6 +256,10 @@ the work requirement. MID here is 39,300 (30%): 34,500 from the work requirement
    care than average, so federal dollars lost are likely overstated for a given headcount.
 8. **No overlap credit.** A Medicaid adult in a SNAP household that meets SNAP's work rules is exempt; the two
    files cannot be linked.
+9. **The ACS SNAP baseline is built, not observed.** Households, not SNAP units; the formula has no shelter or
+   dependent-care deduction (the dollar scale absorbs the level, not the shape); non-reporters are drawn at
+   random among the eligible. The SPM results depend on it more than the headline counts do.
+10. **Districts are PUMA averages.** See "Counties and districts".
 
 ## Not modeled
 
@@ -164,9 +267,47 @@ SNAP: the utility-allowance limit for households without an elderly or disabled 
 exclusion, the frozen Thrifty Food Plan, the end of SNAP-Ed, and the removal of refugees and asylees (the file has
 too few to count). Medicaid: provider-tax and state-directed-payment limits, cost sharing from October 2028, the
 shorter retroactive coverage, and the non-citizen limits (DHS: 1,200 to 2,400 people). The premium tax credit is
-out of scope by request. SPM poverty is not estimated: `snap_income_depth.csv` shows instead how far below the
-poverty line the affected SNAP units already are (MID: 52% have countable income under half the line, 32% have
-none).
+out of scope by request. The SPM baseline leaves out the food/excise and care credits (the working-family credits
+step adds them; the poverty report path does not), which matters little for a change confined to SNAP.
+
+## Refreshing
+
+The run takes about two minutes. Nothing on the chain refreshes it; when an input changes:
+
+1. Edit the figure in `Hr1Parameters` (`programs/hr1_safety_net.py`) or the table it reads, and the matching
+   sentence of this note. What changes, and when:
+   - DHS SNAP participation and issuance (`snap_annual_benefits_2027`, `snap_households_2027`,
+     `snap_persons_2027`): monthly, humanservices.hawaii.gov/bessd/snap (the SFY summary files).
+   - Med-QUEST enrollment (`medicaid_expansion_adults`, `medicaid_parent_caretakers`): the enrollment report,
+     medquest.hawaii.gov, every few months.
+   - The FY2026 payment error rate (`snap_error_rate_fy2025` and the tier the State elects for FY2028): USDA FNS,
+     about June 2027. Below 10% it lowers the State's benefit share.
+   - SNAP allotments and deductions (`HI_MAX_ALLOTMENT`, `HI_STANDARD_DEDUCTION_FY2027`,
+     `HI_GROSS_LIMIT_200PCT_FY2027`): the USDA cost-of-living memo, each August.
+   - The QC file: snapqcdata.net publishes a fiscal year about two years after it ends. FY2025 (the first with the
+     new rules in its last months) should arrive around mid-2027; add it to `scripts/fetch_snap_qc_hawaii.py`
+     and check the time-limit codes (`ABWDST`) against its technical documentation before pooling.
+   - Medicaid cost per enrollee (`medicaid_cost_per_expansion_adult`): KFF's state indicator, yearly.
+   - Once months of data under the new rules exist (DHS caseload by age group; Med-QUEST disenrollments for
+     noncompliance from July 2027), replace the LOW/MID/HIGH loss rates with observed ones.
+2. Commit, then run on the clean tree (the site refuses runs made from uncommitted or older model code):
+
+       .venv/bin/python analyses/forecast_hr1_snap_medicaid.py
+       .venv/bin/python scripts/build_site.py --import-runs hr1-snap-medicaid
+
+3. Run the site tests (`pytest tests/site`), commit `site/`, and update this note's results and changelog.
+
+The district crosswalk only needs rebuilding after a redistricting (`scripts/build_puma_district_crosswalk.py`).
+
+## Known issues elsewhere (found here, not fixed here)
+
+- `benefits/snap.py`'s "FY2024 Hawaiʻi" allotments are well below Hawaiʻi's (one person $359; the QC file and
+  USDA have $527), it has no shelter deduction, and `poverty_impact_report._apply_snap` ranks recipients by income
+  against a household count using tax-unit weights. The poverty reports' and working-family credits page's SNAP
+  ($355M against DHS's $607M) comes from it.
+- `assign_geography`'s crosswalk has 35 of 51 House and 18 of 25 Senate districts and draws districts with equal
+  chance within a PUMA. Every `by_house_district.csv` / `by_senate_district.csv` from `poverty_impact_report.py` is
+  affected. `population_crosswalk()` is the replacement when someone takes it on.
 
 ## Sources
 
@@ -174,8 +315,8 @@ none).
 - SNAP QC FY2024 public-use file and technical documentation, Mathematica for USDA FNS, snapqcdata.net.
 - USDA FNS cost-of-living memos FY2025–FY2027 (allotments); payment error rates FY2025 (June 2026).
 - Hawaiʻi DHS: SNAP participation summaries SFY2023–SFY2027; FAQ on the work-requirement changes (October 9,
-  2025); 2026 legislative budget briefing (January 2026); Med-QUEST enrollment report (November 6, 2026);
-  informational testimony to HHS-CPN (December 19, 2025).
+  2025); 2026 legislative budget briefing (January 2026); Med-QUEST enrollment report (November 6, 2026) and work
+  requirement one-pager (July 2026); informational testimony to HHS-CPN (December 19, 2025).
 - KFF: Medicaid spending per full-benefit enrollee, 2024; Medicaid expansion spending, FY2024.
 - CBO: estimated effects of Public Law 119-21 on SNAP (August 11, 2025) and on Medicaid (October 28, 2025).
 - Gray, Leive, Prager, Pukelis and Zaki, "Employed in a SNAP? The Impact of Work Requirements on Program
@@ -183,5 +324,9 @@ none).
   2019. Harris, *Economic Inquiry*, 2021 (Upjohn WP 19-297).
 - Sommers, Goldman, Blendon, Orav and Epstein, "Medicaid Work Requirements: Results from the First Year in
   Arkansas," *NEJM* 381, 2019; follow-up in *Health Affairs* 39(9), 2020. KFF on Arkansas disenrollment, March 2019.
+- Boudreaux et al., "Measurement Error in Public Health Insurance Reporting in the American Community Survey,"
+  *Health Services Research* 50(6), 2015.
 - USDA FNS time-limit waiver status reports, FY2024 and FY2025 (Hawaiʻi statewide to June 30, 2024; Maui and
   Kauaʻi to June 30, 2025). 7 CFR 273.11(c)(2) and 273.24.
+- U.S. Census Bureau: 2020 P.L. 94-171 redistricting file (Hawaiʻi); 2022 state legislative district block
+  equivalency files; 2020 census tract to 2020 PUMA relationship file.
