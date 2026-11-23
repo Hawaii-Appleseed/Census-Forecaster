@@ -6,7 +6,7 @@
   - Source: USPS Hawaiʻi ZIP directory + Hawaiʻi DOTAX. Built by `scripts/build_zip_county_crosswalk.py`.
   - Use: county-level raking of unit weights to IRS SOI ZIP filer / AGI / EITC / CTC totals.
 
-- **`hawaii_puma_districts_official_2022.csv`** — PUMA → House district + Senate district mapping (pre-existing).
+- **`hawaii_puma_district_population_2022.csv`** — PUMA → county, House and Senate district pieces (2022 plan, all 51 and 25) with 2020 census population, built from blocks by `scripts/build_puma_district_crosswalk.py`. It replaced `hawaii_puma_districts_official_2022.csv` (35 and 18 districts, no populations) in November 2026.
 
 ## What's missing (TODO: ZIP → House/Senate district)
 

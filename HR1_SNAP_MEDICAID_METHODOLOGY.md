@@ -12,6 +12,11 @@ chooses to replace what was lost.
 
 ## Changelog
 
+- **November 22, 2026 (third version).** The SNAP placement used here moved into the shared
+  `benefits.snap.calibrate_snap_receipt`, which the poverty pipeline now uses too, and gained Hawaiʻi's minimum
+  benefit for households of one or two. SPM MID moves from 610 to 550 people pushed into poverty; the SNAP and
+  Medicaid counts are unchanged. `assign_geography` now draws from the population-weighted crosswalk, so the two
+  issues this note listed under "Known issues elsewhere" are fixed.
 - **November 22, 2026 (second version, PR after #97).** Added SPM poverty, counties and all 51 House and 25 Senate
   districts, and the site page. Medicaid's main run moved from the 2024 one-year ACS to the 2020–24 five-year file
   (5,788 non-disabled Medicaid adults in sample instead of 1,118); MID moves from 39,269 to 39,140, and the
@@ -19,30 +24,29 @@ chooses to replace what was lost.
   unchanged.
 - **November 22, 2026 (PR #97).** First estimate: SNAP from the QC file, Medicaid from the ACS.
 
-## Results (run of November 22, 2026, commit `2b1b2bf`)
+## Results (run of November 22, 2026, commit `d32134b`)
 
 | | LOW | MID | HIGH |
 |---|---|---|---|
 | SNAP: adults losing eligibility | 4,950 | 7,250 | 9,630 |
 | SNAP: benefits lost a year, FY2027 allotments | $22.9M | $33.3M | $44.0M |
-| SPM: people pushed into poverty | 420 | 610 | 740 |
-| SPM: children among them | 37 | 54 | 68 |
-| SPM: added shortfall below the line | $12.3M | $17.6M | $22.1M |
+| SPM: people pushed into poverty | 380 | 550 | 670 |
+| SPM: children among them | 35 | 54 | 68 |
+| SPM: added shortfall below the line | $11.7M | $16.8M | $21.1M |
 | Medicaid: expansion adults losing coverage | 24,400 | 39,140 | 51,800 |
 | Medicaid: federal dollars lost a year | $106.6M | $171.0M | $226.2M |
 
 - SNAP, 90% sampling interval on MID: 5,620 to 8,990 adults; $25.5M to $41.1M.
-- SPM, 90% sampling interval on MID: 359 to 865 people (ACS replicate weights); Monte Carlo error 1.3 persons.
-  Baseline SPM rate 9.38% (TY2027).
-- 48% of the adults who lose SNAP (MID) are in SPM units already in poverty; 19% under half the line.
+- SPM, 90% sampling interval on MID: 307 to 802 people (ACS replicate weights). Baseline SPM rate 9.34% (TY2027).
+- 43% of the adults who lose SNAP (MID) are in SPM units already in poverty; 17% under half the line.
 - SNAP costs moved to the State from federal fiscal year 2028: $91.1M a year for benefits at the 15% tier
   Hawaiʻi's FY2025 error rate implies ($0, $30.4M or $60.7M at the lower tiers), plus $14.8M for administration.
 - Medicaid: of 129,577 expansion adults, 48% already meet the test, 28% are exempt on what the survey shows, and
   24% (30,780) are neither. Sampling interval on MID: 37,920 to 40,360. The 2024 one-year file gives 39,270.
 - Replacing the lost Medicaid coverage with state funds would cost $190M a year in the MID case; the State's own
   share of that coverage today is $19M.
-- By county (MID): Honolulu 24,460 lose Medicaid, 4,490 lose SNAP, 320 pushed into poverty; Hawaiʻi 7,760,
-  1,610, 70; Maui 4,800, 800, 150; Kauaʻi 2,130, 350, 70. Hawaiʻi County loses the most Medicaid coverage for its
+- By county (MID): Honolulu 24,460 lose Medicaid, 4,510 lose SNAP, 270 pushed into poverty; Hawaiʻi 7,760,
+  1,570, 70; Maui 4,800, 810, 150; Kauaʻi 2,130, 360, 60. Hawaiʻi County loses the most Medicaid coverage for its
   size (4.1% of residents).
 
 LOW, MID and HIGH differ only in the share of people who fail to keep a benefit. That share is an assumption
@@ -117,23 +121,23 @@ resources. So SNAP is put on the ACS population the rest of the site uses (2020�
 TY2027 with CBO component growth; the credits and other benefits as the working-family credits step builds them,
 on their latest tables, TY2025), and the QC results are carried over to it.
 
-**SNAP baseline** (`acs_snap_baseline`). The poverty pipeline's own SNAP (`benefits/snap.py` through
-`poverty_impact_report._apply_snap`) is not used: it hands $355M to the lowest-income eligible tax units, and only
-1,145 of the 3,302 sample households that report SNAP are among them. Instead:
+**SNAP baseline** (`acs_snap_baseline`, a wrapper over `benefits.snap.calibrate_snap_receipt`, which the
+poverty pipeline's `_apply_snap` also uses):
 
 1. Every household that reports SNAP (`FS` = 1) is a recipient: 56,579 weighted households. Its benefit is the
-   module's formula under FY2027 Hawaiʻi rules (`snap_parameters_fy2027`: the October 2026 allotments, standard
-   deductions, a 200%-of-poverty gross limit and no net test, as categorical eligibility gives). 23,350 of them
-   fail the gross test on annual survey income (income of members outside the SNAP unit, or months off SNAP);
-   they get the QC file's average benefit for their size instead of being dropped.
+   module's formula under FY2027 Hawaiʻi rules (`hawaii_snap_parameters(2027)`: the October 2026 allotments,
+   standard deductions, a 200%-of-poverty gross limit and no net test, as categorical eligibility gives, and the
+   $40 minimum for households of one or two). 22,450 of them fail the gross test on annual survey income (income
+   of members outside the SNAP unit, or months off SNAP); they get the QC file's average benefit for their size
+   instead of being dropped.
 2. Eligible households that do not report SNAP are drawn at random (a hash of the household id, the same on every
-   run), each with probability 0.31, to reach DHS's 77,985 households a month: 20,758 added, 77,337 in all.
-3. Every benefit is scaled by one factor (0.74) to DHS's annualized issuance, $607.4M.
+   run), each with probability 0.26, to reach DHS's 77,985 households a month: 78,538 in all.
+3. Every benefit is scaled by one factor (0.76) to DHS's annualized issuance, $607.4M.
 
-The first version of step 2 added the lowest-income non-reporters first. That put SNAP on the very poorest
-households and pulled the baseline SPM rate down to 8.3%; the random draw gives 9.38%, against 9.22% with the
-pipeline's own SNAP on the same population (`snap_baseline_check.csv` carries both). The published working-family
-credits page has 8.66% for TY2028.
+An earlier version of step 2 added the lowest-income non-reporters first. That put SNAP on the very poorest
+households and pulled the baseline SPM rate down to 8.3%; the random draw gives 9.34%. Before this placement was
+shared, the poverty pipeline's own SNAP gave 9.22% on the same population, from $355M placed on the
+lowest-income eligible tax units.
 
 Persons in SNAP households come to 266,000 against DHS's 157,850: ACS households are larger than SNAP units,
 which is also why many adults who lose SNAP live in SPM units above the line.
@@ -145,14 +149,13 @@ history, so the repealed-exception group is veterans only). Status: `exempt` (AC
 `meets` (employed and usually working 20 or more hours), `at_risk`. Each adult's probability of losing SNAP is then
 set cell by cell, (group, status), so the ACS's expected losers equal the QC file's under the same loss rates. A cell
 the ACS lacks, or one held to probability 1, passes its shortfall to the group's other cells. In MID the 55-to-64
-at-risk cell needs a probability of 0.97 (the ACS finds 5,760 such adults, the QC file 7,990). In LOW the veteran
-at-risk cell is held to 1 with no other cell to take the rest, so the ACS run has 4,870 losers against the QC
-file's 4,950 (`snap_calibration.csv`).
+at-risk cell needs a probability of 0.97 (the ACS finds 5,770 such adults, the QC file 7,990)
+(`snap_calibration.csv`).
 
 **Dollars on the ACS** (`acs_snap_loss`). Each adult's loss is the household's benefit recomputed one person smaller
 with 1/n of the adult's income still counted, or 1/n of the household's benefit where it is on the size average.
-The total is then scaled, per case, to the QC file's dollars (MID: the ACS gives $21.6M, the QC file $33.3M; scale
-1.54).
+The total is then scaled, per case, to the QC file's dollars (MID: the ACS gives $20.7M, the QC file $33.3M; scale
+1.60).
 
 **Poverty.** Who loses SNAP is drawn 2,000 times (`tax_modeler.poverty.draws`, one block per case), and each SPM
 unit's probability of being poor is the mean over the draws. The poverty engine reads the expected loss as the
@@ -195,10 +198,9 @@ by `scripts/build_puma_district_crosswalk.py`: 2020 P.L. 94-171 block population
 legislative block equivalency files (Hawaiʻi is not in the 2024 release, which covers only states that redrew),
 and the 2020 tract-to-PUMA file. It has all 51 House and 25 Senate districts and 1,455,271 people.
 
-It replaces, for this analysis only, `assign_geography`'s per-household district draw. That draw uses
-`hawaii_puma_districts_official_2022.csv`, which lists only 35 House and 18 Senate districts and gives each of a
-PUMA's districts an equal chance regardless of population. Other reports still use it (see "Known issues
-elsewhere").
+`assign_geography` draws each household's district from the same crosswalk, in proportion to population (until
+November 2026 it drew from a list of 35 House and 18 Senate districts, each equally likely within a PUMA).
+Apportioning, as here, gives district totals that do not ride on one draw per household.
 
 The site shows poverty only by county: by district the MID figures are a few dozen people each, within sampling
 error of zero. `by_geography.csv` has every area, all three cases, with standard errors.
@@ -277,13 +279,14 @@ The run takes about two minutes. Nothing on the chain refreshes it; when an inpu
 1. Edit the figure in `Hr1Parameters` (`programs/hr1_safety_net.py`) or the table it reads, and the matching
    sentence of this note. What changes, and when:
    - DHS SNAP participation and issuance (`snap_annual_benefits_2027`, `snap_households_2027`,
-     `snap_persons_2027`): monthly, humanservices.hawaii.gov/bessd/snap (the SFY summary files).
+     `snap_persons_2027`, and the `snap` rows of `admin_caseload/hawaii_caseload.csv`, which the poverty pipeline
+     reads): monthly, humanservices.hawaii.gov/bessd/snap (the SFY summary files).
    - Med-QUEST enrollment (`medicaid_expansion_adults`, `medicaid_parent_caretakers`): the enrollment report,
      medquest.hawaii.gov, every few months.
    - The FY2026 payment error rate (`snap_error_rate_fy2025` and the tier the State elects for FY2028): USDA FNS,
      about June 2027. Below 10% it lowers the State's benefit share.
-   - SNAP allotments and deductions (`HI_MAX_ALLOTMENT`, `HI_STANDARD_DEDUCTION_FY2027`,
-     `HI_GROSS_LIMIT_200PCT_FY2027`): the USDA cost-of-living memo, each August.
+   - SNAP allotments, deductions and poverty tables (`benefits/snap.py`'s `_HI_TABLES`, a new fiscal year each
+     August from the USDA cost-of-living memo; `hr1_safety_net.HI_MAX_ALLOTMENT` for the QC restatement).
    - The QC file: snapqcdata.net publishes a fiscal year about two years after it ends. FY2025 (the first with the
      new rules in its last months) should arrive around mid-2027; add it to `scripts/fetch_snap_qc_hawaii.py`
      and check the time-limit codes (`ABWDST`) against its technical documentation before pooling.
@@ -299,15 +302,16 @@ The run takes about two minutes. Nothing on the chain refreshes it; when an inpu
 
 The district crosswalk only needs rebuilding after a redistricting (`scripts/build_puma_district_crosswalk.py`).
 
-## Known issues elsewhere (found here, not fixed here)
+## Issues found elsewhere, since fixed
 
-- `benefits/snap.py`'s "FY2024 Hawaiʻi" allotments are well below Hawaiʻi's (one person $359; the QC file and
-  USDA have $527), it has no shelter deduction, and `poverty_impact_report._apply_snap` ranks recipients by income
-  against a household count using tax-unit weights. The poverty reports' and working-family credits page's SNAP
-  ($355M against DHS's $607M) comes from it.
-- `assign_geography`'s crosswalk has 35 of 51 House and 18 of 25 Senate districts and draws districts with equal
-  chance within a PUMA. Every `by_house_district.csv` / `by_senate_district.csv` from `poverty_impact_report.py` is
-  affected. `population_crosswalk()` is the replacement when someone takes it on.
+Both were found building this estimate and fixed in the PR after #98:
+
+- `benefits/snap.py` carried tables labeled FY2024 that were not Hawaiʻi's (one person $359 against $527), and
+  `poverty_impact_report._apply_snap` ranked tax units by income against a household count, giving $355M a year
+  against DHS's $607M. Both now use the placement above, with the year's tables and caseload. The working-family
+  credits page's poverty figures moved with it (TY2028, Act 163 sunset: 2,720 more people in poverty became
+  4,520, 770 children became 2,050; the poverty gap stayed at $16 million).
+- `assign_geography` drew districts from a 35-district crosswalk, evenly; it now uses `population_crosswalk()`.
 
 ## Sources
 
