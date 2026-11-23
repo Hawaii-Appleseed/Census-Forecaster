@@ -152,7 +152,12 @@ _REMOVAL_LIKE_SCENARIOS: frozenset[str] = frozenset({
     "hi_eitc_revert_20",
     "hi_eitc_revert_20_behavioral",
     "act163_sunset",
+    *(f"hr1_snap_{case}" for case in ("low", "mid", "high")),
 })
+
+# Scenarios whose per-unit resource loss is precomputed by the caller in a ``<scenario>_loss`` column
+# (analyses/forecast_hr1_snap_medicaid.py: SNAP lost to the H.R.1 work rules, LOW/MID/HIGH).
+_LOSS_COLUMN_SCENARIOS: frozenset[str] = frozenset(f"hr1_snap_{case}" for case in ("low", "mid", "high"))
 
 # Filing-status values used for the by_household_type disaggregation.
 # ``head_of_household`` is the closest tax-unit proxy for "single mother"
@@ -316,6 +321,11 @@ def _scenario_resources(
                 "(per-unit loss of both Act 163 credit expansions)."
             )
         return baseline_resources - units["act163_sunset_loss"].fillna(0).to_numpy(dtype=float)
+    if scenario in _LOSS_COLUMN_SCENARIOS:
+        col = f"{scenario}_loss"
+        if col not in units.columns:
+            raise KeyError(f"scenario={scenario!r} requires column {col!r} (per-unit expected resource loss).")
+        return baseline_resources - units[col].fillna(0).to_numpy(dtype=float)
     if scenario == "no_credits":
         return baseline_resources - (eitc + ctc + hi_eitc)
     if scenario == "expanded_ctc_2021":

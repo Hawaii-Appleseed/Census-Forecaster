@@ -210,3 +210,154 @@ def test_loss_rates_are_ordered_and_map_statuses():
         assert low.meets <= mid.meets <= high.meets < low.at_risk
     rates = hr1.SNAP_LOSS_RATES["MID"].rate(pd.Series(["at_risk", "meets", "exempt", "not_subject"]))
     assert rates.tolist() == [0.70, 0.05, 0.02, 0.0]
+
+
+# --------------------------------------------------------------------------------------------------------------
+# SNAP on the ACS population
+# --------------------------------------------------------------------------------------------------------------
+
+
+def test_fy2027_parameters_follow_the_cola_memo():
+    from tax_modeler.benefits.snap import _compute_household_snap
+
+    p = hr1.snap_parameters_fy2027()
+    assert _compute_household_snap(0.0, 0.0, 1, p) == 496
+    assert _compute_household_snap(0.0, 0.0, 4, p) == 1655
+    # Categorical eligibility: a family of four at $6,000 a month (under 200 percent of poverty) still qualifies,
+    # with no net income test; at $6,400 it does not.
+    assert _compute_household_snap(6_000.0, 6_000.0, 4, p) >= 0
+    assert _compute_household_snap(6_400.0, 6_400.0, 4, p) == 0
+    assert _compute_household_snap(2_000.0, 0.0, 1, p) == pytest.approx(max(0, 496 - 0.3 * (2_000 - 306)))
+
+
+def _acs_world():
+    """Five one-person households and one couple: incomes in tax-unit dollars a year."""
+    units = pd.DataFrame({
+        "hh_id": ["a", "b", "c", "d", "e", "f", "f"],
+        "SERIALNO": ["a", "b", "c", "d", "e", "f", "f"],
+        "filing_status": ["single"] * 7,
+        "num_dependents": [0] * 7,
+        "income": [0.0, 6_000.0, 12_000.0, 90_000.0, 3_000.0, 0.0, 12_000.0],
+        "earned_income": [0.0, 6_000.0, 12_000.0, 90_000.0, 0.0, 0.0, 12_000.0],
+        "weight": [100.0] * 7,
+    })
+    households = pd.DataFrame({"SERIALNO": list("abcdef"), "WGTP": [100.0] * 6, "FS": [1, 1, 2, 1, 2, 1]})
+    persons = pd.DataFrame({"SERIALNO": ["a", "b", "c", "d", "e", "f", "f"], "PINCP": [0, 6_000, 12_000, 90_000,
+                                                                                          3_000, 0, 12_000]})
+    return units, households, persons
+
+
+FALLBACK = {n: 100.0 * n for n in range(1, 7)}
+
+
+def test_acs_baseline_keeps_every_reporter_and_draws_the_rest():
+    units, households, persons = _acs_world()
+    base = hr1.acs_snap_baseline(units, households, persons, target_households=500, target_dollars=1e6,
+                                 fallback_benefit_by_size=FALLBACK)
+    hh = base.households.set_index("hh_id")
+    # a, b, d, f report SNAP and are kept (d is over the gross limit on annual income and gets its size's average);
+    # c and e are eligible non-reporters, each drawn with probability (500 - 400) / 200.
+    assert hh.loc[["a", "b", "d", "f"], "recipient"].all()
+    assert base.reported == 400 and base.reported_ineligible == 100
+    assert base.draw_rate == pytest.approx(0.5)
+    assert hh.loc["d", "snap"] == 100.0
+    assert base.imputed == 100.0 * hh.loc[["c", "e"], "recipient"].sum()
+    w = households.set_index("SERIALNO")["WGTP"].rename(index=str)
+    annual = (base.units.groupby("hh_id")["snap_amount"].sum() * w).sum()
+    assert annual == pytest.approx(1e6)
+    assert hh.loc["f", "n_persons"] == 2
+    again = hr1.acs_snap_baseline(units, households, persons, target_households=500, target_dollars=1e6,
+                                  fallback_benefit_by_size=FALLBACK)
+    assert again.households["recipient"].tolist() == base.households["recipient"].tolist()
+
+
+def test_acs_baseline_needs_the_household_columns():
+    units, households, persons = _acs_world()
+    with pytest.raises(DataValidationError):
+        hr1.acs_snap_baseline(units, households.drop(columns="FS"), persons, target_households=1, target_dollars=1,
+                              fallback_benefit_by_size=FALLBACK)
+
+
+def _acs_person(serial, age, **kw):
+    base = {"SERIALNO": serial, "AGEP": age, "DIS": 2, "SSIP": 0, "SCH": 1, "ESR": 6, "WKHP": np.nan, "MIL": 4,
+            "PWGTP": 100.0, "PINCP": 0}
+    return {**base, **kw}
+
+
+def test_acs_adults_get_the_qc_groups():
+    persons = pd.DataFrame([
+        _acs_person("a", 60), _acs_person("b", 40), _acs_person("b", 15), _acs_person("c", 40),
+        _acs_person("c", 10), _acs_person("d", 40, MIL=2), _acs_person("e", 40), _acs_person("f", 60, DIS=1),
+        _acs_person("g", 58, ESR=1, WKHP=25), _acs_person("h", 50, SCH=2), _acs_person("x", 60),
+    ])
+    a = hr1.classify_acs_snap_adults(persons, list("abcdefgh")).set_index(["SERIALNO", "AGEP"])
+    assert a.loc[("a", 60), "group"] == "age_55_64" and a.loc[("a", 60), "status"] == "at_risk"
+    assert a.loc[("b", 40), "group"] == "child_14_17"
+    assert a.loc[("c", 40), "group"] == "not_subject"
+    assert a.loc[("d", 40), "group"] == "removed_exception"
+    assert a.loc[("e", 40), "group"] == "already_subject"
+    assert a.loc[("f", 60), "status"] == "exempt"
+    assert a.loc[("g", 58), "status"] == "meets"
+    assert a.loc[("h", 50), "status"] == "exempt"
+    assert "x" not in a.index.get_level_values(0)
+    assert ("b", 15) not in a.index
+
+
+def test_calibration_reproduces_the_qc_cells_and_moves_shortfalls():
+    adults = pd.DataFrame({
+        "group": ["age_55_64"] * 3 + ["child_14_17"] * 2 + ["already_subject"],
+        "status": ["at_risk", "at_risk", "meets", "at_risk", "exempt", "at_risk"],
+        "PWGTP": [100.0, 100.0, 50.0, 10.0, 100.0, 100.0],
+    })
+    adults["newly_subject"] = adults["group"] != "already_subject"
+    qc = pd.DataFrame({
+        "group": ["age_55_64", "age_55_64", "age_55_64", "child_14_17", "child_14_17"],
+        "status": ["at_risk", "meets", "exempt", "at_risk", "exempt"],
+        "persons": [100.0, 100.0, 40.0, 100.0, 100.0],
+    })
+    rates = hr1.LossRates("T", at_risk=0.5, meets=0.1, exempt=0.1)
+    prob, cal = hr1.calibrate_to_qc(adults, qc, rates)
+    w = adults["PWGTP"].to_numpy()
+    # 55-64: at risk 50 of 200 ACS adults, meets 10 of 50, and the exempt cell's 4 (no ACS adults) spread over both.
+    assert (w[:3] * prob[:3]).sum() == pytest.approx(50 + 10 + 4)
+    assert prob[0] == prob[1]
+    # 14-17: the at-risk cell wants 50 but holds 10, so it is full and the exempt cell takes the other 40.
+    assert prob[3] == 1.0
+    assert (w[3:5] * prob[3:5]).sum() == pytest.approx(50 + 10)
+    assert prob[5] == 0.0
+    assert set(cal["group"]) == {"age_55_64", "child_14_17"}
+
+
+def test_acs_loss_is_the_whole_benefit_alone_and_less_in_company():
+    units, households, persons = _acs_world()
+    base = hr1.acs_snap_baseline(units, households, persons, target_households=0, target_dollars=1e6,
+                                 fallback_benefit_by_size=FALLBACK)
+    adults = pd.DataFrame({"SERIALNO": ["a", "f", "f", "c", "d"], "PINCP": [0, 0, 12_000, 12_000, 90_000]})
+    loss = hr1.acs_snap_loss(adults, base, persons)
+    hh = base.households.set_index("hh_id")
+    whole_a = hh.loc["a", "snap"] * 12 * base.dollar_scale
+    assert loss[0] == pytest.approx(whole_a)
+    assert 0 < loss[1] < hh.loc["f", "snap"] * 12 * base.dollar_scale
+    # Removing the earner (most of whose income still counts) costs the household less than its whole benefit.
+    assert 0 <= loss[2] < hh.loc["f", "snap"] * 12 * base.dollar_scale
+    assert loss[3] == 0.0                     # not a recipient household
+    assert loss[4] == pytest.approx(100.0 * 12 * base.dollar_scale)   # one person on the size average
+
+
+def test_poverty_engine_reads_the_hr1_loss_columns():
+    from tax_modeler.poverty.impact import (
+        _REMOVAL_LIKE_SCENARIOS,
+        PovertyColumns,
+        TakeupRates,
+        _scenario_resources,
+    )
+
+    units = pd.DataFrame({"eitc_amount": [0.0, 0.0], "ctc_refundable": [0.0, 0.0], "hi_eitc_amount": [0.0, 0.0],
+                          "hr1_snap_mid_loss": [100.0, 0.0]})
+    out = _scenario_resources(baseline_resources=np.array([1_000.0, 500.0]), units=units, scenario="hr1_snap_mid",
+                              columns=PovertyColumns(), takeup=TakeupRates())
+    assert out.tolist() == [900.0, 500.0]
+    assert {"hr1_snap_low", "hr1_snap_mid", "hr1_snap_high"} <= _REMOVAL_LIKE_SCENARIOS
+    with pytest.raises(KeyError):
+        _scenario_resources(baseline_resources=np.array([1.0, 1.0]), units=units.drop(columns="hr1_snap_mid_loss"),
+                            scenario="hr1_snap_mid", columns=PovertyColumns(), takeup=TakeupRates())
