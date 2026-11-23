@@ -1,0 +1,4 @@
+scenario,tax_year,poverty_rate_baseline,poverty_rate_after,persons_into_poverty,persons_into_poverty_se,persons_into_poverty_low90,persons_into_poverty_high90,children_into_poverty,children_into_poverty_se,poverty_gap_increase_usd,persons_into_poverty_mc_se,adults_losing_snap,share_of_losers_already_in_poverty,share_of_losers_under_half_the_line,snap_benefits_lost_usd,n_draws,seed
+LOW,2027,0.0937889,0.0940984,422.046,110.629,240.061,604.031,36.614,19.6966,1.23218e+07,1.86205,4869.52,0.49071,0.198978,2.29235e+07,2000,20261122
+MID,2027,0.0937889,0.0942377,611.916,153.707,359.068,864.763,53.8385,27.0019,1.76038e+07,1.31552,7250.86,0.479404,0.189758,3.32961e+07,2000,20261122
+HIGH,2027,0.0937889,0.0943299,737.588,161.405,472.077,1003.1,67.9765,28.9602,2.20535e+07,1.741,9626.01,0.45532,0.163917,4.3978e+07,2000,20261122
