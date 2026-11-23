@@ -1,0 +1,9 @@
+group,sample,acs_persons,med_quest_enrollment,pums,acs_to_med_quest_scale
+aged_blind_disabled (Medicare or SSI),193,15888,,pums_2024_1yr,1.66848
+non-disabled adults,1118,107633,179583,pums_2024_1yr,1.66848
+  of which parents of a child under 19,343,40041,,pums_2024_1yr,1.66848
+  parents scaled / parent and caretaker group,343,66807.4,50006,pums_2024_1yr,1.66848
+aged_blind_disabled (Medicare or SSI),927,16235,,pums_2020_2024,1.5305
+non-disabled adults,5788,117336,179583,pums_2020_2024,1.5305
+  of which parents of a child under 19,1756,40580,,pums_2020_2024,1.5305
+  parents scaled / parent and caretaker group,1756,62107.8,50006,pums_2020_2024,1.5305
