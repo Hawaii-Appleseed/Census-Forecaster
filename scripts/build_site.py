@@ -155,6 +155,11 @@ HR1 = Estimate(
         "medicaid_groups.csv",
         "medicaid_adults.csv",
         "medicaid_losses.csv",
+        "medicaid_kff_by_year.csv",
+        "medicaid_kff_by_group.csv",
+        "medicaid_kff_by_section.csv",
+        "medicaid_kff_vs_coverage.csv",
+        "medicaid_kff_meta.csv",
         "poverty.csv",
         "by_geography.csv",
         "summary.json",
@@ -1635,6 +1640,10 @@ def build_hr1() -> tuple[str, dict]:
     med = {r["scenario"]: r for r in read_csv(d / "medicaid_losses.csv") if r["pums"] == pums}
     med_check = {r["scenario"]: r for r in read_csv(d / "medicaid_losses.csv") if r["pums"] != pums}
     geo = read_csv(d / "by_geography.csv")
+    kyear = read_csv(d / "medicaid_kff_by_year.csv")
+    kgroup = read_csv(d / "medicaid_kff_by_group.csv")
+    kmeta = read_csv(d / "medicaid_kff_meta.csv")[0]
+    kcomp = {r["measure"]: r["federal_dollars"] for r in read_csv(d / "medicaid_kff_vs_coverage.csv")}
 
     all_new = {c: snap[(c, "all_newly_subject")] for c in HR1_CASES}
     sm, mm, pm = all_new["MID"], med["MID"], pov["MID"]
@@ -1685,8 +1694,17 @@ def build_hr1() -> tuple[str, dict]:
     T_cbo = ('Congressional Budget Office, “Estimated Effects on Direct Spending, Revenues, and the Number of People '
              'With Health Insurance of Public Law 119-21, Title VII, Subtitle B, Chapter 1 (Medicaid),” October 28, '
              '2025. <a href="https://www.cbo.gov/system/files/2025-10/PL-119-21-Medicaid%20_0.pdf">cbo.gov</a>')
-    T_kff = ('KFF, “Medicaid Spending per Full-Benefit Enrollee,” 2024, and “Medicaid Expansion Spending,” fiscal year '
-             '2024. <a href="https://www.kff.org/medicaid/state-indicator/medicaid-spending-per-full-benefit-enrollee/">kff.org</a>')
+    T_macpac = ('Medicaid and CHIP Payment and Access Commission, MACStats Exhibit 22, “Medicaid Benefit Spending Per '
+                'Full-Year Equivalent (FYE) Enrollee by State and Eligibility Group,” fiscal year 2023. '
+                '<a href="https://www.macpac.gov/publication/medicaid-benefit-spending-per-full-year-equivalent-fye-enrollee-by-state-and-eligibility-group/">macpac.gov</a>')
+    T_kff_alloc = ('Euhus, Rhiannon, Elizabeth Williams, Alice Burns and Robin Rudowitz, “Allocating CBO’s Estimates of '
+                   'Federal Medicaid Spending Reductions Across the States: Enacted Reconciliation Package,” KFF, July 23, '
+                   '2025. <a href="https://www.kff.org/medicaid/allocating-cbos-estimates-of-federal-medicaid-spending-reductions-across-the-states-enacted-reconciliation-package/">kff.org</a>')
+    T_cbo_july = ('Congressional Budget Office, “Estimated Budgetary Effects of Public Law 119-21,” July 21, 2025, Title '
+                  'VII, Table 7. <a href="https://www.cbo.gov/publication/61570">cbo.gov</a>')
+    T_dhs_slides = ('Hawaiʻi Department of Human Services, informational briefing to the Senate Committees on Health and '
+                    'Human Services and Commerce and Consumer Protection, December 19, 2025. '
+                    '<a href="https://data.capitol.hawaii.gov/sessions/session2025/testimony/Info_Testimony_HHS-CPN_12-19-25_DHS.pdf">data.capitol.hawaii.gov</a>')
     T_xwalk = ('U.S. Census Bureau, 2020 Census redistricting data (P.L. 94-171), 2022 state legislative district block '
                'equivalency files and 2020 census tract to 2020 PUMA relationship file, combined in '
                f'<a href="{REPO_URL}/blob/main/scripts/build_puma_district_crosswalk.py"><code>build_puma_district_crosswalk.py</code></a>.')
@@ -1708,7 +1726,7 @@ def build_hr1() -> tuple[str, dict]:
 <div class="ha-est__stats">
 <div class="ha-est__stat"><div class="ha-est__stat-num">{_n10(mm["lose_coverage_total"])}</div><div class="ha-est__stat-label"><strong>Adults lose Medicaid</strong>, of {exp_adults:,.0f} in the expansion group; {_n10(med["LOW"]["lose_coverage_total"])} to {_n10(med["HIGH"]["lose_coverage_total"])} across the assumptions below.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{_n10(sm["adults_losing_snap"])}</div><div class="ha-est__stat-label"><strong>Adults lose SNAP</strong> under the wider time limit; {_n10(all_new["LOW"]["adults_losing_snap"])} to {_n10(all_new["HIGH"]["adults_losing_snap"])} across the assumptions.</div></div>
-<div class="ha-est__stat"><div class="ha-est__stat-num">{millions((mm["annual_federal_dollars_lost_usd"] + sm["annual_benefits_lost_fy2027_usd"]) / 1e6)}</div><div class="ha-est__stat-label"><strong>Federal money lost a year</strong>: {millions(mm["annual_federal_dollars_lost_usd"] / 1e6)} for Medicaid and {millions(sm["annual_benefits_lost_fy2027_usd"] / 1e6)} in SNAP benefits.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">${kmeta["kff_total_usd"] / 1e9:.1f} billion</div><div class="ha-est__stat-label"><strong>Federal Medicaid funding lost</strong> over 2025 to 2034, about {millions(kmeta["annual_average_usd"] / 1e6)} a year on average, by KFF’s method; plus {millions(sm["annual_benefits_lost_fy2027_usd"] / 1e6)} a year in SNAP benefits.</div></div>
 <div class="ha-est__stat"><div class="ha-est__stat-num">{millions(state_snap / 1e6)}</div><div class="ha-est__stat-label"><strong>SNAP costs moved to the State</strong> each year from October 2027, for benefits and administration.</div></div>
 </div>"""
 
@@ -1788,9 +1806,35 @@ def build_hr1() -> tuple[str, dict]:
 <p>In Arkansas, the only state to end coverage under a similar rule, more than 95 percent of the adults it covered already worked enough or should have been exempt, yet coverage among them fell by 13 percentage points, mostly because people could not get the reporting done.{notes.ref(T_sommers)} The middle case here assumes 80 percent of adults who neither work nor qualify for an exemption lose coverage, along with 9 percent of those who do, and that renewing coverage every six months drops another 5 percent of those still enrolled.{notes.ref(T_cbo)}</p>
 {table(["Case", "Work requirement", "Six-month renewals", "Total losing coverage", "Share of expansion adults (percent)", "Federal dollars lost a year ($ millions)"],
        mrows, caption="Table 5. Expansion Adults Losing Medicaid", em_rows={1})}
-<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the American Community Survey 2020–24, scaled to Med-QUEST enrollment. Federal dollars at ${per_adult:,.0f} per expansion adult a year, {pct(100 * fed_share)} percent federal.{notes.ref(T_kff)} The survey’s sampling range on the middle case is {_n10(mm['sampling_p5'])} to {_n10(mm['sampling_p95'])}; the 2024 one-year survey gives {_n10(med_check['MID']['lose_coverage_total'])}.</p>
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the American Community Survey 2020–24, scaled to Med-QUEST enrollment. Federal dollars at ${per_adult:,.0f} per expansion adult covered for a full year, {pct(100 * fed_share)} percent federal.{notes.ref(T_macpac)} The survey’s sampling range on the middle case is {_n10(mm['sampling_p5'])} to {_n10(mm['sampling_p95'])}; the 2024 one-year survey gives {_n10(med_check['MID']['lose_coverage_total'])}.</p>
 <p>The Department’s own estimate is 19,000 to 38,000 adults losing coverage from the two changes together.{notes.ref(T_dhs_brief)} The middle case sits just above that range, likely because the survey cannot see many of the conditions that make someone medically frail and so exempt. Those adults would still have to prove it.</p>
 """, "medicaid")
+
+    # --- 4b: federal funding, KFF's method
+    kg = {r["group"]: r for r in kgroup}
+    ky = {int(r["year"]): r for r in kyear}
+    k_total, k_avg = kmeta["kff_total_usd"], kmeta["annual_average_usd"]
+    grows_k = [[esc(g), m1(r["fy2027"] / 1e6), m1(r["fy2030"] / 1e6), m1(r["fy2034"] / 1e6), m1(r["total_2025_2034"] / 1e6)]
+               for g, r in kg.items()]
+    grows_k.append(["All Medicaid changes", m1(ky[2027]["estimate"] / 1e6), m1(ky[2030]["estimate"] / 1e6),
+                    m1(ky[2034]["estimate"] / 1e6), m1(k_total / 1e6)])
+    two_total = (kg["Work requirement"]["total_2025_2034"] + kg["Six-month redeterminations"]["total_2025_2034"])
+    kchart = column_chart([str(y) for y in sorted(ky)], [("Federal Medicaid funding lost", C_PRIMARY,
+                                                          [ky[y]["estimate"] / 1e6 for y in sorted(ky)])],
+                          label=("Federal Medicaid funding Hawaiʻi loses each fiscal year by KFF’s method, in millions: "
+                                 + "; ".join(f"{y}, {ky[y]['estimate'] / 1e6:,.0f}" for y in sorted(ky)) + "."))
+    ours_mid = kcomp["this analysis, MID: a full year at 2027 enrollment"]
+    s4b = section("Federal Medicaid Funding Lost", f"""
+{lead("Across every Medicaid change in the law,", f"Hawaiʻi loses about ${k_total / 1e9:.1f} billion in federal funding over the ten fiscal years from 2025 to 2034, an average of {millions(k_avg / 1e6)} a year. The loss starts small and grows as the changes phase in: {millions(ky[2027]['estimate'] / 1e6)} in 2027, {millions(ky[2030]['estimate'] / 1e6)} in 2030 and {millions(ky[2034]['estimate'] / 1e6)} in 2034.{notes.ref(T_kff_alloc)}")}
+<p>This follows KFF’s method. KFF takes the Congressional Budget Office’s national estimate for each Medicaid provision{notes.ref(T_cbo_july)} and divides it among the states by the spending each provision touches: the work requirement and six-month renewals by each state’s federal spending on expansion adults, limits on state-directed payments by managed care spending in the states that use them, and most other changes by each state’s share of federal Medicaid spending.</p>
+<p>KFF publishes only each state’s total, so this page rebuilds the allocation provision by provision from the same sources. The rebuild comes within 2 percent of KFF’s figure for Hawaiʻi, and the split below is scaled to match it exactly. KFF’s range is 25 percent either way, ${k_total * 0.75 / 1e9:.1f} billion to ${k_total * 1.25 / 1e9:.1f} billion, because states will not respond exactly as the national estimate assumes.</p>
+{table(["Change", "2027", "2030", "2034", "2025 to 2034"], grows_k,
+       caption="Table 6. Federal Medicaid Funding Hawaiʻi Loses, by Change ($ Millions)", em_rows={len(grows_k) - 1})}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed allocation of CBO’s estimates by KFF’s method, scaled to KFF’s total for Hawaiʻi. Fiscal years. Interactions are the overlap between provisions that CBO nets out.</p>
+{figure(1 + 1, "Federal Medicaid Funding Hawaiʻi Loses Each Year, by KFF’s Method ($ Millions)", kchart, "Source: Hawaiʻi Appleseed allocation of CBO’s estimates by KFF’s method.")}
+<p>The work requirement and six-month renewals make up about ${two_total / 1e9:.1f} billion of the total. This page’s own estimate of those two changes, built from who in Hawaiʻi is subject to them and who is exempt (Table 5), comes to about {millions(ours_mid / 1e6)} in federal dollars over a full year at 2027 enrollment. That falls between the KFF method’s {millions(kcomp['KFF method: work requirement and six-month redeterminations, FY2028'] / 1e6)} for 2028 and {millions(kcomp['KFF method: work requirement and six-month redeterminations, FY2029'] / 1e6)} for 2029, as the national estimate phases the rules in; its dollars also grow each year with the cost of care.</p>
+<p>Two parts of the total are less certain for Hawaiʻi than for most states. KFF assigns Hawaiʻi part of the cut to provider taxes, spread across every state, although the Department expects little or no effect because Hawaiʻi’s hospital tax already sits at the law’s new limit.{notes.ref(T_dhs_slides)} And the limits on state-directed payments fall on Hawaiʻi because KFF counts it among the states likely to be affected.</p>
+""", "funding")
 
     # --- 5: state budget
     cost_labels = ["Benefits, error rate under 6 percent: no share",
@@ -1804,7 +1848,7 @@ def build_hr1() -> tuple[str, dict]:
     crow = [[lab, m1(r["annual_state_cost_usd"] / 1e6)] for lab, r in zip(cost_labels, cost, strict=True)]
     s5 = section("What the State Is Asked to Pay", f"""
 {lead("From October 2027,", f"Hawaiʻi pays a share of SNAP benefits set by its payment error rate. The rate was 10.92 percent in federal fiscal year 2025,{notes.ref(T_per)} which puts Hawaiʻi in the top tier: 15 percent of benefits, about {_usd_m(share_tier)} a year at current issuance.{notes.ref(T_dhs_part)} The State may use its 2026 rate instead, not yet published, and each tier lower cuts the bill by about {_usd_m(prm['snap_annual_benefits_2027'] * 0.05)}. The State also now pays three-quarters of SNAP’s administrative costs, about {_usd_m(admin)} more a year.{notes.ref(T_dhs_brief)}")}
-{table(["Item", "State cost a year ($ millions)"], crow, caption="Table 6. SNAP Costs the Law Moves to the State", em_rows={4})}
+{table(["Item", "State cost a year ($ millions)"], crow, caption="Table 7. SNAP Costs the Law Moves to the State", em_rows={4})}
 <p class="ha-est__source">Source: Public Law 119-21, sections 10105 and 10106; Hawaiʻi Appleseed estimates on {_usd_m(prm['snap_annual_benefits_2027'], 0)} of benefits a year, the Department’s issuance from July to September 2026 at an annual rate.</p>
 <p>Medicaid works the other way. Each adult who loses coverage saves the State its 10 percent share, about {_usd_m(mm['annual_state_savings_usd'])} a year in the middle case, while {_usd_m(mm['annual_federal_dollars_lost_usd'])} in federal money leaves Hawaiʻi’s clinics and hospitals. Covering those adults with state funds would cost about {_usd_m(mm['annual_cost_to_cover_with_state_funds_usd'])} a year.</p>
 """, "state-cost")
@@ -1831,11 +1875,11 @@ def build_hr1() -> tuple[str, dict]:
     s6 = section("County and District Figures", f"""
 {lead("Every county loses coverage and food aid,", f"and {county_names.get(worst['geography'], worst['geography'])} County loses the most Medicaid coverage for its size, about {pct(100 * worst['medicaid_lose_coverage'] / worst['persons'], 1)} percent of its residents. The American Community Survey identifies nothing smaller than areas of about 100,000 people, so these figures give each part of such an area that area’s average, weighted by where people lived in the 2020 census.{notes.ref(T_xwalk)} The House and Senate districts are the 2022 plan, still in force. District figures carry the whole survey’s uncertainty and more: a district inside a large survey area cannot differ from it here.")}
 {table(["County", "Adults losing Medicaid", "90 percent sampling range", "Adults losing SNAP", "People pushed into poverty", "Poverty rate before (percent)"],
-       crows, caption="Table 7. By County, Middle Case")}
+       crows, caption="Table 8. By County, Middle Case")}
 <p class="ha-est__source">Source: Hawaiʻi Appleseed estimates. Kalawao is counted with Maui. Poverty is the Supplemental Poverty Measure.</p>
-{table(dh, district_rows("house district"), caption="Table 8. By State House District, Middle Case")}
+{table(dh, district_rows("house district"), caption="Table 9. By State House District, Middle Case")}
 <p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, apportioned by 2020 census population. Poverty figures are not shown for districts: at a few dozen people each, they are within sampling error of zero.</p>
-{table(dh, district_rows("senate district"), caption="Table 9. By State Senate District, Middle Case")}
+{table(dh, district_rows("senate district"), caption="Table 10. By State Senate District, Middle Case")}
 <p class="ha-est__source">Source: Hawaiʻi Appleseed estimates, apportioned by 2020 census population. Low and high cases for every area are in <code>by_geography.csv</code> below.</p>
 """, "places")
 
@@ -1850,8 +1894,9 @@ def build_hr1() -> tuple[str, dict]:
     s7 = section("How These Estimates Are Calculated", f"""
 {lead("Three sources,", "each used where it is strongest. SNAP’s work rules are applied to the federal audit sample of Hawaiʻi’s active SNAP cases, 571 households representing about 83,000, because only it records SNAP households as the program defines them. Medicaid is estimated from the American Community Survey’s adults who report Medicaid, scaled up to Med-QUEST’s enrollment, since the survey misses about a third of enrollees. Poverty and geography come from the survey population used on this site’s other pages." + notes.ref(T_code))}
 <p>For the poverty estimate, SNAP is placed on survey households: every household that reports receiving it, plus eligible households drawn at random until the count matches the Department’s {_n10(prm['snap_households_2027'])} households, with benefits under the October 2026 rules scaled to the Department’s issuance. Adults in those households are sorted into the same groups as in the audit sample, and each one’s chance of losing SNAP is set so that the survey reproduces the audit sample’s results group by group and dollar for dollar. Who loses SNAP is then drawn 2,000 times, and the poverty counts are the average.</p>
+<p>Federal Medicaid funding follows KFF’s allocation of the Congressional Budget Office’s estimates, rebuilt provision by provision as described above.{notes.ref(T_kff_alloc)} The dollars attached to this page’s own coverage estimate use MACPAC’s spending per expansion adult covered for a full year, ${per_adult:,.0f} in fiscal year 2023.{notes.ref(T_macpac)}</p>
 <p>The counts of who is subject, exempt and working are measured. The share of each group that loses benefits is assumed, because no data yet show how Hawaiʻi’s rules will play out. The ranges come from the research above: Virginia’s time limit for SNAP,{notes.ref(T_gray)} and for Medicaid, Arkansas’s work requirement{notes.ref(T_sommers)} and the Congressional Budget Office’s national estimate.{notes.ref(T_cbo)}</p>
-{table(["Assumed share losing benefits (percent)", "Low", "Middle", "High"], rrows, caption="Table 10. The Assumptions Behind the Three Cases")}
+{table(["Assumed share losing benefits (percent)", "Low", "Middle", "High"], rrows, caption="Table 11. The Assumptions Behind the Three Cases")}
 <p>Not included: the SNAP changes to utility and internet deductions, the cap on future food-plan updates, Medicaid’s new limits on provider taxes and state-directed payments, cost sharing from October 2028, shorter retroactive coverage, the new limits on coverage for some lawfully present immigrants, and the end of enhanced marketplace premium credits. The estimates hold today’s population and wages fixed and allow for no change in work in response to the rules, which research on these programs has not found.{notes.ref(T_gray)}</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
 <ul class="ha-est__downloads">
@@ -1861,9 +1906,13 @@ def build_hr1() -> tuple[str, dict]:
 <li><a href="../data/{HR1.slug}/poverty.csv"><code>poverty.csv</code></a>: Supplemental Poverty Measure results by case (Table 4)</li>
 <li><a href="../data/{HR1.slug}/medicaid_losses.csv"><code>medicaid_losses.csv</code></a>: Medicaid coverage and dollars lost by case, both survey files (Table 5)</li>
 <li><a href="../data/{HR1.slug}/medicaid_adults.csv"><code>medicaid_adults.csv</code></a>: expansion adults by status</li>
+<li><a href="../data/{HR1.slug}/medicaid_kff_by_year.csv"><code>medicaid_kff_by_year.csv</code></a>: federal Medicaid funding lost by fiscal year, KFF’s method, with KFF’s range (Figure 2)</li>
+<li><a href="../data/{HR1.slug}/medicaid_kff_by_group.csv"><code>medicaid_kff_by_group.csv</code></a>: the same by change (Table 6)</li>
+<li><a href="../data/{HR1.slug}/medicaid_kff_by_section.csv"><code>medicaid_kff_by_section.csv</code></a>: every section of the law, its allocation key and Hawaiʻi’s share</li>
+<li><a href="../data/{HR1.slug}/medicaid_kff_vs_coverage.csv"><code>medicaid_kff_vs_coverage.csv</code></a>: the KFF method against this page’s coverage estimate</li>
 <li><a href="../data/{HR1.slug}/medicaid_groups.csv"><code>medicaid_groups.csv</code></a>: survey counts against Med-QUEST enrollment</li>
-<li><a href="../data/{HR1.slug}/snap_state_cost.csv"><code>snap_state_cost.csv</code></a>: SNAP costs moved to the State (Table 6)</li>
-<li><a href="../data/{HR1.slug}/by_geography.csv"><code>by_geography.csv</code></a>: every county and district, all three cases, with sampling errors (Tables 7 to 9)</li>
+<li><a href="../data/{HR1.slug}/snap_state_cost.csv"><code>snap_state_cost.csv</code></a>: SNAP costs moved to the State (Table 7)</li>
+<li><a href="../data/{HR1.slug}/by_geography.csv"><code>by_geography.csv</code></a>: every county and district, all three cases, with sampling errors (Tables 8 to 10)</li>
 <li><a href="../data/{HR1.slug}/snap_baseline_check.csv"><code>snap_baseline_check.csv</code></a>: SNAP on the survey population against the Department’s counts</li>
 <li><a href="../data/{HR1.slug}/snap_calibration.csv"><code>snap_calibration.csv</code></a>: the survey matched to the audit sample, group by group</li>
 <li><a href="../data/{HR1.slug}/summary.json"><code>summary.json</code></a>: parameters and assumptions</li>
@@ -1877,8 +1926,9 @@ def build_hr1() -> tuple[str, dict]:
 """, "next")
 
     endnotes = section("Endnotes", notes.html(), "endnotes")
-    body = hero + s1 + s2 + s3 + s4 + s5 + s6 + close + s7 + endnotes
-    desc = (f"H.R. 1’s work rules would cost about {_n10(mm['lose_coverage_total'])} Hawaiʻi adults their Medicaid and "
+    body = hero + s1 + s2 + s3 + s4 + s4b + s5 + s6 + close + s7 + endnotes
+    desc = (f"H.R. 1 cuts about ${kmeta['kff_total_usd'] / 1e9:.1f} billion in federal Medicaid funding to Hawaiʻi over ten years, "
+            f"and its work rules would cost about {_n10(mm['lose_coverage_total'])} Hawaiʻi adults their Medicaid and "
             f"{_n10(sm['adults_losing_snap'])} their SNAP in a full year, and move about {millions(state_snap / 1e6)} a "
             f"year of SNAP costs to the State.")
     card = {
