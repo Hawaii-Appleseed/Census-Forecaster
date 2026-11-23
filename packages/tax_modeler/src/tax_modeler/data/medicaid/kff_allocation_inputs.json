@@ -1,0 +1,577 @@
+{
+ "cbo_by_section": [
+  {
+   "section": 71101,
+   "title": "Moratorium on Implementation of Rule Relating to Eligibility and Enrollment in Medicare Savings Programs",
+   "years": {
+    "2025": 0,
+    "2026": -1668,
+    "2027": -5243,
+    "2028": -7318,
+    "2029": -7649,
+    "2030": -8044,
+    "2031": -8411,
+    "2032": -8796,
+    "2033": -9251,
+    "2034": -9628
+   },
+   "total": -66008,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71102,
+   "title": "Moratorium on Implementation of Rule Relating to Eligibility and Enrollment for Medicaid, CHIP, and the Basic Health Program",
+   "years": {
+    "2025": 0,
+    "2026": -4020,
+    "2027": -5617,
+    "2028": -5794,
+    "2029": -6080,
+    "2030": -6337,
+    "2031": -6592,
+    "2032": -6859,
+    "2033": -7140,
+    "2034": -7416
+   },
+   "total": -55855,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71103,
+   "title": "Reducing Duplicate Enrollment Under the Medicaid and CHIP Programs",
+   "years": {
+    "2025": 0,
+    "2026": 1,
+    "2027": 2,
+    "2028": 3,
+    "2029": 4,
+    "2030": -2774,
+    "2031": -3842,
+    "2032": -3059,
+    "2033": -3803,
+    "2034": -3951
+   },
+   "total": -17419,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71104,
+   "title": "Ensuring Deceased Individuals Do Not Remain Enrolled",
+   "years": {
+    "2025": 0,
+    "2026": 0,
+    "2027": 0,
+    "2028": 0,
+    "2029": 0,
+    "2030": 0,
+    "2031": 0,
+    "2032": 0,
+    "2033": 0,
+    "2034": 0
+   },
+   "total": 0,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71105,
+   "title": "Ensuring Deceased Providers Do Not Remain Enrolled",
+   "years": {
+    "2025": 0,
+    "2026": 0,
+    "2027": 0,
+    "2028": 0,
+    "2029": 0,
+    "2030": 0,
+    "2031": 0,
+    "2032": 0,
+    "2033": 0,
+    "2034": 0
+   },
+   "total": 0,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71106,
+   "title": "Payment Reduction Related to Certain Erroneous Excess Payments Under Medicaid",
+   "years": {
+    "2025": 0,
+    "2026": 0,
+    "2027": 0,
+    "2028": 0,
+    "2029": 0,
+    "2030": -108,
+    "2031": -3208,
+    "2032": -1303,
+    "2033": -84,
+    "2034": -2847
+   },
+   "total": -7550,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71107,
+   "title": "Eligibility Redeterminations",
+   "years": {
+    "2025": 0,
+    "2026": 4,
+    "2027": -5083,
+    "2028": -7071,
+    "2029": -7461,
+    "2030": -7809,
+    "2031": -8180,
+    "2032": -8560,
+    "2033": -8978,
+    "2034": -9392
+   },
+   "total": -62530,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71108,
+   "title": "Revising Home Equity Limit for Determining Eligibility for Long-Term Care Services Under the Medicaid Program",
+   "years": {
+    "2025": -1,
+    "2026": -5,
+    "2027": -5,
+    "2028": -11,
+    "2029": -20,
+    "2030": -24,
+    "2031": -28,
+    "2032": -32,
+    "2033": -38,
+    "2034": -31
+   },
+   "total": -195,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71109,
+   "title": "Alien Medicaid Eligibility",
+   "years": {
+    "2025": 0,
+    "2026": -372,
+    "2027": -588,
+    "2028": -665,
+    "2029": -703,
+    "2030": -726,
+    "2031": -758,
+    "2032": -778,
+    "2033": -798,
+    "2034": -823
+   },
+   "total": -6211,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71110,
+   "title": "Expansion FMAP for Emergency Medicaid",
+   "years": {
+    "2025": 0,
+    "2026": 0,
+    "2027": -2459,
+    "2028": -3112,
+    "2029": -3285,
+    "2030": -3466,
+    "2031": -3658,
+    "2032": -3856,
+    "2033": -4070,
+    "2034": -4294
+   },
+   "total": -28200,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71111,
+   "title": "Moratorium on Implementation of Rule Relating to Staffing Standards for Long-Term Care Facilities Under the Medicare and Medicaid Programs",
+   "years": {
+    "2025": 0,
+    "2026": -287,
+    "2027": -987,
+    "2028": -2061,
+    "2029": -3020,
+    "2030": -3287,
+    "2031": -3323,
+    "2032": -3354,
+    "2033": -3386,
+    "2034": -3418
+   },
+   "total": -23123,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71112,
+   "title": "Reducing State Medicaid Costs",
+   "years": {
+    "2025": 0,
+    "2026": 0,
+    "2027": -151,
+    "2028": -421,
+    "2029": -555,
+    "2030": -577,
+    "2031": -601,
+    "2032": -587,
+    "2033": -644,
+    "2034": -670
+   },
+   "total": -4206,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71113,
+   "title": "Federal Payments to Prohibited Entities",
+   "years": {
+    "2025": -44,
+    "2026": -31,
+    "2027": 91,
+    "2028": 8,
+    "2029": 7,
+    "2030": 6,
+    "2031": 5,
+    "2032": 4,
+    "2033": 4,
+    "2034": 3
+   },
+   "total": 53,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71114,
+   "title": "Sunsetting Increased FMAP Incentive",
+   "years": {
+    "2025": 0,
+    "2026": -953,
+    "2027": -1360,
+    "2028": -1406,
+    "2029": -1480,
+    "2030": -1545,
+    "2031": -1613,
+    "2032": -1683,
+    "2033": -1759,
+    "2034": -1830
+   },
+   "total": -13629,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71115,
+   "title": "Provider Taxes",
+   "years": {
+    "2025": 0,
+    "2026": -2786,
+    "2027": -4737,
+    "2028": -7600,
+    "2029": -12294,
+    "2030": -18585,
+    "2031": -26724,
+    "2032": -34099,
+    "2033": -39317,
+    "2034": -44976
+   },
+   "total": -191118,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71116,
+   "title": "State Directed Payments",
+   "years": {
+    "2025": 0,
+    "2026": -5457,
+    "2027": -7475,
+    "2028": -9271,
+    "2029": -13335,
+    "2030": -16552,
+    "2031": -19599,
+    "2032": -22846,
+    "2033": -25861,
+    "2034": -29028
+   },
+   "total": -149424,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71117,
+   "title": "Requirements Regarding Waiver of Uniform Tax Requirement for Medicaid Provider Tax",
+   "years": {
+    "2025": 0,
+    "2026": -3158,
+    "2027": -3426,
+    "2028": -3518,
+    "2029": -3684,
+    "2030": -3828,
+    "2031": -3969,
+    "2032": -4172,
+    "2033": -4345,
+    "2034": -4506
+   },
+   "total": -34606,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71118,
+   "title": "Requiring Budget Neutrality for Medicaid Demonstration Projects Under Section 1115",
+   "years": {
+    "2025": 0,
+    "2026": 2,
+    "2027": -48,
+    "2028": -103,
+    "2029": -222,
+    "2030": -349,
+    "2031": -483,
+    "2032": -630,
+    "2033": -657,
+    "2034": -682
+   },
+   "total": -3172,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71119,
+   "title": "Requirement for States to Establish Medicaid Community Engagement Requirements for Certain Individuals",
+   "years": {
+    "2025": 0,
+    "2026": 180,
+    "2027": -12960,
+    "2028": -18960,
+    "2029": -39810,
+    "2030": -46280,
+    "2031": -48440,
+    "2032": -50690,
+    "2033": -53100,
+    "2034": -55550
+   },
+   "total": -325610,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71120,
+   "title": "Modifying Cost Sharing Requirements for Certain Expansion Individuals Under the Medicaid Program",
+   "years": {
+    "2025": 0,
+    "2026": 1,
+    "2027": 6,
+    "2028": 4,
+    "2029": -1100,
+    "2030": -1152,
+    "2031": -1209,
+    "2032": -1268,
+    "2033": -1331,
+    "2034": -1395
+   },
+   "total": -7444,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  },
+  {
+   "section": 71121,
+   "title": "Making Certain Adjustments to Coverage of Home or Community-Based Services Under Medicaid",
+   "years": {
+    "2025": 0,
+    "2026": 2,
+    "2027": 27,
+    "2028": 194,
+    "2029": 533,
+    "2030": 810,
+    "2031": 1144,
+    "2032": 1216,
+    "2033": 1289,
+    "2034": 1365
+   },
+   "total": 6580,
+   "units": "millions of dollars, estimated outlays (negative = reduction)"
+  }
+ ],
+ "cbo_interactions_subtitleB_outlays": {
+  "2025": 0,
+  "2026": 1721,
+  "2027": 4995,
+  "2028": 7597,
+  "2029": 10280,
+  "2030": 12087,
+  "2031": 13560,
+  "2032": 14202,
+  "2033": 14822,
+  "2034": 16184
+ },
+ "cbo_other": {
+  "rural_health_71401_outlays_total": 47152,
+  "subtitle_B_interactions_total": 95448,
+  "medicaid_chapter_total": -989667,
+  "medicaid_year_sums": {
+   "2025": -45,
+   "2026": -18547,
+   "2027": -50013,
+   "2028": -67102,
+   "2029": -100154,
+   "2030": -120627,
+   "2031": -139489,
+   "2032": -151352,
+   "2033": -163269,
+   "2034": -179069
+  },
+  "source": "https://www.cbo.gov/publication/61570 xlsx https://www.cbo.gov/system/files/2025-07/61570-pl119-21-2025Recon-CLB.xlsx, Title VII Table 7, July 21, 2025"
+ },
+ "house_values": {
+  "source": "CBO, Estimated Budgetary Effects of H.R. 1 as passed by the House May 22, 2025 (June 4, 2025) https://www.cbo.gov/publication/61461 ; xlsx https://www.cbo.gov/system/files/2025-06/HR1_HousePassed_6-4-2025.xlsx, Title IV (Energy and Commerce), estimated outlays, $M",
+  "sdp_house_sec44133_10yr_total": -71770,
+  "sdp_house_sec44133_years": {
+   "2025": 0,
+   "2026": -5519,
+   "2027": -7524,
+   "2028": -6715,
+   "2029": -8006,
+   "2030": -8263,
+   "2031": -8503,
+   "2032": -8789,
+   "2033": -9077,
+   "2034": -9374
+  },
+  "provider_tax_house_sec44132_10yr_total": -89308,
+  "provider_tax_house_years": {
+   "2025": 0,
+   "2026": -1437,
+   "2027": -2579,
+   "2028": -4081,
+   "2029": -6002,
+   "2030": -8684,
+   "2031": -12085,
+   "2032": -14856,
+   "2033": -18024,
+   "2034": -21560
+  },
+  "uniform_tax_house_sec44134_total": -34642,
+  "house_workreq_sec44141_total": -344040,
+  "enacted_sdp_71116_total": -149424,
+  "enacted_provider_tax_71115_total": -191118,
+  "sdp_enacted_minus_house": -77654,
+  "provider_tax_enacted_minus_house": -101810,
+  "kff_house_brief_totals": {
+   "medicaid_gross_B": 863,
+   "interactions_B": 70,
+   "net_B": 793
+  }
+ },
+ "keys": {
+  "expansion_federal_fy2024": {
+   "hawaii": 902472800,
+   "us_or_subset_total": 159198740500,
+   "subset_description": "sum of 40 expansion states (+DC) expansion-group federal spending, FY2024 (US row of KFF indicator; Wisconsin N/A). Wisconsin ACA-equivalent added in my reconstruction: (24%-11%) x WI federal = $992,273,291 (not KFF-published)",
+   "source": "https://www.kff.org/medicaid/state-indicator/medicaid-expansion-spending/ (fetched 2026-11-23; FY2024, data note: states expanded as of Sept 2024; US row total Medicaid $910.9B)"
+  },
+  "total_federal_fy2024": {
+   "hawaii": 2223421119,
+   "us_or_subset_total": 593678071106,
+   "subset_description": "50 states + DC, federal Medicaid spending FY2024 (excl. admin/territories), Form 64 as of Sept 2025; Hawaii federal pct 0.710; total spending HI 3,113,757,830, US 918,687,295,218",
+   "source": "https://www.kff.org/medicaid/state-indicator/federalstate-share-of-spending/"
+  },
+  "total_federal_fy2024_kff_method_recomputed": {
+   "hawaii": 2134718198,
+   "us_or_subset_total": 585362783878,
+   "subset_description": "my recomputation: 0.9 x (expansion fed+state) + traditional total x (FY2024 FMAP + 0.375pt)",
+   "source": "derived from expansion-spending and FMAP indicators"
+  },
+  "managed_care_total_fy2023": {
+   "hawaii": 2266439201,
+   "us_or_subset_total": 456593288494,
+   "subset_description": "US total comprehensive MCO spending FY2023 (HI 74.5% of its total Medicaid)",
+   "source": "https://web.archive.org/web/20250721182342/https://www.kff.org/medicaid/state-indicator/total-medicaid-mco-spending/ (live page now shows FY2024: HI 2,502,761,563; US 458,893,734,771)"
+  },
+  "federal_share_fy2023": {
+   "hawaii": 0.73,
+   "us_or_subset_total": 0.689,
+   "subset_description": "federal share of total Medicaid FY2023 (HI total $3,044,228,261; fed $2,222,700,048; US fed $606,252,408,901 / total $880,018,880,526)",
+   "source": "https://web.archive.org/web/20250802214356/https://www.kff.org/medicaid/state-indicator/federalstate-share-of-spending/"
+  },
+  "federal_managed_care_fy2023_mco_x_fedshare": {
+   "hawaii": 1654500617,
+   "us_or_subset_total": 291264357146,
+   "subset_description": "subset = 37 states with any SDP in KFF CMS-preprint analysis (likely+possibly+not likely+non-hospital-only); likely+possibly subset (31 states) total = 276178052429. Product of MCO spend x federal share, per user description (KFF text says \"divided by\")",
+   "source": "derived from the two FY2023 indicators above; lists from SDP analysis"
+  },
+  "federal_managed_care_sdp_likely_possibly_total": {
+   "hawaii": 1654500617,
+   "us_or_subset_total": 276178052429,
+   "subset_description": "29 likely + 2 possibly affected states (HI likely)",
+   "source": "https://www.kff.org/medicaid/issue-brief/reconciliation-language-could-lead-to-cuts-in-medicaid-state-directed-payments-to-hospitals-and-nursing-facilities/ (chart https://datawrapper.dwcdn.net/0ldzJ/2/)"
+  },
+  "fmap_fy2024": {
+   "hawaii": 0.5856,
+   "us_or_subset_total": null,
+   "subset_description": "traditional FMAP FY2024 (FY2025 0.5908; FY2023 0.6226 incl. enhancement as listed by KFF)",
+   "source": "https://www.kff.org/medicaid/state-indicator/federal-matching-rate-and-multiplier/"
+  },
+  "ltc_users_2021_x_spend_per_user_x_fmap": {
+   "hawaii": 337524849,
+   "us_or_subset_total": 37332058306,
+   "subset_description": "home-equity-limit>$1M states (AL,CO,CT,DC,HI,ME,MA,NJ,NY,TN,WA; CA has no limit, excluded): total LTC users x spend per LTC user (2021: HI 25,200 users x $22,872) x FY2024 FMAP; my proxy for federal LTC spending",
+   "source": "https://www.kff.org/other/state-indicator/medicaid-enrollees-using-ltc-as-a-percent-of-full-benefit-medicaid-enrollees/ and .../medicaid-spending-per-enrollee-using-long-term-care/ (2021 tabs)"
+  }
+ },
+ "hawaii_flags": {
+  "hawaii_expansion_state": true,
+  "hawaii_in_sdp_house_equivalent_set": true,
+  "hawaii_sdp_likely_affected": true,
+  "hawaii_sdp_possibly_affected": false,
+  "hawaii_in_provider_tax_above_3_5pct_expansion_list": false,
+  "hawaii_has_mco_tax_fy2025": false,
+  "hawaii_has_hospital_tax_fy2025": true,
+  "hawaii_has_nursing_facility_tax_fy2025": true,
+  "hawaii_home_equity_limit_2025_usd": 1097000,
+  "hawaii_home_equity_limit_above_1M": true,
+  "hawaii_nonexpansion_future_adopter_pool": false,
+  "hawaii_uniform_tax_50pct_states": false
+ },
+ "kff_figure1_M": {
+  "ACA Expansion": {
+   "Work Requirements": 325610,
+   "Provider Taxes": 101810,
+   "Eligibility Redeterminations": 62530,
+   "Other": 35644
+  },
+  "All States": {
+   "Limits on State Directed Payments": 149424,
+   "Eligibility Rule": 121863,
+   "Provider Taxes": 89308,
+   "Other": 24822
+  }
+ },
+ "kff_result": {
+  "hawaii": 3902000000,
+  "low": 2927000000,
+  "high": 4878000000,
+  "us": 911011000000
+ },
+ "recompute": {
+  "A_reported_fed": {
+   "expansion_group": 2387.4843165255497,
+   "all_states_key": 702.4539992964249,
+   "sdp_house_part": 407.6829393960271,
+   "sdp_diff_part": 465.20203094115294,
+   "ptax_diff": 0.0,
+   "uniform_tax": 0.0,
+   "sunset_incentive": 0.0,
+   "home_equity": 1.7630248229509156,
+   "TOTAL_M": 3964.5863109821057
+  },
+  "B_kff_method": {
+   "expansion_group": 2387.4843165255497,
+   "all_states_key": 684.0102590686232,
+   "sdp_house_part": 407.6829393960271,
+   "sdp_diff_part": 465.20203094115294,
+   "ptax_diff": 0.0,
+   "uniform_tax": 0.0,
+   "sunset_incentive": 0.0,
+   "home_equity": 1.7630248229509156,
+   "TOTAL_M": 3946.142570754304
+  }
+ },
+ "notes": [
+  "Figure 1 (Flourish 24356715, https://flo.uri.sh/visualisation/24356715/embed?auto=1) $M: ACA expansion: work req 325,610 + provider taxes 101,810 + redeterminations 62,530 + other 35,644 = 525,594; all states: SDP 149,424 + eligibility rule 121,863 + provider taxes 89,308 + other 24,822 = 385,417; total 911,011. Mapping to CBO: expansion other = 71110 (28,200) + 71120 (7,444); eligibility rule = 71101+71102; all-states other (24,822) = remaining Medicaid sections (103,478 gross) less interactions 78,656.",
+  "CBO Medicaid chapter (71101-71121 outlays) sums to -989,667 (KFF $990B). Interactions row (Subtitle B) +95,448 outlays; KFF 82.4% share -> 78,656 (989,667-911,011).",
+  "KFF by-year chart (https://datawrapper.dwcdn.net/v0mna/10/): 2025 $0.045B, 2026 $17B, 2027 $46B, 2028 $61B, 2029 $92B, 2030 $111B, 2031 $128B, 2032 $139B, 2033 $151B, 2034 $165B (net of interactions, rounded).",
+  "KFF Hawaii result confirmed from https://datawrapper.dwcdn.net/36eMx/14/ : 3,902,000,000 (low 2,927M, high 4,878M), 15% of baseline; US 911,011,000,000.",
+  "CBO Oct 28, 2025 supplemental: NOT FOUND. cbo.gov returns 403 to curl and search is blocked in browser; I could not verify whether it changes Medicaid outlays. KFF cites only the July 21 2025 estimate (cbo.gov/publication/61570).",
+  "KFF provider-tax analysis page was updated after July 2025 (now 31 states, Nov 2025 survey). The July 23, 2025 archived version (https://web.archive.org/web/20250723005133/https://www.kff.org/policy-watch/which-states-might-have-to-reduce-provider-taxes-under-the-senate-reconciliation-bill/ ; chart https://datawrapper.dwcdn.net/TXnv8/5/) lists 22 states, Hawaii \"No affected hospital or MCO taxes\". The newer 31-state per-state list could not be read (chart IDs 404 on dataset.csv); Hawaii has hospital and nursing-facility taxes only (FY2025 survey chart https://datawrapper.dwcdn.net/0lk2G/33/), so unlikely to be in it.",
+  "State-directed payment set for FY2024: KFF used its budget survey OR CMS preprint analysis; I could not read the survey list, so used the preprint analysis states with any SDP (37). Hawaii is \"Likely affected\" in the preprint analysis.",
+  "Hawaii FY2024 FMAP 58.56% (KFF); I do not know how KFF applied the +1.5pt Q1 bump exactly (I used 0.375pt annualized).",
+  "Recompute (Hawaii, $M): expansion pool 423,784 x 0.563% = 2,387; all-states pool 187,563 (=121,863+55,048+89,308-78,656) x 0.375% = 703; SDP house part 71,770 x HI/37-state fed MCO = 408; SDP diff 77,654 x HI/31-state = 465; home equity 2; provider-tax diff, uniform tax, FMAP-incentive sunset = 0. Total 3,965 (+1.6% vs 3,902). Moving 71110 to the all-states key gives 3,911 (+0.2%), the closest variant; not confirmed by KFF."
+ ]
+}

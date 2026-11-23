@@ -512,6 +512,42 @@ def merge_geography(med_geo: dict[str, pd.DataFrame], pov_geo: dict[str, pd.Data
 
 
 # --------------------------------------------------------------------------------------------------------------
+# 4. Federal Medicaid funding, by KFF's method
+# --------------------------------------------------------------------------------------------------------------
+
+
+def run_kff(params, med: dict) -> dict[str, pd.DataFrame]:
+    """CBO's national cut by section, allocated to Hawaiʻi by KFF's keys and scaled to KFF's published total
+    (:mod:`tax_modeler.programs.kff_medicaid_allocation`), and the same provisions set beside this analysis's own
+    coverage estimate."""
+    from tax_modeler.programs.kff_medicaid_allocation import YEARS, kff_aligned
+
+    k = kff_aligned()
+    years = [str(y) for y in YEARS]
+    group = k.by_group.rename(columns={c: f"fy{c}" for c in years}).rename(columns={"total": "total_2025_2034"})
+    group[[c for c in group.columns if c != "group"]] *= 1e6
+    by_year = k.by_year.assign(estimate=lambda d: d["estimate"] * 1e6, low=lambda d: d["low"] * 1e6,
+                               high=lambda d: d["high"] * 1e6)
+    section = k.by_section.copy()
+    section[years + ["total"]] *= 1e6
+    # This analysis's work requirement and six-month renewals, a full year at 2027 enrollment, against the same two
+    # provisions in KFF's allocation by year (CBO phases them in through 2029).
+    ours = med["medicaid_losses"]
+    ours = ours[ours["pums"] == ours["pums"].iloc[0]].set_index("scenario")
+    two = k.by_group.set_index("group").loc[["Work requirement", "Six-month redeterminations"], years].sum() * 1e6
+    compare = pd.DataFrame([{"measure": "KFF method: work requirement and six-month redeterminations, FY" + y,
+                             "federal_dollars": float(two[y])} for y in ("2027", "2028", "2029", "2030", "2034")]
+                           + [{"measure": f"this analysis, {c}: a full year at 2027 enrollment",
+                               "federal_dollars": float(ours.loc[c, "annual_federal_dollars_lost_usd"])}
+                              for c in SCENARIOS])
+    meta = pd.DataFrame([{"rebuild_total_usd": k.rebuild_total * 1e6, "kff_total_usd": k.kff_total * 1e6,
+                          "scale": k.scale, "annual_average_usd": k.kff_total * 1e6 / len(YEARS),
+                          "range": "plus or minus 25 percent, as KFF"}])
+    return {"medicaid_kff_by_group": group, "medicaid_kff_by_year": by_year, "medicaid_kff_by_section": section,
+            "medicaid_kff_vs_coverage": compare, "medicaid_kff_meta": meta}
+
+
+# --------------------------------------------------------------------------------------------------------------
 
 
 def _summary(snap: dict, med: dict, pov: dict | None, params) -> str:
@@ -557,6 +593,16 @@ def _summary(snap: dict, med: dict, pov: dict | None, params) -> str:
                 f"    {r.scenario:<5} {r.lose_coverage_total:>7,.0f} lose coverage ({r.share_of_expansion_adults:.0%}; "
                 f"sampling {r.sampling_p5:,.0f} to {r.sampling_p95:,.0f}); federal dollars lost "
                 f"{usd(r.annual_federal_dollars_lost_usd)} a year")
+    from tax_modeler.programs.kff_medicaid_allocation import kff_aligned
+
+    k = kff_aligned()
+    yr = k.by_year.set_index("year")["estimate"]
+    lines += ["", f"Federal Medicaid funding lost, KFF's method (CBO by section, KFF's state keys, scaled x{k.scale:.3f} "
+              f"to KFF's published ${k.kff_total:,.0f}M):",
+              f"  2025-2034 ${k.kff_total:,.0f}M (${k.kff_total * 0.75:,.0f}M to ${k.kff_total * 1.25:,.0f}M); average "
+              f"${k.kff_total / 10:,.0f}M a year; FY2027 ${yr[2027]:,.0f}M, FY2030 ${yr[2030]:,.0f}M, FY2034 ${yr[2034]:,.0f}M"]
+    for _, r in k.by_group.iterrows():
+        lines.append(f"    {r['group']:<34} ${r['total']:>8,.0f}M")
     return "\n".join(lines) + "\n"
 
 
@@ -582,9 +628,10 @@ def main(argv: list[str] | None = None) -> None:
     med = {k: pd.concat([r[k] for r in runs if k in r], ignore_index=True) for k in runs[0] if k != "_geo"}
     pov = None if args.skip_poverty else run_poverty(params, snap, args.pums_data_dir)
     geography = merge_geography(runs[0]["_geo"], None if pov is None else pov.pop("_geo"))
+    kff = run_kff(params, med)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    frames = {**snap, **med, **(pov or {}), "by_geography": geography}
+    frames = {**snap, **med, **(pov or {}), **kff, "by_geography": geography}
     for name, frame in frames.items():
         if not name.startswith("_"):
             frame.to_csv(args.out / f"{name}.csv", index=False, float_format="%.6g")

@@ -542,7 +542,10 @@ class Hr1Parameters:
     # Medicaid: expansion adults enrolled, September 2026 (Med-QUEST enrollment report, November 6, 2026).
     medicaid_expansion_adults: float = 129_577
     medicaid_parent_caretakers: float = 50_006
-    medicaid_cost_per_expansion_adult: float = 4_853.10   # KFF from T-MSIS, 2024, full-benefit enrollee
+    # MACPAC MACStats Exhibit 22, FY2023: benefit spending per full-year-equivalent enrollee, Hawaiʻi new adult
+    # group, all enrollees. (Until November 2026 this was KFF's $4,853 per full-benefit enrollee, which counts
+    # anyone enrolled for a month and so understates the cost of a year of coverage.)
+    medicaid_cost_per_expansion_adult: float = 5_731.42
     medicaid_expansion_federal_share: float = 0.90
     snap_rates: Mapping[str, LossRates] = field(default_factory=lambda: dict(SNAP_LOSS_RATES))
     medicaid_rates: Mapping[str, LossRates] = field(default_factory=lambda: dict(MEDICAID_LOSS_RATES))

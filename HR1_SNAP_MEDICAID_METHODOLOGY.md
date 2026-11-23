@@ -12,6 +12,15 @@ chooses to replace what was lost.
 
 ## Changelog
 
+- **November 23, 2026 (fourth version).** Federal Medicaid funding now follows KFF's method, which Appleseed's
+  SNAP and Medicaid timeline also uses: CBO's national estimate for each Medicaid section of the law, allocated to
+  Hawaiʻi by KFF's keys (`programs/kff_medicaid_allocation.py`). The result is $3.9 billion over 2025-2034
+  ($2.9 billion to $4.9 billion), about $390 million a year, rising from $196 million in 2027 to $694 million in
+  2034. The timeline's $330M-$550M a year is KFF's July 1, 2025 figure for the Senate bill ($4.37 billion over ten
+  years); KFF replaced it on July 23, 2025 with the enacted-law figure used here. The dollars attached to this
+  analysis's own coverage estimate now use MACPAC's spending per full-year-equivalent expansion adult ($5,731,
+  FY2023) instead of KFF's $4,853 per full-benefit enrollee, which counts anyone enrolled for a month: MID federal
+  dollars move from $171.0 million to $201.9 million a year.
 - **November 22, 2026 (third version).** The SNAP placement used here moved into the shared
   `benefits.snap.calibrate_snap_receipt`, which the poverty pipeline now uses too, and gained Hawaiʻi's minimum
   benefit for households of one or two. SPM MID moves from 610 to 550 people pushed into poverty; the SNAP and
@@ -34,7 +43,8 @@ chooses to replace what was lost.
 | SPM: children among them | 35 | 54 | 68 |
 | SPM: added shortfall below the line | $11.7M | $16.8M | $21.1M |
 | Medicaid: expansion adults losing coverage | 24,400 | 39,140 | 51,800 |
-| Medicaid: federal dollars lost a year | $106.6M | $171.0M | $226.2M |
+| Medicaid: federal dollars for those adults, a full year | $125.9M | $201.9M | $267.2M |
+| Medicaid: all federal funding lost, 2025-2034, KFF's method | $2,927M | $3,902M | $4,878M |
 
 - SNAP, 90% sampling interval on MID: 5,620 to 8,990 adults; $25.5M to $41.1M.
 - SPM, 90% sampling interval on MID: 307 to 802 people (ACS replicate weights). Baseline SPM rate 9.34% (TY2027).
@@ -43,8 +53,13 @@ chooses to replace what was lost.
   Hawaiʻi's FY2025 error rate implies ($0, $30.4M or $60.7M at the lower tiers), plus $14.8M for administration.
 - Medicaid: of 129,577 expansion adults, 48% already meet the test, 28% are exempt on what the survey shows, and
   24% (30,780) are neither. Sampling interval on MID: 37,920 to 40,360. The 2024 one-year file gives 39,270.
-- Replacing the lost Medicaid coverage with state funds would cost $190M a year in the MID case; the State's own
-  share of that coverage today is $19M.
+- Replacing the lost Medicaid coverage with state funds would cost $224M a year in the MID case; the State's own
+  share of that coverage today is $22M.
+- Federal Medicaid funding by KFF's method (LOW and HIGH in the table above are KFF's plus or minus 25 percent, not
+  this analysis's loss rates): $196M in FY2027, $266M in 2028, $419M in 2029, $495M in 2030, $694M in 2034. By change,
+  2025-2034: work requirement $1,805M, six-month redeterminations $347M, state-directed payments $859M, eligibility
+  and enrollment rules $449M, provider taxes $329M, other expansion-group changes $198M, other changes $205M, less
+  interactions $290M.
 - By county (MID): Honolulu 24,460 lose Medicaid, 4,510 lose SNAP, 270 pushed into poverty; Hawaiʻi 7,760,
   1,570, 70; Maui 4,800, 810, 150; Kauaʻi 2,130, 360, 60. Hawaiʻi County loses the most Medicaid coverage for its
   size (4.1% of residents).
@@ -179,7 +194,43 @@ in the last year, American Indian or Alaska Native. `meets`: employed at the int
 worked in the last year at $580 a month or more, with the probability that a six-month window catches a spell of
 that length. `at_risk`: neither. Of the at-risk group, 82% are out of the labor force and 30% are 55 to 64.
 
-**Dollars.** $4,853 per expansion adult per year (KFF from T-MSIS, 2024), 90% federal. Not indexed to 2027.
+**Dollars.** $5,731 per expansion adult covered for a full year (MACPAC MACStats Exhibit 22, FY2023, all
+enrollees in the new adult group), 90% federal. Not indexed to 2027. KFF's $4,853 per full-benefit enrollee, used
+before November 23, 2026, divides spending by everyone enrolled for at least a month and so understates the cost of
+a year of coverage.
+
+## Medicaid: federal funding, KFF's method
+
+`programs/kff_medicaid_allocation.py` rebuilds KFF's "Allocating CBO's Estimates of Federal Medicaid Spending
+Reductions Across the States: Enacted Reconciliation Package" (July 23, 2025) for Hawaiʻi. CBO's estimate of each
+Medicaid section (July 21, 2025, Title VII Table 7: $990 billion over 2025-2034 before interactions) is divided among
+the states by KFF's key for that section:
+
+| Sections | Key | Hawaiʻi's share |
+|---|---|---|
+| 71119 work requirement, 71107 redeterminations, 71110 emergency match, 71120 cost sharing | FY2024 federal spending on the expansion group (Wisconsin's ACA-equivalent added) | 0.563% |
+| 71116 state-directed payments, House-passed part | FY2023 federal managed care spending, states with directed payments | 0.568% |
+| 71116, the rest | the same, states KFF found likely or possibly affected (Hawaiʻi likely) | 0.599% |
+| 71115 provider taxes, House-passed part | FY2024 federal spending, all states | 0.375% |
+| 71115, the rest | expansion states with hospital or MCO taxes over 3.5% | 0 (Hawaiʻi not listed) |
+| 71117 uniform-tax waiver; 71114 expansion-incentive sunset | states with MCO taxes; non-expansion states | 0 |
+| 71108 home equity limit | long-term care spending, states with limits over $1 million | 0.9% |
+| everything else, and CBO's interactions (82.4% of Subtitle B's) | FY2024 federal spending, all states | 0.375% |
+
+The rebuild comes to $3,965 million, 1.6% above KFF's published $3,902 million; not every state list or baseline
+KFF used is published. Every section and year is scaled by one factor (0.984) to KFF's total, so the totals quoted
+are KFF's and the split by provision and year is the rebuild's. The range is KFF's, plus or minus 25 percent. The
+inputs, each with its source, are in `data/medicaid/kff_allocation_inputs.json` and its README.
+
+How it lines up with the coverage estimate above: KFF's method gives the work requirement and six-month
+redeterminations $100M in FY2027, $144M in 2028, $262M in 2029 and $300M in 2030 as CBO phases them in and costs grow.
+This analysis's MID, $202M for a full year at 2027 enrollment and FY2023 cost, sits between 2028 and 2029. CBO's
+national work-requirement estimate, scaled by Hawaiʻi's share of expansion spending, implies roughly as many
+Hawaiʻi adults losing coverage at full effect as the MID case here.
+
+Two Hawaiʻi facts the method does not use: DHS says the hospital provider tax already sits at the law's 3.5% limit
+(the method still assigns Hawaiʻi its share of the House-passed provider-tax cut, $329M over ten years); and the
+directed-payment cut ($859M) rests on KFF counting Hawaiʻi among the likely-affected states.
 
 Medicaid is not in the SPM (coverage is not a resource), and the model's medical out-of-pocket costs do not depend
 on coverage, so losing Medicaid moves no one across the poverty line here.
@@ -290,7 +341,9 @@ The run takes about two minutes. Nothing on the chain refreshes it; when an inpu
    - The QC file: snapqcdata.net publishes a fiscal year about two years after it ends. FY2025 (the first with the
      new rules in its last months) should arrive around mid-2027; add it to `scripts/fetch_snap_qc_hawaii.py`
      and check the time-limit codes (`ABWDST`) against its technical documentation before pooling.
-   - Medicaid cost per enrollee (`medicaid_cost_per_expansion_adult`): KFF's state indicator, yearly.
+   - Medicaid cost per enrollee (`medicaid_cost_per_expansion_adult`): MACPAC MACStats Exhibit 22, yearly.
+   - Federal funding by KFF's method (`data/medicaid/kff_allocation_inputs.json`): when CBO re-estimates the law or
+     KFF revises its allocation (its Hawaiʻi total sits in `kff_result`).
    - Once months of data under the new rules exist (DHS caseload by age group; Med-QUEST disenrollments for
      noncompliance from July 2027), replace the LOW/MID/HIGH loss rates with observed ones.
 2. Commit, then run on the clean tree (the site refuses runs made from uncommitted or older model code):
@@ -321,7 +374,12 @@ Both were found building this estimate and fixed in the PR after #98:
 - Hawaiʻi DHS: SNAP participation summaries SFY2023–SFY2027; FAQ on the work-requirement changes (October 9,
   2025); 2026 legislative budget briefing (January 2026); Med-QUEST enrollment report (November 6, 2026) and work
   requirement one-pager (July 2026); informational testimony to HHS-CPN (December 19, 2025).
-- KFF: Medicaid spending per full-benefit enrollee, 2024; Medicaid expansion spending, FY2024.
+- KFF: "Allocating CBO's Estimates of Federal Medicaid Spending Reductions Across the States: Enacted
+  Reconciliation Package," July 23, 2025 (first published July 1, 2025 for the Senate bill); Medicaid expansion
+  spending, federal and state shares, managed care spending; the state-directed payment and provider-tax analyses.
+- CBO: Estimated Budgetary Effects of Public Law 119-21, July 21, 2025 (Title VII Table 7); H.R. 1 as passed by the
+  House, June 4, 2025.
+- MACPAC: MACStats Exhibit 22, Medicaid benefit spending per full-year equivalent enrollee, FY2023.
 - CBO: estimated effects of Public Law 119-21 on SNAP (August 11, 2025) and on Medicaid (October 28, 2025).
 - Gray, Leive, Prager, Pukelis and Zaki, "Employed in a SNAP? The Impact of Work Requirements on Program
   Participation and Labor Supply," *AEJ: Economic Policy* 15(1), 2023. Ku, Brantley and Pillai, *AJPH* 109(10),
