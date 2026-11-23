@@ -164,6 +164,13 @@ def _load_units(
     if "WKHP" in persons.columns:
         units = attach_secondary_hours(units, persons)
     units = assign_geography(units)
+    # The household's own answer to the ACS SNAP question and its size: _apply_snap takes every household that
+    # reports SNAP as a recipient (tax_modeler.benefits.snap.calibrate_snap_receipt).
+    hid = units["hh_id"].astype(str)
+    if "FS" in households.columns:
+        fs = households.drop_duplicates("SERIALNO").set_index(households.drop_duplicates("SERIALNO")["SERIALNO"].astype(str))["FS"]
+        units["hh_snap_reported"] = hid.map(fs).eq(1).to_numpy()
+    units["hh_n_persons"] = hid.map(persons.groupby(persons["SERIALNO"].astype(str)).size()).fillna(1).astype(int).to_numpy()
     return units, persons
 
 
@@ -242,30 +249,20 @@ def _apply_hi_renters(units: pd.DataFrame) -> pd.DataFrame:
 
 
 def _apply_snap(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
-    """Compute SNAP benefits then take-up-adjust against admin caseload anchor."""
-    from tax_modeler.benefits.snap import compute_snap_for_units
+    """SNAP on the population: every household that reports it plus eligible non-reporters drawn to the DHS caseload,
+    benefits under Hawaiʻi's rules for the year (the latest tabled after FY2027), scaled to DHS issuance
+    (:func:`tax_modeler.benefits.snap.calibrate_snap_receipt`). The caseload year is ``tax_year`` or the latest
+    before it on file."""
+    from tax_modeler.benefits.snap import calibrate_snap_receipt, hawaii_snap_parameters
     from tax_modeler.calibration.admin_caseload import AdminCaseload
-    from tax_modeler.calibration.takeup_imputation import impute_takeup
 
-    LOG.info("Computing SNAP benefits + take-up imputation for TY %d", tax_year)
-    out = compute_snap_for_units(units)
-    try:
-        target = AdminCaseload.load().target("snap", tax_year)
-    except Exception as exc:
-        # Fall back to the most-recent available SNAP anchor (typically
-        # FY2024, post-COVID emergency-allotments). Skipping take-up
-        # entirely leaves SNAP at simulated eligibility, biasing the
-        # baseline rate downward — the fallback is preferable.
-        LOG.warning(
-            "SNAP admin caseload target unavailable for year=%d (%s); "
-            "falling back to TY2024 USDA-FNS anchor for the take-up step.",
-            tax_year, exc,
-        )
-        target = AdminCaseload.load().target("snap", 2024)
-    out = impute_takeup(
-        out, target=target, benefit_col="snap_amount", score_col="income",
-        ascending=True, weight_col="weight",
-    )
+    target = AdminCaseload.load().latest("snap", tax_year)
+    params = hawaii_snap_parameters(tax_year)
+    out, info = calibrate_snap_receipt(
+        units, target_households=target.count, target_dollars=target.annual_dollars_millions * 1e6, params=params)
+    LOG.info("SNAP TY %d: FY%d rules, caseload %d (%.0f households, $%.1fM); %.0f report it, %.0f drawn "
+             "(p=%.2f), dollar scale %.2f", tax_year, params.fiscal_year, target.year, target.count,
+             target.annual_dollars_millions, info.reported, info.imputed, info.draw_rate, info.dollar_scale)
     return out
 
 

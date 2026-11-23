@@ -151,8 +151,8 @@ class DistrictCTCAnalyzer:
         
         # Load official crosswalk
         try:
-            crosswalk_path = Path(__file__).parent.parent.parent / 'data' / 'crosswalks' / 'hawaii_puma_districts_official_2022.csv'
-            crosswalk_df = pd.read_csv(crosswalk_path)
+            from tax_modeler.analysis.puma_crosswalk import load_crosswalk
+            crosswalk_df = load_crosswalk()
             logger.info(f"Loaded official crosswalk with {len(crosswalk_df)} PUMA-district combinations")
             
             # Select relevant columns based on district type

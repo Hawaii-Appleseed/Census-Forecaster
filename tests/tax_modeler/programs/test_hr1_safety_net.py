@@ -227,7 +227,9 @@ def test_fy2027_parameters_follow_the_cola_memo():
     # with no net income test; at $6,400 it does not.
     assert _compute_household_snap(6_000.0, 6_000.0, 4, p) >= 0
     assert _compute_household_snap(6_400.0, 6_400.0, 4, p) == 0
-    assert _compute_household_snap(2_000.0, 0.0, 1, p) == pytest.approx(max(0, 496 - 0.3 * (2_000 - 306)))
+    # The formula gives nothing at $2,000 a month, but an eligible household of one gets the $40 minimum.
+    assert _compute_household_snap(2_000.0, 0.0, 1, p) == 40.0
+    assert _compute_household_snap(5_000.0, 0.0, 3, p) == 0.0
 
 
 def _acs_world():

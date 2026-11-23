@@ -1,7 +1,10 @@
 program,year,unit,count,annual_dollars_millions,source
 snap,2022,household,95820,900.7,"USDA-FNS SNAP State Activity Report FY2022, Tables 28-29 (Hawaii avg monthly HHs + annual issuance; FY2022 figures elevated by COVID-19 emergency allotments active through March 2023)"
-snap,2023,household,85700,485.4,"HI DHS SNAP State Activity Reports, FY2023 average monthly + USDA-FNS Hawaii allotments"
-snap,2024,household,87100,506.2,"HI DHS SNAP State Activity Reports, FY2024 average monthly (provisional) + USDA-FNS Hawaii allotments"
+snap,2023,household,87471,890.8,"Hawaii DHS SNAP participation summary, state fiscal year 2023 (July 2022 to June 2023): average monthly households and benefits issued, https://humanservices.hawaii.gov/bessd/snap/; includes pandemic emergency allotments through February 2023"
+snap,2024,household,87296,753.1,"Hawaii DHS SNAP participation summary, state fiscal year 2024 (July 2023 to June 2024): average monthly households and benefits issued, https://humanservices.hawaii.gov/bessd/snap/"
+snap,2025,household,83041,694.9,"Hawaii DHS SNAP participation summary, state fiscal year 2025 (July 2024 to June 2025): average monthly households and benefits issued, https://humanservices.hawaii.gov/bessd/snap/"
+snap,2026,household,82162,650.6,"Hawaii DHS SNAP participation summary, state fiscal year 2026 (July 2025 to May 2026, June not yet posted): average monthly households and benefits issued, https://humanservices.hawaii.gov/bessd/snap/; $596.4M in 11 months, at an annual rate"
+snap,2027,household,77985,607.4,"Hawaii DHS SNAP participation summary, state fiscal year 2027 (July to September 2026): average monthly households and benefits issued, https://humanservices.hawaii.gov/bessd/snap/; issuance at an annual rate"
 ssi,2023,person,22300,225.1,"SSA Annual Statistical Supplement 2023, Table 7.A4 (SSI by State)"
 ssi,2024,person,22600,232.4,"SSA Annual Statistical Supplement 2024 provisional"
 ssi_hi_supplement,2023,person,22300,1.3,"Derived from SSI count × $5/month state supplement"

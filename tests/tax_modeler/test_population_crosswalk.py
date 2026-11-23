@@ -51,3 +51,33 @@ def test_apportion_rejects_unknown_pumas():
 def test_normalize_puma_accepts_the_survey_formats():
     assert normalize_puma(["00301", 302, "100", "99999"]).tolist()[:3] == [301, 302, 100]
     assert pd.isna(normalize_puma(["99999"]).iloc[0])
+
+
+def test_assign_geography_draws_every_district_by_population():
+    from tax_modeler.analysis.puma_crosswalk import assign_geography
+
+    rng = np.random.default_rng(0)
+    pumas = [100, 200, 301, 302, 303, 304, 305, 306, 307, 308]
+    df = pd.DataFrame({"SERIALNO": [f"h{i}" for i in range(40_000)],
+                       "PUMA": rng.choice(pumas, 40_000).astype(str)})
+    g = assign_geography(df)
+    assert g["house_district"].nunique() == 51 and g["senate_district"].nunique() == 25
+    assert (g["house_district"] > 0).all()
+    x = population_crosswalk()
+    # Within each PUMA, districts come up about as often as their share of its people.
+    for puma in (200, 307):
+        sub = g[g["PUMA"].astype(int) == puma]
+        want = x[x["PUMA"] == puma].groupby("house_district")["share_of_puma"].sum()
+        got = sub["house_district"].value_counts(normalize=True).reindex(want.index, fill_value=0)
+        assert (got - want).abs().max() < 0.03
+    # A household split to Kauaʻi gets a Kauaʻi district, and its members all get the same one.
+    kauai = set(x.loc[x["county"] == "Kauai", "house_district"])
+    assert g.loc[g["county"] == "Kauai", "house_district"].isin(kauai).all()
+    two = assign_geography(pd.DataFrame({"SERIALNO": ["same", "same"], "PUMA": ["00305", "305"]}))
+    assert two["house_district"].nunique() == 1
+
+
+def test_load_crosswalk_is_the_population_crosswalk():
+    from tax_modeler.analysis.puma_crosswalk import load_crosswalk
+
+    assert load_crosswalk()["house_district"].nunique() == 51

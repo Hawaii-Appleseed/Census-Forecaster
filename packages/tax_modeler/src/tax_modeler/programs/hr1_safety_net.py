@@ -14,7 +14,8 @@ Two populations, each read where it is recorded best:
 
 * **SNAP on the ACS population**, for poverty and geography: the QC file has no county and no household around
   the SNAP unit, so the SPM run in the analysis script needs SNAP on ACS households. :func:`acs_snap_baseline`
-  builds it (FY2027 Hawaiʻi rules, households that report SNAP, scaled to the DHS caseload and issuance),
+  builds it with the shared :func:`tax_modeler.benefits.snap.calibrate_snap_receipt` (FY2027 Hawaiʻi rules,
+  households that report SNAP, scaled to the DHS caseload and issuance),
   :func:`classify_acs_snap_adults` applies the same groups and statuses to ACS adults, and
   :func:`calibrate_to_qc` sets each adult's probability of losing SNAP so that, cell by cell, the ACS reproduces
   who the QC file says loses it.
@@ -222,12 +223,6 @@ def snap_state_share(payment_error_rate: float) -> float:
 # SNAP on the ACS population (poverty and geography)
 # --------------------------------------------------------------------------------------------------------------
 
-# Hawaiʻi FY2027 (October 2026 to September 2027), USDA FNS cost-of-living memo of August 21, 2026. Hawaiʻi uses
-# broad-based categorical eligibility: a gross limit of 200 percent of poverty and, since February 2025, no net
-# income test (Hawaiʻi DHS).
-HI_GROSS_LIMIT_200PCT_FY2027 = (3060, 4150, 5238, 6326, 7416, 8506, 9596, 10686)
-HI_GROSS_LIMIT_EXTRA_PERSON_FY2027 = 1090
-HI_STANDARD_DEDUCTION_FY2027 = {1: 306, 2: 306, 3: 306, 4: 306, 5: 309, 6: 354}
 # ACS codes: employed at work or with a job (ESR); enrolled in public or private school (SCH); served on active
 # duty in the past, not now (MIL).
 _ACS_EMPLOYED = (1, 2, 4, 5)
@@ -237,21 +232,10 @@ NEWLY_SUBJECT_GROUPS = ("age_55_64", "child_14_17", "removed_exception")
 
 
 def snap_parameters_fy2027():
-    """:class:`tax_modeler.benefits.snap.SnapParameters` for Hawaiʻi in FY2027 under categorical eligibility.
+    """Hawaiʻi's FY2027 SNAP rules (:func:`tax_modeler.benefits.snap.hawaii_snap_parameters`)."""
+    from tax_modeler.benefits.snap import hawaii_snap_parameters
 
-    The module has no shelter or dependent-care deduction, so its benefits run low for households with high
-    housing costs; :func:`acs_snap_baseline` scales the total to the issuance DHS reports.
-    """
-    from tax_modeler.benefits.snap import SnapParameters
-
-    return SnapParameters(
-        max_benefit_by_size=dict(enumerate(HI_MAX_ALLOTMENT[2027], start=1)),
-        max_benefit_increment_per_extra_person=HI_MAX_ALLOTMENT_EXTRA_PERSON[2027],
-        gross_income_limit_by_size=dict(enumerate(HI_GROSS_LIMIT_200PCT_FY2027, start=1)),
-        gross_income_increment_per_extra_person=HI_GROSS_LIMIT_EXTRA_PERSON_FY2027,
-        standard_deduction_by_size=dict(HI_STANDARD_DEDUCTION_FY2027),
-        net_income_limit_factor=1e6,          # no net income test
-    )
+    return hawaii_snap_parameters(2027)
 
 
 @dataclass(frozen=True)
@@ -259,20 +243,14 @@ class AcsSnapBaseline:
     """SNAP on ACS tax units (``units["snap_amount"]``, annual), and what it took to get there."""
 
     units: pd.DataFrame
-    # one row per household: hh_id, snap (monthly, before scaling), income, earned, WGTP, FS, n_persons, recipient
+    # one row per household: hh_id, snap (monthly, before scaling), income, earned, weight, reported, n_persons,
+    # recipient
     households: pd.DataFrame
     dollar_scale: float
-    reported: float               # weighted households that report SNAP (all kept)
-    reported_ineligible: float    # of which fail the FY2027 gross test on annual income (given the size average)
-    imputed: float                # eligible non-reporters drawn to reach the caseload
-    draw_rate: float              # the probability each eligible non-reporter was drawn with
-
-
-def _hash_uniform(keys: pd.Index, salt: str) -> np.ndarray:
-    """A uniform number per key, the same on every run (the same idea as assign_geography's district draw)."""
-    import hashlib
-
-    return np.array([int(hashlib.md5(f"{salt}_{k}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF for k in keys])
+    reported: float
+    reported_ineligible: float
+    imputed: float
+    draw_rate: float
 
 
 def acs_snap_baseline(
@@ -280,62 +258,26 @@ def acs_snap_baseline(
     target_households: float, target_dollars: float, fallback_benefit_by_size: Mapping[int, float],
     params=None,
 ) -> AcsSnapBaseline:
-    """SNAP on the ACS population: who gets it from the survey, how much from the rules, the level from DHS.
-
-    Every household that reports SNAP (``FS`` = 1) is a recipient. Its benefit is computed by
-    :func:`tax_modeler.benefits.snap.compute_snap_for_units` under :func:`snap_parameters_fy2027`; a reporting
-    household that fails the gross test on its annual survey income (income from members outside the SNAP unit,
-    or months before or after receiving it) gets ``fallback_benefit_by_size[min(n, 6)]`` a month instead. The
-    survey misses about a third of recipients, so eligible households that do not report SNAP are each drawn,
-    with one probability, until the weighted count (``WGTP``) reaches ``target_households``; the draw is a hash
-    of the household id, so it is the same on every run. Every benefit is then scaled by one factor so the
-    annual total equals ``target_dollars``. ``households`` needs ``SERIALNO``, ``WGTP`` and ``FS``; ``persons``
-    ``SERIALNO``.
-    """
-    from tax_modeler.benefits.snap import compute_snap_for_units
+    """SNAP on the ACS population under FY2027 rules: :func:`tax_modeler.benefits.snap.calibrate_snap_receipt`,
+    the same placement the poverty pipeline uses, with the household's ``FS`` and size read from ``households``
+    (``SERIALNO``, ``WGTP``, ``FS``) and ``persons`` (``SERIALNO``)."""
+    from tax_modeler.benefits.snap import calibrate_snap_receipt
 
     for col in ("SERIALNO", "WGTP", "FS"):
         if col not in households.columns:
             raise DataValidationError(f"households frame needs column {col!r}")
-    prm = params or snap_parameters_fy2027()
-    u = compute_snap_for_units(units, params=prm, months=1)
-    earned_col = "earned_income" if "earned_income" in u.columns else "income"
-    hh = u.assign(_earned=u[earned_col]).groupby(u["hh_id"].astype(str)).agg(
-        snap=("snap_amount", "sum"), income=("income", "sum"), earned=("_earned", "sum"))
-    h = households.assign(hh_id=households["SERIALNO"].astype(str)).set_index("hh_id")[["WGTP", "FS"]]
-    hh = hh.join(h, how="left")
-    sizes = persons.groupby(persons["SERIALNO"].astype(str)).size()
-    hh["n_persons"] = sizes.reindex(hh.index).fillna(0).astype(int)
-    eligible = hh["snap"] > 0
-    reports = hh["FS"] == 1
-    fallback = hh["n_persons"].clip(1, 6).map(lambda n: float(fallback_benefit_by_size[int(n)]))
-    formula = hh["snap"].copy()
-    hh.loc[reports & ~eligible, "snap"] = fallback[reports & ~eligible]
-    hh["recipient"] = reports.copy()
-    reported = float(hh.loc[reports, "WGTP"].sum())
-    pool = eligible & ~reports
-    pool_w = float(hh.loc[pool, "WGTP"].sum())
-    rate = min(1.0, max(0.0, (target_households - reported) / pool_w)) if pool_w > 0 else 0.0
-    drawn = pool & (_hash_uniform(hh.index, "snap_takeup") < rate)
-    hh.loc[drawn, "recipient"] = True
-    imputed = float(hh.loc[drawn, "WGTP"].sum())
-    monthly = float((hh["WGTP"] * hh["snap"] * hh["recipient"]).sum())
-    if monthly <= 0:
-        raise DataValidationError("no SNAP recipients on the ACS population")
-    scale = target_dollars / (12.0 * monthly)
-    # Spread each recipient household's benefit over its tax units by the module's member shares, or evenly
-    # where the formula gave the household nothing.
-    hid = u["hh_id"].astype(str)
-    unit_share = np.where(hid.map(formula).to_numpy() > 0,
-                          u["snap_amount"].to_numpy() / hid.map(formula).replace(0, np.nan).to_numpy(),
-                          1.0 / hid.map(hid.value_counts()).to_numpy())
-    unit_share = np.nan_to_num(unit_share)
-    keep = hid.map(hh["recipient"]).fillna(False).to_numpy(dtype=bool)
-    u["snap_amount"] = np.where(keep, hid.map(hh["snap"]).to_numpy() * unit_share * 12.0 * scale, 0.0)
-    return AcsSnapBaseline(
-        units=u, households=hh.rename_axis("hh_id").reset_index(), dollar_scale=scale, reported=reported,
-        reported_ineligible=float(hh.loc[reports & ~eligible, "WGTP"].sum()), imputed=imputed, draw_rate=rate,
+    h = households.drop_duplicates("SERIALNO").assign(SERIALNO=lambda d: d["SERIALNO"].astype(str)).set_index("SERIALNO")
+    hid = units["hh_id"].astype(str)
+    u = units.assign(
+        hh_snap_reported=hid.map(h["FS"]).eq(1).to_numpy(),
+        hh_weight=hid.map(h["WGTP"]).to_numpy(dtype=float),
+        hh_n_persons=hid.map(persons.groupby(persons["SERIALNO"].astype(str)).size()).fillna(1).to_numpy(),
     )
+    out, r = calibrate_snap_receipt(u, target_households=target_households, target_dollars=target_dollars,
+                                    params=params or snap_parameters_fy2027(),
+                                    fallback_benefit_by_size=fallback_benefit_by_size)
+    return AcsSnapBaseline(units=out, households=r.households, dollar_scale=r.dollar_scale, reported=r.reported,
+                           reported_ineligible=r.reported_ineligible, imputed=r.imputed, draw_rate=r.draw_rate)
 
 
 def classify_acs_snap_adults(persons: pd.DataFrame, recipient_households) -> pd.DataFrame:
