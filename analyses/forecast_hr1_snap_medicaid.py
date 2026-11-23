@@ -358,20 +358,12 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
                                  target_dollars=params.snap_annual_benefits_2027,
                                  fallback_benefit_by_size=snap["_qc_benefit_by_size"])
     u = _other_resources(base.units)
-    # The same population with the poverty pipeline's own SNAP (the published pages' baseline), for comparison.
-    import poverty_impact_report as pir
-    from tax_modeler.poverty.impact import compute_poverty_impact
-
-    pipe = aggregate_to_spm_units(_other_resources(pir._apply_snap(base.units.drop(columns="snap_amount"),
-                                                                   tax_year=BENEFIT_YEAR)), persons)
-    pipe_rate = float(compute_poverty_impact(pipe, tax_year=POVERTY_YEAR, scenarios=(),
-                                             extrapolate_thresholds=True).by_state.iloc[0]["poverty_rate_baseline"])
     hh = base.households
     rec = hh[hh["recipient"]]
     p_serial = persons["SERIALNO"].astype(str)
     in_rec = p_serial.isin(set(rec["hh_id"]))
     check = pd.DataFrame([
-        {"check": "SNAP households, weighted", "model": float(rec["WGTP"].sum()), "dhs": params.snap_households_2027},
+        {"check": "SNAP households, weighted", "model": float(rec["weight"].sum()), "dhs": params.snap_households_2027},
         {"check": "  report SNAP", "model": base.reported, "dhs": np.nan},
         {"check": "    of which fail the FY2027 gross test on annual income (given the QC average for their size)",
          "model": base.reported_ineligible, "dhs": np.nan},
@@ -380,12 +372,10 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
         {"check": "persons in SNAP households", "model": float(persons.loc[in_rec, "PWGTP"].sum()),
          "dhs": params.snap_persons_2027},
         {"check": "annual benefits, $",
-         "model": float((rec["WGTP"] * rec["snap"]).sum()) * 12 * base.dollar_scale,
+         "model": float((rec["weight"] * rec["snap"]).sum()) * 12 * base.dollar_scale,
          "dhs": params.snap_annual_benefits_2027},
         {"check": "dollar scale on the module's FY2027 benefits", "model": base.dollar_scale, "dhs": np.nan},
         {"check": "sample households receiving SNAP", "model": float(len(rec)), "dhs": np.nan},
-        {"check": "SPM poverty rate with the poverty pipeline's own SNAP (for comparison)", "model": pipe_rate,
-         "dhs": np.nan},
     ])
 
     adults = hr1.classify_acs_snap_adults(persons, rec["hh_id"])

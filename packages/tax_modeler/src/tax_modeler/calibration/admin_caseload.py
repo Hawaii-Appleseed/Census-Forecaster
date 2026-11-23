@@ -102,6 +102,14 @@ class AdminCaseload:
             )
         return self._index[key]
 
+    def latest(self, program: str, year: int) -> CaseloadTarget:
+        """The target for ``year``, else the latest year before it, else the earliest year on file."""
+        years = sorted(y for p, y in self._index if p == program)
+        if not years:
+            raise ConfigError(f"No admin caseload target for program={program!r}", available=sorted(self._index))
+        before = [y for y in years if y <= int(year)]
+        return self._index[(program, before[-1] if before else years[0])]
+
     def programs(self) -> Iterator[CaseloadTarget]:
         yield from self._index.values()
 

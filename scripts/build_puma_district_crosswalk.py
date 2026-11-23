@@ -10,9 +10,9 @@ states that redrew), with its 2020 census population and its share of the PUMA's
 * block → PUMA: the 2020 census tract to 2020 PUMA relationship file (blocks nest in tracts, tracts in PUMAs);
 * county from the block's code, Kalawao (a few dozen people) counted with Maui as the ACS does.
 
-``tax_modeler.analysis.puma_crosswalk.population_crosswalk`` reads the output. Unlike the older
-``hawaii_puma_districts_official_2022.csv`` (35 House and 18 Senate districts, each PUMA split evenly among them)
-it has every district and weights each by where people live.
+``tax_modeler.analysis.puma_crosswalk.population_crosswalk`` reads the output, and ``assign_geography`` draws
+districts from it. It replaced ``hawaii_puma_districts_official_2022.csv`` (35 House and 18 Senate districts,
+each PUMA split evenly among them) in November 2026.
 
     .venv/bin/python scripts/build_puma_district_crosswalk.py                  # downloads about 60 MB
     .venv/bin/python scripts/build_puma_district_crosswalk.py --cache-dir DIR  # keeps the downloads in DIR

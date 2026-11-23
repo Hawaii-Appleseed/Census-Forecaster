@@ -879,15 +879,17 @@ def poverty(u: pd.DataFrame, persons: pd.DataFrame, draws=None) -> pd.DataFrame:
     # federal income tax uses TY2028 brackets and standard deductions, and the
     # SPM threshold the last tabled year indexed to TY2028, both by the CPI
     # assumption the federal credits use past their last Rev. Proc.
-    # Benefits stay on the package's latest tables (TY2025, where school lunch
-    # stops; SNAP's FY2024 USDA tables), applied to TY2028 incomes. Benefits
+    # SNAP is placed for TY2028 (Hawaiʻi's latest tabled rules, FY2027, and the
+    # latest DHS caseload and issuance on file: poverty_impact_report._apply_snap).
+    # The other benefits stay on the package's latest tables (TY2025, where school
+    # lunch stops), applied to TY2028 incomes. Benefits
     # are identical in the renewed and expired cases, but they still move who
     # sits near the line and so how many people cross it. The MOOP,
     # childcare-expense and work-expense subtractions are CPS ASEC donor cell
     # means, not indexed to TY2028 either (they rank on base-year income).
     benefit_year = min(yr, 2025)
     u = pir._apply_arpa_ctc(u)
-    u = pir._apply_snap(u, tax_year=benefit_year)
+    u = pir._apply_snap(u, tax_year=yr)
     u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
     u = compute_moop_for_units(u)
     u = pir._apply_housing_subsidy(u, tax_year=benefit_year)

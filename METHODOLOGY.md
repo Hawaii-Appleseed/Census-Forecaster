@@ -1452,10 +1452,27 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   underlying take-up rate stays at the 0.30 placeholder pending a
   DOTAX caseload pull (documented TODO in `credits/hi_renters.py`).
 * **District-level uncertainty** — within-PUMA HD/SD assignment
-  is a deterministic SERIALNO hash. The `--rake-to-irs-zip`
-  flag is wired but the supporting IRS SOI ZIP + crosswalk data
-  is not bundled, so district point estimates carry roughly
-  ±20% uncertainty that the SDR SE alone does not capture.
+  is a deterministic SERIALNO hash, drawing each of the PUMA's
+  districts in proportion to its 2020 census population
+  (`puma_crosswalk.population_crosswalk`, all 51 House and 25
+  Senate districts; before November 2026 the draw used a crosswalk
+  with 35 and 18, equally weighted). The ACS has no sample below
+  the PUMA, so a district figure is its PUMAs' average; for
+  district totals that do not ride on one draw per household, use
+  `puma_crosswalk.apportion`. The `--rake-to-irs-zip` flag is
+  wired but the supporting IRS SOI ZIP + crosswalk data is not
+  bundled, so district point estimates carry roughly ±20%
+  uncertainty that the SDR SE alone does not capture.
+* **SNAP** — `_apply_snap` places SNAP with
+  `benefits.snap.calibrate_snap_receipt`: every household that
+  answers yes to the ACS SNAP question, eligible non-reporters drawn
+  (a hash of the household id) to the DHS caseload, Hawaiʻi's USDA
+  rules for the year (FY2024 to FY2027 tables, categorical
+  eligibility's 200%-of-poverty gross limit), and the total scaled
+  to DHS issuance (`admin_caseload/hawaii_caseload.csv`, state fiscal
+  years). Until November 2026 it ranked eligible tax units by income
+  against a household count and used tables that were not Hawaiʻi's,
+  giving about $355M a year against DHS's $607M.
 * **SPM threshold MRI / tenure factors** — fixed constants per
   Renwick (2015) / Burns-Fox (2021); not swept.
 

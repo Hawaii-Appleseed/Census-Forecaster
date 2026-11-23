@@ -58,7 +58,7 @@
 - `METHODOLOGY.md` — math and parameter discipline.
 - `SB3125_CD1_FORECAST.md` — Act 24 (SB 3125 CD1/CD2) methodology, scenarios, results.
 - `RETITC_REPORT_METHODOLOGY.md` — REEC/RETITC credit pipeline walkthrough.
-- `HR1_SNAP_MEDICAID_METHODOLOGY.md` — H.R.1 SNAP/Medicaid work-rule estimate and its site page (`site/hr1-snap-medicaid/`). Not on the chain: `publish.py` does not rerun it; its "Refreshing" section lists which inputs change when and the two commands. Its population-weighted district crosswalk (`puma_crosswalk.population_crosswalk`) covers all 51 House and 25 Senate districts; `assign_geography`'s older one does not (noted there).
+- `HR1_SNAP_MEDICAID_METHODOLOGY.md` — H.R.1 SNAP/Medicaid work-rule estimate and its site page (`site/hr1-snap-medicaid/`). Not on the chain: `publish.py` does not rerun it; its "Refreshing" section lists which inputs change when and the two commands. SNAP on the population for every poverty run is `benefits.snap.calibrate_snap_receipt` (reported households, draws to the DHS caseload, DHS issuance); districts come from the population-weighted `puma_crosswalk.population_crosswalk` (all 51 House and 25 Senate).
 - `docs/archive/` — finished scoping docs, audits and reviews (e.g. `CBO_COMPONENT_AGING_SCOPE.md`: shipped, `--cbo-aging` is on by default); `docs/archive/README.md` says what each was and when it was superseded.
 
 ## Companion docs (in vault)

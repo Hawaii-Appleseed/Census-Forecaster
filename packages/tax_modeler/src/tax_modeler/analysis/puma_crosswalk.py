@@ -13,9 +13,14 @@ Hawaii PUMS 2020-geography has 10 PUMAs covering the whole state:
   0307  Central Oahu
   0308  Ewa (Oahu)
 
-Each PUMA spans multiple legislative districts; district assignment uses a
-deterministic hash of the row's SERIALNO (or index) to draw reproducibly from
-the set of valid (house_district, senate_district) pairs for that PUMA.
+Each PUMA spans several legislative districts. District assignment draws one
+(house_district, senate_district) piece of the row's PUMA, within its county for
+the split PUMA 100, with probability equal to the piece's share of the PUMA's
+2020 census population (:func:`population_crosswalk`, all 51 House and 25 Senate
+districts of the 2022 plan). The draw is a deterministic hash of the row's
+SERIALNO (or index), so a household's members land together and every run agrees.
+For district totals that do not depend on one draw per household, apportion PUMA
+totals instead (:func:`apportion`).
 
 Public API
 ----------
@@ -23,7 +28,10 @@ assign_geography(df, split_puma_0100=True, add_districts=True) → df
     Adds ``county``, ``house_district``, ``senate_district`` columns.
 
 load_crosswalk() → pd.DataFrame
-    Returns the raw PUMA-to-district table bundled with the package.
+    The PUMA-to-district pieces with their populations (:func:`population_crosswalk`).
+
+apportion(by_puma, level) → pd.DataFrame
+    PUMA totals spread over counties or districts by population.
 """
 from __future__ import annotations
 
@@ -70,34 +78,28 @@ def _normalize_puma(val) -> int | None:
 # Bundled crosswalk loader
 # ---------------------------------------------------------------------------
 
-@lru_cache(maxsize=1)
 def load_crosswalk() -> pd.DataFrame:
-    """Load the bundled PUMA-to-district crosswalk table.
-
-    Returns a DataFrame with columns ``PUMA`` (int), ``house_district`` (int),
-    ``senate_district`` (int), and ``county`` (str).
-    """
-    from importlib.resources import files
-
-    data_path = files("tax_modeler") / "data" / "crosswalks" / "hawaii_puma_districts_official_2022.csv"
-    df = pd.read_csv(str(data_path))
-    df["PUMA"] = df["PUMA"].astype(int)
-    df["house_district"] = df["house_district"].astype(int)
-    df["senate_district"] = df["senate_district"].astype(int)
-    return df
+    """The PUMA-to-district crosswalk: columns ``PUMA``, ``county``, ``house_district``, ``senate_district`` (ints
+    for the codes), ``population`` and ``share_of_puma``. Until November 2026 this read
+    ``hawaii_puma_districts_official_2022.csv``, which listed 35 House and 18 Senate districts and no populations;
+    it is now :func:`population_crosswalk`."""
+    return population_crosswalk().copy()
 
 
-@lru_cache(maxsize=1)
-def _puma_district_options() -> dict[int, list[tuple[int, int]]]:
-    """Return dict mapping PUMA → sorted list of (house_district, senate_district) pairs."""
-    xwalk = load_crosswalk()
-    result: dict[int, list[tuple[int, int]]] = {}
-    for puma, grp in xwalk.groupby("PUMA"):
-        pairs = sorted(
-            set(zip(grp["house_district"], grp["senate_district"], strict=False))
-        )
-        result[int(puma)] = pairs
-    return result
+@cache
+def _district_pieces(puma: int, county: str | None) -> tuple[tuple[tuple[int, int], ...], tuple[float, ...]]:
+    """The (house_district, senate_district) pieces of ``puma`` (within ``county`` when given and present) and their
+    cumulative population shares, ending at 1."""
+    x = population_crosswalk()
+    x = x[x["PUMA"] == puma]
+    if county is not None and (x["county"] == county).any():
+        x = x[x["county"] == county]
+    g = x.groupby(["house_district", "senate_district"], sort=True)["population"].sum()
+    if g.empty or g.sum() <= 0:
+        return (), ()
+    cum = (g.cumsum() / g.sum()).to_numpy().copy()
+    cum[-1] = 1.0
+    return tuple((int(h), int(d)) for h, d in g.index), tuple(float(c) for c in cum)
 
 
 # ---------------------------------------------------------------------------
@@ -105,18 +107,21 @@ def _puma_district_options() -> dict[int, list[tuple[int, int]]]:
 # ---------------------------------------------------------------------------
 
 @cache
-def _pick_district(puma: int, row_key: str) -> tuple[int, int]:
+def _pick_district(puma: int, row_key: str, county: str | None = None) -> tuple[int, int]:
     """Return a reproducible (house_district, senate_district) pair for a row.
 
-    Uses MD5 of ``"puma_{puma}_{row_key}"`` to index into the sorted list of
-    valid pairs for that PUMA, giving stable assignments across runs. Cached:
-    every projection assigns the same units again.
+    MD5 of ``"puma_{puma}_{row_key}"`` gives a number in [0, 1); the pair is the piece of the PUMA (within
+    ``county`` for PUMA 100) whose cumulative population share first exceeds it, so each district is drawn in
+    proportion to its share of the PUMA's people. Cached: every projection assigns the same units again.
     """
-    options = _puma_district_options().get(puma, [])
-    if not options:
+    pairs, cum = _district_pieces(puma, county)
+    if not pairs:
         return (0, 0)
-    seed = int(hashlib.md5(f"puma_{puma}_{row_key}".encode()).hexdigest()[:8], 16)
-    return options[seed % len(options)]
+    u = int(hashlib.md5(f"puma_{puma}_{row_key}".encode()).hexdigest()[:8], 16) / 0x100000000
+    for pair, c in zip(pairs, cum, strict=True):
+        if u < c:
+            return pair
+    return pairs[-1]
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +225,9 @@ def assign_geography(
                 continue
             idx = df.index[mask]
             keys = row_keys.loc[idx]
-            pairs = [_pick_district(code, k) for k in keys]
+            # PUMA 100 spans Maui and Kauaʻi: draw within the county already assigned.
+            counties = df.loc[idx, "county"] if code == 100 else pd.Series(None, index=idx, dtype=object)
+            pairs = [_pick_district(code, k, None if pd.isna(c) else str(c)) for k, c in zip(keys, counties, strict=True)]
             df.loc[idx, "house_district"] = [p[0] for p in pairs]
             df.loc[idx, "senate_district"] = [p[1] for p in pairs]
 
@@ -236,9 +243,8 @@ def population_crosswalk() -> pd.DataFrame:
     """Pieces of each 2020 PUMA by county, House and Senate district (2022 plan), with 2020 census population.
 
     Columns ``PUMA``, ``county``, ``house_district``, ``senate_district``, ``population``, ``share_of_puma``. Built
-    from census blocks by ``scripts/build_puma_district_crosswalk.py``. Unlike :func:`load_crosswalk`, which lists
-    35 House and 18 Senate districts and which :func:`assign_geography` draws from evenly, it covers every
-    district and weights each by its population.
+    from census blocks by ``scripts/build_puma_district_crosswalk.py``; every district, each weighted by its
+    population. :func:`assign_geography` draws from it.
     """
     from importlib.resources import files
 
