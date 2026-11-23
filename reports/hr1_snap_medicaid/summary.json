@@ -1,0 +1,67 @@
+{
+  "snap_base": {
+    "units": 83108.756874834,
+    "members": 152268.5326182,
+    "annual_benefits_fy2024": 695148287.1747198,
+    "sample_units": 571.0,
+    "refugee_asylee_members": 0.0,
+    "refugee_asylee_sample": 0.0
+  },
+  "parameters": {
+    "snap_annual_benefits_2027": 607400000.0,
+    "snap_admin_cost_shift": 14800000.0,
+    "snap_error_rate_fy2025": 10.92,
+    "medicaid_expansion_adults": 129577,
+    "medicaid_parent_caretakers": 50006,
+    "medicaid_cost_per_expansion_adult": 4853.1,
+    "medicaid_expansion_federal_share": 0.9
+  },
+  "snap_rates": {
+    "LOW": {
+      "name": "LOW",
+      "at_risk": 0.5,
+      "meets": 0.0,
+      "exempt": 0.0,
+      "six_month_renewal": 0.0
+    },
+    "MID": {
+      "name": "MID",
+      "at_risk": 0.7,
+      "meets": 0.05,
+      "exempt": 0.02,
+      "six_month_renewal": 0.0
+    },
+    "HIGH": {
+      "name": "HIGH",
+      "at_risk": 0.9,
+      "meets": 0.1,
+      "exempt": 0.05,
+      "six_month_renewal": 0.0
+    }
+  },
+  "medicaid_rates": {
+    "LOW": {
+      "name": "LOW",
+      "at_risk": 0.6,
+      "meets": 0.02,
+      "exempt": 0.02,
+      "six_month_renewal": 0.03
+    },
+    "MID": {
+      "name": "MID",
+      "at_risk": 0.8,
+      "meets": 0.09,
+      "exempt": 0.09,
+      "six_month_renewal": 0.05
+    },
+    "HIGH": {
+      "name": "HIGH",
+      "at_risk": 0.95,
+      "meets": 0.15,
+      "exempt": 0.15,
+      "six_month_renewal": 0.08
+    }
+  },
+  "bootstrap_draws": 2000,
+  "seed": 20261122
+}

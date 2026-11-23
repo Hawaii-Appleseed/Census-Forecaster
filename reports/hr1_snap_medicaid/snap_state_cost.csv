@@ -1,0 +1,7 @@
+item,annual_state_cost_usd
+benefit share at a 0% rate (error rate under 6%),0
+benefit share at a 5% rate (error rate 6% to under 8%),3.037e+07
+benefit share at a 10% rate (error rate 8% to under 10%),6.074e+07
+benefit share at a 15% rate (error rate 10% or more),9.111e+07
+benefit share on the FY2025 error rate (10.92%): 15%,9.111e+07
+administrative cost share rising from 50% to 75% (DHS estimate),1.48e+07
