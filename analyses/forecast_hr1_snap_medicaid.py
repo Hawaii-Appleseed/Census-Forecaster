@@ -266,23 +266,38 @@ def run_medicaid(params, pums_dir: Path, label: str, *, geography: bool) -> dict
     out = {"medicaid_groups": groups.assign(pums=label, acs_to_med_quest_scale=scale),
            "medicaid_adults": table, "medicaid_losses": pd.DataFrame(rows)}
     if geography:
-        from tax_modeler.analysis.puma_crosswalk import assign_geography
+        from tax_modeler.analysis.puma_crosswalk import normalize_puma
 
-        geo = assign_geography(exp[["SERIALNO", "PUMA"]].assign(SERIALNO=exp["SERIALNO"].astype(str)))
-        geo_rows = []
-        for col, kind in GEOGRAPHIES:
-            keys = geo[col].to_numpy()
-            for key in pd.unique(keys):
-                m = keys == key
-                for scen in SCENARIOS:
-                    each = per_person[scen][m]
-                    val = float((w[m] * each).sum())
-                    se = float(_sdr_se(np.array(val), rep_w[:, m] @ each)) if reps else float("nan")
-                    geo_rows.append({"geography_type": kind, "geography": key, "scenario": scen,
-                                     "medicaid_expansion_adults": float(w[m].sum()),
-                                     "medicaid_lose_coverage": val, "medicaid_lose_coverage_se": se,
-                                     "medicaid_sample": int(m.sum())})
-        out["_medicaid_geo"] = pd.DataFrame(geo_rows)
+        cols = {"medicaid_expansion_adults": w}
+        rep_cols = {}
+        for scen in SCENARIOS:
+            cols[f"medicaid_lose_coverage_{scen}"] = w * per_person[scen]
+            if reps:
+                rep_cols[f"medicaid_lose_coverage_{scen}"] = rep_w * per_person[scen]
+        out["_geo"] = geo_frames(normalize_puma(exp["PUMA"].to_numpy()).to_numpy(), cols, rep_cols)
+    return out
+
+
+def geo_frames(puma: np.ndarray, cols: dict[str, np.ndarray], reps: dict[str, np.ndarray] | None = None
+               ) -> dict[str, pd.DataFrame]:
+    """Sums of weighted per-record values by county, House and Senate district.
+
+    The ACS identifies nothing below the PUMA, so each record is spread over the areas its PUMA touches in
+    proportion to their 2020 population (:func:`tax_modeler.analysis.puma_crosswalk.apportion`). ``reps``: the
+    same values under each of the 80 replicate weights, shape (80, n), for standard errors.
+    """
+    from tax_modeler.analysis.puma_crosswalk import apportionment_matrix
+
+    codes = np.array(sorted(pd.unique(puma[~pd.isna(puma)])))
+    ind = (puma[:, None] == codes[None, :]).astype(float)
+    out = {}
+    for level, _ in GEOGRAPHIES:
+        a = apportionment_matrix(level).loc[codes]
+        share = ind @ a.to_numpy()                     # n × areas
+        df = pd.DataFrame({k: v @ share for k, v in cols.items()}, index=a.columns)
+        for k, r in (reps or {}).items():
+            df[f"{k}_se"] = _sdr_se(df[k].to_numpy(), r @ share)
+        out[level] = df
     return out
 
 
@@ -454,40 +469,56 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
         })
     poverty = pd.DataFrame(rows)
 
-    geo_rows = []
-    by = {"county": res.by_county, "house_district": res.by_house_district, "senate_district": res.by_senate_district}
-    for col, kind in GEOGRAPHIES:
-        g = by[col].set_index(col)
-        for case in SCENARIOS:
-            scn = _scn(case)
-            sub = adults.assign(n=w * adults[f"p_{case}"], d=w * adults[f"p_{case}"] * adults[f"loss_{case}"])
-            snap_geo = sub.groupby(col).agg(snap_adults_losing=("n", "sum"), snap_benefits_lost_usd=("d", "sum"),
-                                            snap_sample=("n", lambda x: int((x > 0).sum())))
-            for key in g.index:
-                geo_rows.append({
-                    "geography_type": kind, "geography": key, "scenario": case,
-                    "snap_adults_losing": float(snap_geo["snap_adults_losing"].get(key, 0.0)),
-                    "snap_benefits_lost_usd": float(snap_geo["snap_benefits_lost_usd"].get(key, 0.0)),
-                    "snap_sample": int(snap_geo["snap_sample"].get(key, 0)),
-                    "poverty_rate_baseline": float(g.loc[key, "poverty_rate_baseline"]),
-                    "persons_into_poverty": float(g.loc[key, f"persons_lifted_{scn}"]),
-                    "persons_into_poverty_se": float(g.loc[key].get(f"persons_lifted_{scn}_se", np.nan)),
-                })
+    # Geography: SNAP losers by their household's PUMA, poverty by the SPM unit's, apportioned by population.
+    from tax_modeler.analysis.puma_crosswalk import normalize_puma
+
+    puma_of = u.assign(hh=u["hh_id"].astype(str)).drop_duplicates("hh").set_index("hh")["PUMA"]
+    a_puma = normalize_puma(adults["SERIALNO"].astype(str).map(puma_of).to_numpy()).to_numpy()
+    snap_cols = {}
+    for case in SCENARIOS:
+        snap_cols[f"snap_adults_losing_{case}"] = w * adults[f"p_{case}"].to_numpy()
+        snap_cols[f"snap_benefits_lost_usd_{case}"] = snap_cols[f"snap_adults_losing_{case}"] * adults[f"loss_{case}"].to_numpy()
+    geo = geo_frames(a_puma, snap_cols)
+    f_puma = normalize_puma(f["spm_unit_id"].astype(str).str.split("_").str[0].map(puma_of).to_numpy()).to_numpy()
+    npers = f["n_persons"].fillna(0).to_numpy(dtype=float)
+    pw = wt * npers
+    pov_cols = {"persons": pw, "persons_poor_baseline": pw * p_old}
+    pov_reps = {}
+    rep_pw = np.stack([f[c].to_numpy(dtype=float) * npers for c in rep_cols]) if rep_cols else None
+    for case in SCENARIOS:
+        newly = f[f"poor_prob_{_scn(case)}"].to_numpy(dtype=float) - p_old
+        pov_cols[f"persons_into_poverty_{case}"] = pw * newly
+        if rep_pw is not None:
+            pov_reps[f"persons_into_poverty_{case}"] = rep_pw * newly
+    pov_geo = geo_frames(f_puma, pov_cols, pov_reps)
+    for level, _ in GEOGRAPHIES:
+        g = pov_geo[level]
+        g["poverty_rate_baseline"] = g["persons_poor_baseline"] / g["persons"]
+        geo[level] = geo[level].join(g.drop(columns=["persons_poor_baseline"]), how="outer")
     return {"poverty": poverty, "snap_baseline_check": check,
-            "snap_calibration": pd.concat(cal_frames, ignore_index=True), "_snap_geo": pd.DataFrame(geo_rows)}
+            "snap_calibration": pd.concat(cal_frames, ignore_index=True), "_geo": geo}
 
 
-def merge_geography(med_geo: pd.DataFrame, snap_geo: pd.DataFrame | None) -> pd.DataFrame:
-    keys = ["geography_type", "geography", "scenario"]
-    med = med_geo.assign(geography=med_geo["geography"].astype(str))
-    if snap_geo is None:
-        return med
-    out = med.merge(snap_geo.assign(geography=snap_geo["geography"].astype(str)), on=keys, how="outer")
-    order = {k: i for i, (_, k) in enumerate(GEOGRAPHIES)}
-    out["_o"] = out["geography_type"].map(order)
-    out["_n"] = pd.to_numeric(out["geography"], errors="coerce")
-    out["_s"] = out["scenario"].map({c: i for i, c in enumerate(SCENARIOS)})
-    return out.sort_values(["_o", "_n", "geography", "_s"]).drop(columns=["_o", "_n", "_s"]).reset_index(drop=True)
+def merge_geography(med_geo: dict[str, pd.DataFrame], pov_geo: dict[str, pd.DataFrame] | None) -> pd.DataFrame:
+    """One row per area and case: Medicaid, SNAP and poverty figures side by side (``by_geography.csv``)."""
+    rows = []
+    for level, kind in GEOGRAPHIES:
+        g = med_geo[level] if pov_geo is None else med_geo[level].join(pov_geo[level], how="outer")
+        for key, r in g.iterrows():
+            for case in SCENARIOS:
+                row = {"geography_type": kind, "geography": key, "scenario": case,
+                       "medicaid_expansion_adults": r["medicaid_expansion_adults"],
+                       "medicaid_lose_coverage": r[f"medicaid_lose_coverage_{case}"],
+                       "medicaid_lose_coverage_se": r.get(f"medicaid_lose_coverage_{case}_se", np.nan)}
+                if pov_geo is not None:
+                    row.update({
+                        "snap_adults_losing": r[f"snap_adults_losing_{case}"],
+                        "snap_benefits_lost_usd": r[f"snap_benefits_lost_usd_{case}"],
+                        "persons": r["persons"], "poverty_rate_baseline": r["poverty_rate_baseline"],
+                        "persons_into_poverty": r[f"persons_into_poverty_{case}"],
+                        "persons_into_poverty_se": r.get(f"persons_into_poverty_{case}_se", np.nan)})
+                rows.append(row)
+    return pd.DataFrame(rows)
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -558,9 +589,9 @@ def main(argv: list[str] | None = None) -> None:
     runs = [run_medicaid(params, args.pums_data_dir, args.pums_data_dir.name, geography=True)]
     if args.pums_check_dir.exists():
         runs.append(run_medicaid(params, args.pums_check_dir, args.pums_check_dir.name, geography=False))
-    med = {k: pd.concat([r[k] for r in runs if k in r], ignore_index=True) for k in runs[0]}
+    med = {k: pd.concat([r[k] for r in runs if k in r], ignore_index=True) for k in runs[0] if k != "_geo"}
     pov = None if args.skip_poverty else run_poverty(params, snap, args.pums_data_dir)
-    geography = merge_geography(med["_medicaid_geo"], None if pov is None else pov["_snap_geo"])
+    geography = merge_geography(runs[0]["_geo"], None if pov is None else pov.pop("_geo"))
 
     args.out.mkdir(parents=True, exist_ok=True)
     frames = {**snap, **med, **(pov or {}), "by_geography": geography}

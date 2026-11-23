@@ -225,3 +225,51 @@ def assign_geography(
             df.loc[idx, "senate_district"] = [p[1] for p in pairs]
 
     return df
+
+
+# ---------------------------------------------------------------------------
+# Population-weighted apportionment (all 51 House and 25 Senate districts)
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def population_crosswalk() -> pd.DataFrame:
+    """Pieces of each 2020 PUMA by county, House and Senate district (2022 plan), with 2020 census population.
+
+    Columns ``PUMA``, ``county``, ``house_district``, ``senate_district``, ``population``, ``share_of_puma``. Built
+    from census blocks by ``scripts/build_puma_district_crosswalk.py``. Unlike :func:`load_crosswalk`, which lists
+    35 House and 18 Senate districts and which :func:`assign_geography` draws from evenly, it covers every
+    district and weights each by its population.
+    """
+    from importlib.resources import files
+
+    path = files("tax_modeler") / "data" / "crosswalks" / "hawaii_puma_district_population_2022.csv"
+    return pd.read_csv(str(path))
+
+
+def apportionment_matrix(level: str) -> pd.DataFrame:
+    """PUMA × geography shares: row ``p`` says how PUMA ``p``'s population divides among the ``level`` areas
+    (``"county"``, ``"house_district"`` or ``"senate_district"``). Rows sum to 1."""
+    x = population_crosswalk()
+    if level not in ("county", "house_district", "senate_district"):
+        raise ValueError(f"unknown level {level!r}")
+    return x.pivot_table(index="PUMA", columns=level, values="share_of_puma", aggfunc="sum", fill_value=0.0)
+
+
+def apportion(by_puma: pd.DataFrame, level: str) -> pd.DataFrame:
+    """Spread PUMA totals (rows indexed by PUMA code, any number of columns) over ``level`` areas by population.
+
+    An area's figure is the sum over the PUMAs it touches of the PUMA's total times the PUMA's share of
+    population in the area: the ACS has no sample of its own below the PUMA, so each part of a PUMA is given the
+    PUMA's average. Totals are kept. Replicate totals apportioned the same way give the areas' sampling errors.
+    """
+    a = apportionment_matrix(level)
+    missing = set(by_puma.index) - set(a.index)
+    if missing:
+        raise ValueError(f"PUMAs not in the crosswalk: {sorted(missing)}")
+    a = a.loc[by_puma.index]
+    return pd.DataFrame(a.to_numpy().T @ by_puma.to_numpy(dtype=float), index=a.columns, columns=by_puma.columns)
+
+
+def normalize_puma(values) -> pd.Series:
+    """PUMA codes as the crosswalk's ints (``"00301"``, ``301`` and ``"301"`` alike); unknown codes are NaN."""
+    return pd.Series(values).map(_normalize_puma)
