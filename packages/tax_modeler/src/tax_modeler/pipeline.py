@@ -319,6 +319,23 @@ def attach_secondary_hours(df: pd.DataFrame, person_df: pd.DataFrame) -> pd.Data
     return out
 
 
+def attach_tenure(units: pd.DataFrame, households: pd.DataFrame, *, key: str = "SERIALNO") -> pd.DataFrame:
+    """``units`` with ``tenure``, the household's SPM tenure from PUMS ``TEN``.
+
+    ``key`` is the units' household id column (the SERIALNO). Households that
+    pay no rent (TEN 4) take the owner-without-mortgage threshold, as Census
+    assigns them (``poverty.thresholds.TEN_TO_TENURE``); a unit whose household
+    has no TEN is a renter.
+    """
+    from tax_modeler.poverty.thresholds import TEN_TO_TENURE
+
+    hh = households.drop_duplicates("SERIALNO")
+    ten = hh.set_index(hh["SERIALNO"].astype(str))["TEN"].map(TEN_TO_TENURE)
+    out = units.copy()
+    out["tenure"] = out[key].astype(str).map(ten).fillna("renter").to_numpy()
+    return out
+
+
 def enrich_for_benefits(
     df: pd.DataFrame,
     person_df: pd.DataFrame | None = None,
@@ -341,7 +358,7 @@ def enrich_for_benefits(
       * ``secondary_hours_worked``    WKHP for spouse on MFJ returns
       * ``n_non_citizens``            CIT==5 count
       * ``tenure``                    "renter" / "owner_with_mortgage" /
-                                      "owner_no_mortgage" derived from TEN
+                                      "owner_no_mortgage" from TEN (:func:`attach_tenure`)
       * ``hh_received_snap``          HH-level FS column (when available)
 
     Idempotent — existing columns are skipped. When ``person_df`` /
@@ -351,10 +368,7 @@ def enrich_for_benefits(
     out = df.copy()
 
     if hh_df is not None and "tenure" not in out.columns and "TEN" in hh_df.columns:
-        # PUMS TEN: 1=owner-mortgage, 2=owner-free, 3=renter, 4=no-rent
-        ten_map = {1: "owner_with_mortgage", 2: "owner_no_mortgage", 3: "renter", 4: "renter"}
-        hh_tenure = hh_df.set_index(hh_df["SERIALNO"].astype(str))["TEN"].map(ten_map)
-        out["tenure"] = out["SERIALNO"].astype(str).map(hh_tenure).fillna("renter")
+        out = attach_tenure(out, hh_df)
         if "FS" in hh_df.columns:
             hh_fs = hh_df.set_index(hh_df["SERIALNO"].astype(str))["FS"]
             out["hh_received_snap"] = out["SERIALNO"].astype(str).map(hh_fs == 1).fillna(False)

@@ -87,15 +87,15 @@ GROUPS: tuple[tuple[str, str], ...] = (
 )
 
 
-def eligible_counts(frame: pd.DataFrame, persons: pd.DataFrame, renter_households: set[str]) -> dict[str, np.ndarray]:
+def eligible_counts(frame: pd.DataFrame, persons: pd.DataFrame) -> dict[str, np.ndarray]:
     """Eligible persons per SPM unit for each of :data:`GROUPS`, in ``frame``'s row order.
 
-    ``renter_households`` holds the SERIALNO of every renting household (:func:`renter_households`).
+    Renters are units whose household pays rent (``tenure``; households that pay none count as owners
+    without a mortgage, as the SPM line treats them).
     """
     pers = persons.loc[persons["spm_unit_id"].notna()]
     age = pers["AGEP"]
-    serial = pers.groupby("spm_unit_id")["SERIALNO"].first().astype(str)
-    renter = frame["spm_unit_id"].map(serial).isin(renter_households).to_numpy()
+    renter = (frame["tenure"] == "renter").to_numpy()
 
     def count(mask: pd.Series) -> np.ndarray:
         per_unit = mask.groupby(pers["spm_unit_id"]).sum()
@@ -116,18 +116,6 @@ def eligible_counts(frame: pd.DataFrame, persons: pd.DataFrame, renter_household
         "snap": np.where(frame["snap_amount"].fillna(0).to_numpy(dtype=float) > 0, n, 0.0),
         "eitc": np.where(frame["eitc_amount"].fillna(0).to_numpy(dtype=float) > 0, n, 0.0),
     }
-
-
-def renter_households(pums_dir: Path) -> set[str]:
-    """SERIALNO of the households that rent (PUMS TEN 3, rented; 4, occupied without payment of rent).
-
-    Tenure picks the renter group only. The SPM line stays the population's own: the step's units
-    carry no tenure, so every unit is held to the renter threshold, here as in its published figures.
-    """
-    parquet = pums_dir / "psam_h15.parquet"
-    hh = (pd.read_parquet(parquet, columns=["SERIALNO", "TEN"]) if parquet.exists() else
-          pd.read_csv(pums_dir / "psam_h15.csv", usecols=["SERIALNO", "TEN"], dtype={"SERIALNO": str}))
-    return set(hh.loc[hh["TEN"].isin([3, 4]), "SERIALNO"].astype(str))
 
 
 def _sdr(theta: np.ndarray) -> float:
@@ -303,7 +291,7 @@ def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, d
         children=f["n_children"].fillna(0).to_numpy(dtype=float),
         resources=current_law,
         threshold=f["spm_threshold"].to_numpy(dtype=float),
-        eligible=eligible_counts(f, persons, renter_households(pums_dir)),
+        eligible=eligible_counts(f, persons),
     )
     params = {"pums": pums, "tax_year": wfc.POVERTY_YEAR, "baseline": "current law, Act 163 expansions expired",
               "takeup_eitc": round(p_eitc, 4), "takeup_food": round(p_food, 4), "takeup_cdcc": round(p_cdcc, 4),

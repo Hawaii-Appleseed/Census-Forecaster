@@ -63,17 +63,13 @@ def test_hawaii_threshold_monotone_in_household_size():
 
 
 def test_hawaii_threshold_geo_adjusted_above_baseline():
-    """HI renter threshold should be ~25-30% above contiguous-US baseline.
-
-    Census applies the Honolulu MRI (~1.62) only to the housing portion of
-    the SPM threshold (~44% for renters), so the effective full-threshold
-    multiplier is 1 + 0.442 * 0.62 ≈ 1.274.
-    """
-    # Approximate contiguous-US 2A2C renter SPM threshold for 2024 from Census.
-    contig_baseline_2024 = 34_393.0
-    hi = hawaii_spm_threshold(2024, n_adults=2, n_children=2, tenure="renter")
-    ratio = hi / contig_baseline_2024
-    assert 1.20 < ratio < 1.30
+    """Urban Honolulu's renter line is BLS's national one with its housing portion (0.443) at Census's
+    rent index (1.493): 1 + 0.443 * 0.493 ≈ 1.218; the neighbor islands' nonmetro line is lower."""
+    national_2024 = 39_219.89
+    honolulu = hawaii_spm_threshold(2024, n_adults=2, n_children=2, tenure="renter")
+    nonmetro = hawaii_spm_threshold(2024, n_adults=2, n_children=2, tenure="renter", area="nonmetro")
+    assert honolulu / national_2024 == pytest.approx(1.218, abs=0.001)
+    assert national_2024 < nonmetro < honolulu
 
 
 def test_hawaii_threshold_unknown_year_raises():

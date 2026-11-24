@@ -64,19 +64,16 @@ def test_persons_per_unit_mfj_with_two_kids():
 
 def test_lifts_two_kids_out_of_poverty():
     """A low-income MFJ filer with 2 kids that EITC alone lifts above threshold."""
-    # 2024 Hawaii MFJ + 2 dependents threshold ≈ $40,584 × equiv_scale(2,2)/equiv_scale(2,2)
-    # × renter (1.0) = $40,584. Start the filer comfortably below: $20k.
-    # Give them: $6,960 EITC (TY2024 2-kid max), $3,400 CTC refundable, $278 HI EITC.
-    # Without EITC: spm_resources ≈ 20k + 3.4k + 0.278k - taxes ≈ ~22k < threshold.
-    # With EITC: 22k + 6.96k ≈ 29k. Still below threshold actually.
-    # To force a lift across threshold, give very large EITC (50k base + 6.96k EITC = 56.96k > 40.6k).
+    # 2024 Urban Honolulu renter threshold, 2 adults + 2 children: $39,220 x 1.218 = $47,770.
+    # Resources with every credit ~ $42k + $7k EITC + $3.4k CTC + $2.8k HI EITC less payroll tax:
+    # above the line; without the federal EITC, below it.
     units = _make_units([{
         "filing_status": "married_filing_jointly",
         "num_dependents": 2,
         "num_qualifying_children": 2,
-        "total_cash_income": 38_000.0,  # below threshold
-        "earned_income": 38_000.0,
-        "income": 38_000.0,
+        "total_cash_income": 42_000.0,
+        "earned_income": 42_000.0,
+        "income": 42_000.0,
         "eitc_amount": 6_960.0,           # lifts above threshold
         "ctc_refundable": 3_400.0,
         "ctc_total": 4_000.0,
