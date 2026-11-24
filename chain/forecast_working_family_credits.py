@@ -453,6 +453,93 @@ def population_agreement(units: pd.DataFrame, out_dir: Path | None = None,
     return table
 
 
+def takeup_factors(frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]]) -> tuple[float, float, float]:
+    """Take-up for the EITC, food/excise and care credits, from ``frames[year] = (units, state_credits)``.
+
+    A uniform factor per credit matching DOTAX's dollars under Act 163, in the latest year it
+    reports each credit (EITC_CAL_YEAR, CAL_YEAR for the other two).
+    """
+    from tax_modeler.calibration import dotax_base
+
+    eitc_dotax = dotax_base.eitc_new_credit(EITC_CAL_YEAR)
+    uE, cE = frames[EITC_CAL_YEAR]
+    wE = uE["weight"].to_numpy(dtype=float)
+    p_eitc = eitc_dotax["dollars_M"] * 1e6 / float((cE["eitc_expanded"] * wE).sum())
+    uF, cF = frames[CAL_YEAR]
+    wF = uF["weight"].to_numpy(dtype=float)
+    p_food = dotax()[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
+    p_cdcc = dotax()[CAL_YEAR]["cdcc_$M"] * 1e6 / float((cF["cdcc_expanded"] * wF).sum())
+    if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10 and 0.5 < p_cdcc <= 1.10):
+        raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}, care {p_cdcc:.3f}")
+    return p_eitc, p_food, p_cdcc
+
+
+def with_expected_credits(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, p_food: float,
+                          p_cdcc: float) -> pd.DataFrame:
+    """``u`` with its expected state credits under Act 163 renewed, what each unit loses if it
+    expires (``act163_sunset_loss``), and the claim probabilities the distribution and draws read."""
+    u = u.copy()
+    u["hi_eitc_amount"] = c["eitc_expanded"] * p_eitc
+    u["hi_food_excise_amount"] = c["food_expanded"] * p_food
+    # The care credit is refundable and not netted into hi_tax_liability, so compute_spm_resources
+    # adds it once (poverty/spm.py, SPMColumns.hi_cdcc).
+    u["hi_cdcc_amount"] = c["cdcc_expanded"] * p_cdcc
+    u["act163_sunset_loss"] = ((c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
+                               + (c["food_expanded"] - c["food_reverted"]) * p_food
+                               + (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc)
+    q_eitc = np.where(c["eitc_expanded"] > 0, min(p_eitc, 1.0), 0.0)
+    q_food = np.where(c["food_expanded"] > c["food_reverted"], min(p_food, 1.0), 0.0)
+    q_cdcc = c["cdcc_loss_prob"].to_numpy(dtype=float) * min(p_cdcc, 1.0)
+    u["_claim_prob"] = 1 - (1 - q_eitc) * (1 - q_food) * (1 - q_cdcc)
+    u["_loss_eitc"] = (c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
+    u["_loss_food"] = (c["food_expanded"] - c["food_reverted"]) * p_food
+    u["_loss_cdcc"] = (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc
+    u["_q_eitc"], u["_q_food"], u["_q_cdcc"] = q_eitc, q_food, q_cdcc
+    return u
+
+
+def spm_frame(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
+    """One row per SPM unit in POVERTY_YEAR: the units of :func:`with_expected_credits` with
+    their benefits, taxes and expenses, summed to SPM units."""
+    import poverty_impact_report as pir
+    from tax_modeler.benefits.childcare_expense import compute_childcare_expense_for_units
+    from tax_modeler.benefits.moop import compute_moop_for_units
+    from tax_modeler.benefits.school_lunch import compute_school_lunch_for_units
+    from tax_modeler.benefits.work_expense import compute_work_expense_for_units
+    from tax_modeler.liability.federal import compute_federal_income_tax_for_units
+    from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
+
+    yr = POVERTY_YEAR
+    # Income, taxes, credits and the poverty line are in TY2028 dollars. The projector
+    # aged money income with the tax inputs (``spm_money_income``, which
+    # compute_spm_resources reads in place of the base-year
+    # ``total_cash_income``); the credits and Hawaii tax are TY2028 amounts;
+    # federal income tax uses TY2028 brackets and standard deductions, and the
+    # SPM threshold the last tabled year indexed to TY2028, both by the CPI
+    # assumption the federal credits use past their last Rev. Proc.
+    # SNAP is placed for TY2028 (Hawaiʻi's latest tabled rules, FY2027, and the
+    # latest DHS caseload and issuance on file: poverty_impact_report._apply_snap).
+    # The other benefits stay on the package's latest tables (TY2025, where school
+    # lunch stops), applied to TY2028 incomes. Benefits
+    # are identical in the renewed and expired cases, but they still move who
+    # sits near the line and so how many people cross it. The MOOP,
+    # childcare-expense and work-expense subtractions are CPS ASEC donor cell
+    # means, not indexed to TY2028 either (they rank on base-year income).
+    benefit_year = min(yr, 2025)
+    u = pir._apply_arpa_ctc(u)
+    u = pir._apply_snap(u, tax_year=yr)
+    u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
+    u = compute_moop_for_units(u)
+    u = pir._apply_housing_subsidy(u, tax_year=benefit_year)
+    u = pir._apply_childcare_subsidy(u, tax_year=benefit_year)
+    u = pir._apply_wic(u, tax_year=benefit_year)
+    u = pir._apply_liheap(u, tax_year=benefit_year)
+    u = compute_school_lunch_for_units(u, tax_year=benefit_year)
+    u = compute_childcare_expense_for_units(u)
+    u = compute_work_expense_for_units(u)
+    return aggregate_to_spm_units(u, persons)
+
+
 def run(irs_reweight: bool | None = None) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
@@ -489,14 +576,7 @@ def run(irs_reweight: bool | None = None) -> None:
 
     eitc_dotax = dotax_base.eitc_new_credit(EITC_CAL_YEAR)
     uE, cE = frames[EITC_CAL_YEAR]
-    wE = uE["weight"].to_numpy(dtype=float)
-    p_eitc = eitc_dotax["dollars_M"] * 1e6 / float((cE["eitc_expanded"] * wE).sum())
-    uF, cF = frames[CAL_YEAR]
-    wF = uF["weight"].to_numpy(dtype=float)
-    p_food = dotax()[CAL_YEAR]["food_$M"] * 1e6 / float((cF["food_expanded"] * wF).sum())
-    p_cdcc = dotax()[CAL_YEAR]["cdcc_$M"] * 1e6 / float((cF["cdcc_expanded"] * wF).sum())
-    if not (0.5 < p_eitc <= 1.10 and 0.5 < p_food <= 1.10 and 0.5 < p_cdcc <= 1.10):
-        raise SystemExit(f"implausible take-up factors: EITC {p_eitc:.3f}, food {p_food:.3f}, care {p_cdcc:.3f}")
+    p_eitc, p_food, p_cdcc = takeup_factors(frames)
 
     rows = []
     for yr, (u, c) in frames.items():
@@ -536,23 +616,7 @@ def run(irs_reweight: bool | None = None) -> None:
 
     # Distribution and poverty, TY2028.
     u, c = frames[POVERTY_YEAR]
-    u = u.copy()
-    u["hi_eitc_amount"] = c["eitc_expanded"] * p_eitc
-    u["hi_food_excise_amount"] = c["food_expanded"] * p_food
-    # The care credit is refundable and not netted into hi_tax_liability, so compute_spm_resources
-    # adds it once (poverty/spm.py, SPMColumns.hi_cdcc).
-    u["hi_cdcc_amount"] = c["cdcc_expanded"] * p_cdcc
-    u["act163_sunset_loss"] = ((c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
-                               + (c["food_expanded"] - c["food_reverted"]) * p_food
-                               + (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc)
-    q_eitc = np.where(c["eitc_expanded"] > 0, min(p_eitc, 1.0), 0.0)
-    q_food = np.where(c["food_expanded"] > c["food_reverted"], min(p_food, 1.0), 0.0)
-    q_cdcc = c["cdcc_loss_prob"].to_numpy(dtype=float) * min(p_cdcc, 1.0)
-    u["_claim_prob"] = 1 - (1 - q_eitc) * (1 - q_food) * (1 - q_cdcc)
-    u["_loss_eitc"] = (c["eitc_expanded"] - c["eitc_reverted"]) * p_eitc
-    u["_loss_food"] = (c["food_expanded"] - c["food_reverted"]) * p_food
-    u["_loss_cdcc"] = (c["cdcc_expanded"] - c["cdcc_reverted"]) * p_cdcc
-    u["_q_eitc"], u["_q_food"], u["_q_cdcc"] = q_eitc, q_food, q_cdcc
+    u = with_expected_credits(u, c, p_eitc, p_food, p_cdcc)
     outputs[f"distribution_ty{POVERTY_YEAR}.csv"] = distribution(u)
     outputs[f"by_family_type_ty{POVERTY_YEAR}.csv"] = by_family_type(u)
     outputs[f"by_credit_ty{POVERTY_YEAR}.csv"] = by_credit(u)
@@ -862,44 +926,10 @@ def claim_draws(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, p_food: float, 
 def poverty(u: pd.DataFrame, persons: pd.DataFrame, draws=None) -> pd.DataFrame:
     """SPM poverty in POVERTY_YEAR, expansions renewed (baseline) vs expired. With ``draws`` (:func:`claim_draws`)
     the headcounts are means over draws of who claims each credit; without, every unit gets its expected credits."""
-    import poverty_impact_report as pir
-    from tax_modeler.benefits.childcare_expense import compute_childcare_expense_for_units
-    from tax_modeler.benefits.moop import compute_moop_for_units
-    from tax_modeler.benefits.school_lunch import compute_school_lunch_for_units
-    from tax_modeler.benefits.work_expense import compute_work_expense_for_units
-    from tax_modeler.liability.federal import compute_federal_income_tax_for_units
     from tax_modeler.poverty.impact import compute_poverty_impact_with_se
-    from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
 
     yr = POVERTY_YEAR
-    # Income, taxes, credits and the poverty line are in TY2028 dollars. The projector
-    # aged money income with the tax inputs (``spm_money_income``, which
-    # compute_spm_resources reads in place of the base-year
-    # ``total_cash_income``); the credits and Hawaii tax are TY2028 amounts;
-    # federal income tax uses TY2028 brackets and standard deductions, and the
-    # SPM threshold the last tabled year indexed to TY2028, both by the CPI
-    # assumption the federal credits use past their last Rev. Proc.
-    # SNAP is placed for TY2028 (Hawaiʻi's latest tabled rules, FY2027, and the
-    # latest DHS caseload and issuance on file: poverty_impact_report._apply_snap).
-    # The other benefits stay on the package's latest tables (TY2025, where school
-    # lunch stops), applied to TY2028 incomes. Benefits
-    # are identical in the renewed and expired cases, but they still move who
-    # sits near the line and so how many people cross it. The MOOP,
-    # childcare-expense and work-expense subtractions are CPS ASEC donor cell
-    # means, not indexed to TY2028 either (they rank on base-year income).
-    benefit_year = min(yr, 2025)
-    u = pir._apply_arpa_ctc(u)
-    u = pir._apply_snap(u, tax_year=yr)
-    u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
-    u = compute_moop_for_units(u)
-    u = pir._apply_housing_subsidy(u, tax_year=benefit_year)
-    u = pir._apply_childcare_subsidy(u, tax_year=benefit_year)
-    u = pir._apply_wic(u, tax_year=benefit_year)
-    u = pir._apply_liheap(u, tax_year=benefit_year)
-    u = compute_school_lunch_for_units(u, tax_year=benefit_year)
-    u = compute_childcare_expense_for_units(u)
-    u = compute_work_expense_for_units(u)
-    frame = aggregate_to_spm_units(u, persons)
+    frame = spm_frame(u, persons)
     res = compute_poverty_impact_with_se(frame, tax_year=yr, scenarios=("act163_sunset",),
                                          extrapolate_thresholds=True, draws=draws)
     s = res.by_state.iloc[0]
