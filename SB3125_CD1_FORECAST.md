@@ -88,6 +88,50 @@ Poverty (TY2028): poverty gap $18.1M; 2,530 more people (90% range 770 to 4,280;
 
 ---
 
+## Nonresident capital gains: six years of DOTAX tables, the home-state rates checked, the level kept at TY2023 — November 24, 2026 (the nonresident add-on moves by cents; nothing else)
+
+Follow-ups to the section below.
+
+- **TY2024 is not published.** The Department's individual income statistics page
+  (tax.hawaii.gov/stats/a5_1annual/a5_5ind_inc/, updated October 7, 2026) lists TY2023 as
+  the newest edition. TY2024 *is* out for business income (`2024businc.pdf`), the EITC
+  report and the GET exemptions report; none of them reports nonresident gains. **The level
+  stays on TY2023**, as Devin decided on November 24.
+- **TY2018–2020 now parsed** (`dotax_indinc_2018.json`, `_2019`, `_2020`; the archive
+  stopped refusing downloads). `parse_dotax_indinc.py` reads the TY2018–2019 layouts
+  (a ditto for "to under" in A-1 and A-3, "Single*" in Table 4); TY2021–2023's files come
+  out byte-identical. The nonresident gains match `cg_anchor`'s hand-typed series to
+  $0.1M, and `nonresident_cg` now reads every year from the parsed files.
+  **Validation on six years:** under the 2018 schedule the records reproduce A-3's tax
+  before credits within 1.2% in total in every year from TY2018 to TY2023, and at $400K+
+  within 3.1% (TY2019: $62.0M against $64M, which A-3 rounds to $1M). Gain returns at
+  $400K+ were 388 / 365 / 388 in TY2018–2020, 947 / 1,018 in TY2021–2022 and 691 in
+  TY2023: the level moves with how many sell.
+- **What 2024–2026 sales say** (`scripts/nonresident_volume_check.py`, a check that feeds
+  nothing). Nonresident gains ran 0.29–0.37 per dollar of Maui's $1M+ sales in
+  TY2019–2023 (TY2018 0.19). Maui's $1M+ volume was 4% above 2023's in 2024 and 16% below
+  in 2025 (2026 is partial). So recent years sit at or a little under the central level,
+  between it and the low one, and nowhere near the high (boom) level.
+- **Home-state rates checked** against the Tax Foundation's 2026 table and the states'
+  own pages. Maryland is 11.7% (6.5% top rate, the 2025 2% surtax on gains above $350,000
+  of federal AGI, which reaches a Hawaiʻi investment property, and the 3.2% county
+  rate; the cap is 3.3%), not 11.8%. Minnesota stays at 9.85%: its 1% tax on net
+  investment income cannot be offset by the credit. Washington's tax on gains exempts
+  real estate, so its sellers stay untaxed at home. The credited-back shares do not move
+  (43% of a rise to 9%, 38% of a rise to 13%).
+- **Not modeled: pass-through entity tax.** Since TY2023 (Act 50, SLH 2023) electing
+  partnerships and S corporations pay Hawaiʻi tax at the entity level (9% from TY2024),
+  and members take a credit. In TY2024, 2,497 S corporations paid $153.0M and 510
+  partnerships $38.7M (the TY2024 business income report). Nonresident members' gains
+  taxed that way may leave Table 21's N-15 gains, so the drop from TY2022 to TY2023 may be
+  partly a shift in where the tax is paid rather than fewer sales. A rate change on gains
+  reaches those members only through their own returns' credit.
+- **Still Oʻahu only** for seller origin. Maui's county site refuses automated requests
+  (HTTP 403), and the Kauaʻi and Hawaiʻi County parcel files on hand carry no owner
+  addresses. The response share matters less than the level: with no home-state offset at
+  all, TY2027's central figures fall from $15.3M to $13.8M (9% cap) and $39.7M to $34.5M
+  (ordinary rates).
+
 ## Nonresidents' capital gains scored on returns of their own — November 24, 2026 (the capital-gains page's nonresident add-on changes; no resident, Act 24, simulator-plan or credit figure moves)
 
 **What changed.** The add-on used to apply *residents'* revenue per dollar of gains, by

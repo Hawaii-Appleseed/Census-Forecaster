@@ -9,7 +9,7 @@ nonresident's gains fill the brackets from the bottom of *Hawaiʻi* income,
 however large the filer's income elsewhere.
 
 The records come from two DOTAX tables that share the Hawaiʻi AGI classes
-(``dotax_indinc_<year>.json``, TY2021-2023):
+(``dotax_indinc_<year>.json``, TY2018-2023):
 
 - Table 21: nonresident returns with eligible gains, and the gains, by class.
 - A-3: taxable nonresident returns, Hawaiʻi AGI, taxable income and tax before
@@ -60,10 +60,12 @@ import numpy as np
 import pandas as pd
 
 from tax_modeler.calibration import dotax_base
-from tax_modeler.calibration.cg_anchor import DOTAX_NLTCG_NONRES, cg_growth
+from tax_modeler.calibration.cg_anchor import cg_growth
 
-YEARS = (2021, 2022, 2023)
-"""DOTAX editions with both Table 21 counts and A-3 parsed."""
+YEARS = (2018, 2019, 2020, 2021, 2022, 2023)
+"""DOTAX editions on file (Table 21 and A-3 parsed). TY2024 is not yet published:
+the Department's page (tax.hawaii.gov/stats/a5_1annual/a5_5ind_inc/, updated
+October 7, 2026) lists TY2023 as the newest edition."""
 BASE_YEAR = 2023
 CAP_CURRENT = 0.0725
 K_TOP = 400
@@ -86,11 +88,7 @@ HPI = {2018: 612.53, 2019: 632.053, 2020: 645.197, 2021: 709.783, 2022: 849.69, 
 
 def nonresident_gains_M(year: int) -> float:
     """Nonresident gains in TY*year*, composites out, $M (Table 21)."""
-    t = dotax_base.load_indinc(year)["table_21_nltcg"] if year in YEARS else None
-    if t is not None:
-        return sum(r["nonres_amount_M"] for r in t["classes"])
-    composite = {2018: 11.727, 2019: 11.248, 2020: 2.645}[year]   # cg_anchor folds them in
-    return sum(DOTAX_NLTCG_NONRES[year]) - composite
+    return sum(r["nonres_amount_M"] for r in dotax_base.load_indinc(year)["table_21_nltcg"]["classes"])
 
 
 def repriced_M(year: int, to: int = BASE_YEAR) -> float:
@@ -111,12 +109,19 @@ def level_factor(level: str) -> float:
 # Who bears a higher rate: the home state's credit for Hawaiʻi's tax
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Top rate on a large long-term gain under each home state's 2026 law, %, for
-# the states above Hawaiʻi's 7.25%; every other state, no-tax states included,
-# is below it. NY is the state alone (New York City's 3.876% is not added: a
-# mailing address does not say which filers are city residents); MD adds its
-# 2% surtax on gains (2025) and the top county rate to the 6.5% state rate.
-HOME_STATE_RATE = {"CA": 13.3, "MD": 11.8, "NJ": 10.75, "DC": 10.75, "NY": 9.65, "OR": 9.9, "MN": 9.85,
+# Top rate on a large long-term gain under each home state's 2026 law, %, that
+# the state's credit for another state's tax can offset, for the states above
+# Hawaiʻi's 7.25%; every other state is below it (Tax Foundation, "State
+# Individual Income Tax Rates and Brackets, 2026", checked November 24, 2026).
+# NY is the state alone: New York City's rate is not added, since a mailing
+# address does not say who is a city resident. MD is the 6.5% top rate, the 2%
+# surtax on gains for federal AGI over $350,000 (2025 Budget Reconciliation and
+# Financing Act; it exempts only a primary residence under $1.5M among real
+# property) and the 3.2% county rate the most populous counties charge (the
+# cap is 3.3%). MN leaves out its 1% tax on net investment income: the credit
+# for other states' tax cannot be taken against it. Washington's tax on gains
+# exempts real estate, so its sellers count as untaxed at home.
+HOME_STATE_RATE = {"CA": 13.3, "MD": 11.7, "NJ": 10.75, "DC": 10.75, "NY": 9.65, "OR": 9.9, "MN": 9.85,
                    "MA": 9.0, "VT": 8.75}
 _ORIGIN_FILE = Path(__file__).resolve().parents[1] / "data" / "calibration" / "nonresident_seller_origin_oahu.csv"
 
