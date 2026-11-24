@@ -4,7 +4,7 @@
     "publisher": "Hawaiʻi Department of Taxation, Office of Tax Research & Planning",
     "url": "https://files.hawaii.gov/tax/stats/stats/indinc/2023indinc.pdf",
     "file": "2023indinc.pdf",
-    "sha256": "d4e6b053cb4883f95d2eed49e7878aa89cd28c62c41f7d575304fc326808d8b4",
+    "sha256": "84713a2a3d601eacb965e7f1060e7a4c61dc07a18e2c8bc60d910d9952ae20cf",
     "pages": 76,
     "note": "Values as printed; dollar amounts in $M unless a key says otherwise."
   },
@@ -479,6 +479,130 @@
       "returns": 1962,
       "tax_before_M": 8.0,
       "tax_after_M": 8.0
+    }
+  },
+  "table_a3_nonresident_by_hawaii_agi": {
+    "taxable_classes": [
+      {
+        "agi_lo": 0.0,
+        "agi_hi": 10000.0,
+        "returns": 28607,
+        "hawaii_agi_M": 108.0,
+        "taxable_income_M": 86.0,
+        "tax_before_M": 2.0,
+        "tax_after_M": 1.0
+      },
+      {
+        "agi_lo": 10000.0,
+        "agi_hi": 20000.0,
+        "returns": 12151,
+        "hawaii_agi_M": 176.0,
+        "taxable_income_M": 146.0,
+        "tax_before_M": 6.0,
+        "tax_after_M": 4.0
+      },
+      {
+        "agi_lo": 20000.0,
+        "agi_hi": 30000.0,
+        "returns": 7162,
+        "hawaii_agi_M": 176.0,
+        "taxable_income_M": 150.0,
+        "tax_before_M": 7.0,
+        "tax_after_M": 7.0
+      },
+      {
+        "agi_lo": 30000.0,
+        "agi_hi": 40000.0,
+        "returns": 4694,
+        "hawaii_agi_M": 163.0,
+        "taxable_income_M": 140.0,
+        "tax_before_M": 8.0,
+        "tax_after_M": 7.0
+      },
+      {
+        "agi_lo": 40000.0,
+        "agi_hi": 50000.0,
+        "returns": 3259,
+        "hawaii_agi_M": 146.0,
+        "taxable_income_M": 127.0,
+        "tax_before_M": 7.0,
+        "tax_after_M": 7.0
+      },
+      {
+        "agi_lo": 50000.0,
+        "agi_hi": 75000.0,
+        "returns": 4683,
+        "hawaii_agi_M": 285.0,
+        "taxable_income_M": 250.0,
+        "tax_before_M": 16.0,
+        "tax_after_M": 15.0
+      },
+      {
+        "agi_lo": 75000.0,
+        "agi_hi": 100000.0,
+        "returns": 2540,
+        "hawaii_agi_M": 219.0,
+        "taxable_income_M": 196.0,
+        "tax_before_M": 13.0,
+        "tax_after_M": 12.0
+      },
+      {
+        "agi_lo": 100000.0,
+        "agi_hi": 150000.0,
+        "returns": 2585,
+        "hawaii_agi_M": 313.0,
+        "taxable_income_M": 283.0,
+        "tax_before_M": 20.0,
+        "tax_after_M": 19.0
+      },
+      {
+        "agi_lo": 150000.0,
+        "agi_hi": 200000.0,
+        "returns": 1279,
+        "hawaii_agi_M": 220.0,
+        "taxable_income_M": 204.0,
+        "tax_before_M": 15.0,
+        "tax_after_M": 14.0
+      },
+      {
+        "agi_lo": 200000.0,
+        "agi_hi": 300000.0,
+        "returns": 1134,
+        "hawaii_agi_M": 276.0,
+        "taxable_income_M": 262.0,
+        "tax_before_M": 20.0,
+        "tax_after_M": 18.0
+      },
+      {
+        "agi_lo": 300000.0,
+        "agi_hi": 400000.0,
+        "returns": 531,
+        "hawaii_agi_M": 182.0,
+        "taxable_income_M": 174.0,
+        "tax_before_M": 13.0,
+        "tax_after_M": 13.0
+      },
+      {
+        "agi_lo": 400000.0,
+        "agi_hi": null,
+        "returns": 1170,
+        "hawaii_agi_M": 1777.0,
+        "taxable_income_M": 1658.0,
+        "tax_before_M": 147.0,
+        "tax_after_M": 120.0
+      }
+    ],
+    "taxable_composite": {
+      "returns": 1421,
+      "hawaii_agi_M": 350.0,
+      "taxable_income_M": 163.0,
+      "tax_before_M": 8.0,
+      "tax_after_M": 8.0
+    },
+    "total_taxable": {
+      "returns": 71216,
+      "taxable_income_M": 3841.0,
+      "tax_before_M": 283.0
     }
   }
 }
