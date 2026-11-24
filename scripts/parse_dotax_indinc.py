@@ -21,6 +21,9 @@ Tables parsed (appendix numbering as in the TY2023 edition):
           nonresidents
     17A   nonresident tax liability by worldwide AGI class (totals, $400K+,
           composites)
+    A-3   taxable nonresident returns by Hawaiʻi AGI class: returns, Hawaiʻi
+          AGI, taxable income, tax before / after credits (the classes Table 21
+          uses, so the nonresident gains model can be checked against tax)
 
 Every table is checked against its own printed total, so a layout change in a
 later edition fails here instead of landing as a wrong constant. Table numbers
@@ -111,8 +114,8 @@ def parse_a8(pages: list[str]) -> dict:
 
 
 def parse_a1(pages: list[str]) -> dict:
-    text = _find_page(pages, "SELECTED DATA FROM RESIDENT TAX RETURNS BY HAWAI'I ADJUSTED GROSS INCOME",
-                      "TOTAL RESIDENT TAXABLE")
+    # "HAWAI'I" from TY2022, "HAWAII" in TY2021
+    text = _find_page(pages, "SELECTED DATA FROM RESIDENT TAX RETURNS BY HAWAI", "TOTAL RESIDENT TAXABLE")
     row = re.compile(
         rf"^(\$[\d,]+ to under \$[\d,]+|\$400,000 and over) ([\d,]+) {_PCT} "
         rf"({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT}$")
@@ -200,6 +203,47 @@ def parse_nonresident_liability(pages: list[str]) -> dict:
             "composite": grab("Composite Returns")}
 
 
+def parse_a3(pages: list[str]) -> dict:
+    """A-3: taxable nonresident returns by Hawaiʻi AGI class: returns, Hawaiʻi AGI,
+    taxable income and tax before / after credits ($M). Two pages: the second is
+    headed "(CONTINUED)"."""
+    title = "SELECTED DATA FROM NONRESIDENT TAX RETURNS BY HAWAI"
+    first = next(t for t in pages if title in t and "(CONTINUED)" not in t and "TOTAL TAXABLE" in t)
+    second = _find_page(pages, title, "(CONTINUED)", "TOTAL TAXABLE")
+    label = r"(\$[\d,]+ to under \$[\d,]+|\$400,000 and over)"
+    row1 = re.compile(rf"^{label} ([\d,]+) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT} ")
+    row2 = re.compile(rf"^{label} [\d,]+ [\d,]+ [\d.]+ [\d.]+ ({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT}$")
+    rows = {}
+    for line in first.split("NONTAXABLE")[0].splitlines():
+        m = row1.match(line.strip())
+        if m:
+            lo, hi = _class_bounds(m.group(1))
+            rows[m.group(1)] = {"agi_lo": lo, "agi_hi": hi, "returns": int(_n(m.group(2))),
+                                "hawaii_agi_M": _n(m.group(4))}
+    for line in second.split("NONTAXABLE")[0].splitlines():
+        m = row2.match(line.strip())
+        if m:
+            rows[m.group(1)].update({"taxable_income_M": _n(m.group(2)), "tax_before_M": _n(m.group(3)),
+                                     "tax_after_M": _n(m.group(4))})
+    rows = list(rows.values())
+    if len(rows) != 12 or any("taxable_income_M" not in r for r in rows):
+        raise ValueError(f"A-3: expected 12 complete classes, got {len(rows)}")
+    comp1 = re.search(rf"^Taxable Composite Returns ([\d,]+) {_PCT} ({_NUM}) {_PCT} ({_NUM})", first, re.M)
+    comp2 = re.search(rf"^Taxable Composite Returns n/a n/a n/a n/a ({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM})",
+                      second, re.M)
+    tot1 = re.search(r"^TOTAL TAXABLE ([\d,]+)", first, re.M)
+    tot2 = re.search(rf"^TOTAL TAXABLE [\d,]+ [\d,]+ [\d.]+ [\d.]+ ({_NUM}) {_PCT} ({_NUM})", second, re.M)
+    composite = {"returns": int(_n(comp1.group(1))), "hawaii_agi_M": _n(comp1.group(3)),
+                 "taxable_income_M": _n(comp2.group(1)), "tax_before_M": _n(comp2.group(2)),
+                 "tax_after_M": _n(comp2.group(3))}
+    total = {"returns": int(_n(tot1.group(1))), "taxable_income_M": _n(tot2.group(1)),
+             "tax_before_M": _n(tot2.group(2))}
+    assert sum(r["returns"] for r in rows) + composite["returns"] == total["returns"], "A-3 returns do not sum"
+    ti = sum(r["taxable_income_M"] for r in rows) + composite["taxable_income_M"]
+    assert abs(ti - total["taxable_income_M"]) <= 6, "A-3 taxable income does not sum"
+    return {"taxable_classes": rows, "taxable_composite": composite, "total_taxable": total}
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print(__doc__)
@@ -226,6 +270,7 @@ def main(argv: list[str]) -> int:
         "table_4_filing_status": parse_filing_status(pages, year),
         "table_21_nltcg": parse_nltcg(pages),
         "table_17a_nonresident_liability": parse_nonresident_liability(pages),
+        "table_a3_nonresident_by_hawaii_agi": parse_a3(pages),
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     dest = OUT_DIR / f"dotax_indinc_{year}.json"

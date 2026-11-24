@@ -102,7 +102,8 @@ def test_the_page_imports_the_package_code():
     tree = ast.parse((REPO / "chain/forecast_cg_rate_options.py").read_text())
     imported = {a.name for n in tree.body if isinstance(n, ast.ImportFrom)
                 and n.module == "tax_modeler.calibration.cg_anchor" for a in n.names}
-    assert imported == MOVED
+    # the nonresident tables went to calibration.nonresident_cg with the add-on (November 2026)
+    assert {"anchor_nltcg", "cg_growth", "rank_classes"} <= imported <= MOVED
     defined = {n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
     defined |= {t.id for n in tree.body if isinstance(n, ast.Assign) for t in n.targets
                 if isinstance(t, ast.Name)}

@@ -59,10 +59,14 @@ elasticity of ~0.6 with respect to the ~31% combined top rate (23.8% federal +
 7.25%), mid-range of the long-run estimates from state tax changes (roughly
 0.5-0.8). Static results are reported alongside.
 
-Nonresidents: excluded from the headline, as in the ITEP figures. The add-on
-applies residents' revenue per dollar of gains, by AGI class, to DOTAX's
-nonresident gains — in a typical year (TY2018-2023 pooled nonresident/resident
-ratio) and at the TY2022 ratio, when composite returns spiked.
+Nonresidents: excluded from the headline, as in the ITEP figures, and scored
+apart on returns of their own (tax_modeler.calibration.nonresident_cg): DOTAX
+Table 21 and A-3 by Hawaii AGI class, which reproduce A-3's TY2021-2023 tax
+within 1-2%. Their gains fill the brackets from the bottom of their Hawaii
+income, and the part of a rate rise their home state credits back draws no
+response. Three levels of gains (TY2018-2020, TY2023, TY2021-2022, each
+repriced with the Hawaii house price index) and, at the central level, gains
+with no other Hawaii income under them.
 
 Requires data/artifacts/sb3125_calibrated_base.pkl (run
 chain/forecast_sb3125_enhanced.py --cd 2 first). A full run takes ~25 minutes.
@@ -71,7 +75,8 @@ Outputs (runs/cg_rate_options/):
   revenue_by_year.csv       $M by year x law x option x top-share variant
   distribution_ty2027_act24.csv  seven ITEP-style household groups (and
                                  _ty2026_act46, like-for-like with the blog)
-  nonresident_addon.csv     nonresident add-on by year x option
+  nonresident_addon.csv     nonresident revenue by year x option x kind: low / central /
+                            high levels and central_gains_only, $M
   anchor_check.csv          model vs DOTAX-anchored gains by class and year
   fig1_revenue_ty2027.png, fig2_distribution_ty2027.png,
   fig3_act24_effect_ty2027.png, fig4_revenue_by_year.png
@@ -91,14 +96,11 @@ logging.disable(logging.WARNING)
 
 import numpy as np
 import pandas as pd
+from tax_modeler.calibration import nonresident_cg
 
 # The DOTAX-anchored gains base, shared with the tax simulator.
 from tax_modeler.calibration.cg_anchor import (
-    _CLASSES,
     _TOP_SHARE_NOTE,
-    BASE_YEAR,
-    DOTAX_NLTCG_NONRES,
-    DOTAX_NLTCG_RES,
     DOTAX_RETURNS_2022,
     DOTAX_TOTAL_RETURNS_2022,
     TOP_SHARE_1M,
@@ -276,32 +278,24 @@ def distribution(df: pd.DataFrame, changes: dict[str, np.ndarray]) -> pd.DataFra
 # Driver
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _class_of(labels: np.ndarray) -> np.ndarray:
-    return np.where(np.isin(labels, ["400_1m", "1mp"]), "400p", labels)
-
-
-def _nonresident_addon(yr, opt, labels, nltcg, w, changes) -> list[dict]:
-    """Residents' revenue per $ of gains, by class, applied to DOTAX nonresident gains."""
-    cls = _class_of(labels)
-    g = cg_growth(yr)                       # base year -> yr, for the resident gains
-    g22 = cg_growth(yr, from_year=2022)     # TY2022 -> yr, for that spike year's nonresident gains
-    nr22 = dict(zip(_CLASSES, DOTAX_NLTCG_NONRES[2022], strict=True))
-    res_base = dict(zip(_CLASSES, DOTAX_NLTCG_RES[BASE_YEAR], strict=True))
-    pooled = {c: sum(DOTAX_NLTCG_NONRES[y][i] for y in DOTAX_NLTCG_NONRES)
-              / sum(DOTAX_NLTCG_RES[y][i] for y in DOTAX_NLTCG_RES)
-              for i, c in enumerate(_CLASSES)}
+def _nonresident_rows(yr: int, cfg) -> list[dict]:
+    """Nonresidents' revenue by option under *cfg* (the law in force in *yr*),
+    scored on their own returns (``tax_modeler.calibration.nonresident_cg``):
+    three levels of gains and, at the central level, the gains-only placement."""
     rows = []
-    for kind, arr in changes.items():
-        per_dollar = {}
-        for c in _CLASSES[1:]:
-            m = cls == c
-            base_amt = (nltcg[m] * w[m]).sum()
-            per_dollar[c] = (arr[m] * w[m]).sum() / base_amt if base_amt else 0.0
-        rows.append({
-            "tax_year": yr, "option": opt, "kind": kind,
-            "typical_year_M": sum(per_dollar[c] * pooled[c] * res_base[c] * g for c in per_dollar),
-            "ty2022_level_M": sum(per_dollar[c] * nr22[c] * g22 for c in per_dollar),
-        })
+    for opt, cap in OPTIONS.items():
+        cells = {}
+        for level in nonresident_cg.LEVEL_YEARS:
+            for placement in nonresident_cg.GAIN_PLACEMENTS:
+                if placement != "central" and level != "central":
+                    continue
+                key = level if placement == "central" else f"{level}_{placement}"
+                cells[key] = nonresident_cg.score(cfg, yr, cap, level=level, placement=placement, beta=BETA,
+                                                  offset_share=None)
+        for kind in ("static", "behavioral"):
+            rows.append({"tax_year": yr, "option": opt, "kind": kind,
+                         **{f"{k}_M": v[f"{kind}_M"] for k, v in cells.items()},
+                         "gains_central_M": cells["central"]["gains_M"]})
     return rows
 
 
@@ -331,7 +325,7 @@ def run() -> None:
 
         dist_changes = {}
         for variant, share in TOP_SHARE_VARIANTS.items():
-            nltcg, labels, rows = anchor_nltcg(df, yr, share)
+            nltcg, _labels, rows = anchor_nltcg(df, yr, share)
             if variant == "central":
                 anchor_rows += rows
             for law, sc in scorers.items():
@@ -344,14 +338,12 @@ def run() -> None:
                         "behavioral_M": float((beh * w).sum() / 1e6),
                         "nltcg_M": float((nltcg * w).sum() / 1e6),
                     })
-                    if variant == "central" and law == headline:
-                        nr_rows += _nonresident_addon(
-                            yr, opt, labels, nltcg, w, {"static": stat, "behavioral": beh})
-                        if yr in DIST_YEARS:
-                            dist_changes[f"{opt}_static"] = stat
-                            dist_changes[f"{opt}_behavioral"] = beh
+                    if variant == "central" and law == headline and yr in DIST_YEARS:
+                        dist_changes[f"{opt}_static"] = stat
+                        dist_changes[f"{opt}_behavioral"] = beh
         if dist_changes:
             dists[(yr, headline)] = distribution(df, dist_changes)
+        nr_rows += _nonresident_rows(yr, laws[headline])
         print(f"    TY {yr} done in {time.perf_counter() - t0:.0f}s", flush=True)
         return rev_rows, anchor_rows, nr_rows, dists
 
@@ -383,7 +375,8 @@ def run() -> None:
                 "options": dict(OPTIONS), "alpha": MID_ALPHA,
                 "top_premium": MID_TOP_PREMIUM, "cbo_vintage": "2025-01"},
         inputs={"tax_unit_cache": cache_provenance(),
-                "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-8"},
+                "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-3/A-8",
+                "seller_origin": "Honolulu owner rolls 2023-12-05 and latest OWNINFO pull, scripts/nonresident_seller_origin.py"},
     )
     print(f"\nSaved to {OUT_DIR}/  ({time.perf_counter() - wall:.0f}s)", flush=True)
 
