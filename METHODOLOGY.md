@@ -1279,6 +1279,33 @@ When the composition columns are absent
 the function derives `n_adults = 1 + (filing_status == MFJ)` and
 `n_children = num_dependents` for backward compatibility.
 
+### Medical out-of-pocket spending (MOOP)
+
+`tax_modeler.benefits.moop.compute_moop_for_units` gives each SPM unit the
+weighted mean MOOP of Hawaiʻi SPM units like it in the Census Bureau's ACS SPM
+research extracts for 2021–2023 (Census imputes MOOP onto ACS households from
+the CPS ASEC), matched on unit size, members 65 and over and money income
+quintile; `scripts/build_moop_donors.py` builds the donor file
+(`data/cps_donor/acs_spm_hawaii_moop_donors.csv`, about 17,000 units). Donor
+dollars move to the target year by CPI-U. The amount is imputed once per SPM
+unit and booked on its first tax unit, so the SPM rollup sums it exactly.
+
+Until November 2026 MOOP was matched per tax unit to `cps_moop_donors.csv`, a
+200-row synthetic test fixture, which put Hawaiʻi MOOP at about half of
+Census's ($3,804 against $7,591 per SPM unit, person-weighted, TY2023). The
+fix moves the TY2023 SPM rate from 8.40% to 9.07%; MOOP now averages $7,786.
+Cell means understate the spread: among poor units the model's MOOP is
+$3,541 against Census's $4,619.
+
+Compared with Census's own ACS SPM for Hawaiʻi in 2023 (15.5% on the
+pre-correction thresholds), most of the remaining gap is benefit
+under-reporting in the ACS, which Census does not correct: its file carries
+$339M of SNAP against DHS's $891M, which the model matches; putting the
+model's SNAP, WIC and housing at the file's levels adds about 3 points. The
+rest, about 3 points, is money income 10–15% higher relative to the line
+across the bottom half of the model's distribution, not yet explained (the
+IRS reweight has no effect on the rate).
+
 ### Result (TY2024, real Hawaii PUMS)
 
 The Tier 4 SPM-unit pipeline produces a baseline rate of **12.43 %**

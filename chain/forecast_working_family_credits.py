@@ -533,7 +533,7 @@ def spm_frame(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     u = pir._apply_arpa_ctc(u)
     u = pir._apply_snap(u, tax_year=yr)
     u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
-    u = compute_moop_for_units(u)
+    u = compute_moop_for_units(u, persons, year=yr)
     u = pir._apply_housing_subsidy(u, tax_year=benefit_year)
     u = pir._apply_childcare_subsidy(u, tax_year=benefit_year)
     u = pir._apply_wic(u, tax_year=benefit_year)
