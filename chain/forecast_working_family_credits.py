@@ -180,8 +180,11 @@ EITC_EXPANDED, EITC_REVERTED = 0.40, 0.20
 BUILD_CODE = ("poverty_impact_report", "tax_modeler.pipeline")
 
 
-def load_population():
+def load_population(pums_dir: Path = PUMS_DIR):
     """The tax units and persons, from a cache when its inputs are unchanged.
+
+    ``pums_dir`` is the step's own file (PUMS_DIR) unless an analysis asks for another, which
+    gets a cache of its own beside the step's.
 
     Building them from PUMS is ~40 s of CPU, most of this script, and the
     result moves only with PUMS, the model code or this script. A cache hit
@@ -196,9 +199,10 @@ def load_population():
     from _forecast_common import ARTIFACT_DIR
     from common.fingerprint import closure_guard, fingerprint
 
-    cache = ARTIFACT_DIR / "working_family_units.pkl"
+    name = "working_family_units" if pums_dir == PUMS_DIR else f"working_family_units_{pums_dir.name}"
+    cache = ARTIFACT_DIR / f"{name}.pkl"
     key_path = cache.with_suffix(".key")
-    key = fingerprint(PUMS_DIR, REPO / "scripts" / "poverty_impact_report.py", Path(__file__),
+    key = fingerprint(pums_dir, REPO / "scripts" / "poverty_impact_report.py", Path(__file__),
                       code=BUILD_CODE)
     if cache.exists() and key_path.exists() and key_path.read_text().strip() == key:
         with open(cache, "rb") as f:
@@ -211,7 +215,7 @@ def load_population():
     from tax_modeler.pipeline import enrich_with_spm_unit_id
 
     with closure_guard(BUILD_CODE):
-        units, persons = pir._load_units(PUMS_DIR, False, with_replicate_weights=True)
+        units, persons = pir._load_units(pums_dir, False, with_replicate_weights=True)
         units, persons = enrich_with_spm_unit_id(units, persons)
     key_path.unlink(missing_ok=True)
     cache.parent.mkdir(parents=True, exist_ok=True)

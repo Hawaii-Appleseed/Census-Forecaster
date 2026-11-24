@@ -95,3 +95,11 @@ def test_eligible_counts_reads_ages_from_persons_and_tenure_from_households():
     assert got["snap"].tolist() == [3, 0, 0]
     assert got["eitc"].tolist() == [3, 0, 0]
     assert set(got) == {k for k, _ in te.GROUPS}
+
+
+def test_renter_households_reads_a_csv_when_the_file_has_no_parquet(tmp_path):
+    # the five-year file is kept as CSV; TEN 3 is rented, 4 occupied without payment of rent
+    pd.DataFrame({"SERIALNO": ["2020GQ01", "2021HU02", "2022HU03", "2023HU04"], "TEN": [1, 3, 4, 2],
+                  "WGTP": [5, 6, 7, 8]}).to_csv(tmp_path / "psam_h15.csv", index=False)
+    assert te.renter_households(tmp_path) == {"2021HU02", "2022HU03"}
+    assert set(te.PUMS) == {"five-year", "one-year"}
