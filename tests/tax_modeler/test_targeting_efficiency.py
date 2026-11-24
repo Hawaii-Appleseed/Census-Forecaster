@@ -77,14 +77,15 @@ def test_nearest_the_line_funds_the_cheapest_people_first_and_stays_in_budget():
     assert te.score(pop, everyone)["poverty_rate_after"] == 0
 
 
-def test_eligible_counts_reads_ages_from_persons_and_tenure_from_households():
+def test_eligible_counts_reads_ages_from_persons_and_tenure_from_the_frame():
     frame = pd.DataFrame({"spm_unit_id": ["a", "b", "c"], "n_persons": [3, 2, 1], "n_children": [2, 0, 0],
+                          "tenure": ["renter", "owner_with_mortgage", "renter"],
                           "n_adults": [1, 2, 1], "snap_amount": [1_200.0, 0.0, 0.0],
                           "eitc_amount": [3_000.0, 0.0, np.nan]})
     persons = pd.DataFrame({"spm_unit_id": ["a", "a", "a", "b", "b", "c", None],
                             "SERIALNO": ["1", "1", "1", "2", "2", "3", "4"],
                             "AGEP": [30, 4, 9, 70, 40, 25, 50]})
-    got = te.eligible_counts(frame, persons, renter_households={"1", "3"})
+    got = te.eligible_counts(frame, persons)
 
     assert got["children_under_6"].tolist() == [1, 0, 0]
     assert got["children_6_17"].tolist() == [1, 0, 0]
@@ -96,10 +97,3 @@ def test_eligible_counts_reads_ages_from_persons_and_tenure_from_households():
     assert got["eitc"].tolist() == [3, 0, 0]
     assert set(got) == {k for k, _ in te.GROUPS}
 
-
-def test_renter_households_reads_a_csv_when_the_file_has_no_parquet(tmp_path):
-    # the five-year file is kept as CSV; TEN 3 is rented, 4 occupied without payment of rent
-    pd.DataFrame({"SERIALNO": ["2020GQ01", "2021HU02", "2022HU03", "2023HU04"], "TEN": [1, 3, 4, 2],
-                  "WGTP": [5, 6, 7, 8]}).to_csv(tmp_path / "psam_h15.csv", index=False)
-    assert te.renter_households(tmp_path) == {"2021HU02", "2022HU03"}
-    assert set(te.PUMS) == {"five-year", "one-year"}

@@ -1,23 +1,42 @@
 """Hawaii Supplemental Poverty Measure thresholds.
 
-Real SPM thresholds are published annually by Census in the P60 SPM
-series and are *geographically adjusted* via a metropolitan-area
-housing-cost index. Hawaii (Honolulu MSA) sits well above the contiguous-
-US baseline — historically ~14-18% higher for renters.
+The SPM line is BLS's base threshold for a two-adult, two-child unit, one per
+housing tenure, with its housing portion adjusted for local rents and then
+scaled to the unit's composition:
 
-This module ships an approximate lookup table for the most recent
-publication years and a function that interpolates by household
-composition. Years past the table raise unless the caller passes
-``extrapolate=True``, which indexes the latest tabled year forward by the
-same CPI assumption used for projected-year credit parameters. Replace the
-table with a CSV import (and read it via
-``state_config.HAWAII.spm_thresholds_csv``) when production-grade
-analysis is needed; the API contract here will not change.
+    threshold = base[year][tenure]
+                * ((1 - housing_share[tenure]) + housing_share[tenure] * MRI[area])
+                * equivalence_scale(adults, children)
 
-Sources to verify against when promoting Phase 2 to production:
-- US Census Bureau, "The Supplemental Poverty Measure" (P60-280 series)
-- Census API ``acs/acs1/subject`` table S1701 cross-referenced with
-  metropolitan-area FMR adjustment factors.
+* **Base thresholds**: BLS research SPM thresholds, the ones the Census Bureau
+  uses (bls.gov/pir/spmhome.htm): 2021-2024 as corrected on July 17, 2026,
+  2025 as published on August 24, 2026.
+* **Housing share and Median Rent Index (MRI)**: the Census Bureau adjusts only
+  the housing portion (shelter and utilities, not telephone or internet) by the
+  area's median two-bedroom gross rent over the national median (SPM Technical
+  Documentation 4.2.2). Hawaii has three SPM areas: Urban Honolulu (Honolulu
+  County), Kahului-Wailuku (Maui County) and the state's nonmetropolitan rest
+  (Hawaii and Kauai Counties, Kalawao). The indexes are Census's 2025 values and
+  the shares the ones that reproduce its published 2025 Hawaii thresholds (P60-290
+  Table 19, "SPM Thresholds by Metro Area: 2025") to within a dollar in all nine
+  area-tenure cells; ``tests/tax_modeler/poverty/test_thresholds.py`` pins them.
+  Both are held fixed in other years.
+* **Equivalence scale**: the SPM three-parameter scale (Technical Documentation
+  4.2.1).
+
+Households that pay no rent take the owner-without-mortgage threshold, as Census
+assigns them ("those who have substantially lower housing costs, either because
+they do not pay rent or are owners without a mortgage", P60-290).
+
+Years past the table raise unless the caller passes ``extrapolate=True``, which
+indexes the latest tabled year forward by the CPI assumption used for
+projected-year credit parameters.
+
+Before November 2026 this module used a renter base 8-12% below BLS's (source
+unknown), one rent index of 1.62 for the whole state, an owner-without-mortgage
+base of 0.84 of the renter's, and the adults-only scale ``adults**0.5`` for units
+of any number of adults; and the poverty runs carried no tenure, so every unit
+was held to the renter line.
 """
 from __future__ import annotations
 
@@ -26,50 +45,56 @@ from typing import Literal
 from tax_modeler.errors import ConfigError
 
 Tenure = Literal["renter", "owner_with_mortgage", "owner_no_mortgage"]
+Area = Literal["honolulu", "kahului", "nonmetro"]
 
-
-# Census P60-283 (2024 SPM) two-adult-two-child base thresholds for
-# renters in metropolitan areas, contiguous US. Other compositions are
-# computed via the standard SPM equivalence scale.
-#
-# 2025 value is a *projection* (2024 × 1.03, mirroring the 2.5-3% CPI-U
-# growth in the published series); replace with the actual Census
-# release when P60-284 ships in Oct 2026.
-_BASE_THRESHOLD_2A2C_RENTER = {
-    2022: 31_312,
-    2023: 33_148,
-    2024: 34_393,
-    2025: 35_425,  # projected: 2024 × 1.03
+# BLS research SPM thresholds, two adults and two children, by tenure.
+_BASE_THRESHOLD_2A2C: dict[int, dict[Tenure, float]] = {
+    2021: {"owner_with_mortgage": 30_983.24, "owner_no_mortgage": 26_055.40, "renter": 31_216.69},
+    2022: {"owner_with_mortgage": 33_978.49, "owner_no_mortgage": 28_454.92, "renter": 34_140.06},
+    2023: {"owner_with_mortgage": 36_966.24, "owner_no_mortgage": 30_587.73, "renter": 37_230.75},
+    2024: {"owner_with_mortgage": 39_230.99, "owner_no_mortgage": 32_878.59, "renter": 39_219.89},
+    2025: {"owner_with_mortgage": 41_322.71, "owner_no_mortgage": 34_326.00, "renter": 41_700.56},
 }
 
-# Honolulu MSA Median Rent Index (Renwick 2011 + 2015 ACS update; Census
-# applies this only to the *housing portion* of the SPM threshold, not the
-# whole threshold). 1.62 reflects Honolulu MSA 2BR median rent vs. national
-# metropolitan-area 2BR median rent.
-_HAWAII_MRI = 1.62
-
-# Housing-share of the SPM threshold by tenure (Burns & Fox 2021 SEHSD WP21-17,
-# Table 1; values used by Census from TY2019 onward). The non-housing share
-# (food, clothing, utilities, etc.) is constant across geographies — only
-# the housing portion is geographically adjusted.
+# Housing (shelter and utilities) share of each tenure's threshold, the share the
+# rent index applies to: the values that reproduce Census's 2025 Hawaii thresholds.
 _HOUSING_SHARE_BY_TENURE: dict[Tenure, float] = {
-    "renter": 0.442,
-    "owner_with_mortgage": 0.440,
-    "owner_no_mortgage": 0.333,
+    "owner_with_mortgage": 0.434,
+    "owner_no_mortgage": 0.323,
+    "renter": 0.443,
 }
 
-# Tenure scaling — the threshold base is published for renters; owners with
-# no mortgage get a lower base because their housing portion excludes
-# mortgage P&I. Renwick 2017 reports ~84% of renter housing portion.
-_TENURE_BASE_SCALE: dict[Tenure, float] = {
-    "renter": 1.00,
-    "owner_with_mortgage": 1.00,
-    "owner_no_mortgage": 0.84,
+# Census's Median Rent Index for Hawaii's SPM areas, 2025 (P60-290 Table 19).
+_MEDIAN_RENT_INDEX: dict[Area, float] = {
+    "honolulu": 1.493,   # Urban Honolulu MSA (46520)
+    "kahului": 1.455,    # Kahului-Wailuku MSA (27980)
+    "nonmetro": 1.106,   # Hawaii nonmetropolitan
+}
+
+# County (the population's ``county`` labels) -> SPM area.
+COUNTY_AREA: dict[str, Area] = {
+    "Honolulu": "honolulu",
+    "Maui": "kahului",
+    "Hawaii": "nonmetro",
+    "Kauai": "nonmetro",
+    "Kalawao": "nonmetro",
+}
+
+# Where a unit has no county: Urban Honolulu, home to about 70% of Hawaii's people.
+DEFAULT_AREA: Area = "honolulu"
+
+# PUMS TEN -> SPM tenure. 4 (occupied without payment of rent) takes the
+# owner-without-mortgage threshold, as Census assigns it.
+TEN_TO_TENURE: dict[int, Tenure] = {
+    1: "owner_with_mortgage",
+    2: "owner_no_mortgage",
+    3: "renter",
+    4: "owner_no_mortgage",
 }
 
 
-def _base_threshold_2a2c_renter(year: int, *, extrapolate: bool = False) -> float:
-    """Contiguous-US 2A2C renter base threshold for ``year``.
+def _base_threshold_2a2c(year: int, tenure: Tenure = "renter", *, extrapolate: bool = False) -> float:
+    """BLS's two-adult, two-child base threshold for ``year`` and ``tenure``.
 
     Tabled years return the table value. With ``extrapolate=True``, a year
     past the last tabled year indexes that year's value forward by
@@ -78,57 +103,48 @@ def _base_threshold_2a2c_renter(year: int, *, extrapolate: bool = False) -> floa
     and bracket parameters past the last Rev. Proc., so a projected-year
     poverty run prices its threshold in the same dollars as its credits.
     The published SPM thresholds have grown faster than chained CPI
-    (TY2022-2024: +4.8%/yr), so the extrapolated threshold is if anything
-    low. Anything else raises ``ConfigError``; nothing extrapolates unless
-    the caller asks.
+    (renters, 2021-2025: +7.5%/yr), so the extrapolated threshold is if
+    anything low. Anything else raises ``ConfigError``; nothing extrapolates
+    unless the caller asks.
     """
-    if year in _BASE_THRESHOLD_2A2C_RENTER:
-        return float(_BASE_THRESHOLD_2A2C_RENTER[year])
-    last = max(_BASE_THRESHOLD_2A2C_RENTER)
+    if tenure not in _HOUSING_SHARE_BY_TENURE:
+        raise ConfigError(f"Unknown tenure={tenure!r}", available=sorted(_HOUSING_SHARE_BY_TENURE))
+    if year in _BASE_THRESHOLD_2A2C:
+        return float(_BASE_THRESHOLD_2A2C[year][tenure])
+    last = max(_BASE_THRESHOLD_2A2C)
     if extrapolate and year > last:
         from tax_modeler.credits.eitc import CREDIT_PARAM_CPI_GROWTH
 
-        return float(
-            _BASE_THRESHOLD_2A2C_RENTER[last] * (1.0 + CREDIT_PARAM_CPI_GROWTH) ** (year - last)
-        )
+        return float(_BASE_THRESHOLD_2A2C[last][tenure] * (1.0 + CREDIT_PARAM_CPI_GROWTH) ** (year - last))
     raise ConfigError(
         f"No Hawaii SPM threshold available for year={year}"
         + ("" if extrapolate else " (pass extrapolate=True for later years)"),
-        available=sorted(_BASE_THRESHOLD_2A2C_RENTER),
+        available=sorted(_BASE_THRESHOLD_2A2C),
     )
 
 
-def _hawaii_geo_multiplier(tenure: Tenure) -> float:
-    """Effective Honolulu MSA threshold multiplier for a given tenure.
+def _geo_multiplier(tenure: Tenure, area: Area) -> float:
+    """The rent adjustment on the whole threshold: ``(1 - share) + share * MRI``.
 
-    Census applies the Median Rent Index only to the housing portion of
-    the SPM threshold. The effective multiplier on the full threshold is::
-
-        effective_multiplier = (1 - housing_share) + housing_share * MRI
-
-    For Honolulu (MRI ≈ 1.62):
-      * renter:              1 + 0.442 * 0.62 ≈ 1.274
-      * owner_with_mortgage: 1 + 0.440 * 0.62 ≈ 1.273
-      * owner_no_mortgage:   1 + 0.333 * 0.62 ≈ 1.207
-
-    The previous implementation used a flat 1.18 multiplier across tenures,
-    which underestimated thresholds for Hawaii renters (true effective
-    ratio ~1.27) and overestimated for owners-no-mortgage when combined
-    with the separate _TENURE_BASE_SCALE of 0.84 (yielding 0.99 net).
+    For Urban Honolulu (MRI 1.493): renters 1.218, owners with a mortgage 1.214,
+    owners without one 1.159.
     """
-    share = _HOUSING_SHARE_BY_TENURE.get(tenure, _HOUSING_SHARE_BY_TENURE["renter"])
-    return (1.0 - share) + share * _HAWAII_MRI
+    if area not in _MEDIAN_RENT_INDEX:
+        raise ConfigError(f"Unknown SPM area={area!r}", available=sorted(_MEDIAN_RENT_INDEX))
+    share = _HOUSING_SHARE_BY_TENURE[tenure]
+    return (1.0 - share) + share * _MEDIAN_RENT_INDEX[area]
 
 
 def _equivalence_scale(n_adults: int, n_children: int) -> float:
-    """SPM three-parameter (Betson 1996) equivalence scale, normalized to (2A, 2C).
+    """SPM three-parameter equivalence scale, normalized to (2A, 2C).
 
     Census SPM Technical Documentation §4.2.1:
 
-      * One- and two-adult units (no children): scale = (adults)^0.5
+      * One and two adults (no children): scale = (adults)^0.5, set to 1.41
+        for two adults
       * Single parents (1 adult + N children):
             scale = (1 + 0.8 + 0.5*(N-1))^0.7   for N >= 1
-      * All other families with children:
+      * All other families, including three or more adults without children:
             scale = (adults + 0.5*children)^0.7
 
     The reference family (2 adults + 2 children) has raw scale
@@ -140,14 +156,12 @@ def _equivalence_scale(n_adults: int, n_children: int) -> float:
     if n_children < 0:
         raise ConfigError("n_children must be >= 0")
 
-    if n_children == 0:
-        # One- and two-adult units use the Betson "adults only" scale.
-        raw = float(n_adults) ** 0.5
+    if n_children == 0 and n_adults <= 2:
+        raw = 1.0 if n_adults == 1 else 1.41
     elif n_adults == 1:
         # Single-parent families: first child weighted 0.8, others 0.5.
         raw = (1.0 + 0.8 + 0.5 * (n_children - 1)) ** 0.7
     else:
-        # All other families with children.
         raw = (n_adults + 0.5 * n_children) ** 0.7
 
     base = (2 + 0.5 * 2) ** 0.7  # = 3 ** 0.7
@@ -159,6 +173,7 @@ def threshold_for_units(
     *,
     year: int = 2024,
     tenure_col: str = "tenure",
+    county_col: str = "county",
     n_adults_col: str = "n_adults",
     n_children_col: str = "n_children",
     extrapolate: bool = False,
@@ -179,8 +194,10 @@ def threshold_for_units(
         compatibility for callers that pass the tax-unit frame directly
         (e.g. revenue forecast scripts).
 
-    Falls back to ``"renter"`` when ``tenure`` is missing — the most
-    conservative assumption (renter thresholds are highest).
+    The tenure comes from ``tenure_col`` and the SPM area from ``county_col``
+    (:data:`COUNTY_AREA`). A unit with no tenure is held to the renter line;
+    one with no county, or a frame without the column, to Urban Honolulu's
+    (:data:`DEFAULT_AREA`).
 
     ``extrapolate`` is passed to :func:`hawaii_spm_threshold`: off by
     default, so a year past the table raises.
@@ -199,19 +216,22 @@ def threshold_for_units(
         tenures = units[tenure_col].fillna("renter").astype(str).to_numpy()
     else:
         tenures = np.array(["renter"] * len(units))
+    if county_col in units.columns:
+        areas = units[county_col].map(COUNTY_AREA).fillna(DEFAULT_AREA).to_numpy()
+    else:
+        areas = np.array([DEFAULT_AREA] * len(units))
 
     out = np.zeros(len(units))
+    cache: dict[tuple, float] = {}
     for i in range(len(units)):
-        ten = tenures[i]
-        if ten not in _TENURE_BASE_SCALE:
-            ten = "renter"
-        out[i] = hawaii_spm_threshold(
-            year,
-            n_adults=int(n_adults[i]),
-            n_children=int(n_children[i]),
-            tenure=ten,  # type: ignore[arg-type]
-            extrapolate=extrapolate,
-        )
+        ten = tenures[i] if tenures[i] in _HOUSING_SHARE_BY_TENURE else "renter"
+        key = (int(n_adults[i]), int(n_children[i]), ten, areas[i])
+        if key not in cache:
+            cache[key] = hawaii_spm_threshold(
+                year, n_adults=key[0], n_children=key[1], tenure=ten,  # type: ignore[arg-type]
+                area=key[3], extrapolate=extrapolate,
+            )
+        out[i] = cache[key]
     return pd.Series(out, index=units.index)
 
 
@@ -221,9 +241,10 @@ def hawaii_spm_threshold(
     n_adults: int = 2,
     n_children: int = 2,
     tenure: Tenure = "renter",
+    area: Area = DEFAULT_AREA,
     extrapolate: bool = False,
 ) -> float:
-    """Approximate Hawaii SPM threshold for a household of the given composition.
+    """Hawaii SPM threshold for a unit of the given composition, tenure and area.
 
     Returns annual dollar threshold below which the household is in SPM
     poverty.
@@ -235,39 +256,24 @@ def hawaii_spm_threshold(
         ``extrapolate`` is set.
     n_adults, n_children:
         Household composition. Defaults match the Census base reference
-        unit (2 adults + 2 children) so calling with no args returns the
-        published two-adult-two-child threshold.
+        unit (2 adults + 2 children).
     tenure:
         ``"renter"``, ``"owner_with_mortgage"``, or ``"owner_no_mortgage"``.
+    area:
+        ``"honolulu"``, ``"kahului"`` or ``"nonmetro"`` (:data:`COUNTY_AREA`).
     extrapolate:
         For a year past the table, index the latest tabled year forward by
         the credit-parameter CPI assumption (see
-        :func:`_base_threshold_2a2c_renter`) instead of raising. Off by
-        default.
+        :func:`_base_threshold_2a2c`) instead of raising. Off by default.
     """
-    base = _base_threshold_2a2c_renter(year, extrapolate=extrapolate)
-    if tenure not in _TENURE_BASE_SCALE:
-        raise ConfigError(
-            f"Unknown tenure={tenure!r}",
-            available=sorted(_TENURE_BASE_SCALE),
-        )
-    # Census applies the geographic multiplier per-tenure (housing-share
-    # weighted) — not the flat constant the previous implementation used.
-    geo_adj = _hawaii_geo_multiplier(tenure)
-    return float(
-        base
-        * geo_adj
-        * _TENURE_BASE_SCALE[tenure]
-        * _equivalence_scale(n_adults, n_children)
-    )
+    base = _base_threshold_2a2c(year, tenure, extrapolate=extrapolate)
+    return float(base * _geo_multiplier(tenure, area) * _equivalence_scale(n_adults, n_children))
 
 
 def spm_threshold_table(
-    year: int, *, extrapolate: bool = False,
+    year: int, *, area: Area = DEFAULT_AREA, extrapolate: bool = False,
 ) -> dict[tuple[int, int, Tenure], float]:
-    """Pre-computed (n_adults, n_children, tenure) → threshold dict for vectorized lookup.
-
-    Useful when assigning thresholds to a unit DataFrame:
+    """Pre-computed (n_adults, n_children, tenure) → threshold dict for one area.
 
     >>> table = spm_threshold_table(2024)
     >>> df["spm_threshold"] = df.apply(
@@ -280,6 +286,6 @@ def spm_threshold_table(
             for tenure in ("renter", "owner_with_mortgage", "owner_no_mortgage"):
                 out[(n_adults, n_children, tenure)] = hawaii_spm_threshold(
                     year, n_adults=n_adults, n_children=n_children, tenure=tenure,  # type: ignore[arg-type]
-                    extrapolate=extrapolate,
+                    area=area, extrapolate=extrapolate,
                 )
     return out

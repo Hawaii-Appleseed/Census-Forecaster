@@ -17,9 +17,15 @@ def test_one_adult_no_children_uses_adults_only_scale():
 
 
 def test_two_adults_no_children_uses_adults_only_scale():
-    """Two-adult unit: scale = 2^0.5 / 3^0.7 ≈ 0.655."""
+    """Two-adult unit: Census sets the scale to 1.41 (about 2^0.5): 1.41 / 3^0.7 ≈ 0.653."""
     s = _equivalence_scale(n_adults=2, n_children=0)
-    assert s == pytest.approx((2 ** 0.5) / (3 ** 0.7), rel=1e-6)
+    assert s == pytest.approx(1.41 / (3 ** 0.7), rel=1e-6)
+
+
+def test_three_or_more_adults_without_children_use_the_family_scale():
+    """The square-root scale is for one and two adults only; three adults: 3^0.7 / 3^0.7 = 1."""
+    assert _equivalence_scale(n_adults=3, n_children=0) == pytest.approx(1.0, rel=1e-6)
+    assert _equivalence_scale(n_adults=4, n_children=0) == pytest.approx((4 / 3) ** 0.7, rel=1e-6)
 
 
 def test_single_parent_one_child_uses_first_child_weight():

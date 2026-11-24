@@ -1223,25 +1223,58 @@ working-family-credits poverty effect about threefold. Left in base-year
 dollars: imputed employer FICA, and on the county/BLS paths the untaxed 15%
 of Social Security, SSI and public assistance.
 
-SPM thresholds past the table (last year 2025, itself a projection) raise
+SPM thresholds past the table (last year 2025) raise
 unless the caller opts in with `extrapolate=True`
 (`compute_poverty_impact(extrapolate_thresholds=True)`), which indexes the
 2025 base forward at `CREDIT_PARAM_CPI_GROWTH` (2.1%/yr chained CPI), the
 rate used for federal credit and bracket parameters past the last Rev. Proc.
 The same flag lets `compute_spm_resources`' federal-tax fallback extrapolate
 its parameters rather than drop to the flat-rate estimate. Published SPM
-thresholds grew 4.8%/yr over 2022–2024, so the extrapolated line is if
+thresholds grew 7.5%/yr over 2021–2025 (renters), so the extrapolated line is if
 anything low; the count of people crossing it is sensitive to that choice
 (a few heavily weighted SPM units sit near the line), while the poverty gap
 moves smoothly.
 
 ### Threshold lookup
 
-`tax_modeler.poverty.thresholds.threshold_for_units` auto-detects
-SPM-unit input via the presence of `n_adults` and `n_children`
-columns and uses them directly when present, applying the Betson
-(1996) three-parameter equivalence scale to the published Hawaii
-2A2C reference threshold. When the composition columns are absent
+`tax_modeler.poverty.thresholds.threshold_for_units` gives each unit
+the line Census would: BLS's two-adult, two-child base threshold for the
+unit's **tenure**, its housing portion (shelter and utilities) adjusted by
+the Median Rent Index of the unit's **SPM area**, scaled by the SPM
+three-parameter equivalence scale:
+
+| | Rent index (2025) | Counties |
+|---|---|---|
+| Urban Honolulu | 1.493 | Honolulu |
+| Kahului–Wailuku | 1.455 | Maui |
+| Hawaiʻi nonmetro | 1.106 | Hawaiʻi, Kauaʻi, Kalawao |
+
+* **Base thresholds**: BLS research SPM thresholds for owners with a
+  mortgage, owners without one and renters: 2021–2024 as corrected on
+  July 17, 2026, 2025 as published August 24, 2026.
+* **Housing shares** (0.434, 0.323, 0.443 by the same tenures) and the
+  rent indexes reproduce Census's 2025 Hawaiʻi thresholds (P60-290
+  Table 19) within a dollar in all nine area–tenure cells, and the
+  equivalence scale reproduces its composition grid; the tests pin both.
+  Shares and indexes are held at their 2025 values in other years.
+* **Tenure** comes from PUMS `TEN` (`pipeline.attach_tenure`, called by
+  `poverty_impact_report._load_units`); households that pay no rent take
+  the owner-without-mortgage line, as Census assigns them.
+* **Equivalence scale**: one adult 1, two adults 1.41, single parents
+  `(1.8 + 0.5(N−1))^0.7`, everyone else, including three or more adults
+  without children, `(adults + 0.5·children)^0.7`.
+
+Before November 2026 the module used a renter base 8–12% below BLS's, one
+rent index of 1.62 for the whole state, an owner-without-mortgage base of
+0.84 of the renter's, and `adults^0.5` for adult-only units of any size, and
+the poverty runs carried no tenure, so every unit faced the renter line. On
+the TY2024 report run (2024 one-year file) the corrections move the statewide
+SPM rate from 8.46% to 8.77%: the higher base and the three-adult scale raise
+the line, the lower rent indexes and tenure lower it. Census's CPS-based rate
+for Hawaiʻi, 2023–2025 average, is 11.7% (±1.3; P60-290 Table 17); the model's
+remaining gap is on the resource side or in the survey, not the line.
+
+When the composition columns are absent
 (tax-unit fallback path used by `forecast_*.py` revenue scripts),
 the function derives `n_adults = 1 + (filing_status == MFJ)` and
 `n_children = num_dependents` for backward compatibility.
@@ -1473,8 +1506,8 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   years). Until November 2026 it ranked eligible tax units by income
   against a household count and used tables that were not Hawaiʻi's,
   giving about $355M a year against DHS's $607M.
-* **SPM threshold MRI / tenure factors** — fixed constants per
-  Renwick (2015) / Burns-Fox (2021); not swept.
+* **SPM threshold rent indexes / housing shares** — Census's 2025 values
+  (see "Threshold lookup"), held fixed in other years; not swept.
 
 ### CLI quick reference
 

@@ -93,7 +93,7 @@ def _load_units(
     """
     from tax_modeler.analysis.puma_crosswalk import assign_geography
     from tax_modeler.base import build_raw_units
-    from tax_modeler.pipeline import attach_secondary_hours, enrich_for_credits
+    from tax_modeler.pipeline import attach_secondary_hours, attach_tenure, enrich_for_credits
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -171,6 +171,9 @@ def _load_units(
         fs = households.drop_duplicates("SERIALNO").set_index(households.drop_duplicates("SERIALNO")["SERIALNO"].astype(str))["FS"]
         units["hh_snap_reported"] = hid.map(fs).eq(1).to_numpy()
     units["hh_n_persons"] = hid.map(persons.groupby(persons["SERIALNO"].astype(str)).size()).fillna(1).astype(int).to_numpy()
+    # The SPM line depends on tenure (poverty.thresholds); without it every unit is held to the renter line.
+    if "TEN" in households.columns:
+        units = attach_tenure(units, households, key="hh_id")
     return units, persons
 
 
