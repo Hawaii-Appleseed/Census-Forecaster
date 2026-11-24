@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Which group a dollar of new cash support lifts out of poverty most cheaply, TY2028.
 
-The population is the working-family credits step's (``chain/forecast_working_family_credits.py``):
-the 2024 ACS households aged to TY2028, fitted to IRS returns, with every SPM resource the step
-places. The baseline is current law in TY2028, the Act 163 credit expansions expired. Each policy
-is a flat annual payment per eligible person in one group, added to the SPM unit's resources:
+The population is built as the working-family credits step builds its own
+(``chain/forecast_working_family_credits.py``): ACS households aged to TY2028, fitted to IRS
+returns, with every SPM resource the step places. By default it is the 2020-2024 five-year ACS
+file, about five times the step's 2024 one-year sample (``--pums one-year`` is the step's file,
+and reproduces its Act 163 figures); the IRS fit and the credits' take-up factors are found again
+on whichever file is used. The baseline is current law in TY2028, the Act 163 credit expansions
+expired. Each policy is a flat annual payment per eligible person in one group, added to the SPM
+unit's resources:
 
 * **Same budget** (``--budgets``, $M): the payment is set so every group's policy costs the same.
   The groups are ranked two ways: by the share of the money that closes the poverty gap (dollars
@@ -23,7 +27,7 @@ can be written that way; it bounds what targeting can do).
 
     .venv/bin/python analyses/forecast_targeting_efficiency.py
 
-Outputs (runs/targeting_efficiency/): groups.csv, same_budget.csv, same_payment.csv, references.csv,
+Outputs (runs/targeting_efficiency/, or runs/targeting_efficiency_one_year/): groups.csv, same_budget.csv, same_payment.csv, references.csv,
 manifest.json. Standard errors are ACS sampling error from the 80 replicate weights (SDR).
 
 Static: no change in work or household formation, the payment is not taxed and does not reduce
@@ -49,6 +53,8 @@ sys.path.insert(0, str(REPO / "scripts"))
 sys.path.insert(0, str(REPO / "chain"))
 
 RUN_NAME = "targeting_efficiency"
+# --pums: the ACS file, its directory under packages/data/raw, and what the manifest calls it
+PUMS = {"five-year": ("pums_2020_2024", "HI 5-year 2020-2024"), "one-year": ("pums_2024_1yr", "HI 1-year 2024")}
 BUDGETS_M = (25.0, 50.0, 100.0, 250.0)
 AMOUNTS = (500.0, 1_000.0, 2_000.0, 3_000.0, 5_000.0)
 INCOME_TESTS = (None, 2.0, 1.5)     # None: no test; else baseline resources under this multiple of the SPM line
@@ -118,7 +124,9 @@ def renter_households(pums_dir: Path) -> set[str]:
     Tenure picks the renter group only. The SPM line stays the population's own: the step's units
     carry no tenure, so every unit is held to the renter threshold, here as in its published figures.
     """
-    hh = pd.read_parquet(pums_dir / "psam_h15.parquet", columns=["SERIALNO", "TEN"])
+    parquet = pums_dir / "psam_h15.parquet"
+    hh = (pd.read_parquet(parquet, columns=["SERIALNO", "TEN"]) if parquet.exists() else
+          pd.read_csv(pums_dir / "psam_h15.csv", usecols=["SERIALNO", "TEN"], dtype={"SERIALNO": str}))
     return set(hh.loc[hh["TEN"].isin([3, 4]), "SERIALNO"].astype(str))
 
 
@@ -259,15 +267,18 @@ def references(pop: Population, act163_gain: np.ndarray, budgets_m=BUDGETS_M) ->
     return pd.DataFrame(rows)
 
 
-def build_population() -> tuple[Population, np.ndarray, dict]:
-    """The working-family credits step's TY2028 SPM units, with current law as the baseline.
+def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, dict]:
+    """TY2028 SPM units built as the working-family credits step's, with current law as the baseline.
+
+    ``pums`` is a key of :data:`PUMS`; "one-year" is the step's own population.
 
     Returns the population, each unit's gain if Act 163 is renewed, and the run's parameters.
     """
     import forecast_working_family_credits as wfc
     from tax_modeler.poverty.impact import compute_poverty_impact
 
-    base, persons = wfc.load_population()
+    pums_dir = REPO / "packages" / "data" / "raw" / PUMS[pums][0]
+    base, persons = wfc.load_population(pums_dir)
     ratios = wfc.unit_replicate_ratios(base)
     rake = wfc.irs_rake(base, ratios=ratios) if wfc.IRS_REWEIGHT else None
     frames = {}
@@ -292,9 +303,9 @@ def build_population() -> tuple[Population, np.ndarray, dict]:
         children=f["n_children"].fillna(0).to_numpy(dtype=float),
         resources=current_law,
         threshold=f["spm_threshold"].to_numpy(dtype=float),
-        eligible=eligible_counts(f, persons, renter_households(wfc.PUMS_DIR)),
+        eligible=eligible_counts(f, persons, renter_households(pums_dir)),
     )
-    params = {"tax_year": wfc.POVERTY_YEAR, "baseline": "current law, Act 163 expansions expired",
+    params = {"pums": pums, "tax_year": wfc.POVERTY_YEAR, "baseline": "current law, Act 163 expansions expired",
               "takeup_eitc": round(p_eitc, 4), "takeup_food": round(p_food, 4), "takeup_cdcc": round(p_cdcc, 4),
               "irs_reweight": rake is not None, "replicates": len(rep_cols), "spm_units": len(f)}
     return pop, renewed - current_law, params
@@ -328,12 +339,15 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--budgets", type=float, nargs="+", default=list(BUDGETS_M), help="budgets to compare, $M")
     ap.add_argument("--amounts", type=float, nargs="+", default=list(AMOUNTS),
                     help="payments per eligible person to compare, $")
+    ap.add_argument("--pums", choices=list(PUMS), default="five-year",
+                    help="ACS file the population is built from (one-year: the working-family credits step's)")
     args = ap.parse_args(argv)
 
     t0 = time.perf_counter()
-    print("Building the TY2028 SPM population...", flush=True)
-    pop, act163_gain, params = build_population()
-    print(f"  {params['spm_units']:,} SPM units ({time.perf_counter() - t0:.0f}s)", flush=True)
+    print(f"Building the TY2028 SPM population from the {args.pums} ACS file...", flush=True)
+    pop, act163_gain, params = build_population(args.pums)
+    poor_units = int((pop.resources < pop.threshold).sum())
+    print(f"  {params['spm_units']:,} SPM units, {poor_units:,} of them in poverty ({time.perf_counter() - t0:.0f}s)", flush=True)
     groups = group_profile(pop)
     budget_table = same_budget(pop, args.budgets)
     outputs = {
@@ -345,10 +359,10 @@ def main(argv: list[str] | None = None) -> None:
     from _forecast_common import save_run
 
     run_dir = save_run(
-        RUN_NAME, outputs, script="analyses/forecast_targeting_efficiency.py",
+        RUN_NAME if args.pums == "five-year" else f"{RUN_NAME}_{args.pums.replace('-', '_')}", outputs, script="analyses/forecast_targeting_efficiency.py",
         params={**params, "budgets_$M": args.budgets, "amounts_$": args.amounts,
                 "income_tests": [_test_label(t) for t in INCOME_TESTS], "groups": [k for k, _ in GROUPS]},
-        inputs={"pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
+        inputs={"pums": f"{PUMS[args.pums][1]} (packages/data/raw/{PUMS[args.pums][0]})",
                 "population": "chain/forecast_working_family_credits.py (load_population, irs_rake, spm_frame)"},
     )
     _print_summary(pop, groups, budget_table, outputs["references.csv"])
