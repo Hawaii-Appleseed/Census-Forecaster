@@ -16,6 +16,8 @@ DOTAX does not publish HARPTA (HRS 235-68) withholding or refund totals in anyth
 - Monthly Tax Collections page https://tax.hawaii.gov/stats/a5_3txcolrpt/ (`.../monthly/YYYYMMcollec.pdf`, `2025cy-collec.pdf`): files.hawaii.gov answered HTTP 429 to repeated requests, so I stopped on that route and did not read a collections statement. Whether HARPTA receipts have their own line there is NOT verified; the annual report's tax breakdown has none.
 - Not searched: Council on Revenues materials, legislative testimony and fiscal notes (no browser or Perplexity in this test). A targeted search there is the remaining cheap check.
 
+Verification 2026-11-24 (resumed run): script re-run and reproduces the table; FY2025 and FY2018 report URLs return HTTP 200; FY2025 text re-searched for HARPTA. Other-year audit figures above were taken from the previous run's reading and not re-fetched.
+
 ## 2. The test run: an independent proceeds bound
 
 Script: `scripts/harpta_nonresident_bound.py` (read-only, prints the table below). Inputs already in the repo:
