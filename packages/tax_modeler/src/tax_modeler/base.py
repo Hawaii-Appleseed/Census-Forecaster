@@ -44,12 +44,15 @@ def build_raw_units(
     ``use_soi_calibration=False``: weights are rake-calibrated later, in
     :func:`build_calibrated_base`. ``parallel=False`` is production's setting
     (the units are identical either way; the parallel path only trades memory
-    for speed).
+    for speed). ``claimant_assignment="legacy"`` reproduces the construction before 2026-11-25 (children
+    claimed only by the householder or spouse); ``parent_link`` is the parent-finding policy
+    (``tax_modeler.units.claimants.PARENT_LINKS``).
     """
     from tax_modeler.units.constructor import TaxUnitConstructor
 
     constructor = TaxUnitConstructor(
         person_df, hh_df, use_soi_calibration=False, progress_bar=False,
+        claimant_assignment=claimant_assignment, parent_link=parent_link,
     )
     return constructor.create_rule_based_units(parallel=parallel)
 
