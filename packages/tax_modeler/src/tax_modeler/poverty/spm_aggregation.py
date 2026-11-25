@@ -76,6 +76,8 @@ _SUM_COLS: tuple[str, ...] = (
     "aca_ptc_amount",
     "wic_amount",
     "housing_subsidy_amount",
+    "housing_value",          # one tax unit per household carries these (benefits.housing),
+    "housing_takeup_prob",    # so the sum is the household's own; poverty.draws draws from them
     "liheap_amount",
     "childcare_amount",
     "school_lunch_amount",

@@ -122,7 +122,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .draws import DrawSpec, poverty_draws
+from .draws import DrawSpec, _housing_columns, poverty_draws
 from .spm import SPMColumns, SPMResourceMeta, compute_spm_resources
 from .thresholds import threshold_for_units
 
@@ -401,7 +401,8 @@ def _expansion_claim(
 
 def _complete_draws(draws: DrawSpec, df: pd.DataFrame, scenarios, columns: PovertyColumns, takeup: TakeupRates,
                     claim_draws: bool) -> DrawSpec:
-    """``draws`` with every scenario in ``scenarios`` drawn, for a spec that carries ``resource_draws``.
+    """``draws`` with every scenario in ``scenarios`` drawn, for a spec that carries ``resource_draws`` or a frame
+    whose housing assistance is drawn (``draws._housing_columns``).
 
     Something drawn for every unit (medical spending) has to be drawn in every case scored against the baseline, or
     a scenario's headcount would compare drawn and undrawn resources. A scenario the spec does not name is drawn
@@ -658,7 +659,12 @@ def compute_poverty_impact(
                 df[f"gap_draw_{scn}"] = (rate * np.maximum(threshold - (baseline_r + inc), 0.0)
                                          + (1.0 - rate) * np.maximum(threshold - baseline_r, 0.0))
     draw_info: dict = {}
-    if draws is not None and draws.resource_draws is not None:
+
+
+    housing_drawn = _housing_columns(df) is not None
+    if draws is None and housing_drawn:
+        draws = DrawSpec(blocks=())     # housing take-up is a probability: draw it rather than score its expectation
+    if draws is not None and (draws.resource_draws is not None or housing_drawn):
         draws = _complete_draws(draws, df, scenarios, columns, takeup, claim_draws)
     if draws is not None:
         n_ch = df["n_children"].fillna(0).to_numpy(dtype=float) if "n_children" in df.columns else None
