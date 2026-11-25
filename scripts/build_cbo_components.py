@@ -6,10 +6,9 @@ Usage:
 
 The second form writes ``cbo_components_<BASE>-cg<YYYY-MM>.csv``: BASE's file
 with its capital_gains rows replaced by those of the YYYY-MM file built by the
-first form. The model ages on that mix from November 24, 2026: the 2025-01
-file's capital gains were not CBO's, while switching the other components to
-CBO's own lines moved published poverty figures by up to 0.4 points and is
-under review separately.
+first form. The model aged on that mix (2025-01-cg2026-02) from November 24,
+2026 until the other components were reviewed on November 25 and the full
+2026-02 file, below, became the default.
 
 REVENUE.xlsx is 51138-<YYYY-MM>-Revenue.xlsx and ECONOMIC.xlsx is
 51135-<YYYY-MM>-Economic-Projections.xlsx, both from the same Outlook.
@@ -25,7 +24,12 @@ each component's growth is read from it directly.
   interest       Taxable interest and ordinary dividends (excluding qualified)
   dividends      Qualified dividends
   capital_gains  Capital gain or loss
-  proprietors    Net business income (all income and loss reported on Schedules C, E and F)
+  proprietors    nonfarm proprietors' income (Economic Projections, calendar year: the
+                 national accounts' measure of what the businesses earn), joined to
+                 the tax line in 2023, the first year of that table. CBO's "net business
+                 income" on returns falls 6% in 2025 as 100% bonus depreciation
+                 returns: a federal deduction Hawaiʻi does not take (it decouples
+                 from IRC §168(k)), and not a fall in what owners earn
   business       the same (alias)
   retirement     per person: the prior year's CPI-U (Economic Projections, calendar
                  year), the way Social Security's cost-of-living adjustment and most
@@ -108,14 +112,35 @@ def components(years: list[int], lines: dict[str, list[float]]) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def cpi_u(path: Path) -> dict[int, float]:
-    """CPI-U by calendar year: BLS history, then CBO's projection."""
+def econ_line(path: Path, label: str) -> dict[int, float]:
+    """One line of the Economic Projections' calendar-year sheet, by year."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     rows = [[c for c in r if c is not None] for r in wb["2. Calendar Year"].iter_rows(values_only=True)]
     header = next(r for r in rows if len(r) > 2 and r[0] == "Units")
     years = [int(y) for y in header[1:]]
-    line = next(r for r in rows if r and str(r[0]).startswith("Consumer price index, all urban"))
-    return {**CPI_U_HISTORY, **dict(zip(years, (float(v) for v in line[2:]), strict=False))}
+    line = next(r for r in rows if r and str(r[0]).startswith(label))
+    return dict(zip(years, (float(v) for v in line[2:]), strict=False))
+
+
+def cpi_u(path: Path) -> dict[int, float]:
+    """CPI-U by calendar year: BLS history, then CBO's projection."""
+    return {**CPI_U_HISTORY, **econ_line(path, "Consumer price index, all urban")}
+
+
+def econ_business(df: pd.DataFrame, path: Path) -> pd.DataFrame:
+    """Business income after 2023 grows with nonfarm proprietors' income."""
+    nipa = econ_line(path, "Proprietors' income, nonfarm")
+    out = df.copy()
+    for comp in ("proprietors", "business"):
+        m = out["component"] == comp
+        f = out.loc[m].set_index("year")["growth_factor_from_2022"]
+        join = f[2023]
+        new = {y: (f[y] if y <= 2023 else round(join * nipa[y] / nipa[2023], 6)) for y in f.index}
+        out.loc[m, "growth_factor_from_2022"] = out.loc[m, "year"].map(new).to_numpy()
+        prev = out.loc[m, "growth_factor_from_2022"].shift()
+        out.loc[m, "annual_cagr_pct"] = (100 * (out.loc[m, "growth_factor_from_2022"] / prev - 1)).fillna(0).round(3)
+        out.loc[m, "source_note"] = "Net business income to 2023, then Proprietors' income, nonfarm (national accounts)"
+    return out
 
 
 def per_person_retirement(df: pd.DataFrame, cpi: dict[int, float]) -> pd.DataFrame:
@@ -148,7 +173,7 @@ def main(argv: list[str]) -> int:
         return 2
     rev, econ, vintage = Path(argv[1]), Path(argv[2]), argv[3]
     years, lines = read_sheet(rev)
-    df = per_person_retirement(components(years, lines), cpi_u(econ))
+    df = econ_business(per_person_retirement(components(years, lines), cpi_u(econ)), econ)
     dest = OUT_DIR / f"cbo_components_{vintage}.csv"
     df.to_csv(dest, index=False)
     for path in (rev, econ):

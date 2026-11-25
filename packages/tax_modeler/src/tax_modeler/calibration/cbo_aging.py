@@ -43,14 +43,13 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VINTAGE = "2025-01-cg2026-02"
+DEFAULT_VINTAGE = "2026-02"
 """The CBO Outlook every caller ages on unless it names another
-(``data/tax_modeler/cbo/cbo_components_<vintage>.csv``): the 2025-01 file with
-its capital gains replaced by CBO's February 2026 realizations
-(``scripts/build_cbo_components.py --capital-gains-only``). The 2025-01 file
-was typed by hand and its capital gains were not CBO's; its other components
-are near CBO's and stay until a review of per-person growth (the full 2026-02
-file, CBO's own lines, moves published poverty by up to 0.4 points)."""
+(``data/tax_modeler/cbo/cbo_components_<vintage>.csv``), built from CBO's own
+tables by ``scripts/build_cbo_components.py`` (its docstring gives the line
+behind each component and why). The hand-typed 2025-01 file and the
+2025-01-cg2026-02 mix (its capital gains replaced by CBO's) stay for
+comparison."""
 
 # Components published per CBO and supported by the aging engine.
 CBO_COMPONENTS: tuple[str, ...] = (
