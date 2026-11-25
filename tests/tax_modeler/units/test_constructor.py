@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from tax_modeler.units.constructor import TaxUnitConstructor
+from tax_modeler.units.constructor import FILING_STATUS_WEIGHT_FACTORS, TaxUnitConstructor
 
 
 # Test data
@@ -285,21 +285,22 @@ class TestReplicateWeightPropagation:
         assert rep_cols[-1] == 'weight_r80'
 
     def test_replicates_match_hybrid_weight_formula_single(self):
-        """Single filer: weight_r<R> = PWGTP<R> * single_calibration_factor (0.82)."""
+        """Single filer: weight_r<R> = PWGTP<R> * the single filing-status factor."""
         per, hh = self._fixture_with_replicates()
         ctor = TaxUnitConstructor(per, hh, num_processes=1, progress_bar=False,
                                   use_soi_calibration=False)
         units = ctor.create_rule_based_units(parallel=False)
-        # Row 0: PWGTP=100, PWGTPr = 100+r, single ⇒ weight × 0.82
+        f = FILING_STATUS_WEIGHT_FACTORS['single']
+        # Row 0: PWGTP=100, PWGTPr = 100+r, single ⇒ weight × f
         row = units.iloc[0]
         assert row['filing_status'] == 'single', f"expected single, got {row['filing_status']}"
-        # Main weight: 100 * 0.82 = 82
+        # Main weight: 100 * f
         # rtol=1e-5 because the constructor stores weights as float32 internally.
-        np.testing.assert_allclose(row['weight'], 82.0, rtol=1e-5)
-        # weight_r01: 101 * 0.82 = 82.82
-        np.testing.assert_allclose(row['weight_r01'], 82.82, rtol=1e-5)
-        # weight_r80: 180 * 0.82 = 147.6
-        np.testing.assert_allclose(row['weight_r80'], 147.6, rtol=1e-5)
+        np.testing.assert_allclose(row['weight'], 100.0 * f, rtol=1e-5)
+        # weight_r01: 101 * f
+        np.testing.assert_allclose(row['weight_r01'], 101.0 * f, rtol=1e-5)
+        # weight_r80: 180 * f
+        np.testing.assert_allclose(row['weight_r80'], 180.0 * f, rtol=1e-5)
 
     def test_replicates_propagate_to_joint_filer(self):
         """Regression (audit A1): married-filing-jointly tax units must also
@@ -397,13 +398,14 @@ class TestReplicateWeightPropagation:
         )
         row = hoh.iloc[0]
         assert row['num_dependents'] == 1
-        # Main weight uses WGTP (>=2 members) x HoH factor 1.30: 100 * 1.30 = 130.
-        np.testing.assert_allclose(row['weight'], 130.0, rtol=1e-5)
-        # Replicates must therefore be WGTPr * 1.30, NOT the householder's PWGTPr.
-        # weight_r01: WGTP1(101) * 1.30 = 131.30  (bug would give PWGTP1(61)*1.30=79.30)
-        np.testing.assert_allclose(row['weight_r01'], 131.30, rtol=1e-5)
-        # weight_r80: WGTP80(180) * 1.30 = 234.0
-        np.testing.assert_allclose(row['weight_r80'], 234.0, rtol=1e-5)
+        f = FILING_STATUS_WEIGHT_FACTORS['head_of_household']
+        # Main weight uses WGTP (>=2 members) x the HoH factor: 100 * f.
+        np.testing.assert_allclose(row['weight'], 100.0 * f, rtol=1e-5)
+        # Replicates must therefore be WGTPr * f, NOT the householder's PWGTPr.
+        # weight_r01: WGTP1(101) * f  (bug would give PWGTP1(61) * f)
+        np.testing.assert_allclose(row['weight_r01'], 101.0 * f, rtol=1e-5)
+        # weight_r80: WGTP80(180) * f
+        np.testing.assert_allclose(row['weight_r80'], 180.0 * f, rtol=1e-5)
 
     def test_flag_off_suppresses_replicates(self):
         per, hh = self._fixture_with_replicates()

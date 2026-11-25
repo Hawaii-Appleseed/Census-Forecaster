@@ -51,11 +51,14 @@ logger = logging.getLogger(__name__)
 #: the DOTAX TY2022 shares (single 52.8% / MFJ 34.1% / HoH 10.6% / MFS 2.5%). Derived by
 #: ``scripts/rederive_filing_status_factors.py`` (the ratio of DOTAX share to the model's natural share on the 2024
 #: 1-year PUMS units; ``scripts/diagnose_filing_status.py`` prints the shares). The one source for the unit weight
-#: and its 80 replicates.
+#: and its 80 replicates. Re-derived 2026-11-25 on the parent-first construction (single 0.834, HoH 1.181, MFS 1.351,
+#: rounded to two places as before): the earlier 0.82 / 1.30 / 1.35 were set on the construction that gave every child
+#: to the householder, which built too few HoH units, so HoH was weighted up and single down; the recipe returns
+#: those values (0.823 / 1.291 / 1.351) on that construction.
 FILING_STATUS_WEIGHT_FACTORS = {
-    'single': 0.82,
+    'single': 0.83,
     'married_filing_jointly': 1.0,
-    'head_of_household': 1.30,
+    'head_of_household': 1.18,
     'married_filing_separately': 1.35,
 }
 
