@@ -55,4 +55,20 @@ Across 2018-2023 on the fixed TY2022 renters-only base (no model run for earlier
 Adopt with caveats. The DOTAX line is official and stable (16.9K-17.4K claims, 2021-2023) and implies a renters-only take-up of about 0.15 (dollars) to 0.17 (counts), well below 0.30. The bigger finding is that the pipeline applies no renter test, so today's 0.30 produces 4.8x the claimed dollars. Recommended follow-up PR: add the tenure filter, set `takeup_pct` to about 0.15 (dollar-anchored), and check that the tier amounts reproduce $99 per claim. Not done here; no default or published number changed.
 
 ## Status update (2026-11-25)
-Adopted: `credits/hi_renters.py` now requires `tenure == "renter"` and fits take-up to DOTAX dollars (0.151 for TY2022, 0.142 for TY2023, guard 0.05-0.40); the poverty pipeline passes its tax year. The statute check (HRS 235-55.7) could not be done: capitol.hawaii.gov blocked scripted requests, so the tiers, caps, per-exemption rule and any minimum-rent test are still unverified and were left as they were.
+Adopted, with the schedule corrected to current law. HRS 235-55.7(c) (L Sp 1977 1st, c 15, last amended L 1990, c 98; read 2026-11-25 at www.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0055_0007.htm): AGI under $30,000, more than $1,000 of rent paid, $50 per qualified exemption, doubled for each taxpayer 65 or over. The $150/$100/$50 tiers and the $20K-$40K status caps above ("Limits", first bullet) were not law and are gone; the $114 per unit and the 232K/97K counts in the tables above are from that old schedule.
+
+`credits/hi_renters.py` now implements the statute, requires `tenure == "renter"` and annual rent (PUMS RNTP x 12) over $1,000, and fits take-up to DOTAX dollars.
+
+| | TY2022 | TY2023 |
+|---|---|---|
+| eligible renter units (full take-up) | 88,387 | 92,225 |
+| fitted take-up (dollars) | 0.207 | 0.194 |
+| claims / eligible units | 0.192 | 0.187 |
+| avg credit per eligible unit | $91.6 | $91.8 |
+| DOTAX $ per claim | $99 | $96 |
+
+The dollar-fitted and count-implied take-up now agree within 1.5 points (before: 0.151 against 0.174). Average exemptions per eligible unit 1.83.
+
+Class split, TY2022 dollars: model 37% under $10K AGI and 63% at $10K-$30K, against DOTAX 50% ($835K) and 50% ($841K). The model under-represents the lowest-income claimants (the no-income resident clause is not modelled; PUMS income is a proxy for AGI).
+
+Still not modelled: claimed-as-dependent and exempt-property exclusions, nine-month residence, pro-rata rent shares.

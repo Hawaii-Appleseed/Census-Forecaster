@@ -1505,16 +1505,15 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   literature half-elasticity (0.5); backtest spec documented in
   `adjustments/eitc_poverty_scaling.py`. Deferred pending a
   multi-year ACS S1701 × IRS SOI panel build.
-* **HI Renters Credit schedule** — take-up is now anchored (see the
-  2026-Q2 entry below, updated 2026-11-25), but the $50/$100/$150 AGI
-  tiers and AGI caps in `credits/hi_renters.py` have not been checked
-  against HRS §235-55.7 (the statute page could not be fetched). The
-  statute's per-exemption amount, age-65 doubling of exemptions and any
-  minimum-rent test are not implemented; observed claims average $99
-  against the model's $114 per unit. The separate revenue-forecast
-  credit (`HawaiiTaxCredits.low_income_renters_credit`) still uses the
-  0.30 placeholder and no renter test; it is not the poverty pipeline's
-  credit.
+* **HI Renters Credit coverage** — the poverty-pipeline credit follows
+  HRS §235-55.7(c) (checked 2026-11-25): $50 per qualified exemption,
+  doubled per filer 65+, AGI under $30,000, rent over $1,000. Not
+  modelled: the claimed-as-a-dependent and exempt-property exclusions,
+  the nine-month residence test, the no-income-resident clause, and the
+  pro-rata split of a shared household's rent. The model puts 37% of
+  dollars under $10K AGI against DOTAX's 50% (TY2022). The revenue-forecast
+  credit (`HawaiiTaxCredits.low_income_renters_credit`) still carries the
+  old tiers, status caps and a 0.30 renter share.
 * **Replicate-weight propagation through tax-unit constructor**
   (2026-Q2 closed) — `weight_r01..weight_r80` now ride from PUMS
   households → persons → tax units → SPM aggregator via the
@@ -1524,19 +1523,24 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   This unlocks the SDR bootstrap on `τ_HI_EITC` at the tax-unit level
   (the `estimate_hi_eitc_takeup` function now returns a real SE
   instead of the 2-replicate judgment band when run post-constructor).
-* **HI Renters Credit** (2026-Q2 wired; anchored 2026-11-25) —
+* **HI Renters Credit** (2026-Q2 wired; current law and anchored 2026-11-25) —
   `_apply_hi_renters` runs in `scripts/poverty_impact_report.py` after
   `_apply_hi_eitc`, so `hi_renters_amount` flows into
-  `compute_spm_resources` as a positive SPM resource. Only units whose
-  household rents (`tenure == "renter"`, PUMS `TEN`) qualify; before the
-  anchor the pipeline screened on income alone, so homeowners received
-  it (232K eligible units vs 97K renters-only, TY2022; $7.98M modelled
-  vs $1.675M claimed). Take-up is fitted so renters-only model dollars
-  equal DOTAX's claimed dollars ("Tax Credits Claimed by Hawaii
-  Taxpayers", Table A-1) for the run's tax year, capped at TY2023 and
-  held flat after: 0.151 for TY2022, 0.142 for TY2023, guarded to
-  0.05-0.40. Claims are filings, so the factor is take-up and filing
-  combined. See `docs/data_source_tests/renters-credit-anchor.md`.
+  `compute_spm_resources` as a positive SPM resource. The schedule is
+  HRS §235-55.7(c): $50 per qualified exemption (filer 65+ counts twice),
+  AGI under $30,000 for every filing status, more than $1,000 of rent
+  (PUMS `RNTP` x 12, `pipeline.attach_rent`), and a renting household
+  (`tenure == "renter"`, PUMS `TEN`). Before this the module used
+  $150/$100/$50 AGI tiers and status caps that are not in the statute and
+  the pipeline screened on income alone, so homeowners received it
+  (232K eligible units vs 97K renters-only, TY2022; $7.98M modelled vs
+  $1.675M claimed). Take-up is fitted so renters-only model dollars equal
+  DOTAX's claimed dollars ("Tax Credits Claimed by Hawaii Taxpayers",
+  Table A-1) for the run's tax year, capped at TY2023 and held flat after:
+  0.207 for TY2022, 0.194 for TY2023, guarded to 0.05-0.40. Claims are
+  filings, so the factor is take-up and filing combined. Model average
+  credit per eligible unit is $92 against DOTAX's $99 per claim. See
+  `docs/data_source_tests/renters-credit-anchor.md`.
 * **District-level uncertainty** — within-PUMA HD/SD assignment
   is a deterministic SERIALNO hash, drawing each of the PUMA's
   districts in proportion to its 2020 census population

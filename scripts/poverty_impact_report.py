@@ -93,7 +93,12 @@ def _load_units(
     """
     from tax_modeler.analysis.puma_crosswalk import assign_geography
     from tax_modeler.base import build_raw_units
-    from tax_modeler.pipeline import attach_secondary_hours, attach_tenure, enrich_for_credits
+    from tax_modeler.pipeline import (
+        attach_rent,
+        attach_secondary_hours,
+        attach_tenure,
+        enrich_for_credits,
+    )
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -174,6 +179,8 @@ def _load_units(
     # The SPM line depends on tenure (poverty.thresholds); without it every unit is held to the renter line.
     if "TEN" in households.columns:
         units = attach_tenure(units, households, key="hh_id")
+    # The renters credit needs more than $1,000 of rent paid in the year (HRS 235-55.7(c)).
+    units = attach_rent(units, households, key="hh_id")
     return units, persons
 
 
@@ -235,13 +242,12 @@ def _apply_hi_eitc(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
 def _apply_hi_renters(units: pd.DataFrame, *, tax_year: int | None = None) -> pd.DataFrame:
     """Compute the HI Low-Income Household Renters Credit (HRS §235-55.7).
 
-    Tiered refundable credit ($50 / $100 / $150) for renting filers with AGI
-    below status-specific ceilings ($30K single / $40K MFJ / $35K HoH /
-    $20K MFS). Only units whose household rents (``tenure == "renter"``,
-    PUMS ``TEN``) qualify. The take-up multiplier is fitted so renters-only
+    $50 per qualified exemption (doubled for each person 65 or over) for
+    filers with AGI under $30,000 who paid more than $1,000 of rent in the
+    year (the current-law schedule in credits/hi_renters.py). Only units whose
+    household rents (``tenure == "renter"``, PUMS ``TEN``) qualify. The take-up multiplier is fitted so renters-only
     model dollars equal DOTAX's claimed dollars for ``tax_year`` (capped at
-    the latest published year; see credits/hi_renters.py). The schedule has
-    not been checked against the statute (see that module's docstring).
+    the latest published year; see credits/hi_renters.py).
 
     ``compute_spm_resources`` picks the column up through the
     ``hi_renters_col="hi_renters_amount"`` kwarg in poverty/spm.py.
