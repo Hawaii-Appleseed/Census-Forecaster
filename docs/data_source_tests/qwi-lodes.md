@@ -58,3 +58,47 @@ Reading: the within-PUMA population split misses LODES low-earner counts by a me
 - Statistical significance tests for Part A.
 - Any non-LODES validation of district low-earner counts.
 - Which published pipeline numbers would change: none touched.
+
+## Group quarters and the district population base
+
+Run 2026-11-25, exploratory. Script `scripts/data_source_tests/gq_district_base.py`; results `docs/data_source_tests/qwi-lodes-results/gq_district_gap.csv` (every district, both chambers, all three bases) and `gq_share_shifts.csv` (PUMA x district cells whose share moves more than 10%). Nothing in the crosswalk, the model or any published output was changed.
+
+**Fetched vs bundled.** Nothing new was downloaded. The 2020 PL 94-171 zip already in the gitignored cache carries what is needed (no API key): file 03 is table P5 (group quarters by type), file 02's last three columns are H1 (housing units, occupied, vacant), file 01 is P1. Blocks, PUMAs and the 2022 plan join exactly as in Part B.
+
+**Sign convention** (`lodes_rac_districts.py`, unchanged): `diff = LODES actual / implied - 1`, where implied = the PUMA's LODES total times the district's within-PUMA share of the base. +252% means LODES has 3.5x what the base implies (the base share is too small for that district); -80% means the base share is about five times too large.
+
+**1. Facts (House, 2020).**
+
+| District | Total pop | Group quarters | of which military | college | institutional | Household pop | Occupied units | Gap vs LODES CE01 (pop base) |
+|---|---|---|---|---|---|---|---|---|
+| 46 | 51,085 | 6,091 | 5,852 | 0 | 92 | 44,994 | 14,619 | +252% |
+| 2 | 25,215 | 996 | 0 | 559 | 268 | 24,219 | 9,391 | +164% |
+| 33 | 28,847 | 24 | 0 | 0 | 0 | 28,823 | 10,310 | -80% |
+| 36 | 27,096 | 339 | 0 | 0 | 64 | 26,757 | 5,760 | -81% |
+| 37 | 27,975 | 261 | 0 | 0 | 261 | 27,714 | 9,664 | -80% |
+
+State: 1,455,271 people, 40,741 in group quarters (15,522 military, 4,960 college, 9,661 institutional). Direction check: District 46 does hold the most military barracks population (5,852), but the sign is wrong for the hypothesis. If barracks inflated the population share, LODES would sit below the implied value; it sits 3.5x above. Districts 33, 36, 37 (LODES far below) have essentially no group quarters, and District 2 (LODES far above) has 4% group quarters, all college and institutional. The group-quarters-heavy districts are 31, 46, 50 (military), 22 (college).
+
+**2. Rebuilt splits.** Gap of LODES resident workers (`CE01`; `C000` in the CSV) to the within-PUMA split on each base:
+
+| Chamber | Base | Median abs | p90 | Max | Share >20% | Misallocated share |
+|---|---|---|---|---|---|---|
+| House | total pop (current) | 17.9% | 78.8% | 252% | 49% | 25.1% |
+| House | household pop | 20.9% | 78.9% | 277% | 51% | 25.8% |
+| House | occupied units | 33.4% | 73.7% | 244% | 63% | 31.0% |
+| Senate | total pop (current) | 17.3% | 68.1% | 146% | 36% | 19.1% |
+| Senate | household pop | 16.0% | 68.3% | 152% | 40% | 19.7% |
+| Senate | occupied units | 22.8% | 69.2% | 147% | 56% | 25.3% |
+
+Outliers (House `CE01` gap, pop / household pop / occupied units): District 46 +252% / +277% / +243%; District 2 +164% / +171% / +158%; District 33 -80% / -81% / -81%; District 36 -81% / -81% / -74%; District 37 -80% / -80% / -83%. **Removing group quarters removes none of the gap; it widens it slightly** (District 46's household population is 12% lower, which lowers the implied count and raises the gap). Occupied units is worse still at the median (33% against 18%), because household size varies by district and housing-unit counts mismatch a person-based LODES. The hypothesis, that barracks and dorms in the population base explain the outliers, is rejected for all five districts. The same holds for `C000`. Whatever drives District 46 (+252%) and 33/36/37 (-80%) is not group quarters. Untested guesses: civilian earners among military families in on-base housing (counted in household population, not group quarters), commuter and household-size mix, LODES noise infusion and residence geocoding. Hawaii's reapportionment adjustment (removing non-resident military and students) was not tested here because the permanent-resident base is not in the PL files.
+
+**3. How the model treats group quarters.** The tax-unit constructor builds from PUMS housing-unit records and skips zero-weight households (`units/constructor.py`: "group quarters, invalid data"); in SPM assembly, RELSHIPP 37 and 38 (institutional and non-institutional group quarters) "never enter SPM accounting" (`units/spm_unit_assembly.py`). So every modeled person lives in a household. Conceptually (a) households should be assigned on household population or, better, on households (a person-weighted household count); occupied units is the natural unit but not a better predictor here, and it assigns by dwellings rather than the people the PUMS weights represent. (b) Group-quarters persons are not modeled at all; if they were, they would need their own base (the P5 counts by block), not the household one. Household population is therefore conceptually the closer base for the persons the model does represent. That is an argument from construction, not from fit: against LODES the current total-population split does as well as or better than both alternatives, and there is no ground truth for district low-earner counts.
+
+**4. What a base switch would move.** Cell = PUMA x district share of the PUMA (`gq_share_shifts.csv`, 51 House and 25 Senate pieces).
+
+- Household population: only three cells move more than 10% (relative): House 46 in PUMA 301, 18.9% to 14.8% (-21.6%); Senate 12 in PUMA 305, 0.87% to 0.75% (-14%); Senate 14 in PUMA 306, 7.4% to 6.6% (-10.7%). Nothing else moves, because group quarters are 2.8% of the state population.
+- Occupied units: 36 cells move more than 10% (23 House, 13 Senate, a median 21%): the largest are House 25 in PUMA 305 (4.3% to 7.1%, +65%), 26 (+37%), 48 in PUMA 301 (+35%), 36 in PUMA 307 (14.9% to 10.2%, -31%), 29 and 30 in PUMA 305 (about -26%); Senate 12 in PUMA 305 (+74%), Senate 14 in PUMA 305 (-24%), Senate 13 in PUMA 305 (+25%). Full list in the CSV.
+
+Published outputs that use the district split (all through `population_crosswalk`, so a base change would move them): the H.R.1 SNAP/Medicaid page's House and Senate district tables (`analyses/forecast_hr1_snap_medicaid.py`, `scripts/build_site.py`, apportioned by `apportion`) and the EITC/CTC geography report's district files (`scripts/eitc_ctc_geo_report.py`). County and state totals do not move (shares are within PUMA, and counties come from the same crosswalk; PUMA 100's county split would need a separate check if the base changed).
+
+**Verdict.** No case for switching the base on this evidence: household population changes three cells and does not improve the LODES gap; occupied units changes 36 cells and worsens it. The large District 46, 2, 33, 36, 37 gaps remain unexplained, and group quarters is not the cause.
