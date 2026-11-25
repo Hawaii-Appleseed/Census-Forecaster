@@ -276,12 +276,12 @@ def _apply_snap(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
 
 
 def _apply_housing_subsidy(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
-    """Impute Section-8/public-housing benefit, then take-up-impute against HUD anchor."""
-    from tax_modeler.benefits.housing import compute_housing_for_units
+    """Section-8/public-housing value per renter household, and take-up as one probability that meets HUD's
+    caseload (``benefits.housing``)."""
+    from tax_modeler.benefits.housing import compute_housing_for_units, housing_takeup
     from tax_modeler.calibration.admin_caseload import AdminCaseload
-    from tax_modeler.calibration.takeup_imputation import impute_takeup
 
-    LOG.info("Computing housing-subsidy benefits + take-up imputation for TY %d", tax_year)
+    LOG.info("Computing housing-subsidy value and take-up probability for TY %d", tax_year)
     out = compute_housing_for_units(units, tax_year=tax_year)
     try:
         target = AdminCaseload.load().target("housing", tax_year)
@@ -292,10 +292,11 @@ def _apply_housing_subsidy(units: pd.DataFrame, *, tax_year: int) -> pd.DataFram
             tax_year, exc,
         )
         target = AdminCaseload.load().target("housing", 2022)
-    out = impute_takeup(
-        out, target=target, benefit_col="housing_subsidy_amount",
-        score_col="income", ascending=True, weight_col="weight",
-    )
+    out = housing_takeup(out, target_households=target.count)
+    w = out["hh_weight"] if "hh_weight" in out.columns else out["weight"]
+    LOG.info("housing: %.0f eligible households, take-up %.3f, $%.1fM expected (HUD $%.1fM)",
+             float(w[out["housing_eligible"]].sum()), float(out["housing_takeup_prob"].max()),
+             float((w * out["housing_subsidy_amount"]).sum()) / 1e6, target.annual_dollars_millions)
     return out
 
 

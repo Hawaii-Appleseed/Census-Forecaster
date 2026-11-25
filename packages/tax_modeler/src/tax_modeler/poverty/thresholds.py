@@ -289,3 +289,16 @@ def spm_threshold_table(
                     area=area, extrapolate=extrapolate,
                 )
     return out
+
+
+def renter_housing_portion(
+    year: int, *, n_adults: int, n_children: int, area: Area = DEFAULT_AREA, extrapolate: bool = False,
+) -> float:
+    """The shelter-and-utilities part of a renter unit's SPM threshold: the threshold times
+    ``share * MRI / ((1 - share) + share * MRI)``, about 54% in Urban Honolulu. Census caps the value of a
+    housing subsidy at this amount less the tenant's payment (SPM Technical Documentation)."""
+    share = _HOUSING_SHARE_BY_TENURE["renter"]
+    mri = _MEDIAN_RENT_INDEX[area]
+    whole = hawaii_spm_threshold(year, n_adults=n_adults, n_children=n_children, tenure="renter", area=area,
+                                 extrapolate=extrapolate)
+    return whole * share * mri / _geo_multiplier("renter", area)

@@ -72,7 +72,7 @@ def test_resource_draws_average_to_the_expected_moop_and_keep_its_spread():
 
     hook = moop_resource_draws(_units(), _persons(), year=DOLLAR_YEAR)
     frame = pd.DataFrame({"spm_unit_id": ["a", "b", "zz"]})
-    adj = hook(frame, np.random.default_rng(0), 20_000)
+    adj = hook(frame, np.random.default_rng(0).random((3, 20_000)))
     assert adj.shape == (3, 20_000)
     assert (adj[2] == 0).all()                                            # not an SPM unit of these tax units
     expected = compute_moop_for_units(_units(), _persons(), year=DOLLAR_YEAR)["moop_amount"].to_numpy()[[0, 2]]
@@ -88,9 +88,24 @@ def test_moop_draws_spread_units_off_a_shared_cell_mean():
     df = pd.DataFrame({"spm_unit_id": ["a", "b"], "spm_resources": [30_000.0, 30_000.0]})
     threshold = np.array([29_000.0, 29_000.0])
 
-    def hook(frame, rng, n):
-        return rng.normal(0.0, 3_000.0, size=(len(frame), n))
+    def hook(frame, u):
+        from scipy.stats import norm
+        return 3_000.0 * norm.ppf(u)
 
     res = poverty_draws(DrawSpec(blocks=(), resource_draws=hook, n_draws=4_000), df, threshold,
                         {"persons": np.ones(2)})
     assert 0.2 < res.poor_prob["baseline"].mean() < 0.45                  # P(N(0, 3000) < -1000) ≈ 0.37
+
+
+def test_moop_draw_of_a_unit_depends_on_its_own_uniform_and_pool_only():
+    """Common random numbers: dropping another unit, or moving it to another pool, leaves this unit's draws alone."""
+    from tax_modeler.benefits.moop import moop_resource_draws
+    from tax_modeler.poverty.draws import stable_keys, uniforms
+
+    hook = moop_resource_draws(_units(), _persons(), year=DOLLAR_YEAR)
+    both = pd.DataFrame({"spm_unit_id": ["a", "b"]})
+    one = pd.DataFrame({"spm_unit_id": ["b"]})
+    u_both = uniforms(stable_keys(both["spm_unit_id"]), 0, 1, 0, 500)
+    u_one = uniforms(stable_keys(one["spm_unit_id"]), 0, 1, 0, 500)
+    assert np.array_equal(u_both[1], u_one[0])
+    assert np.array_equal(hook(both, u_both)[1], hook(one, u_one)[0])
