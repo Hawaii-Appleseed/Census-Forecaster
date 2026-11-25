@@ -1,10 +1,10 @@
 check,model,dhs
-"SNAP households, weighted",78538,77985
+"SNAP households, weighted",78427,77985
   report SNAP,56579,
-    of which fail the FY2027 gross test on annual income (given the QC average for their size),22450,
-"  eligible, do not report SNAP, drawn to reach the caseload",21959,
-  probability each eligible non-reporter is drawn,0.259105,
-persons in SNAP households,264482,157850
+    of which fail the FY2027 gross test on annual income (given the QC average for their size),22641,
+"  eligible, do not report SNAP, drawn to reach the caseload",21848,
+  probability each eligible non-reporter is drawn,0.257919,
+persons in SNAP households,264266,157850
 "annual benefits, $",6.074e+08,6.074e+08
-dollar scale on the module's FY2027 benefits,0.761106,
-sample households receiving SNAP,3836,
+dollar scale on the module's FY2027 benefits,0.758474,
+sample households receiving SNAP,3839,
