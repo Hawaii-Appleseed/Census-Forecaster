@@ -1,6 +1,6 @@
 # Tax-unit claimant assignment: children go to their own parent first
 
-Built and measured 2026-11-25 on branch `fix/tax-unit-claimant-assignment`. **Not published**: `scripts/publish.py` was not run, `site/` and `runs/` are unchanged, no pull request. The owner decides after reading section 6.
+Built and measured 2026-11-25 on branch `fix/tax-unit-claimant-assignment`. Adopted by the owner the same day (parent-first with the re-derived filing-status factors, "run B") and published by `scripts/publish.py` in the pull request for that branch; the tables below are the scratch measurements, and the published figures differ from them only by the changes merged from main meanwhile (PR #112's housing and common-random-number change moves the poverty lines; see the pull request and `SB3125_CD1_FORECAST.md`, "Children claimed by their own parent").
 It follows `docs/data_source_tests/eitc-eligible-shortfall.md` (branch `diag/eitc-eligible-shortfall`), whose claimant-assignment finding (+12.2K EITC-eligible units, chained) it implements.
 
 Tags: **[M]** measured by this run (commands in section 9); **[D]** taken from the diagnosis, not re-measured; **[R]** reasoned, not run.
