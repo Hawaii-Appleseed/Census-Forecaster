@@ -81,7 +81,7 @@ def cg_growth(yr: int, from_year: int = BASE_YEAR) -> float:
         load_cbo_rates,
         net_growth_factor,
     )
-    rates = load_cbo_rates("2025-01")
+    rates = load_cbo_rates()
     return net_growth_factor(rates.growth("capital_gains", yr, from_year),
                              DEFAULT_HAWAII_FACTORS["capital_gains"])
 

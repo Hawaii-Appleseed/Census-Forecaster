@@ -19,7 +19,7 @@ Usage
         load_cbo_rates, age_filers_with_components,
     )
 
-    rates = load_cbo_rates(vintage="2025-01")
+    rates = load_cbo_rates()
     aged = age_filers_with_components(
         units, target_year=2027, base_year=2022,
         cbo_rates=rates,
@@ -42,6 +42,15 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_VINTAGE = "2025-01-cg2026-02"
+"""The CBO Outlook every caller ages on unless it names another
+(``data/tax_modeler/cbo/cbo_components_<vintage>.csv``): the 2025-01 file with
+its capital gains replaced by CBO's February 2026 realizations
+(``scripts/build_cbo_components.py --capital-gains-only``). The 2025-01 file
+was typed by hand and its capital gains were not CBO's; its other components
+are near CBO's and stay until a review of per-person growth (the full 2026-02
+file, CBO's own lines, moves published poverty by up to 0.4 points)."""
 
 # Components published per CBO and supported by the aging engine.
 CBO_COMPONENTS: tuple[str, ...] = (
@@ -104,7 +113,7 @@ class CBOComponentRates:
     Attributes
     ----------
     vintage:
-        Outlook publication identifier (e.g. ``"2025-01"``).
+        Outlook publication identifier (e.g. ``"2026-02"``).
     base_year:
         Calendar year for which growth factors equal 1.0 (default 2022).
     factors:
@@ -154,7 +163,7 @@ def _default_csv_path(vintage: str) -> Path:
 
 
 def load_cbo_rates(
-    vintage: str = "2025-01",
+    vintage: str = DEFAULT_VINTAGE,
     csv_path: Path | None = None,
     base_year: int = 2022,
 ) -> CBOComponentRates:

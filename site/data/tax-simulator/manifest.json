@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-11-25T00:44:49+00:00",
-  "git_sha": "c2c66ad",
+  "created_at": "2026-11-25T05:33:45+00:00",
+  "git_sha": "e5acfa5",
   "script": "scripts/build_simulator_population.py",
   "params": {
     "years": [
@@ -37,8 +37,8 @@
   "params_fingerprint": "836525574f07813a",
   "inputs": {
     "calibrated_base": {
-      "created_at": "2026-11-24T23:50:29+00:00",
-      "git_sha": "4f38925",
+      "created_at": "2026-11-25T01:58:24+00:00",
+      "git_sha": "26adc93",
       "n_units": 39996,
       "tax_year": 2023,
       "params_fingerprint": "ab6b63a25f3fa23b",
@@ -47,21 +47,21 @@
       "cd": "2"
     },
     "tax_units_cache": {
-      "created_at": "2026-11-25T00:42:15+00:00",
-      "git_sha": "c2c66ad",
-      "code_key": "bbe2de777c5786005004e964bccc00ea9cf1b7fb3b8567dbad21567d2fff7c5b",
+      "created_at": "2026-11-25T05:27:39+00:00",
+      "git_sha": "6260247",
+      "code_key": "c9aaff850b23355b2bfe3726b42d9b30896f7fc144e43be87ac0604a6b69902c",
       "built_by": "chain/forecast_sb3125_enhanced.py",
       "pums": "HI 5yr 2020-24",
       "n_units": 39996
     },
     "population": {
-      "created_at": "2026-11-25T00:44:07+00:00",
-      "git_sha": "c2c66ad"
+      "created_at": "2026-11-25T05:33:27+00:00",
+      "git_sha": "e5acfa5"
     },
     "credits": {
       "run": "working_family_credits",
-      "created_at": "2026-11-25T00:44:12+00:00",
-      "git_sha": "c2c66ad",
+      "created_at": "2026-11-25T05:33:03+00:00",
+      "git_sha": "e5acfa5",
       "params_fingerprint": "cd4c14218b1c1ed0",
       "takeup_eitc": 0.9784,
       "takeup_food": 0.7321
@@ -75,5 +75,5 @@
     "population.json",
     "population.npz"
   ],
-  "published_at": "2026-11-25T00:44:49+00:00"
+  "published_at": "2026-11-25T05:33:46+00:00"
 }

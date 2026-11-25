@@ -493,6 +493,9 @@ T_HRS_ALT_TAX = (
 T_DOTAX_STATS = (
     'Hawaiʻi Department of Taxation, “Hawaiʻi Individual Income Tax Statistics,” tax years 2018 to 2023 editions, '
     'Tables 21, A-1 and A-8. <a href="https://tax.hawaii.gov/stats/">tax.hawaii.gov/stats</a>')
+T_CBO_REVENUE = (
+    'Congressional Budget Office, “Revenue Projections, by Category,” February 2026, Table 3, capital gain or loss reported on tax returns '
+    '(Table 6, capital gains realizations, agrees). <a href="https://www.cbo.gov/data/budget-economic-data">cbo.gov</a>')
 
 
 def _rev(rows, year, law, option, variant="central"):
@@ -644,7 +647,7 @@ def build_capital_gains() -> tuple[str, dict]:
             ["Ordinary rates", millions(itep["ordinary"]), millions(t26["ordinary"]["static_M"]), millions(t26["ordinary"]["behavioral_M"])]]
     s4 = section("Checking Against Earlier Estimates", f"""
 {lead("In November 2025,", f"Hawaiʻi Appleseed published estimates from the Institute on Taxation and Economic Policy for the same two options, for tax year 2026 under the Act 46 brackets then in law: {millions(itep['cap9'])} for a {pct(cap_new)} percent cap and {millions(itep['ordinary'])} for ordinary rates.{notes.ref(T_blog)}")}
-<p>Scored on the same year and brackets, this model lands within a few million dollars of both once the realization response is included, as Table 3 shows. That agreement is the basis for trusting the Act 24 estimates above, which use the same method with the new brackets.</p>
+<p>Scored on the same year and brackets, this model comes in higher: {millions(t26["cap9"]["behavioral_M"])} and {millions(t26["ordinary"]["behavioral_M"])} once the realization response is included, as Table 3 shows. The difference is mostly in how large gains are expected to be, not in how the options are taxed. This model grows Hawaiʻi’s gains with the Congressional Budget Office’s February 2026 projections, which put capital gains nationwide in 2026 about three-quarters above their 2023 level after two strong years in the stock market.{notes.ref(T_CBO_REVENUE)} Holding the gains at an earlier, slower growth path, the model landed within about $10 million of both estimates, which is the check that its method of taxing the gains matches.</p>
 {table(["Option", "ITEP (2025)", "This model, static", "This model, with response"], crow,
        caption="Table 3. Tax Year 2026 Resident Revenue Under Act 46 Brackets")}
 """, "check")

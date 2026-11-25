@@ -249,7 +249,7 @@ def synthesize_top_filers_from_soi(
         this, tier AGIs are TY2022-vintage (the SOI base year) — useful
         only if the caller has separately handled top-bracket aging.
     cbo_vintage:
-        CBO Outlook vintage for tier aging (e.g. ``"2025-01"``). Required
+        CBO Outlook vintage for tier aging (e.g. ``"2026-02"``). Required
         when ``target_year`` is set.
     cbo_hawaii_factors:
         Per-component HI calibration multipliers. Defaults to
