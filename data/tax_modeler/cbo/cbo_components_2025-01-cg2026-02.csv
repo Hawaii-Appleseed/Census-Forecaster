@@ -1,0 +1,86 @@
+component,year,growth_factor_from_2022,annual_cagr_pct,source_note
+business,2022,1.0,0.0,base year (alias for proprietors+partnership+S-corp pass-through)
+business,2023,1.064,6.4,CBO Jan 2025 Outlook (matches proprietors)
+business,2024,1.115,4.8,CBO Jan 2025 Outlook
+business,2025,1.169,4.8,CBO Jan 2025 Outlook
+business,2026,1.225,4.8,CBO Jan 2025 Outlook
+business,2027,1.284,4.8,CBO Jan 2025 Outlook
+business,2028,1.346,4.8,CBO Jan 2025 Outlook
+business,2029,1.411,4.8,CBO Jan 2025 Outlook
+business,2030,1.479,4.8,CBO Jan 2025 Outlook
+business,2031,1.55,4.8,CBO Jan 2025 Outlook extrapolated
+capital_gains,2022,1.0,0.0,Capital gain or lossa
+capital_gains,2023,0.763142,-23.686,Capital gain or lossa
+capital_gains,2024,1.00381,31.537,Capital gain or lossa
+capital_gains,2025,1.274883,27.004,Capital gain or lossa
+capital_gains,2026,1.32465,3.904,Capital gain or lossa
+capital_gains,2027,1.278538,-3.481,Capital gain or lossa
+capital_gains,2028,1.212131,-5.194,Capital gain or lossa
+capital_gains,2029,1.191913,-1.668,Capital gain or lossa
+capital_gains,2030,1.199222,0.613,Capital gain or lossa
+capital_gains,2031,1.223095,1.991,Capital gain or lossa
+capital_gains,2032,1.256221,2.708,Capital gain or lossa
+capital_gains,2033,1.295723,3.145,Capital gain or lossa
+capital_gains,2034,1.340669,3.469,Capital gain or lossa
+capital_gains,2035,1.389269,3.625,Capital gain or lossa
+capital_gains,2036,1.439736,3.633,Capital gain or lossa
+dividends,2022,1.0,0.0,base year
+dividends,2023,1.052,5.2,CBO Jan 2025 Outlook
+dividends,2024,1.099,4.5,CBO Jan 2025 Outlook
+dividends,2025,1.149,4.5,CBO Jan 2025 Outlook
+dividends,2026,1.2,4.5,CBO Jan 2025 Outlook
+dividends,2027,1.255,4.5,CBO Jan 2025 Outlook
+dividends,2028,1.311,4.5,CBO Jan 2025 Outlook
+dividends,2029,1.37,4.5,CBO Jan 2025 Outlook
+dividends,2030,1.432,4.5,CBO Jan 2025 Outlook
+dividends,2031,1.496,4.5,CBO Jan 2025 Outlook extrapolated
+interest,2022,1.0,0.0,base year
+interest,2023,1.085,8.5,CBO Jan 2025 Outlook (rate-driven jump in interest income)
+interest,2024,1.139,5.0,CBO Jan 2025 Outlook
+interest,2025,1.176,3.2,CBO Jan 2025 Outlook (rate path normalization)
+interest,2026,1.211,3.0,CBO Jan 2025 Outlook
+interest,2027,1.246,2.9,CBO Jan 2025 Outlook
+interest,2028,1.282,2.9,CBO Jan 2025 Outlook
+interest,2029,1.319,2.9,CBO Jan 2025 Outlook
+interest,2030,1.357,2.9,CBO Jan 2025 Outlook
+interest,2031,1.397,2.9,CBO Jan 2025 Outlook extrapolated
+other,2022,1.0,0.0,base year (rental + transfers + misc.)
+other,2023,1.04,4.0,CBO Jan 2025 Outlook (rental + misc personal income)
+other,2024,1.082,4.0,CBO Jan 2025 Outlook
+other,2025,1.125,4.0,CBO Jan 2025 Outlook
+other,2026,1.17,4.0,CBO Jan 2025 Outlook
+other,2027,1.217,4.0,CBO Jan 2025 Outlook
+other,2028,1.266,4.0,CBO Jan 2025 Outlook
+other,2029,1.317,4.0,CBO Jan 2025 Outlook
+other,2030,1.369,4.0,CBO Jan 2025 Outlook
+other,2031,1.424,4.0,CBO Jan 2025 Outlook extrapolated
+proprietors,2022,1.0,0.0,base year
+proprietors,2023,1.064,6.4,CBO Jan 2025 Outlook (nonfarm proprietors income)
+proprietors,2024,1.115,4.8,CBO Jan 2025 Outlook
+proprietors,2025,1.169,4.8,CBO Jan 2025 Outlook
+proprietors,2026,1.225,4.8,CBO Jan 2025 Outlook
+proprietors,2027,1.284,4.8,CBO Jan 2025 Outlook
+proprietors,2028,1.346,4.8,CBO Jan 2025 Outlook
+proprietors,2029,1.411,4.8,CBO Jan 2025 Outlook
+proprietors,2030,1.479,4.8,CBO Jan 2025 Outlook
+proprietors,2031,1.55,4.8,CBO Jan 2025 Outlook extrapolated
+retirement,2022,1.0,0.0,base year
+retirement,2023,1.058,5.8,CBO Jan 2025 Outlook (SS COLA + pensions)
+retirement,2024,1.1,4.0,CBO Jan 2025 Outlook
+retirement,2025,1.144,4.0,CBO Jan 2025 Outlook
+retirement,2026,1.19,4.0,CBO Jan 2025 Outlook
+retirement,2027,1.237,4.0,CBO Jan 2025 Outlook
+retirement,2028,1.287,4.0,CBO Jan 2025 Outlook
+retirement,2029,1.338,4.0,CBO Jan 2025 Outlook
+retirement,2030,1.392,4.0,CBO Jan 2025 Outlook
+retirement,2031,1.448,4.0,CBO Jan 2025 Outlook extrapolated
+wages,2022,1.0,0.0,base year
+wages,2023,1.058,5.8,CBO Jan 2025 Outlook Tab 2-3 (nominal wages and salaries)
+wages,2024,1.1,4.0,CBO Jan 2025 Outlook
+wages,2025,1.149,4.5,CBO Jan 2025 Outlook
+wages,2026,1.199,4.4,CBO Jan 2025 Outlook
+wages,2027,1.252,4.4,CBO Jan 2025 Outlook
+wages,2028,1.307,4.4,CBO Jan 2025 Outlook
+wages,2029,1.365,4.4,CBO Jan 2025 Outlook
+wages,2030,1.425,4.4,CBO Jan 2025 Outlook
+wages,2031,1.487,4.4,CBO Jan 2025 Outlook extrapolated

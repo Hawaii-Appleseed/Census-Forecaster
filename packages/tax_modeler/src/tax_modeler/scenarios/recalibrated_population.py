@@ -48,7 +48,7 @@ def project(units: pd.DataFrame, *, year: int, top_premium: float):
         use_forward_targets=True,
         growth=GrowthAssumptions(top_differential=0.025),
         soi_anchor=SoiAnchor(year=2022, hawaii_capgain_adjustment=0.95),
-        cbo_aging=CboAging(vintage="2025-01"),
+        cbo_aging=CboAging(),
         top_premium=TopPremium(annual=top_premium),
         method="ensemble",
     )

@@ -97,6 +97,7 @@ logging.disable(logging.WARNING)
 import numpy as np
 import pandas as pd
 from tax_modeler.calibration import nonresident_cg
+from tax_modeler.calibration.cbo_aging import DEFAULT_VINTAGE
 
 # The DOTAX-anchored gains base, shared with the tax simulator.
 from tax_modeler.calibration.cg_anchor import (
@@ -373,7 +374,7 @@ def run() -> None:
         params={"years": YEARS, "dist_years": DIST_YEARS, "beta": BETA,
                 "top_share_variants": TOP_SHARE_VARIANTS, "cap_current": CAP_CURRENT,
                 "options": dict(OPTIONS), "alpha": MID_ALPHA,
-                "top_premium": MID_TOP_PREMIUM, "cbo_vintage": "2025-01"},
+                "top_premium": MID_TOP_PREMIUM, "cbo_vintage": DEFAULT_VINTAGE},
         inputs={"tax_unit_cache": cache_provenance(),
                 "dotax": "Hawaii Individual Income Tax Statistics TY2018-2023, Tables 21/A-1/A-3/A-8",
                 "seller_origin": "Honolulu owner rolls 2023-12-05 and latest OWNINFO pull, scripts/nonresident_seller_origin.py"},

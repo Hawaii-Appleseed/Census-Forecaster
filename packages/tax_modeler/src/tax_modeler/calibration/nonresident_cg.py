@@ -280,7 +280,7 @@ def grow(rec: pd.DataFrame, yr: int, level: str = "central") -> tuple[np.ndarray
         net_growth_factor,
     )
     from_year = int(rec["base_year"].iloc[0])
-    rates = load_cbo_rates("2025-01")
+    rates = load_cbo_rates()
     g_other = net_growth_factor(rates.growth("business", yr, from_year), DEFAULT_HAWAII_FACTORS["business"])
     gains0 = rec["gains"].to_numpy(float)
     other = rec["ti"].to_numpy(float) - gains0
