@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 def build_raw_units(
     person_df: pd.DataFrame, hh_df: pd.DataFrame, *, parallel: bool = False,
+    claimant_assignment: str = "parent_first", parent_link: str = "sfn",
 ) -> pd.DataFrame:
     """Uncalibrated tax units from PUMS persons + households.
 
