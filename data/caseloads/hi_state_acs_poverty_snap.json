@@ -1,0 +1,110 @@
+{
+ "source": "https://data.census.gov/api/access/data/table?id=ACSST1Y{y}.{t}&g=040XX00US15",
+ "series": {
+  "2010": {
+   "poverty_pct": 10.7,
+   "poverty_moe": 0.7,
+   "snap_households": 40594.0,
+   "households": 445812.0,
+   "snap_share_pct": 9.106
+  },
+  "2011": {
+   "poverty_pct": 12.0,
+   "poverty_moe": 0.9,
+   "snap_households": 48347.0,
+   "households": 448563.0,
+   "snap_share_pct": 10.778
+  },
+  "2012": {
+   "poverty_pct": 11.6,
+   "poverty_moe": 0.7,
+   "snap_households": 50600.0,
+   "households": 447748.0,
+   "snap_share_pct": 11.301
+  },
+  "2013": {
+   "poverty_pct": 10.8,
+   "poverty_moe": 0.8,
+   "snap_households": 51033.0,
+   "households": 450120.0,
+   "snap_share_pct": 11.338
+  },
+  "2014": {
+   "poverty_pct": 11.4,
+   "poverty_moe": 0.8,
+   "snap_households": 52767.0,
+   "households": 450769.0,
+   "snap_share_pct": 11.706
+  },
+  "2015": {
+   "poverty_pct": 10.6,
+   "poverty_moe": 0.6,
+   "snap_households": 51246.0,
+   "households": 445936.0,
+   "snap_share_pct": 11.492
+  },
+  "2016": {
+   "poverty_pct": 9.3,
+   "poverty_moe": 0.7,
+   "snap_households": 54008.0,
+   "households": 455868.0,
+   "snap_share_pct": 11.847
+  },
+  "2017": {
+   "poverty_pct": 9.5,
+   "poverty_moe": 0.6,
+   "snap_households": 48954.0,
+   "households": 458078.0,
+   "snap_share_pct": 10.687
+  },
+  "2018": {
+   "poverty_pct": 8.8,
+   "poverty_moe": 0.6,
+   "snap_households": 45590.0,
+   "households": 455309.0,
+   "snap_share_pct": 10.013
+  },
+  "2019": {
+   "poverty_pct": 9.3,
+   "poverty_moe": 0.8,
+   "snap_households": 48397.0,
+   "households": 465299.0,
+   "snap_share_pct": 10.401
+  },
+  "2021": {
+   "poverty_pct": 11.2,
+   "poverty_moe": 0.8,
+   "snap_households": 61855.0,
+   "households": 490080.0,
+   "snap_share_pct": 12.621
+  },
+  "2022": {
+   "poverty_pct": 10.2,
+   "poverty_moe": 0.7,
+   "snap_households": 58086.0,
+   "households": 494827.0,
+   "snap_share_pct": 11.739
+  },
+  "2023": {
+   "poverty_pct": 10.1,
+   "poverty_moe": 0.7,
+   "snap_households": 54198.0,
+   "households": 493898.0,
+   "snap_share_pct": 10.974
+  },
+  "2024": {
+   "poverty_pct": 10.0,
+   "poverty_moe": 0.7,
+   "snap_households": 56690.0,
+   "households": 493151.0,
+   "snap_share_pct": 11.495
+  },
+  "2025": {
+   "poverty_pct": 9.3,
+   "poverty_moe": 0.7,
+   "snap_households": 55188.0,
+   "households": 500883.0,
+   "snap_share_pct": 11.018
+  }
+ }
+}
