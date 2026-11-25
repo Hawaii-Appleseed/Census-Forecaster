@@ -19,6 +19,18 @@ error is reported separately).
 ``DrawSpec.resource_draws`` draws something other than claims as well: amounts added to every case's resources in
 each draw, common to the baseline and the scenarios (``benefits.moop.moop_resource_draws``: medical spending drawn
 from donors, less the expected amount the resources carry). With it the baseline is drawn too.
+
+Housing assistance is drawn as well when the SPM frame carries ``housing_value`` and ``housing_takeup_prob``
+(``benefits.housing.housing_takeup``): the resources hold the expected value, and each draw adds the value or not
+by the household's own uniform, less the expected value. With it the baseline is drawn too.
+
+Common random numbers. Every draw is a uniform number computed from a hash of the row's own key, the stream (the
+resource draws, or which claim block) and the draw's index (:func:`uniforms`), not taken in turn from one generator.
+So a run that changes one household's income changes that household's draws and no one else's: a unit entering or
+leaving a block, or moving to another donor pool, no longer shifts every row after it onto other numbers. Until
+November 25, 2026 the draws came from one stream in row order, and a small change in incomes (CBO's growth for
+interest income alone, which barely reaches the households that lose SNAP) moved H.R.1's people pushed into poverty
+from 852 to 689 by reshuffling who was drawn.
 """
 from __future__ import annotations
 
@@ -31,6 +43,50 @@ import pandas as pd
 DEFAULT_SEED = 20261120
 DEFAULT_DRAWS = 2000
 
+_GOLDEN = np.uint64(0x9E3779B97F4A7C15)
+HOUSING_STREAM = 1_000_000   # claim blocks take 1, 2, ...; resource draws 0
+
+
+def _housing_columns(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray] | None:
+    """(value, probability) of housing assistance per SPM unit when the frame carries them and some is uncertain."""
+    if "housing_value" not in df.columns or "housing_takeup_prob" not in df.columns:
+        return None
+    value = df["housing_value"].fillna(0).to_numpy(dtype=float)
+    prob = df["housing_takeup_prob"].fillna(0).clip(0, 1).to_numpy(dtype=float)
+    if not ((value > 0) & (prob > 0) & (prob < 1)).any():
+        return None
+    return value, prob
+
+
+def _splitmix64(x: np.ndarray) -> np.ndarray:
+    """The splitmix64 finalizer, elementwise on uint64 (wrapping arithmetic)."""
+    with np.errstate(over="ignore"):
+        x = (x ^ (x >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+        x = (x ^ (x >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+        return x ^ (x >> np.uint64(31))
+
+
+def stable_keys(ids) -> np.ndarray:
+    """A uint64 key per id, the same on every run and machine (``pandas.util.hash_array`` on the ids as strings)."""
+    return pd.util.hash_array(np.asarray([str(i) for i in ids], dtype=object))
+
+
+def uniforms(keys: np.ndarray, stream: int, seed: int, start: int, n: int) -> np.ndarray:
+    """``(len(keys), n)`` uniform numbers in [0, 1): row ``i``, draw ``start + j`` depends only on ``keys[i]``,
+    ``stream``, ``seed`` and ``start + j``."""
+    with np.errstate(over="ignore"):
+        salt = _splitmix64(np.array([np.uint64(seed) * _GOLDEN + np.uint64(stream)], dtype=np.uint64))[0]
+        base = _splitmix64(np.asarray(keys, dtype=np.uint64) ^ salt)
+        draw = np.arange(start, start + n, dtype=np.uint64) * _GOLDEN
+        x = _splitmix64(base[:, None] + draw[None, :])
+    return (x >> np.uint64(11)).astype(np.float64) * (1.0 / 9007199254740992.0)
+
+
+def block_keys(spm_unit_id: np.ndarray) -> np.ndarray:
+    """Default row keys for a claim block: the SPM unit and the row's place among that unit's rows in the block."""
+    sid = pd.Series(np.asarray(spm_unit_id, dtype=object)).astype(str)
+    return stable_keys(sid + "#" + sid.groupby(sid).cumcount().astype(str))
+
 
 @dataclass(frozen=True)
 class ClaimBlock:
@@ -38,13 +94,16 @@ class ClaimBlock:
 
     ``spm_unit_id``: the SPM unit of each tax unit (as ``spm_unit_id`` on the SPM frame). ``prob``: probability the
     unit claims. ``renewed``: dollars it receives in the baseline if it claims. ``scenario``: dollars it receives in
-    each scenario if it claims (the scenario's own amount, not the change).
+    each scenario if it claims (the scenario's own amount, not the change). ``key``: each row's identity for its
+    draws (uint64, :func:`stable_keys`); None: the SPM unit and the row's place among that unit's rows
+    (:func:`block_keys`), stable as long as a unit's own rows keep their order.
     """
 
     spm_unit_id: np.ndarray
     prob: np.ndarray
     renewed: np.ndarray
     scenario: Mapping[str, np.ndarray] = field(default_factory=dict)
+    key: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -52,13 +111,14 @@ class DrawSpec:
     """What to draw. ``baseline_fixed(df)``: the SPM frame's baseline resources without the drawn credits (None: the
     baseline is not drawn and stays ``spm_resources``, unless ``resource_draws`` is set, when it is drawn from
     ``spm_resources``). ``scenario_fixed[name](df)``: each drawn scenario's resources without the drawn credits.
-    ``resource_draws(df, rng, n)``: an ``(SPM units, n)`` array added to every case's resources in each of ``n``
-    draws, from its own random stream so the claim draws are the same with it or without."""
+    ``resource_draws(df, u)``: given ``u``, an ``(SPM units, n)`` array of uniform numbers keyed by each unit's
+    ``spm_unit_id`` (stream 0), an ``(SPM units, n)`` array added to every case's resources in each of the ``n``
+    draws. Claim blocks use streams 1, 2, ..., so the claim draws are the same with it or without."""
 
     blocks: tuple[ClaimBlock, ...]
     baseline_fixed: Callable[[pd.DataFrame], np.ndarray] | None = None
     scenario_fixed: Mapping[str, Callable[[pd.DataFrame], np.ndarray]] = field(default_factory=dict)
-    resource_draws: Callable[[pd.DataFrame, np.random.Generator, int], np.ndarray] | None = None
+    resource_draws: Callable[[pd.DataFrame, np.ndarray], np.ndarray] | None = None
     n_draws: int = DEFAULT_DRAWS
     seed: int = DEFAULT_SEED
     chunk: int = 250
@@ -84,23 +144,26 @@ def _draw_chunks(spec: DrawSpec, df: pd.DataFrame):
 
     n = len(df)
     index = pd.Index(df["spm_unit_id"])
-    mats, probs = [], []
+    mats, probs, keys = [], [], []
     for b in spec.blocks:
         code = index.get_indexer(b.spm_unit_id)
         ok = code >= 0
         m = sparse.csr_matrix((np.ones(int(ok.sum())), (code[ok], np.flatnonzero(ok))), shape=(n, len(code)))
         mats.append(m)
         probs.append(np.clip(np.asarray(b.prob, dtype=float), 0.0, 1.0))
+        keys.append(block_keys(b.spm_unit_id) if b.key is None else np.asarray(b.key, dtype=np.uint64))
     base_fixed = None if spec.baseline_fixed is None else np.asarray(spec.baseline_fixed(df), dtype=float)
-    if base_fixed is None and spec.resource_draws is not None:
+    housing = _housing_columns(df)
+    if base_fixed is None and (spec.resource_draws is not None or housing is not None):
         base_fixed = df["spm_resources"].to_numpy(dtype=float)
     scn_fixed = {s: np.asarray(f(df), dtype=float) for s, f in spec.scenario_fixed.items()}
-    rng = np.random.default_rng(spec.seed)
-    resource_rng = np.random.default_rng([spec.seed, 1])
+    unit_keys = (stable_keys(df["spm_unit_id"]) if spec.resource_draws is not None or housing is not None
+                 else None)
     done = 0
     while done < spec.n_draws:
         c = min(spec.chunk, spec.n_draws - done)
-        claims = [rng.random((len(p), c)) < p[:, None] for p in probs]      # (tax units, c)
+        claims = [uniforms(k, i + 1, spec.seed, done, c) < p[:, None]        # (tax units, c)
+                  for i, (k, p) in enumerate(zip(keys, probs, strict=True))]
         recv: dict[str, np.ndarray] = {}
         if base_fixed is not None:
             recv["baseline"] = base_fixed[:, None] + sum(m @ (cl * b.renewed[:, None]) for m, cl, b in zip(mats, claims, spec.blocks, strict=True))
@@ -108,7 +171,12 @@ def _draw_chunks(spec: DrawSpec, df: pd.DataFrame):
             recv[s] = fixed[:, None] + sum(m @ (cl * np.asarray(b.scenario[s], dtype=float)[:, None])
                                            for m, cl, b in zip(mats, claims, spec.blocks, strict=True) if s in b.scenario)
         if spec.resource_draws is not None:
-            extra = np.asarray(spec.resource_draws(df, resource_rng, c), dtype=float)
+            extra = np.asarray(spec.resource_draws(df, uniforms(unit_keys, 0, spec.seed, done, c)), dtype=float)
+            recv = {k: r + extra for k, r in recv.items()}
+        if housing is not None:
+            value, prob = housing
+            takes = uniforms(unit_keys, HOUSING_STREAM, spec.seed, done, c) < prob[:, None]
+            extra = value[:, None] * (takes - prob[:, None])
             recv = {k: r + extra for k, r in recv.items()}
         yield recv
         done += c
@@ -145,4 +213,5 @@ def resources_by_draw(spec: DrawSpec, df: pd.DataFrame) -> dict[str, np.ndarray]
     return {k: np.concatenate(v, axis=1) for k, v in out.items()}
 
 
-__all__ = ["ClaimBlock", "DrawSpec", "DrawResult", "poverty_draws", "resources_by_draw", "DEFAULT_DRAWS", "DEFAULT_SEED"]
+__all__ = ["ClaimBlock", "DrawSpec", "DrawResult", "poverty_draws", "resources_by_draw", "stable_keys", "uniforms",
+           "block_keys", "DEFAULT_DRAWS", "DEFAULT_SEED"]

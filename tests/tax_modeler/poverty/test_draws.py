@@ -162,3 +162,40 @@ def test_the_working_family_draws_keep_every_units_expected_credit(wfc):
     np.testing.assert_allclose(spec2.blocks[0].prob[c["eitc_expanded"] > 0], 1.0)
     np.testing.assert_allclose(spec2.blocks[0].prob * spec2.blocks[0].renewed, c["eitc_expanded"] * 1.05)
     assert spec.n_draws == 100 and set(spec.scenario_fixed) == {"act163_sunset"}
+
+
+def test_uniforms_are_keyed_not_positional():
+    from tax_modeler.poverty.draws import stable_keys, uniforms
+
+    k = stable_keys(["x", "y", "z"])
+    u = uniforms(k, 3, 7, 0, 1000)
+    assert u.shape == (3, 1000) and (u >= 0).all() and (u < 1).all()
+    assert abs(u.mean() - 0.5) < 0.02
+    assert np.array_equal(uniforms(k[[2, 0]], 3, 7, 0, 1000), u[[2, 0]])          # order and company do not matter
+    assert np.array_equal(uniforms(k, 3, 7, 250, 10), u[:, 250:260])              # chunks continue the same draws
+    assert not np.array_equal(uniforms(k, 4, 7, 0, 10), u[:, :10])                # streams differ
+    assert not np.array_equal(uniforms(k, 3, 8, 0, 10), u[:, :10])                # seeds differ
+
+
+def test_a_unit_leaving_a_block_does_not_move_the_others():
+    """Common random numbers: removing one claimant leaves every other unit's probability of being poor exactly the
+    same (before November 25, 2026 the draws were positional and every later row moved)."""
+    from tax_modeler.poverty.draws import ClaimBlock, DrawSpec, poverty_draws
+
+    n = 40
+    df = pd.DataFrame({"spm_unit_id": [f"u{i}" for i in range(n)], "spm_resources": np.full(n, 1_000.0)})
+    threshold = np.full(n, 1_050.0)
+    ids = df["spm_unit_id"].to_numpy()
+
+    def run(keep):
+        blk = ClaimBlock(ids[keep], np.full(keep.sum(), 0.5), np.full(keep.sum(), 100.0), {"s": np.zeros(keep.sum())})
+        spec = DrawSpec(blocks=(blk,), baseline_fixed=lambda d: d["spm_resources"].to_numpy(),
+                        scenario_fixed={"s": lambda d: d["spm_resources"].to_numpy()}, n_draws=300)
+        return poverty_draws(spec, df, threshold, {"persons": np.ones(n)}).poor_prob["baseline"]
+
+    full = np.ones(n, dtype=bool)
+    drop = full.copy()
+    drop[3] = False
+    a, b = run(full), run(drop)
+    assert b[3] == 1.0                                       # no claim: always poor
+    assert np.array_equal(np.delete(a, 3), np.delete(b, 3))  # everyone else exactly as before

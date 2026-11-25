@@ -1,42 +1,46 @@
 """Federal housing assistance (Section 8 vouchers + public housing).
 
 HUD-funded programs administered in Hawaii by Hawaii Public Housing
-Authority (HPHA) and several local PHAs. The two main vehicles:
+Authority (HPHA) and several local PHAs: Housing Choice Vouchers and public
+housing, where the household pays about 30% of its income in rent and HUD pays
+the rest up to a payment standard (about the Fair Market Rent).
 
-  * **Housing Choice Voucher (HCV / Section 8)** — household pays 30%
-    of adjusted AGI in rent; HUD pays the difference up to a
-    locally-set "payment standard" (~Fair Market Rent).
-  * **Public Housing** — same 30%-of-AGI rent rule applied to publicly-
-    owned units.
+The model values both as one in-kind transfer **per renter household**, the
+way the Census Bureau values it in the SPM:
 
-For fiscal-impact purposes we model both as a single in-kind transfer:
+    value = max(0, min(FMR, housing portion of the SPM threshold) - 0.30 x income)
 
-    benefit = max(0, FMR − 0.30 × AGI)
+* Household: the tax units sharing ``hh_id`` (PUMS household); ``income`` is
+  their total, never below zero for the tenant's payment; the threshold is the
+  renter line for the household's adults and children in its SPM area
+  (``poverty.thresholds.renter_housing_portion``, about 54% of the line in Urban
+  Honolulu). The value sits on the household's first tax unit and reaches the
+  primary SPM unit through the aggregation.
+* Only renters (``tenure``; a unit without it counts as a renter).
+* Eligibility: income under ``income_fpl_cap`` times the Hawaii FPL for the
+  household's size, a proxy for HUD's very-low-income limit.
+* FMR: the Honolulu MSA two-bedroom Fair Market Rent, about $30,000 a year;
+  the threshold cap binds well before it for most households.
 
-where FMR is HUD's Fair Market Rent for Hawaii (2024 Honolulu MSA
-2-bedroom: ~$2,500/month = $30,000/year).
+Take-up is a probability, not a ranking: ``housing_takeup`` gives every
+eligible household the same chance, set so the weighted count matches HUD's
+caseload, writes the expected value (probability x value) to the resources
+and carries the value and the probability so the poverty draws give each
+household the subsidy or not (``poverty.draws``).
 
-Income eligibility: 50% AMI for "very low income" (the standard HCV
-threshold). HUD Hawaii Area Median Income tables are the production
-source; we approximate via FPL since AMI tracks regional median income
-and HHS Hawaii FPL captures the Hawaii cost-of-living adjustment.
-
-Phase 5 simplifications:
-
-  * Single FMR used statewide (Honolulu MSA 2BR). Real PHAs set
-    payment standards by ZIP and bedroom count; Phase 5 doesn't
-    differentiate.
-  * Voucher waitlists are not modeled — Phase 4 take-up imputation
-    against the HUD CHAS database calibrates the receiving headcount.
-  * "Adjusted AGI" approximated as ``income`` (the deductions HUD
-    allows — dependents, elderly, etc. — would shave a few percentage
-    points off the rent calculation).
+Until November 25, 2026 the subsidy was computed per tax unit at
+``FMR - 0.30 x income`` with no cap ($30,000 for a unit with no income),
+and HUD's caseload was filled lowest income first: the cutoff fell inside a
+block of tax units with zero income, often an adult relative filing alone,
+and which households got $30,000 was an arbitrary tie-break. It moved
+H.R.1's people pushed into poverty between 692 and 969 depending on the
+pick, and the 15,600 recipients carried about $470M against HUD's $140M.
 
 Reform DSL (``Reform.benefit_overrides["housing"]``):
 
   * ``payment_standard_pct``     multiplier on FMR (default 1.0)
-  * ``income_threshold_factor``   multiplier on 50% AMI / FPL proxy
-  * ``tenant_rent_pct``          tenant rent share of AGI (default 0.30)
+  * ``income_threshold_factor``   multiplier on the income limit
+  * ``tenant_rent_pct``          tenant rent share of income (default 0.30)
 """
 from __future__ import annotations
 
@@ -86,6 +90,11 @@ def with_housing_overrides(
     return replace(base, **dict(overrides))
 
 
+def _households(df: pd.DataFrame) -> pd.Series:
+    key = "hh_id" if "hh_id" in df.columns else ("SERIALNO" if "SERIALNO" in df.columns else None)
+    return df[key].astype(str) if key else pd.Series(df.index.astype(str), index=df.index)
+
+
 def compute_housing_for_units(
     units: pd.DataFrame,
     *,
@@ -94,31 +103,66 @@ def compute_housing_for_units(
     overrides: Mapping[str, object] | None = None,
     out_col: str = "housing_subsidy_amount",
 ) -> pd.DataFrame:
-    """Compute imputed housing-assistance annual benefit per tax unit.
+    """The housing-assistance value of every eligible renter household, before take-up.
 
-    benefit = max(0, FMR × payment_standard_pct − tenant_rent_pct × income)
-    when the unit is below the income cap (proxied via FPL).
-
-    ``tax_year`` selects the FPL table used for the income test (default
-    2024). Pass the run's tax year on forward-projected runs so the
-    eligibility threshold matches the same-year income basis.
+    Writes ``out_col`` (the value, on the household's first tax unit; zero on the
+    others and on ineligible households) and ``housing_eligible``. ``tax_year``
+    selects the FPL table and the SPM threshold year (extrapolated past the table).
     """
+    from tax_modeler.poverty.thresholds import COUNTY_AREA, DEFAULT_AREA, renter_housing_portion
+
     p = with_housing_overrides(params or hawaii_housing_parameters(), overrides)
     df = units.copy()
+    hh = _households(df)
+    joint = (df["filing_status"] == "married_filing_jointly").astype(int)
+    frame = pd.DataFrame({
+        "hh": hh,
+        "adults": 1 + joint,
+        "children": df["num_dependents"].fillna(0).clip(lower=0).astype(int),
+        "income": df["income"].fillna(0).astype(float),
+        "renter": (df["tenure"].fillna("renter") == "renter") if "tenure" in df.columns else True,
+        "area": df["county"].map(COUNTY_AREA).fillna(DEFAULT_AREA) if "county" in df.columns else DEFAULT_AREA,
+    }, index=df.index)
+    first = ~frame["hh"].duplicated()
+    agg = frame.groupby("hh", sort=False).agg(adults=("adults", "sum"), children=("children", "sum"),
+                                              income=("income", "sum"), renter=("renter", "first"),
+                                              area=("area", "first"))
+    size = (agg["adults"] + agg["children"]).clip(lower=1)
+    fpl = np.array([hawaii_fpl(fpl_year_for(tax_year), household_size=int(s)) for s in size])
+    eligible = agg["renter"].to_numpy(bool) & (agg["income"].to_numpy() < p.income_fpl_cap * p.income_threshold_factor * fpl)
+    cache: dict[tuple, float] = {}
+    cap = np.empty(len(agg))
+    for i, key in enumerate(zip(agg["adults"].clip(lower=1), agg["children"], agg["area"], strict=True)):
+        if key not in cache:
+            cache[key] = renter_housing_portion(tax_year, n_adults=int(key[0]), n_children=int(key[1]),
+                                                area=key[2], extrapolate=True)
+        cap[i] = cache[key]
+    tenant = p.tenant_rent_pct * np.maximum(agg["income"].to_numpy(), 0.0)
+    value = np.where(eligible, np.maximum(np.minimum(p.fmr_annual * p.payment_standard_pct, cap) - tenant, 0.0), 0.0)
+    by_hh = pd.Series(value, index=agg.index)
+    elig_hh = pd.Series(eligible & (value > 0), index=agg.index)
+    df[out_col] = np.where(first, hh.map(by_hh).to_numpy(), 0.0)
+    df["housing_eligible"] = first.to_numpy() & hh.map(elig_hh).to_numpy(bool)
+    return df
 
-    is_joint = (df["filing_status"] == "married_filing_jointly").to_numpy()
-    n_dep = df["num_dependents"].fillna(0).astype(int).to_numpy()
-    hh_size = 1 + is_joint.astype(int) + n_dep
-    income = df["income"].fillna(0).astype(float).to_numpy()
-    fpl = np.array([hawaii_fpl(fpl_year_for(tax_year), household_size=int(s)) for s in hh_size])
-    fpl_ratio = np.where(fpl > 0, income / fpl, 0.0)
 
-    cap = p.income_fpl_cap * p.income_threshold_factor
-    eligible = fpl_ratio < cap
-
-    fmr = p.fmr_annual * p.payment_standard_pct
-    tenant_rent = p.tenant_rent_pct * income
-    subsidy = np.maximum(fmr - tenant_rent, 0.0)
-
-    df[out_col] = np.where(eligible, subsidy, 0.0)
+def housing_takeup(
+    units: pd.DataFrame,
+    *,
+    target_households: float,
+    amount_col: str = "housing_subsidy_amount",
+    weight_col: str | None = None,
+) -> pd.DataFrame:
+    """Take-up as one probability for every eligible household (``compute_housing_for_units``), set so the
+    weighted count is ``target_households``. Writes ``housing_value`` (the value if it takes up),
+    ``housing_takeup_prob`` and the expected value to ``amount_col``. ``weight_col``: ``hh_weight`` if present,
+    else ``weight``."""
+    df = units.copy()
+    w_col = weight_col or ("hh_weight" if "hh_weight" in df.columns else "weight")
+    elig = df["housing_eligible"].to_numpy(bool)
+    pool = float(df.loc[elig, w_col].sum())
+    prob = min(1.0, target_households / pool) if pool > 0 else 0.0
+    df["housing_value"] = np.where(elig, df[amount_col].to_numpy(dtype=float), 0.0)
+    df["housing_takeup_prob"] = np.where(elig, prob, 0.0)
+    df[amount_col] = df["housing_value"] * df["housing_takeup_prob"]
     return df

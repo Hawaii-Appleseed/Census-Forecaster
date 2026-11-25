@@ -18,6 +18,13 @@ calibrate simulated *take-up* against an authoritative count
   4. Multiplies the benefit dollar column by the imputed flag — so
      non-recipients contribute zero to baseline outlays
 
+Ties in the score (many units have exactly zero income) are broken by a
+hash of each unit's ``key_col`` (``filer_id``), so the same units are chosen on
+every run. Until November 25, 2026 the sort was unstable and the order among
+ties depended on the rest of the frame: a small income change anywhere moved
+which zero-income units got the benefit, and with housing's $30,000 subsidy
+that alone moved H.R.1's people pushed into poverty by 160.
+
 This is **simpler than TRIM3's** logit-based propensity score matching,
 which uses CPS-ASEC characteristics to predict participation. For
 Hawaii's ~$500M SNAP / ~$230M SSI caseloads the rank approach matches
@@ -57,6 +64,19 @@ EITC_RETURNS_BY_CHILDREN_HI_TY2022: dict[int, float] = {
 }
 
 
+def _tie_keys(units: pd.DataFrame, key_col: str) -> np.ndarray:
+    from tax_modeler.poverty.draws import stable_keys
+
+    if key_col in units.columns:
+        ids = units[key_col].astype(str)
+    elif "hh_id" in units.columns:
+        hh = units["hh_id"].astype(str)
+        ids = hh + "#" + hh.groupby(hh).cumcount().astype(str)
+    else:
+        ids = pd.Series(units.index.astype(str), index=units.index)
+    return stable_keys(ids)
+
+
 def impute_takeup(
     units: pd.DataFrame,
     *,
@@ -68,6 +88,7 @@ def impute_takeup(
     weight_col: str = "weight",
     out_col: str | None = None,
     tolerance: float = 0.05,
+    key_col: str = "filer_id",
 ) -> pd.DataFrame:
     """Mark recipients up to the administrative target via rank-based imputation.
 
@@ -102,6 +123,11 @@ def impute_takeup(
     tolerance:
         Max acceptable relative gap |simulated - target| / target. A
         warning is logged when exceeded.
+    key_col:
+        Stable unit identity that breaks ties in ``score_col`` (hashed, so
+        the order among ties is fixed but not the frame's row order). If the
+        column is missing: ``hh_id`` and the unit's place within its
+        household, else the row index.
 
     Returns
     -------
@@ -154,7 +180,11 @@ def impute_takeup(
         return df
 
     eligible_idx = df.index[eligible]
-    elig_sorted = df.loc[eligible_idx].sort_values(score_col, ascending=ascending)
+    elig = df.loc[eligible_idx]
+    tie = _tie_keys(elig, key_col)
+    score = elig[score_col].to_numpy(dtype=float)
+    order = np.lexsort((tie, score if ascending else -score))
+    elig_sorted = elig.iloc[order]
     cum_weight = elig_sorted[weight_col].cumsum().to_numpy()
 
     # Mark units in cumulative-weight order until target reached.
