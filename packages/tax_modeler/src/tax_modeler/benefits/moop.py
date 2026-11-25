@@ -72,19 +72,34 @@ def _weighted_quantiles(x: np.ndarray, w: np.ndarray, qs) -> np.ndarray:
     return np.array([x[o][np.searchsorted(cum, q)] for q in qs])
 
 
-class _CellMeans:
-    """Weighted donor MOOP by (size, 65+, income quintile), with fallbacks."""
+class _Donors:
+    """Donor pools by (size, 65+, income quintile), falling back to (size, 65+) and then 65+ alone.
+
+    :meth:`pools` gives each recipient the first non-empty pool at the finest level; :meth:`mean` is that
+    pool's weighted mean MOOP, :meth:`draw` draws donors from it in proportion to their weights.
+    """
 
     def __init__(self, donors: pd.DataFrame):
         w = donors["weight"].to_numpy(dtype=float)
         self.edges = _weighted_quantiles(donors["money_income"].to_numpy(dtype=float), w, _INCOME_QUANTILES)
         keys = self._keys(donors["n_persons"], donors["n_65"], donors["money_income"])
-        frame = keys.assign(wm=w * donors["moop"].to_numpy(dtype=float), w=w)
-        self.levels = []
+        moop = donors["moop"].to_numpy(dtype=float)
+        self.values: list[np.ndarray] = []
+        self.probs: list[np.ndarray] = []
+        self.means: list[float] = []
+        self.levels: list[tuple[list[str], dict]] = []
         for cols in (["size", "old", "q"], ["size", "old"], ["old"]):
-            g = frame.groupby(cols)[["wm", "w"]].sum()
-            self.levels.append((cols, (g["wm"] / g["w"]).to_dict()))
-        self.overall = float(frame["wm"].sum() / frame["w"].sum())
+            table = {}
+            for key, idx in keys.groupby(cols).indices.items():
+                table[key if len(cols) > 1 else (key[0] if isinstance(key, tuple) else key)] = self._add(moop[idx], w[idx])
+            self.levels.append((cols, table))
+        self.overall = self._add(moop, w)
+
+    def _add(self, values: np.ndarray, weights: np.ndarray) -> int:
+        self.values.append(values)
+        self.probs.append(weights / weights.sum())
+        self.means.append(float(values @ self.probs[-1]))
+        return len(self.values) - 1
 
     def _keys(self, n_persons, n_65, money) -> pd.DataFrame:
         return pd.DataFrame({
@@ -93,16 +108,54 @@ class _CellMeans:
             "q": np.searchsorted(self.edges, np.asarray(money, dtype=float), side="right"),
         })
 
-    def lookup(self, n_persons, n_65, money) -> np.ndarray:
+    def pools(self, n_persons, n_65, money) -> np.ndarray:
         keys = self._keys(n_persons, n_65, money)
-        out = np.full(len(keys), np.nan)
+        out = np.full(len(keys), -1)
         for cols, table in self.levels:
-            todo = np.isnan(out)
+            todo = out < 0
             if not todo.any():
                 break
             idx = keys.loc[todo, cols].itertuples(index=False, name=None)
-            out[todo] = [table.get(k if len(cols) > 1 else k[0], np.nan) for k in idx]
-        return np.where(np.isnan(out), self.overall, out)
+            out[todo] = [table.get(k if len(cols) > 1 else k[0], -1) for k in idx]
+        return np.where(out < 0, self.overall, out)
+
+    def mean(self, pools: np.ndarray) -> np.ndarray:
+        return np.asarray(self.means)[pools]
+
+    def draw(self, pools: np.ndarray, rng: np.random.Generator, n_draws: int) -> np.ndarray:
+        out = np.zeros((len(pools), n_draws))
+        for pool in np.unique(pools):
+            rows = np.flatnonzero(pools == pool)
+            out[rows] = rng.choice(self.values[pool], size=(len(rows), n_draws), p=self.probs[pool])
+        return out
+
+
+def _unit_pools(units, persons, donors, *, money, spm_unit_id_col, age_col, spouse_age_col, dependents_col,
+                filing_status_col) -> tuple[np.ndarray, pd.Series | None]:
+    """Each tax unit's donor pool as a unit of its own, and (with ``persons`` and SPM ids) each SPM unit's."""
+    joint = (units[filing_status_col] == "married_filing_jointly").to_numpy()
+    size = 1 + joint.astype(int) + units[dependents_col].fillna(0).clip(lower=0).astype(int).to_numpy()
+    age = units[age_col].fillna(0).to_numpy(dtype=float) if age_col in units.columns else np.zeros(len(units))
+    spouse = (units[spouse_age_col].fillna(0).to_numpy(dtype=float) if spouse_age_col in units.columns
+              else np.zeros(len(units)))
+    n_65 = (age >= 65).astype(int) + (joint & (spouse >= 65)).astype(int)
+    own = donors.pools(size, n_65, money)
+    if persons is None or spm_unit_id_col not in units.columns:
+        return own, None
+    ids = units[spm_unit_id_col]
+    in_spm = ids.notna().to_numpy()
+    if not in_spm.any():
+        return own, None
+    pers = persons.loc[persons[spm_unit_id_col].notna()]
+    unit_money = pd.Series(money[in_spm]).groupby(ids[in_spm].to_numpy()).sum()
+    spm = pd.DataFrame({
+        "n": pers.groupby(spm_unit_id_col).size(),
+        "old": (pers["AGEP"] >= 65).groupby(pers[spm_unit_id_col]).sum(),
+        "money": unit_money,
+    }).dropna(subset=["money"])
+    spm["n"] = spm["n"].fillna(1)
+    spm["old"] = spm["old"].fillna(0)
+    return own, pd.Series(donors.pools(spm["n"], spm["old"], spm["money"]), index=spm.index)
 
 
 def compute_moop_for_units(
@@ -140,42 +193,78 @@ def compute_moop_for_units(
     Returns
     -------
     pd.DataFrame
-        Copy of ``units`` with ``out_col`` (non-negative annual dollars).
-        Deterministic: cell means, not draws.
+        Copy of ``units`` with ``out_col`` (non-negative annual dollars): the
+        weighted mean of the unit's donor pool, the expected MOOP. A cell
+        mean gives every unit in a cell the same amount, which bunches units
+        at the poverty line; headcounts should draw MOOP instead
+        (:func:`moop_resource_draws`).
     """
-    cells = _CellMeans(load_donors(donor_path))
+    donors = _Donors(load_donors(donor_path))
     scale = cpi_index(year) / CPI_U[DOLLAR_YEAR]
     out = units.copy()
     if income_col is None:
         income_col = "spm_money_income" if "spm_money_income" in out.columns else "total_cash_income"
     money = out[income_col].fillna(0).astype(float).to_numpy() / scale
-
-    # Each tax unit as a unit of its own (the fallback).
-    joint = (out[filing_status_col] == "married_filing_jointly").to_numpy()
-    size = 1 + joint.astype(int) + out[dependents_col].fillna(0).clip(lower=0).astype(int).to_numpy()
-    age = out[age_col].fillna(0).to_numpy(dtype=float) if age_col in out.columns else np.zeros(len(out))
-    spouse = out[spouse_age_col].fillna(0).to_numpy(dtype=float) if spouse_age_col in out.columns else np.zeros(len(out))
-    n_65 = (age >= 65).astype(int) + (joint & (spouse >= 65)).astype(int)
-    moop = cells.lookup(size, n_65, money)
-
-    if persons is not None and spm_unit_id_col in out.columns:
+    own, per_spm = _unit_pools(out, persons, donors, money=money, spm_unit_id_col=spm_unit_id_col, age_col=age_col,
+                               spouse_age_col=spouse_age_col, dependents_col=dependents_col,
+                               filing_status_col=filing_status_col)
+    moop = donors.mean(own)
+    if per_spm is not None:
         ids = out[spm_unit_id_col]
-        in_spm = ids.notna().to_numpy()
-        if in_spm.any():
-            pers = persons.loc[persons[spm_unit_id_col].notna()]
-            members = pers.groupby(spm_unit_id_col).size()
-            olds = (pers["AGEP"] >= 65).groupby(pers[spm_unit_id_col]).sum()
-            unit_money = pd.Series(money[in_spm]).groupby(ids[in_spm].to_numpy()).sum()
-            spm = pd.DataFrame({"n": members, "old": olds, "money": unit_money}).dropna(subset=["money"])
-            spm["n"] = spm["n"].fillna(1)
-            spm["old"] = spm["old"].fillna(0)
-            per_spm = pd.Series(cells.lookup(spm["n"], spm["old"], spm["money"]), index=spm.index)
-            first = (~ids.duplicated() & ids.notna()).to_numpy()
-            moop = np.where(in_spm, 0.0, moop)
-            moop = np.where(first, ids.map(per_spm).fillna(0).to_numpy(dtype=float), moop)
+        first = (~ids.duplicated() & ids.notna()).to_numpy()
+        spm_mean = pd.Series(donors.mean(per_spm.to_numpy()), index=per_spm.index)
+        moop = np.where(ids.notna().to_numpy(), 0.0, moop)
+        moop = np.where(first, ids.map(spm_mean).fillna(0).to_numpy(dtype=float), moop)
 
     out[out_col] = np.maximum(moop * scale, 0.0)
     return out
 
 
-__all__ = ["compute_moop_for_units", "cpi_index", "load_donors", "DOLLAR_YEAR"]
+def moop_resource_draws(
+    units: pd.DataFrame,
+    persons: pd.DataFrame,
+    *,
+    year: int = DOLLAR_YEAR,
+    donor_path: Path | None = None,
+    spm_unit_id_col: str = "spm_unit_id",
+    age_col: str = "primary_agep",
+    spouse_age_col: str = "secondary_agep",
+    dependents_col: str = "num_dependents",
+    income_col: str | None = None,
+    filing_status_col: str = "filing_status",
+):
+    """A ``DrawSpec.resource_draws`` hook: MOOP drawn from each SPM unit's donor pool.
+
+    ``units`` and ``persons`` as for :func:`compute_moop_for_units`, whose
+    expected MOOP the SPM frame's resources carry. The hook, called as
+    ``hook(df, rng, n_draws)`` on the SPM frame, returns an ``(SPM units,
+    n_draws)`` array: the expected MOOP less a donor's MOOP drawn in
+    proportion to the donors' weights, in ``year``'s dollars, to add to the
+    unit's resources in each draw. Its mean over draws is zero; it keeps the
+    spread of medical spending that a cell mean removes. Units not found
+    (no SPM unit, or not in ``units``) get zero.
+    """
+    donors = _Donors(load_donors(donor_path))
+    scale = cpi_index(year) / CPI_U[DOLLAR_YEAR]
+    if income_col is None:
+        income_col = "spm_money_income" if "spm_money_income" in units.columns else "total_cash_income"
+    money = units[income_col].fillna(0).astype(float).to_numpy() / scale
+    _, per_spm = _unit_pools(units, persons, donors, money=money, spm_unit_id_col=spm_unit_id_col, age_col=age_col,
+                             spouse_age_col=spouse_age_col, dependents_col=dependents_col,
+                             filing_status_col=filing_status_col)
+    if per_spm is None:
+        raise ValueError("moop_resource_draws needs units with spm_unit_id and the persons frame")
+
+    def hook(df: pd.DataFrame, rng: np.random.Generator, n_draws: int) -> np.ndarray:
+        pools = df[spm_unit_id_col].map(per_spm)
+        found = pools.notna().to_numpy()
+        out = np.zeros((len(df), n_draws))
+        if found.any():
+            p = pools[found].to_numpy(dtype=int)
+            out[found] = (donors.mean(p)[:, None] - donors.draw(p, rng, n_draws)) * scale
+        return out
+
+    return hook
+
+
+__all__ = ["compute_moop_for_units", "moop_resource_draws", "cpi_index", "load_donors", "DOLLAR_YEAR"]

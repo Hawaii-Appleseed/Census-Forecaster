@@ -1281,21 +1281,34 @@ the function derives `n_adults = 1 + (filing_status == MFJ)` and
 
 ### Medical out-of-pocket spending (MOOP)
 
-`tax_modeler.benefits.moop.compute_moop_for_units` gives each SPM unit the
-weighted mean MOOP of Hawaiʻi SPM units like it in the Census Bureau's ACS SPM
-research extracts for 2021–2023 (Census imputes MOOP onto ACS households from
-the CPS ASEC), matched on unit size, members 65 and over and money income
-quintile; `scripts/build_moop_donors.py` builds the donor file
+`tax_modeler.benefits.moop` matches each SPM unit to a pool of Hawaiʻi SPM
+units in the Census Bureau's ACS SPM research extracts for 2021–2023 (Census
+imputes MOOP onto ACS households from the CPS ASEC): same size, members 65
+and over and money income quintile, falling back to coarser pools where one
+is empty. `scripts/build_moop_donors.py` builds the donor file
 (`data/cps_donor/acs_spm_hawaii_moop_donors.csv`, about 17,000 units). Donor
-dollars move to the target year by CPI-U. The amount is imputed once per SPM
-unit and booked on its first tax unit, so the SPM rollup sums it exactly.
+dollars move to the target year by CPI-U. The unit is matched once, as an SPM
+unit, and its amount booked on its first tax unit so the SPM rollup sums it
+exactly.
+
+* **Expected MOOP** (`compute_moop_for_units`): the pool's weighted mean. It
+  is what `spm_resources` carries and what expected-value runs use.
+* **Drawn MOOP** (`moop_resource_draws`, a `DrawSpec.resource_draws` hook):
+  in each poverty draw, every unit's MOOP is a donor drawn from its pool, so
+  the headcount averages over medical spending as well as over who claims
+  each credit, and the Monte Carlo error covers both. A pool mean gives every
+  unit in it the same amount and bunches units around the line: on the TY2028
+  working-family population it put the Act 163 expiry at 10,328 people
+  pushed into poverty against about 3,600 with drawn MOOP. The working-family
+  credits and H.R.1 runs draw it; scripts that score expected values
+  (`poverty_impact_report.py`, `forecast_hi_eitc_revert_20.py`) do not, and
+  their headcounts carry that bunching.
 
 Until November 2026 MOOP was matched per tax unit to `cps_moop_donors.csv`, a
 200-row synthetic test fixture, which put Hawaiʻi MOOP at about half of
-Census's ($3,804 against $7,591 per SPM unit, person-weighted, TY2023). The
-fix moves the TY2023 SPM rate from 8.40% to 9.07%; MOOP now averages $7,786.
-Cell means understate the spread: among poor units the model's MOOP is
-$3,541 against Census's $4,619.
+Census's ($3,804 against $7,591 per SPM unit, person-weighted, TY2023). With
+the expected MOOP the TY2023 SPM rate moves from 8.40% to 9.07%; MOOP now
+averages $7,786.
 
 Compared with Census's own ACS SPM for Hawaiʻi in 2023 (15.5% on the
 pre-correction thresholds), most of the remaining gap is benefit

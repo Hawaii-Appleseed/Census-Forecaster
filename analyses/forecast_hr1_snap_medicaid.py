@@ -346,6 +346,7 @@ def _other_resources(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
+    from tax_modeler.benefits.moop import moop_resource_draws
     from tax_modeler.poverty.draws import ClaimBlock, DrawSpec
     from tax_modeler.poverty.impact import compute_poverty_impact_with_se
     from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
@@ -408,8 +409,10 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
     def unchanged(df: pd.DataFrame) -> np.ndarray:
         return df["spm_resources"].to_numpy(dtype=float)
 
+    # Medical spending is drawn from each unit's donor pool too (benefits.moop), so the baseline is drawn as well.
     spec = DrawSpec(blocks=tuple(blocks), baseline_fixed=None,
-                    scenario_fixed={_scn(c): unchanged for c in SCENARIOS}, n_draws=N_DRAWS, seed=SEED)
+                    scenario_fixed={_scn(c): unchanged for c in SCENARIOS},
+                    resource_draws=moop_resource_draws(u, persons, year=POVERTY_YEAR), n_draws=N_DRAWS, seed=SEED)
     scns = tuple(_scn(c) for c in SCENARIOS)
     res = compute_poverty_impact_with_se(frame, tax_year=POVERTY_YEAR, scenarios=scns,
                                          extrapolate_thresholds=True, draws=spec)

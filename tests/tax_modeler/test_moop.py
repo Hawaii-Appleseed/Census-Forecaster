@@ -65,3 +65,32 @@ def test_aggregation_sums_the_unit_amount_back():
     out = moop(_units(), _persons(), year=DOLLAR_YEAR)
     per_unit = out.groupby("spm_unit_id")["moop_amount"].sum()
     assert per_unit["a"] == pytest.approx(out["moop_amount"].iloc[0])
+
+
+def test_resource_draws_average_to_the_expected_moop_and_keep_its_spread():
+    from tax_modeler.benefits.moop import moop_resource_draws
+
+    hook = moop_resource_draws(_units(), _persons(), year=DOLLAR_YEAR)
+    frame = pd.DataFrame({"spm_unit_id": ["a", "b", "zz"]})
+    adj = hook(frame, np.random.default_rng(0), 20_000)
+    assert adj.shape == (3, 20_000)
+    assert (adj[2] == 0).all()                                            # not an SPM unit of these tax units
+    expected = compute_moop_for_units(_units(), _persons(), year=DOLLAR_YEAR)["moop_amount"].to_numpy()[[0, 2]]
+    assert np.abs(adj[:2].mean(axis=1)).max() < 0.03 * expected.max()      # zero on average
+    drawn = expected[:, None] - adj[:2]                                    # the MOOP each draw gave
+    assert (drawn >= -1e-9).all() and drawn.std(axis=1).min() > 0.3 * expected.min()
+
+
+def test_moop_draws_spread_units_off_a_shared_cell_mean():
+    """Units sharing a cell mean sit on one side of the line together; with draws each has a probability."""
+    from tax_modeler.poverty.draws import DrawSpec, poverty_draws
+
+    df = pd.DataFrame({"spm_unit_id": ["a", "b"], "spm_resources": [30_000.0, 30_000.0]})
+    threshold = np.array([29_000.0, 29_000.0])
+
+    def hook(frame, rng, n):
+        return rng.normal(0.0, 3_000.0, size=(len(frame), n))
+
+    res = poverty_draws(DrawSpec(blocks=(), resource_draws=hook, n_draws=4_000), df, threshold,
+                        {"persons": np.ones(2)})
+    assert 0.2 < res.poor_prob["baseline"].mean() < 0.45                  # P(N(0, 3000) < -1000) ≈ 0.37
