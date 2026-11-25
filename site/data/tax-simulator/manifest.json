@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-11-25T05:33:45+00:00",
-  "git_sha": "e5acfa5",
+  "created_at": "2026-11-25T07:34:49+00:00",
+  "git_sha": "e7f8eec",
   "script": "scripts/build_simulator_population.py",
   "params": {
     "years": [
@@ -37,8 +37,8 @@
   "params_fingerprint": "836525574f07813a",
   "inputs": {
     "calibrated_base": {
-      "created_at": "2026-11-25T01:58:24+00:00",
-      "git_sha": "26adc93",
+      "created_at": "2026-11-25T06:05:56+00:00",
+      "git_sha": "a8b099a",
       "n_units": 39996,
       "tax_year": 2023,
       "params_fingerprint": "ab6b63a25f3fa23b",
@@ -47,24 +47,24 @@
       "cd": "2"
     },
     "tax_units_cache": {
-      "created_at": "2026-11-25T05:27:39+00:00",
-      "git_sha": "6260247",
-      "code_key": "c9aaff850b23355b2bfe3726b42d9b30896f7fc144e43be87ac0604a6b69902c",
+      "created_at": "2026-11-25T06:05:39+00:00",
+      "git_sha": "a8b099a",
+      "code_key": "5422370d585b4386f41fbe76f00e910478b06ec6477c2e5b445a3a3fc1ddb56c",
       "built_by": "chain/forecast_sb3125_enhanced.py",
       "pums": "HI 5yr 2020-24",
       "n_units": 39996
     },
     "population": {
-      "created_at": "2026-11-25T05:33:27+00:00",
-      "git_sha": "e5acfa5"
+      "created_at": "2026-11-25T07:34:38+00:00",
+      "git_sha": "e7f8eec"
     },
     "credits": {
       "run": "working_family_credits",
-      "created_at": "2026-11-25T05:33:03+00:00",
-      "git_sha": "e5acfa5",
-      "params_fingerprint": "cd4c14218b1c1ed0",
-      "takeup_eitc": 0.9784,
-      "takeup_food": 0.7321
+      "created_at": "2026-11-25T07:34:01+00:00",
+      "git_sha": "e7f8eec",
+      "params_fingerprint": "8d41c1d70c25187c",
+      "takeup_eitc": 0.9788,
+      "takeup_food": 0.7382
     }
   },
   "outputs": [
@@ -75,5 +75,5 @@
     "population.json",
     "population.npz"
   ],
-  "published_at": "2026-11-25T05:33:46+00:00"
+  "published_at": "2026-11-25T07:34:49+00:00"
 }

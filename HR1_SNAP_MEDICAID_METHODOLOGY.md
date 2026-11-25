@@ -12,6 +12,15 @@ chooses to replace what was lost.
 
 ## Changelog
 
+- **November 25, 2026 (fifth version).** Rerun after two changes on the poverty side, neither in this analysis's
+  own code: the SPM thresholds and medical-spending draws (PRs #103, #106, #107), which had already moved the
+  published page to an 11.71% baseline and 852 people pushed into poverty (MID) without this note being updated,
+  and income aged on CBO's February 2026 projections for every component (`cbo_aging.DEFAULT_VINTAGE = "2026-02"`;
+  retirement per person on prior-year CPI-U, business on proprietors' income). The baseline SPM rate is now
+  11.81% and MID 760 people (90% interval 550 to 970). The count of people pushed into poverty moves 10-20% with
+  any small change in the incomes it draws on (the draws of who loses SNAP reshuffle), so changes of that size
+  are within its sampling error. Statewide SNAP and Medicaid counts and dollars are unchanged; the county split
+  of SNAP losers moves by about a dozen people (Hawaiʻi County 1,573 to 1,585, Honolulu 4,511 to 4,499).
 - **November 23, 2026 (fourth version).** Federal Medicaid funding now follows KFF's method, which Appleseed's
   SNAP and Medicaid timeline also uses: CBO's national estimate for each Medicaid section of the law, allocated to
   Hawaiʻi by KFF's keys (`programs/kff_medicaid_allocation.py`). The result is $3.9 billion over 2025-2034
@@ -33,22 +42,22 @@ chooses to replace what was lost.
   unchanged.
 - **November 22, 2026 (PR #97).** First estimate: SNAP from the QC file, Medicaid from the ACS.
 
-## Results (run of November 22, 2026, commit `d32134b`)
+## Results (run of November 25, 2026, commit `e7f8eec`)
 
 | | LOW | MID | HIGH |
 |---|---|---|---|
 | SNAP: adults losing eligibility | 4,950 | 7,250 | 9,630 |
 | SNAP: benefits lost a year, FY2027 allotments | $22.9M | $33.3M | $44.0M |
-| SPM: people pushed into poverty | 380 | 550 | 670 |
-| SPM: children among them | 35 | 54 | 68 |
-| SPM: added shortfall below the line | $11.7M | $16.8M | $21.1M |
+| SPM: people pushed into poverty | 520 | 760 | 950 |
+| SPM: children among them | 42 | 62 | 78 |
+| SPM: added shortfall below the line | $12.6M | $18.1M | $22.7M |
 | Medicaid: expansion adults losing coverage | 24,400 | 39,140 | 51,800 |
 | Medicaid: federal dollars for those adults, a full year | $125.9M | $201.9M | $267.2M |
 | Medicaid: all federal funding lost, 2025-2034, KFF's method | $2,927M | $3,902M | $4,878M |
 
 - SNAP, 90% sampling interval on MID: 5,620 to 8,990 adults; $25.5M to $41.1M.
-- SPM, 90% sampling interval on MID: 307 to 802 people (ACS replicate weights). Baseline SPM rate 9.34% (TY2027).
-- 43% of the adults who lose SNAP (MID) are in SPM units already in poverty; 17% under half the line.
+- SPM, 90% sampling interval on MID: 550 to 970 people (ACS replicate weights). Baseline SPM rate 11.81% (TY2027).
+- 47% of the adults who lose SNAP (MID) are in SPM units already in poverty; 19% under half the line.
 - SNAP costs moved to the State from federal fiscal year 2028: $91.1M a year for benefits at the 15% tier
   Hawaiʻi's FY2025 error rate implies ($0, $30.4M or $60.7M at the lower tiers), plus $14.8M for administration.
 - Medicaid: of 129,577 expansion adults, 48% already meet the test, 28% are exempt on what the survey shows, and
@@ -60,8 +69,8 @@ chooses to replace what was lost.
   2025-2034: work requirement $1,805M, six-month redeterminations $347M, state-directed payments $859M, eligibility
   and enrollment rules $449M, provider taxes $329M, other expansion-group changes $198M, other changes $205M, less
   interactions $290M.
-- By county (MID): Honolulu 24,460 lose Medicaid, 4,510 lose SNAP, 270 pushed into poverty; Hawaiʻi 7,760,
-  1,570, 70; Maui 4,800, 810, 150; Kauaʻi 2,130, 360, 60. Hawaiʻi County loses the most Medicaid coverage for its
+- By county (MID): Honolulu 24,460 lose Medicaid, 4,500 lose SNAP, 500 pushed into poverty; Hawaiʻi 7,760,
+  1,590, 170; Maui 4,800, 810, 70; Kauaʻi 2,130, 360, 30. Hawaiʻi County loses the most Medicaid coverage for its
   size (4.1% of residents).
 
 LOW, MID and HIGH differ only in the share of people who fail to keep a benefit. That share is an assumption

@@ -22,9 +22,9 @@ ages on.
 
 | Vintage | How it was made | Source file (SHA-256) |
 |---|---|---|
-| **2025-01-cg2026-02** (default from 2026-11-24) | `build_cbo_components.py --capital-gains-only 2025-01 2026-02`: the 2025-01 file with its capital gains replaced by the 2026-02 file's (CBO's realizations). The other components stay on 2025-01 until a review of per-person growth: moving them to CBO's own lines moved published poverty by up to 0.4 points (working-family credits TY2028 10.52% to 10.93%; H.R.1 people into poverty 852 to 643). | as below |
-| 2026-02 (CBO's own lines; under review) | `scripts/build_cbo_components.py`, from CBO's "Revenue Projections, by Category", sheet 3 (income reported on tax returns, 2022 actual, 2023-2036 projected); retirement grows per person on the prior year's CPI-U from the Economic Projections (CBO's pension and Social Security lines are national totals that also grow with the number of retirees) | `51138-2026-02-Revenue.xlsx` (8f5bf6db9b40b4d997ea3932a340515f92b08e035f69e5e603e15791f3ce258c), `51135-2026-02-Economic-Projections.xlsx` (ae8f4920702fabf8fb3136bc94a42c53466cff5e890dec22396d8dc49dc2f776) |
-| 2025-01 (default until 2026-11-24; its non-capital-gains rows are still in use) | Typed by hand (commit 1069f96). Its capital gains are **not CBO's**: it has 2023 at +8.5% from 2022, where CBO's January 2025 Table 6 has realizations down 26% ($1,283B to $943B), and a flat 5.5% a year after 2026. The other components are near CBO's but not its figures. | none recorded |
+| 2025-01-cg2026-02 (default 2026-11-24 to 2026-11-25) | `build_cbo_components.py --capital-gains-only 2025-01 2026-02`: the 2025-01 file with its capital gains replaced by the 2026-02 file's (CBO's realizations). The other components stay on 2025-01 until a review of per-person growth: moving them to CBO's own lines moved published poverty by up to 0.4 points (working-family credits TY2028 10.52% to 10.93%; H.R.1 people into poverty 852 to 643). | as below |
+| **2026-02** (default from 2026-11-25) | `scripts/build_cbo_components.py`, from CBO's "Revenue Projections, by Category", sheet 3 (income reported on tax returns, 2022 actual, 2023-2036 projected); retirement grows per person on the prior year's CPI-U, and business income after 2023 on nonfarm proprietors' income, both from the Economic Projections (`build_cbo_components.py` says why for each component) | `51138-2026-02-Revenue.xlsx` (8f5bf6db9b40b4d997ea3932a340515f92b08e035f69e5e603e15791f3ce258c), `51135-2026-02-Economic-Projections.xlsx` (ae8f4920702fabf8fb3136bc94a42c53466cff5e890dec22396d8dc49dc2f776) |
+| 2025-01 (default until 2026-11-24) | Typed by hand (commit 1069f96). Its capital gains are **not CBO's**: it has 2023 at +8.5% from 2022, where CBO's January 2025 Table 6 has realizations down 26% ($1,283B to $943B), and a flat 5.5% a year after 2026. The other components are near CBO's but not its figures. | none recorded |
 
 To refresh: save the Outlook's revenue workbook from
 https://www.cbo.gov/data/budget-economic-data with a browser (cbo.gov refuses
@@ -78,3 +78,12 @@ CBO revises past years in later Outlooks (2023's capital gains realizations
 were $943B in January 2025 and $976B in February 2026), so a new vintage moves
 past years too, not only the projection. `other` ages on total income: CBO's
 "all other sources" line is a small residual that swings by half a year.
+
+The aging grows each person's income, never the number of people, so a
+component needs per-person growth. CBO's lines are national totals. For wages,
+interest, dividends, business and other income the Hawaiʻi factors close most of
+the gap: they were fitted to Hawaiʻi's total income growth, and Hawaiʻi's
+headcount barely grows, so national total × Hawaiʻi factor is about per person
+(dividing by the national count of returns as well would remove population
+growth twice). Retirement is the exception: its national totals grow with the
+number of retirees, so it ages on prior-year CPI-U instead.
