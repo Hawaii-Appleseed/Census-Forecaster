@@ -10,51 +10,45 @@ RNG state would scramble per call.
 This module re-implements the credit deterministically:
 
   * Income test (AGI by filing status) — same as the existing module
-  * Take-up rate ``takeup_pct`` (default 0.30) is applied as a *uniform
-    multiplier* on the credit amount rather than a per-unit Bernoulli
-    coin flip. Aggregate dollar flow is identical; per-unit values are
-    smoothed (every eligible unit gets 30% of the full credit instead
-    of 30% getting the full credit).
-
-The smoothed approach is standard in microsimulation aggregate
-analysis — we lose nothing for fiscal-impact work, and the Reform DSL
-remains deterministic.
+  * Renter test: when the frame carries ``tenure`` (``pipeline.attach_tenure``,
+    PUMS ``TEN``), only ``tenure == "renter"`` units can claim. Until 2026-11
+    the poverty pipeline screened on income alone, so homeowners got the
+    credit (232K eligible units against 97K renters-only, TY2022).
+  * Take-up is a *uniform multiplier* on the credit amount rather than a
+    per-unit Bernoulli coin flip (every eligible unit gets ``takeup`` x the
+    full credit). Aggregate dollars are identical and the Reform DSL stays
+    deterministic; per-unit values are smoothed.
 
 Empirical anchor for ``takeup_pct``
 -----------------------------------
 
-The 0.30 default is an unanchored placeholder. DOTAX REEC historical
-data (``data/raw/dotax_reec_historical.csv``) does not break out the
-renters credit separately — the published series aggregates "personal
-credits" without a per-program decomposition. No bundled HI DHS or
-DOTAX caseload for the renters credit was found in the codebase.
+``takeup_pct=None`` (the default) fits the multiplier so renters-only model
+dollars equal DOTAX's claimed dollars (``calibration.dotax_renters_claims``,
+"Tax Credits Claimed by Hawaii Taxpayers", Table A-1) for ``anchor_year``
+(default: the frame's tax year capped at the latest published year, TY2023;
+after that the claimed dollars are held flat). The fit uses the baseline
+schedule, never the reform overrides, so a reform's ``amount_pct`` and
+``income_threshold_factor`` still move dollars. The fit must land inside
+``TAKEUP_GUARD`` (0.05-0.40) or it raises; TY2022 and TY2023 fit at about
+0.15 (``docs/data_source_tests/renters-credit-anchor.md``). A frame with no
+``tenure`` or weight column cannot be fitted and uses ``FALLBACK_TAKEUP``.
+Claims are tax-return filings, so the factor is take-up and filing combined.
 
-Impact on poverty-impact pipeline: **none currently.** The renters
-credit is invoked only in the revenue-forecast pipeline; the column
-``hi_renters_amount`` is not populated upstream of
-``compute_spm_resources`` in the poverty-impact report. The SPM
-formula includes it as a positive resource if present on the frame,
-but the report's pipeline (see ``scripts/poverty_impact_report.py``)
-does not call ``compute_hi_renters_for_units``. Front 1.5 of the
-methodology sprint flagged this; resolving it would require adding
-``hi_renters_amount`` to the poverty-impact frame and then anchoring
-the take-up rate empirically.
-
-TODO — empirical take-up anchor (deferred to a separate sprint):
-
-  1. Add an HI Renters Credit row to
-     ``data/admin_caseload/hawaii_caseload.csv`` from a DOTAX SOI
-     pull (Schedule X line-item filings if separately reported, else
-     DOTAX REEC Renters-Credit subcategory if exposed).
-  2. Add ``hi_renters_amount`` to the poverty-impact pipeline at
-     ``scripts/poverty_impact_report.py`` ahead of
-     ``compute_spm_resources``.
-  3. Compute observed/eligible ratio via the same
-     ``estimate_hi_eitc_takeup`` pattern.
+NOT verified against the statute: the $50/$100/$150 AGI tiers and the AGI
+caps below are the module's long-standing schedule. HRS §235-55.7 could not
+be fetched when the anchor was built (capitol.hawaii.gov refused scripted
+requests), so the statute's per-exemption amount, the age-65 doubling of
+exemptions and any minimum-rent test are NOT implemented here. Observed
+claims average $99 against the model's $114 per unit. The fit absorbs a
+schedule error in aggregate, but check the schedule against the statute
+before relying on per-unit amounts.
 
 Reform DSL (``Reform.benefit_overrides["hi_renters"]``):
 
-  * ``takeup_pct``           share of eligible filers receiving (default 0.30)
+  * ``takeup_pct``           share of eligible renters receiving
+                             (default None: fitted to DOTAX dollars)
+  * ``anchor_year``          DOTAX year the fit targets
+  * ``renters_only``         require ``tenure == "renter"`` (default True)
   * ``amount_pct``           multiplier on final credit (default 1.0)
   * ``income_threshold_factor`` multiplier on AGI ceilings (default 1.0)
 """
@@ -66,7 +60,13 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 import pandas as pd
 
+from tax_modeler.calibration import dotax_renters_claims
 from tax_modeler.errors import ConfigError
+
+#: The fitted take-up must land here or the fit raises (TY2022-23 fit at about 0.15).
+TAKEUP_GUARD = (0.05, 0.40)
+#: Used only when a frame cannot be fitted (no tenure or weight column): the TY2022-23 fit.
+FALLBACK_TAKEUP = 0.15
 
 _DEFAULT_INCOME_CAP = {
     "single": 30_000,
@@ -85,7 +85,9 @@ class HawaiiRentersCreditParameters:
     credit_under_15k: float = 150.0
     credit_15k_to_25k: float = 100.0
     credit_above_25k: float = 50.0
-    takeup_pct: float = 0.30
+    takeup_pct: float | None = None  # None: fitted to DOTAX dollars
+    anchor_year: int | None = None  # None: the frame's tax year, capped at the latest DOTAX year
+    renters_only: bool = True
     amount_pct: float = 1.0
     income_threshold_factor: float = 1.0
 
@@ -109,32 +111,75 @@ def with_renters_overrides(
     return replace(base, **dict(overrides))
 
 
+def _weights(df: pd.DataFrame) -> np.ndarray | None:
+    for c in ("weight", "WGTP"):
+        if c in df.columns:
+            return df[c].to_numpy(float)
+    return None
+
+
+def _full_credit(df: pd.DataFrame, p: HawaiiRentersCreditParameters) -> np.ndarray:
+    """Credit per unit at 100% take-up: the income test and tiers, then the renter test."""
+    income = df["income"].fillna(0).astype(float).to_numpy()
+    income_caps = df["filing_status"].map(p.income_cap_by_status).fillna(
+        p.income_cap_by_status.get("single", 30_000)
+    ).to_numpy() * p.income_threshold_factor
+    tier_credit = np.where(
+        income < 15_000, p.credit_under_15k,
+        np.where(income < 25_000, p.credit_15k_to_25k, p.credit_above_25k),
+    )
+    credit = np.where(income < income_caps, tier_credit, 0.0)
+    if p.renters_only and "tenure" in df.columns:
+        credit = np.where((df["tenure"] == "renter").to_numpy(), credit, 0.0)
+    return credit
+
+
+def fit_renters_takeup(model_dollars: float, year: int) -> float:
+    """Take-up that makes renters-only model dollars (at 100% take-up) equal DOTAX's claimed dollars.
+
+    ``year`` is capped at the latest published tax year. Raises ``ConfigError`` outside ``TAKEUP_GUARD``.
+    """
+    if model_dollars <= 0:
+        raise ConfigError("no renters-only credit dollars to fit the take-up to")
+    target = dotax_renters_claims.dollars_M(min(year, dotax_renters_claims.latest_year())) * 1e6
+    t = target / model_dollars
+    lo, hi = TAKEUP_GUARD
+    if not lo <= t <= hi:
+        raise ConfigError(
+            f"fitted HI renters take-up {t:.3f} is outside the guard {TAKEUP_GUARD}; "
+            "the eligible population or schedule has moved, check before trusting the fit"
+        )
+    return t
+
+
 def compute_hi_renters_for_units(
     units: pd.DataFrame,
     *,
     params: HawaiiRentersCreditParameters | None = None,
     overrides: Mapping[str, object] | None = None,
     out_col: str = "hi_renters_amount",
+    tax_year: int | None = None,
 ) -> pd.DataFrame:
-    """Compute the HI Low-Income Household Renters Credit per tax unit."""
+    """Compute the HI Low-Income Household Renters Credit per tax unit.
+
+    ``tax_year`` picks the DOTAX year the take-up is fitted to when ``takeup_pct`` is None and
+    ``anchor_year`` is unset; with neither, the latest published year.
+    """
     p = with_renters_overrides(
         params or hawaii_renters_credit_parameters(), overrides
     )
     df = units.copy()
+    credit = _full_credit(df, p)
 
-    income = df["income"].fillna(0).astype(float).to_numpy()
-    income_caps = df["filing_status"].map(p.income_cap_by_status).fillna(
-        p.income_cap_by_status.get("single", 30_000)
-    ).to_numpy() * p.income_threshold_factor
-
-    # Tiered credit by AGI
-    tier_credit = np.where(
-        income < 15_000, p.credit_under_15k,
-        np.where(income < 25_000, p.credit_15k_to_25k, p.credit_above_25k),
-    )
-
-    eligible = income < income_caps
-    credit = np.where(eligible, tier_credit, 0.0)
-    credit = credit * p.takeup_pct * p.amount_pct
-    df[out_col] = credit
+    takeup = p.takeup_pct
+    if takeup is None:
+        w = _weights(df)
+        if w is None or "tenure" not in df.columns:
+            takeup = FALLBACK_TAKEUP
+        else:
+            # Fit on the baseline schedule so reform overrides still move dollars.
+            base = replace(p, income_threshold_factor=1.0, amount_pct=1.0, takeup_pct=None, renters_only=True)
+            year = p.anchor_year or tax_year or dotax_renters_claims.latest_year()
+            takeup = fit_renters_takeup(float((w * _full_credit(df, base)).sum()), year)
+    df[out_col] = credit * takeup * p.amount_pct
     return df

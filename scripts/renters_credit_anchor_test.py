@@ -1,8 +1,12 @@
 """Exploratory: implied take-up of the HI renters credit vs DOTAX claims (see docs/data_source_tests/renters-credit-anchor.md)."""
 from __future__ import annotations
-import sys, json
+
+import json
+import sys
 from pathlib import Path
-import numpy as np, pandas as pd
+
+import numpy as np
+
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 import poverty_impact_report as pir
@@ -25,4 +29,4 @@ for ty in (2022, 2023):
                      "avg_credit": float((ww * amt)[m].sum() / ww[m].sum())}
     out[ty] = res
     print(ty, json.dumps(res, indent=1), flush=True)
-json.dump(out, open("/tmp/rc_model.json", "w"), indent=1)
+Path("/tmp/rc_model.json").write_text(json.dumps(out, indent=1))

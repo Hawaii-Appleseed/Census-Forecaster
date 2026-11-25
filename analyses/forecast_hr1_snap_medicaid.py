@@ -317,7 +317,7 @@ def _population(pums_dir: Path):
     u = pir._apply_eitc_reweight(u)
     u = pir._apply_credit_takeup(u, tax_year=POVERTY_YEAR)
     u = pir._apply_hi_eitc(u, tax_year=POVERTY_YEAR)
-    u = pir._apply_hi_renters(u)
+    u = pir._apply_hi_renters(u, tax_year=POVERTY_YEAR)
     u = pir._apply_arpa_ctc(u)
     parquet = pums_dir / "psam_h15.parquet"
     households = (pd.read_parquet(parquet, columns=["SERIALNO", "WGTP", "FS"]) if parquet.exists() else

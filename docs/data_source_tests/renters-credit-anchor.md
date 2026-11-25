@@ -53,3 +53,6 @@ Across 2018-2023 on the fixed TY2022 renters-only base (no model run for earlier
 
 ## Verdict
 Adopt with caveats. The DOTAX line is official and stable (16.9K-17.4K claims, 2021-2023) and implies a renters-only take-up of about 0.15 (dollars) to 0.17 (counts), well below 0.30. The bigger finding is that the pipeline applies no renter test, so today's 0.30 produces 4.8x the claimed dollars. Recommended follow-up PR: add the tenure filter, set `takeup_pct` to about 0.15 (dollar-anchored), and check that the tier amounts reproduce $99 per claim. Not done here; no default or published number changed.
+
+## Status update (2026-11-25)
+Adopted: `credits/hi_renters.py` now requires `tenure == "renter"` and fits take-up to DOTAX dollars (0.151 for TY2022, 0.142 for TY2023, guard 0.05-0.40); the poverty pipeline passes its tax year. The statute check (HRS 235-55.7) could not be done: capitol.hawaii.gov blocked scripted requests, so the tiers, caps, per-exemption rule and any minimum-rent test are still unverified and were left as they were.

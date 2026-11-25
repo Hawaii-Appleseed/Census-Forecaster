@@ -1505,12 +1505,16 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   literature half-elasticity (0.5); backtest spec documented in
   `adjustments/eitc_poverty_scaling.py`. Deferred pending a
   multi-year ACS S1701 × IRS SOI panel build.
-* **HI Renters Credit take-up** — `compute_hi_renters_for_units`
-  uses an unanchored 0.30 default. Not currently invoked in the
-  poverty-impact pipeline (the `hi_renters_amount` column is not
-  populated upstream of `compute_spm_resources` in the report);
-  affects only revenue-forecast outputs. TODO to anchor empirically
-  is in the credit module's docstring.
+* **HI Renters Credit schedule** — take-up is now anchored (see the
+  2026-Q2 entry below, updated 2026-11-25), but the $50/$100/$150 AGI
+  tiers and AGI caps in `credits/hi_renters.py` have not been checked
+  against HRS §235-55.7 (the statute page could not be fetched). The
+  statute's per-exemption amount, age-65 doubling of exemptions and any
+  minimum-rent test are not implemented; observed claims average $99
+  against the model's $114 per unit. The separate revenue-forecast
+  credit (`HawaiiTaxCredits.low_income_renters_credit`) still uses the
+  0.30 placeholder and no renter test; it is not the poverty pipeline's
+  credit.
 * **Replicate-weight propagation through tax-unit constructor**
   (2026-Q2 closed) — `weight_r01..weight_r80` now ride from PUMS
   households → persons → tax units → SPM aggregator via the
@@ -1520,13 +1524,19 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
   This unlocks the SDR bootstrap on `τ_HI_EITC` at the tax-unit level
   (the `estimate_hi_eitc_takeup` function now returns a real SE
   instead of the 2-replicate judgment band when run post-constructor).
-* **HI Renters Credit** (2026-Q2 wired) — `_apply_hi_renters` now runs
-  in `scripts/poverty_impact_report.py` after `_apply_hi_eitc`, so
-  `hi_renters_amount` flows into `compute_spm_resources` as a positive
-  SPM resource. On real Hawaii PUMS 2024, ~15K tax units qualify with
-  aggregate disbursement ~$10.7M; SPM rate shifts by <0.1 pp. The
-  underlying take-up rate stays at the 0.30 placeholder pending a
-  DOTAX caseload pull (documented TODO in `credits/hi_renters.py`).
+* **HI Renters Credit** (2026-Q2 wired; anchored 2026-11-25) —
+  `_apply_hi_renters` runs in `scripts/poverty_impact_report.py` after
+  `_apply_hi_eitc`, so `hi_renters_amount` flows into
+  `compute_spm_resources` as a positive SPM resource. Only units whose
+  household rents (`tenure == "renter"`, PUMS `TEN`) qualify; before the
+  anchor the pipeline screened on income alone, so homeowners received
+  it (232K eligible units vs 97K renters-only, TY2022; $7.98M modelled
+  vs $1.675M claimed). Take-up is fitted so renters-only model dollars
+  equal DOTAX's claimed dollars ("Tax Credits Claimed by Hawaii
+  Taxpayers", Table A-1) for the run's tax year, capped at TY2023 and
+  held flat after: 0.151 for TY2022, 0.142 for TY2023, guarded to
+  0.05-0.40. Claims are filings, so the factor is take-up and filing
+  combined. See `docs/data_source_tests/renters-credit-anchor.md`.
 * **District-level uncertainty** — within-PUMA HD/SD assignment
   is a deterministic SERIALNO hash, drawing each of the PUMA's
   districts in proportion to its 2020 census population

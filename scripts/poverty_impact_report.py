@@ -232,23 +232,23 @@ def _apply_hi_eitc(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
     return compute_hi_eitc_for_units(units, tax_year=tax_year)
 
 
-def _apply_hi_renters(units: pd.DataFrame) -> pd.DataFrame:
+def _apply_hi_renters(units: pd.DataFrame, *, tax_year: int | None = None) -> pd.DataFrame:
     """Compute the HI Low-Income Household Renters Credit (HRS §235-55.7).
 
     Tiered refundable credit ($50 / $100 / $150) for renting filers with AGI
     below status-specific ceilings ($30K single / $40K MFJ / $35K HoH /
-    $20K MFS). The credit's take-up rate is currently a 0.30 placeholder
-    (no DOTAX caseload bundled — TODO in credits/hi_renters.py); the
-    formula smooths to a deterministic 0.30 × full-credit per eligible
-    unit. Aggregate disbursement matches an explicit Bernoulli model.
+    $20K MFS). Only units whose household rents (``tenure == "renter"``,
+    PUMS ``TEN``) qualify. The take-up multiplier is fitted so renters-only
+    model dollars equal DOTAX's claimed dollars for ``tax_year`` (capped at
+    the latest published year; see credits/hi_renters.py). The schedule has
+    not been checked against the statute (see that module's docstring).
 
-    Once this column rides on the tax-unit frame, ``compute_spm_resources``
-    picks it up automatically via the ``hi_renters_col="hi_renters_amount"``
-    kwarg in poverty/spm.py.
+    ``compute_spm_resources`` picks the column up through the
+    ``hi_renters_col="hi_renters_amount"`` kwarg in poverty/spm.py.
     """
     from tax_modeler.credits.hi_renters import compute_hi_renters_for_units
     LOG.info("Computing HI Low-Income Household Renters Credit")
-    return compute_hi_renters_for_units(units)
+    return compute_hi_renters_for_units(units, tax_year=tax_year)
 
 
 def _apply_snap(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
@@ -985,9 +985,9 @@ def main(argv: list | None = None) -> int:
     # 3c. HI Low-Income Household Renters Credit (HRS §235-55.7). Small
     #     refundable credit for renters under the AGI ceilings; populates
     #     hi_renters_amount which compute_spm_resources picks up as a
-    #     positive SPM resource. Take-up at unanchored 0.30 placeholder
-    #     (see credits/hi_renters.py TODO).
-    units = _apply_hi_renters(units)
+    #     positive SPM resource. Renters only, take-up fitted to DOTAX
+    #     claimed dollars (see credits/hi_renters.py).
+    units = _apply_hi_renters(units, tax_year=args.tax_year)
 
     # 4. ARPA CTC counterfactual column (required for expanded_ctc_2021 scenario).
     units = _apply_arpa_ctc(units)
