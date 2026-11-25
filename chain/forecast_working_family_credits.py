@@ -533,7 +533,7 @@ def spm_frame(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     u = pir._apply_arpa_ctc(u)
     u = pir._apply_snap(u, tax_year=yr)
     u = compute_federal_income_tax_for_units(u, tax_year=yr, extrapolate=True)
-    u = compute_moop_for_units(u)
+    u = compute_moop_for_units(u, persons, year=yr)
     u = pir._apply_housing_subsidy(u, tax_year=benefit_year)
     u = pir._apply_childcare_subsidy(u, tax_year=benefit_year)
     u = pir._apply_wic(u, tax_year=benefit_year)
@@ -929,11 +929,17 @@ def claim_draws(u: pd.DataFrame, c: pd.DataFrame, p_eitc: float, p_food: float, 
 
 def poverty(u: pd.DataFrame, persons: pd.DataFrame, draws=None) -> pd.DataFrame:
     """SPM poverty in POVERTY_YEAR, expansions renewed (baseline) vs expired. With ``draws`` (:func:`claim_draws`)
-    the headcounts are means over draws of who claims each credit; without, every unit gets its expected credits."""
+    the headcounts are means over draws of who claims each credit and of each unit's medical spending (drawn from
+    its MOOP donor pool, benefits.moop); without, every unit gets its expected credits and MOOP."""
+    import dataclasses
+
+    from tax_modeler.benefits.moop import moop_resource_draws
     from tax_modeler.poverty.impact import compute_poverty_impact_with_se
 
     yr = POVERTY_YEAR
     frame = spm_frame(u, persons)
+    if draws is not None:
+        draws = dataclasses.replace(draws, resource_draws=moop_resource_draws(u, persons, year=yr))
     res = compute_poverty_impact_with_se(frame, tax_year=yr, scenarios=("act163_sunset",),
                                          extrapolate_thresholds=True, draws=draws)
     s = res.by_state.iloc[0]

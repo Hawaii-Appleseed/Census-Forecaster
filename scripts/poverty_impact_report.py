@@ -1005,12 +1005,11 @@ def main(argv: list | None = None) -> int:
     LOG.info("Computing federal income tax liability for TY %d", args.tax_year)
     units = compute_federal_income_tax_for_units(units, tax_year=args.tax_year)
 
-    # 6. MOOP imputation from CPS ASEC Hawaii donors. Required to bring the
-    #    baseline SPM rate in line with Census-published Hawaii SPM (~10-12%);
-    #    without it the baseline rate runs ~10pp high.
+    # 6. MOOP, one amount per SPM unit, from Hawaii SPM units in Census's ACS SPM extracts
+    #    (benefits.moop). --by-tax-unit matches each tax unit on its own.
     if args.apply_moop:
         from tax_modeler.benefits.moop import compute_moop_for_units
-        units = compute_moop_for_units(units)
+        units = compute_moop_for_units(units, None if args.by_tax_unit else persons, year=args.tax_year)
 
     # 6a. Housing subsidy (Section 8 / public housing) — HUD-anchored take-up.
     if args.apply_housing_subsidy:

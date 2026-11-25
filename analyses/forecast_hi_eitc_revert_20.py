@@ -320,7 +320,7 @@ def main(argv: list | None = None) -> int:
     units = compute_federal_income_tax_for_units(units, tax_year=args.tax_year)
 
     from tax_modeler.benefits.moop import compute_moop_for_units
-    units = compute_moop_for_units(units)
+    units = compute_moop_for_units(units, persons, year=args.tax_year)
     units = pir._apply_housing_subsidy(units, tax_year=args.tax_year)
     units = pir._apply_childcare_subsidy(units, tax_year=args.tax_year)
     units = pir._apply_wic(units, tax_year=args.tax_year)

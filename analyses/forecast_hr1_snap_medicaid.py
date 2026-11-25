@@ -325,7 +325,7 @@ def _population(pums_dir: Path):
     return u, persons, households
 
 
-def _other_resources(u: pd.DataFrame) -> pd.DataFrame:
+def _other_resources(u: pd.DataFrame, persons: pd.DataFrame) -> pd.DataFrame:
     """The rest of the SPM stack, as the working-family credits step builds it for TY2028."""
     import poverty_impact_report as pir
     from tax_modeler.benefits.childcare_expense import compute_childcare_expense_for_units
@@ -335,7 +335,7 @@ def _other_resources(u: pd.DataFrame) -> pd.DataFrame:
     from tax_modeler.liability.federal import compute_federal_income_tax_for_units
 
     u = compute_federal_income_tax_for_units(u, tax_year=POVERTY_YEAR, extrapolate=True)
-    u = compute_moop_for_units(u)
+    u = compute_moop_for_units(u, persons, year=POVERTY_YEAR)
     u = pir._apply_housing_subsidy(u, tax_year=BENEFIT_YEAR)
     u = pir._apply_childcare_subsidy(u, tax_year=BENEFIT_YEAR)
     u = pir._apply_wic(u, tax_year=BENEFIT_YEAR)
@@ -346,6 +346,7 @@ def _other_resources(u: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
+    from tax_modeler.benefits.moop import moop_resource_draws
     from tax_modeler.poverty.draws import ClaimBlock, DrawSpec
     from tax_modeler.poverty.impact import compute_poverty_impact_with_se
     from tax_modeler.poverty.spm_aggregation import aggregate_to_spm_units
@@ -357,7 +358,7 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
     base = hr1.acs_snap_baseline(u, households, persons, target_households=params.snap_households_2027,
                                  target_dollars=params.snap_annual_benefits_2027,
                                  fallback_benefit_by_size=snap["_qc_benefit_by_size"])
-    u = _other_resources(base.units)
+    u = _other_resources(base.units, persons)
     hh = base.households
     rec = hh[hh["recipient"]]
     p_serial = persons["SERIALNO"].astype(str)
@@ -408,8 +409,10 @@ def run_poverty(params, snap: dict, pums_dir: Path) -> dict[str, pd.DataFrame]:
     def unchanged(df: pd.DataFrame) -> np.ndarray:
         return df["spm_resources"].to_numpy(dtype=float)
 
+    # Medical spending is drawn from each unit's donor pool too (benefits.moop), so the baseline is drawn as well.
     spec = DrawSpec(blocks=tuple(blocks), baseline_fixed=None,
-                    scenario_fixed={_scn(c): unchanged for c in SCENARIOS}, n_draws=N_DRAWS, seed=SEED)
+                    scenario_fixed={_scn(c): unchanged for c in SCENARIOS},
+                    resource_draws=moop_resource_draws(u, persons, year=POVERTY_YEAR), n_draws=N_DRAWS, seed=SEED)
     scns = tuple(_scn(c) for c in SCENARIOS)
     res = compute_poverty_impact_with_se(frame, tax_year=POVERTY_YEAR, scenarios=scns,
                                          extrapolate_thresholds=True, draws=spec)

@@ -15,6 +15,10 @@ for the baseline and each scenario, every SPM unit's probability of resources be
 standard errors by the replicate weights are computed on the draw-averaged probabilities (the replicate estimate is
 the same function of the draws with the replicate weight, with the Monte Carlo noise averaged out; the Monte Carlo
 error is reported separately).
+
+``DrawSpec.resource_draws`` draws something other than claims as well: amounts added to every case's resources in
+each draw, common to the baseline and the scenarios (``benefits.moop.moop_resource_draws``: medical spending drawn
+from donors, less the expected amount the resources carry). With it the baseline is drawn too.
 """
 from __future__ import annotations
 
@@ -46,12 +50,15 @@ class ClaimBlock:
 @dataclass(frozen=True)
 class DrawSpec:
     """What to draw. ``baseline_fixed(df)``: the SPM frame's baseline resources without the drawn credits (None: the
-    baseline is not drawn and stays ``spm_resources``). ``scenario_fixed[name](df)``: each drawn scenario's resources
-    without the drawn credits."""
+    baseline is not drawn and stays ``spm_resources``, unless ``resource_draws`` is set, when it is drawn from
+    ``spm_resources``). ``scenario_fixed[name](df)``: each drawn scenario's resources without the drawn credits.
+    ``resource_draws(df, rng, n)``: an ``(SPM units, n)`` array added to every case's resources in each of ``n``
+    draws, from its own random stream so the claim draws are the same with it or without."""
 
     blocks: tuple[ClaimBlock, ...]
     baseline_fixed: Callable[[pd.DataFrame], np.ndarray] | None = None
     scenario_fixed: Mapping[str, Callable[[pd.DataFrame], np.ndarray]] = field(default_factory=dict)
+    resource_draws: Callable[[pd.DataFrame, np.random.Generator, int], np.ndarray] | None = None
     n_draws: int = DEFAULT_DRAWS
     seed: int = DEFAULT_SEED
     chunk: int = 250
@@ -85,12 +92,15 @@ def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weigh
         mats.append(m)
         probs.append(np.clip(np.asarray(b.prob, dtype=float), 0.0, 1.0))
     base_fixed = None if spec.baseline_fixed is None else np.asarray(spec.baseline_fixed(df), dtype=float)
+    if base_fixed is None and spec.resource_draws is not None:
+        base_fixed = df["spm_resources"].to_numpy(dtype=float)
     scn_fixed = {s: np.asarray(f(df), dtype=float) for s, f in spec.scenario_fixed.items()}
     names = (["baseline"] if base_fixed is not None else []) + list(scn_fixed)
     poor_sum = {k: np.zeros(n) for k in names}
     gap_sum = {k: np.zeros(n) for k in names}
     counts = {(w, k): [] for w in weights for k in names}
     rng = np.random.default_rng(spec.seed)
+    resource_rng = np.random.default_rng([spec.seed, 1])
     done = 0
     while done < spec.n_draws:
         c = min(spec.chunk, spec.n_draws - done)
@@ -101,6 +111,9 @@ def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weigh
         for s, fixed in scn_fixed.items():
             recv[s] = fixed[:, None] + sum(m @ (cl * np.asarray(b.scenario[s], dtype=float)[:, None])
                                            for m, cl, b in zip(mats, claims, spec.blocks, strict=True) if s in b.scenario)
+        if spec.resource_draws is not None:
+            extra = np.asarray(spec.resource_draws(df, resource_rng, c), dtype=float)
+            recv = {k: r + extra for k, r in recv.items()}
         for k, r in recv.items():
             poor = r < threshold[:, None]
             poor_sum[k] += poor.sum(axis=1)
