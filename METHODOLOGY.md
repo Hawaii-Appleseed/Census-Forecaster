@@ -946,12 +946,16 @@ nonrefundable and too little refunded. Tested against IRS SOI Hawaii by AGI
 band and ruled out as material (each moves ACTC by ≤ $4M): half-SE-tax and
 QBI deductions; nonrefundable credits ahead of the CTC (dependent care,
 education, saver's, residential energy — $127M in Hawaii TY 2022); assigning
-grandchildren to their PUMS subfamily parent instead of the householder; and
+grandchildren to their PUMS subfamily parent instead of the householder (tested as a rule
+only; the subfamily variables themselves, adopted November 25, 2026, do matter for EITC
+eligibility and head-of-household counts, see "Tax-unit claimant assignment"); and
 the statutory taxable-Social-Security formula in place of a flat 85%. Per-
 return federal tax before credits is 3-8% above IRS in the $25K-$200K bands,
 and nonrefundable CTC per claiming return in the $100K-$200K band is $3.7K
 against IRS's $2.9K. Both point at children per unit or unit construction
 in middle and upper-middle incomes rather than the credit formula.
+(The claimant assignment changed on November 25, 2026; see "Tax-unit
+claimant assignment". The figures in this section are from before that change.)
 
 ### Federal income measurement (September 2026)
 
@@ -1077,6 +1081,90 @@ Two things the test showed that take-up cannot fix:
   federal EITC of $77.1M against $78.7M under the rank rule and DOTAX's
   $77.0M: the dollar total cannot tell the two rules apart, and at most $1.6M
   of credit depends on the choice.
+
+### Tax-unit claimant assignment: children go to their own parent first (November 2026)
+
+Until November 25, 2026 the tax-unit constructor gave a child to the householder or spouse
+unless the child was the householder's own, and left a partner's or an unrelated adult's
+minors, and some relatives' minors, with no claimant. A grandchild went to the grandparent
+while its parent, an adult child of the householder, filed with no children. That
+understated head-of-household returns with children and EITC-eligible units, and the
+by-children EITC reweight (below) and the head-of-household weight factor were doing part of
+the job of the missing families. Evidence and sensitivities:
+`docs/data_source_tests/tax-unit-claimant-assignment.md`.
+
+**The rule** (`tax_modeler.units.claimants`, `TaxUnitConstructor(claimant_assignment="parent_first")`,
+the default; `"legacy"` reproduces the earlier assignment exactly). For each minor, and each
+enrolled 18-23-year-old who is not self-supporting (the existing selection), in order:
+
+1. *Own parent in the household* (IRC 152(c)(4): a parent has priority over a non-parent; the
+   choice is never made to maximise credits). The householder's own children (RELSHIPP 25-27)
+   and foster children go to the householder. A child with the PUMS subfamily variables `SFN`
+   and `SFR` (a child in a married-couple subfamily, or of a mother or father alone) goes to the
+   member of the same `SFN` who is the parent (`SFR` 2 or 3); this covers grandchildren,
+   nephews and nieces and other relatives' minors. Where no subfamily link can exist, a
+   partner's or an unrelated adult's minors go by an age-gap rule: the unmarried partner first,
+   else another unrelated adult, among adults 15 to 50 years older (several candidates: the
+   oldest child first, siblings together, else the gap closest to 28, the mean age of US
+   mothers at a birth). A parent who does not file (a teenage parent, an 18-23 student) passes
+   the child to the next rule.
+2. *A related minor with no parent in the household* goes to the householder (grandparent,
+   sibling, foster parent). "Other relative" (RELSHIPP 33) minors with no parent present are
+   claimed as dependents but **not** as EITC or CTC qualifying children, because 33 cannot
+   separate nieces and nephews from cousins.
+3. *Unrelated children with no plausible parent*: unchanged (the householder claims an enrolled
+   one as a plain dependent, never as a qualifying child; nobody claims the rest).
+
+A child claimed through rule 1 reaches the credit code as the claimant's own child whatever its
+RELSHIPP. The qualifying-child age and disability tests, and the household-level head-of-household
+test, are unchanged. The age-gap rule is a fallback: against the subfamily data, on
+grandchildren it picks right about 75% of the time, so the subfamily link, not the age gap, is
+the rule.
+
+**Filing-status weight factors.** The 2024 one-year units' filing-status mix is matched to the
+Department of Taxation's TY2022 shares by a weight factor per status, normalised to joint = 1:
+`factor = (DOTAX share / DOTAX joint share) / (natural share / natural joint share)`, where the
+natural shares are the units' own with every factor at 1
+(`scripts/rederive_filing_status_factors.py` runs the recipe; `FILING_STATUS_WEIGHT_FACTORS` in
+`units/constructor.py`). Before the change the factors were single 0.82, joint 1.00, head of
+household 1.30 (the recipe gave 1.291), separate 1.35. The old construction under-built head of
+household (7.6% of units against DOTAX's 10.6%), and 1.30 weighted it up. On the new construction
+the natural head-of-household share is 8.3% and the recipe gives **single 0.83, joint 1.00, head
+of household 1.18, married filing separately 1.35**; the model's mix is single 52.7%, joint 34.2%,
+head of household 10.6%, separate 2.5% against DOTAX's 52.8, 34.1, 10.6, 2.5. Left at 1.30 on
+the new construction, head of household would be 11.7%, 1.1 points over.
+
+**Effect on the by-children EITC reweight.** The reweight (`calibration/eitc_reweight.py`) lifts
+a children bucket whose eligible count falls short of the IRS TY2022 count (26,900 / 27,820 /
+18,460 / 11,790 for 0 / 1 / 2 / 3+ children). It used to lift three buckets, in TY2024 by
+x1.35 (1 child), x1.14 (2) and x1.03 (3+), adding 1.32% to total tax-unit weight. With children on
+their parents' returns the 2- and 3+-child buckets need no lift and the 1-child lift is x1.13 in
+TY2024 (x1.24 in TY2028), adding 0.44% (0.76% in TY2028). The targets are unchanged and
+still the TY2022 counts; they do not trend.
+
+**Benchmarks** (raw units, 2024 one-year PUMS):
+
+| measure | before | after | benchmark |
+|---|---:|---:|---|
+| EITC-eligible units, TY2024 basis | 83,063 | 93,456 (90,208 with the re-derived factors) | IRS TY2024 claims about 81,800; DOTAX 78,399 |
+| EITC-eligible units by children, share 0 / 1 / 2 / 3+ | 41.1 / 25.2 / 19.8 / 13.9% | 34.4 / 28.8 / 22.1 / 14.7% | IRS TY2022 31.7 / 32.7 / 21.7 / 13.9% |
+| ACTC returns (TY2022 rules) | 45,712 | 55,423 | SOI 61,270 |
+| CTC (nonrefundable) returns | 122,755 | 130,262 | SOI 154,800 |
+| head-of-household units | 79,131 | 86,512 | DOTAX share 10.6% |
+| dependents; persons in a unit | | +0.03%; +0.17% (conserved) | |
+| TY2024 EITC claims (take-up fitted to DOTAX dollars) | 82,525 | 79,218 | DOTAX 78,399 |
+| TY2024 state EITC, share of claims by filing status: joint / head of household / single | 30.2 / 40.1 / 29.6% | 24.4 / 43.6 / 31.9% | DOTAX 23.2 / 41.3 / 35.2% |
+
+The change moves Act 24 and capital-gains revenue by at most 0.1% (the units split differently;
+income is the same). It moves the working-family credits page: the EITC take-up factor falls
+from 0.979 to 0.937 (a smaller share of a larger eligible pool has to claim to hit DOTAX's
+$76.98M), and the TY2028 and TY2031 figures are lower (EITC at 40%: -3.5% and -4.5%). Those are
+a correction of the TY2024 base, not a lower outlook: the model's TY2024 claims are 79,218 against
+DOTAX's 78,399 (they were 82,525), and the old by-children reweight had been compensating for
+families the old construction failed to build. Claims are held at the IRS count in every year
+in both versions, so growth after TY2024 is not validated by history (the check in the analysis
+note, section 6b, "cannot discriminate"). A resumed pre-2020 decline in Hawaiʻi EITC returns
+(-1.4% to -2.5% a year) would put both the old and the new TY2031 figures too high.
 
 ### CBPP comparison caveats
 
@@ -1496,6 +1584,17 @@ fired (`"column" | "computed" | "fallback_rate" | "zero"`).
 
 ### What's still uncalibrated
 
+* **EITC claimant count in later years**: the by-children reweight and the
+  take-up truncation hold EITC claimants at the IRS TY2022 counts every year, and the
+  take-up factor is fitted at TY2024 only. Hawaiʻi EITC returns fell 1.4-2.5% a year before
+  the pandemic and have been flat since 2022; the history cannot say which continues, so
+  the TY2028-TY2031 EITC figures are not validated, and a resumed decline would put them
+  too high (TY2031 by about 11% on the new construction). Targets from the TY2023 counts
+  (26,400 / 27,650 / 18,470 / 11,940) are not adopted.
+* **Claimants outside the parent rule**: other-relative (RELSHIPP 33) minors with no parent
+  present are not EITC or CTC children (nieces and nephews cannot be told from cousins; the
+  diagnosis put them at up to +2.9K eligible units), unrelated children with no plausible
+  parent are claimed by nobody, and the head-of-household test is still household-level.
 * **Behavioral response** — `compute_poverty_impact` is a static
   counterfactual. EITC repeal would reduce single-mother LFP by
   2–7 pp per Eissa-Liebman / Meyer-Rosenbaum; no elasticity

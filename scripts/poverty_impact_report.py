@@ -379,7 +379,9 @@ def _apply_eitc_reweight(units: pd.DataFrame) -> pd.DataFrame:
     """Lever 3a: up-weight EITC-eligible units in short with-children buckets.
 
     The microsimulation under-produces EITC-eligible 1-/2-qualifying-child tax
-    units relative to IRS SOI Hawaii (~0.74 / ~0.77 of the by-children targets);
+    units relative to IRS SOI Hawaii (~0.74 / ~0.77 of the by-children targets
+    under the pre-2026-11-25 claimant assignment; with children on their own
+    parents' returns only the 1-child bucket is short, by about 10%);
     a take-up truncation can cap over-produced buckets but cannot fill short
     ones. This reweight lifts the short buckets to their IRS targets *before*
     ``_apply_credit_takeup``, so the stratified take-up then trims each bucket to
