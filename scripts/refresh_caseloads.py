@@ -22,7 +22,7 @@ FNS_ZIP = ("https://www.fns.usda.gov/sites/default/files/resource-files/"
 CMS_META = ("https://data.medicaid.gov/api/1/metastore/schemas/dataset/"
             "items/6165f45b-ca93-5bb5-9d06-db29c692a360?show-reference-ids=false")
 MONTHS = {m: i + 1 for i, m in enumerate(
-    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split())}
+    ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])}
 OUT = Path(__file__).resolve().parents[1] / "data" / "caseloads"
 
 
