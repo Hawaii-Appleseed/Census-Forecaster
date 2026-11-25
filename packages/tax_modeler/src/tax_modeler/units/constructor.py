@@ -47,6 +47,18 @@ DEFAULT_NUM_PROCESSES = max(1, mp.cpu_count() - 1)
 # Configure logging
 logger = logging.getLogger(__name__)
 
+#: Per-filing-status weight factors, normalized to MFJ = 1.0, that bring the units' natural filing-status mix to
+#: the DOTAX TY2022 shares (single 52.8% / MFJ 34.1% / HoH 10.6% / MFS 2.5%). Derived by
+#: ``scripts/rederive_filing_status_factors.py`` (the ratio of DOTAX share to the model's natural share on the 2024
+#: 1-year PUMS units; ``scripts/diagnose_filing_status.py`` prints the shares). The one source for the unit weight
+#: and its 80 replicates.
+FILING_STATUS_WEIGHT_FACTORS = {
+    'single': 0.82,
+    'married_filing_jointly': 1.0,
+    'head_of_household': 1.30,
+    'married_filing_separately': 1.35,
+}
+
 
 class TaxUnitConstructor:
     """
@@ -1377,14 +1389,7 @@ class TaxUnitConstructor:
         # AGI) changed the natural mix: HoH dropped 1.88->1.30 (it no longer
         # over-counts via mis-decoded partner/roommate codes), MFS rose
         # 1.05->1.35, single 0.85->0.82. See scripts/diagnose_filing_status.py.
-        calibration_factors = {
-            'single': 0.82,
-            'married_filing_jointly': 1.0,
-            'head_of_household': 1.30,
-            'married_filing_separately': 1.35,
-        }
-
-        adjustment = calibration_factors.get(filing_status, 1.0)
+        adjustment = FILING_STATUS_WEIGHT_FACTORS.get(filing_status, 1.0)
         calibrated_weight = hybrid_weight * adjustment
 
         return max(calibrated_weight, 0.1)  # Ensure weight is never zero or negative
@@ -1430,13 +1435,7 @@ class TaxUnitConstructor:
         if not self._wgtp_replicate_cols:
             return {}
 
-        calibration_factors = {
-            'single': 0.82,
-            'married_filing_jointly': 1.0,
-            'head_of_household': 1.30,
-            'married_filing_separately': 1.35,
-        }
-        adjustment = calibration_factors.get(filing_status, 1.0)
+        adjustment = FILING_STATUS_WEIGHT_FACTORS.get(filing_status, 1.0)
         # Mirror _calculate_hybrid_weight: only a *one-person* tax unit uses
         # the per-person weight; 0 or ≥2 members use the household weight.
         use_person_weight = n_members == 1
