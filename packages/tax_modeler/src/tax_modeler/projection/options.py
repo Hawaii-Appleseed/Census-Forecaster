@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tax_modeler.calibration.cbo_aging import DEFAULT_VINTAGE
+
 
 @dataclass(frozen=True)
 class CboAging:
@@ -27,7 +29,7 @@ class CboAging:
         CBO-national aging, ITEP's method by construction.
     """
 
-    vintage: str = "2025-01"
+    vintage: str = DEFAULT_VINTAGE
     hawaii_factors: dict[str, float] | None = None
 
 

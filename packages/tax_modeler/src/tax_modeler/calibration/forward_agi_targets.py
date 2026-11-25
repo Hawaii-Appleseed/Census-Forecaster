@@ -23,7 +23,7 @@ Methodology (Hybrid: DOTAX bin shape × CBO total)
    tier avg AGI from SOI Table 1.4. Tier AGI mass = HI tier count ×
    tier avg AGI.
 
-3. **Forward growth**: Apply CBO Outlook 2025-01 component growth rates,
+3. **Forward growth**: Apply CBO Outlook component growth rates (``cbo_aging.DEFAULT_VINTAGE``),
    weighted by per-bracket income composition (the same per-component
    factors used by ``cbo_aging.age_filers_with_components``). Composition
    shares come from SOI Table 1.4 sub-bins for $200K+ brackets and from
@@ -48,7 +48,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from tax_modeler.calibration import dotax_base
-from tax_modeler.calibration.cbo_aging import net_growth_factor
+from tax_modeler.calibration.cbo_aging import DEFAULT_VINTAGE, net_growth_factor
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ def _component_growth_factor(
 def build_agi_targets(
     year: int,
     *,
-    cbo_vintage: str = "2025-01",
+    cbo_vintage: str = DEFAULT_VINTAGE,
     hawaii_factors: dict[str, float] | None = None,
     base_agi: dict[tuple[float, float], float] | None = None,
     base_year: int = dotax_base.BASE_YEAR,
