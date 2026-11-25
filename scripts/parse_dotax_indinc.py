@@ -117,7 +117,7 @@ def parse_a1(pages: list[str]) -> dict:
     # "HAWAI'I" from TY2022, "HAWAII" in TY2021
     text = _find_page(pages, "SELECTED DATA FROM RESIDENT TAX RETURNS BY HAWAI", "TOTAL RESIDENT TAXABLE")
     row = re.compile(
-        rf"^(\$[\d,]+ to under \$[\d,]+|\$400,000 and over) ([\d,]+) {_PCT} "
+        rf"^(\$[\d,]+ (?:to under|[\"“”″]) \$[\d,]+|\$400,000 and over) ([\d,]+) {_PCT} "
         rf"({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT}$")
     rows = []
     for line in text.splitlines():
@@ -143,7 +143,7 @@ def parse_filing_status(pages: list[str], year: int) -> dict:
     out = {}
     for line in block.splitlines():
         m = re.match(r"^(Married Filing Jointly|Single|Married Filing Separately|Head of "
-                     r"Household|Qualifying Widow\(er\)|Composite) (.+)$", line)
+                     r"Household|Qualifying Widow\(er\)|Composite)\*? (.+)$", line)   # 'Single*' to TY2019
         if not m:
             continue
         vals = re.findall(r"[\d,]+(?:\.\d+)?%?|n/a", m.group(2))
@@ -210,7 +210,7 @@ def parse_a3(pages: list[str]) -> dict:
     title = "SELECTED DATA FROM NONRESIDENT TAX RETURNS BY HAWAI"
     first = next(t for t in pages if title in t and "(CONTINUED)" not in t and "TOTAL TAXABLE" in t)
     second = _find_page(pages, title, "(CONTINUED)", "TOTAL TAXABLE")
-    label = r"(\$[\d,]+ to under \$[\d,]+|\$400,000 and over)"
+    label = r"(\$[\d,]+ (?:to under|[\"“”″]) \$[\d,]+|\$400,000 and over)"   # TY2018-19 ditto 'to under'
     row1 = re.compile(rf"^{label} ([\d,]+) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT} ")
     row2 = re.compile(rf"^{label} [\d,]+ [\d,]+ [\d.]+ [\d.]+ ({_NUM}) {_PCT} ({_NUM}) {_PCT} ({_NUM}) {_PCT}$")
     rows = {}

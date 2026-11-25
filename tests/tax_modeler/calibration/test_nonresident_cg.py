@@ -35,7 +35,8 @@ def test_base_year_tax_reproduces_a3(year, placement):
     c = nonresident_cg.check_a3(year, placement)
     # A-3 prints tax to $1M; the two lowest classes are a few $M and lose the most to rounding
     assert c["model_tax_M"].sum() / c["tax_before_M"].sum() == pytest.approx(1.0, abs=0.03)
-    assert c["ratio"].iloc[-1] == pytest.approx(1.0, abs=0.03)          # $400K+
+    top = c.iloc[-1]                                                     # $400K+: 3%, plus A-3's rounding
+    assert abs(top["model_tax_M"] - top["tax_before_M"]) <= 0.03 * top["tax_before_M"] + 0.5
     assert c["ratio"].iloc[2:].between(0.9, 1.1).all()
 
 
