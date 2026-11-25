@@ -90,7 +90,7 @@ def main() -> None:
 
     meta = a.workdir / "cms" / "meta.json"
     curl(CMS_META, meta)
-    url = json.load(open(meta))["distribution"][0]["data"]["downloadURL"]
+    url = json.loads(meta.read_text())["distribution"][0]["data"]["downloadURL"]
     csvp = a.workdir / "cms" / "pi.csv"
     if not csvp.exists():
         curl(url, csvp)
