@@ -1,0 +1,124 @@
+
+== 1. Sample and Hawaii identification
+persons 40263 person-months 476744 households (SSUID) 17314
+weights, sum over panels in month 1 (millions): 327.7
+states identified (FIPS codes with rows): 53 | Hawaii (15) rows: 2058
+HI persons 181 HI households 85 by panel: {2020.0: 28, 2021.0: 26, 2022.0: 68, 2023.0: 59}
+HI weighted persons, month 6 (thousands): 1381.5
+HI adult person-months 1782 | SNAP person-months 81 | persons ever on SNAP 8 | Medicaid person-months 156 persons ever 13
+
+== 2. SNAP participation among income-eligible adults (month 6, household income <= 130% of poverty)
+national eligible-proxy adults: 4759 weighted millions: 35.6 | participation (weighted): 0.331
+Hawaii eligible-proxy adults: 18 | on SNAP: 4 | participation (weighted): 0.282
+
+-- spec full: intercept -2.126, n=4759
+                 coef     se       z
+pov_lt_50       0.388  0.113   3.418
+pov_50_99       0.597  0.100   5.978
+has_child_u18   0.737  0.112   6.548
+age_18_24      -0.481  0.158  -3.037
+age_50_64       0.133  0.118   1.129
+age_65p         0.081  0.120   0.676
+renter          1.071  0.089  12.028
+disabled        1.172  0.094  12.517
+noncitizen     -1.407  0.190  -7.418
+less_than_hs    0.369  0.104   3.551
+college_degree -0.971  0.130  -7.464
+works          -0.454  0.110  -4.117
+hispanic        0.103  0.111   0.924
+predicted national mean 0.331 | predicted at HI frame (national coefficients): 0.252 vs HI sample actual 0.282
+
+-- spec unit-column-only: intercept -1.260, n=4759
+                     coef     se      z
+pov_lt_50           0.238  0.103  2.299
+pov_50_99           0.629  0.094  6.679
+num_dependents_1p   0.365  0.100  3.671
+primary_agep_18_24 -0.384  0.145 -2.649
+primary_agep_50_64  0.357  0.109  3.287
+primary_agep_65p    0.333  0.110  3.027
+predicted national mean 0.331 | predicted at HI frame (national coefficients): 0.273 vs HI sample actual 0.282
+
+holdout (fit panels 2020-21, n=1532; test 2022-23, n=3227): predicted 0.325 actual 0.329
+    pred    act      n
+q                     
+0  0.091  0.087  648.0
+1  0.176  0.170  649.0
+2  0.293  0.298  646.0
+3  0.426  0.450  652.0
+4  0.659  0.660  632.0
+
+== 3. SNAP exits, adults 18-64 with no child under 18, not disabled, on SNAP in month t
+
+-- share off SNAP 1 month(s) later (rows are person-months at t)
+      group  rows  persons  off_rate    lo    hi
+        all  4132      491     0.022 0.016 0.029
+    no work  2209      282     0.013 0.008 0.020
+0-18.5 h/wk   257       65     0.006 0.000 0.022
+>=18.5 h/wk  1666      240     0.035 0.024 0.048
+Hawaii rows: 0 persons: 0
+
+-- share off SNAP 3 month(s) later (rows are person-months at t)
+      group  rows  persons  off_rate    lo    hi
+        all  3321      458     0.062 0.046 0.081
+    no work  1784      262     0.039 0.026 0.058
+0-18.5 h/wk   190       47     0.034 0.000 0.086
+>=18.5 h/wk  1347      222     0.090 0.061 0.123
+
+-- share off SNAP 6 month(s) later (rows are person-months at t)
+      group  rows  persons  off_rate    lo    hi
+        all  2170      403     0.115 0.081 0.152
+    no work  1181      233     0.085 0.049 0.123
+0-18.5 h/wk   115       33     0.109 0.003 0.272
+>=18.5 h/wk   874      188     0.150 0.108 0.199
+
+-- off at t+1 and still off at t+3, by hours at t
+           rows  gone_persistent
+grp                             
+no work  1784.0            0.014
+low       190.0            0.009
+work     1349.0            0.029
+
+-- on SNAP in month 1, off in month 12, by hours in month 1
+             n  off_by_12
+grp                      
+no work  198.0      0.142
+low       15.0      0.101
+work     144.0      0.238
+(all) 357 0.182
+
+== 4. Medicaid exits, adults 19-64 with household income <= 138% of poverty, on Medicaid in month t
+persons whose Medicaid status changes within the 12 months: 0.0103 | ever-covered share: 0.223
+persons whose SNAP status changes within the 12 months: 0.0259
+
+-- share without Medicaid 1 month(s) later
+                group  rows  persons  off_rate  lo    hi
+                  all 16935     1961     0.000 0.0 0.001
+          child in hh  7982      953     0.001 0.0 0.001
+no child, low/no work  7757      933     0.000 0.0 0.000
+      no child, works  1196      185     0.000 0.0 0.000
+
+-- share without Medicaid 6 month(s) later
+                group  rows  persons  off_rate    lo    hi
+                  all  9127     1797     0.003 0.001 0.005
+          child in hh  4346      867     0.005 0.002 0.011
+no child, low/no work  4143      831     0.000 0.000 0.000
+      no child, works   638      153     0.000 0.000 0.000
+
+== 5. EITC and filing questions (month 6)
+EFILING distribution (weighted share): {1.0: 0.8130000233650208, 2.0: 0.18700000643730164}
+EEITC distribution among all adults 18-64 (weighted share): {1.0: 0.0949999988079071, 2.0: 0.6859999895095825, nan: 0.21899999678134918}
+persons with EEITC==1, weighted millions: 18.9
+
+working adults 18-64 (hours > 0): share who filed, share who report an EITC, by income-to-poverty and children
+                        n  filed   eitc
+kids     band                          
+child    <100%      364.0  0.783  0.392
+         100-199%   909.0  0.855  0.401
+         200-299%  1005.0  0.865  0.227
+         300%+     4044.0  0.926  0.081
+no child <100%      334.0  0.706  0.131
+         100-199%   704.0  0.810  0.139
+         200-299%  1086.0  0.869  0.099
+         300%+     7192.0  0.925  0.041
+Hawaii working adults with EFILING answered: 75 | EEITC==1: 5
+EEITC / EFILING item nonresponse among adults 18-64 (share missing): 0.219 0.0
