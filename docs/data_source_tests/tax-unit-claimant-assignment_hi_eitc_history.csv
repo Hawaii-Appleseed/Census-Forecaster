@@ -1,0 +1,162 @@
+year,series,value,unit,source
+2024,dotax_eitc_applied_claims,80279,claims,"DOTAX EITC Report TY2024 (bundled dotax_eitc_2024.json), https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf"
+2024,dotax_eitc_applied_dollars_k,78514.304,$thousand,"DOTAX EITC Report TY2024 (bundled dotax_eitc_2024.json), https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf"
+2018,dotax_eitc_claims,57134.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2018, https://files.hawaii.gov/tax/stats/stats/credits/archive/2018credit_tables.xlsx"
+2019,dotax_eitc_claims,61406.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2019, https://files.hawaii.gov/tax/stats/stats/credits/archive/2019credit_tables.xlsx"
+2020,dotax_eitc_claims,64430.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2020, https://files.hawaii.gov/tax/stats/stats/credits/archive/2020credit_tables.xlsx"
+2021,dotax_eitc_claims,80990.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2021, https://files.hawaii.gov/tax/stats/stats/credits/archive/2021credit_tables.xlsx"
+2022,dotax_eitc_claims,60903.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2022, https://files.hawaii.gov/tax/stats/stats/credits/archive/2022credit_tables.xlsx"
+2023,dotax_eitc_claims,84470.0,claims,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2023, https://files.hawaii.gov/tax/stats/stats/credits/2023credit_tables.xlsx"
+2018,dotax_eitc_dollars_k,15583.0,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2018, https://files.hawaii.gov/tax/stats/stats/credits/archive/2018credit_tables.xlsx"
+2019,dotax_eitc_dollars_k,18116.0,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2019, https://files.hawaii.gov/tax/stats/stats/credits/archive/2019credit_tables.xlsx"
+2020,dotax_eitc_dollars_k,21130.0,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2020, https://files.hawaii.gov/tax/stats/stats/credits/archive/2020credit_tables.xlsx"
+2021,dotax_eitc_dollars_k,21802.0,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2021, https://files.hawaii.gov/tax/stats/stats/credits/archive/2021credit_tables.xlsx"
+2022,dotax_eitc_dollars_k,19786.0,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2022, https://files.hawaii.gov/tax/stats/stats/credits/archive/2022credit_tables.xlsx"
+2023,dotax_eitc_dollars_k,77054.16,$thousand,"DOTAX Tax Credits Claimed Tables A-1/A-2 TY2023, https://files.hawaii.gov/tax/stats/stats/credits/2023credit_tables.xlsx"
+2024,dotax_eitc_new_claims,78399,claims,"DOTAX EITC Report TY2024 (bundled dotax_eitc_2024.json), https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf"
+2024,dotax_eitc_new_dollars_k,76981.028,$thousand,"DOTAX EITC Report TY2024 (bundled dotax_eitc_2024.json), https://files.hawaii.gov/tax/stats/stats/act107_2017/act107_earnedincome_txcredit_2024.pdf"
+2010,fed_all_returns,653372.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/10in12hi.xls"
+2011,fed_all_returns,661948.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/11in12hi.xls"
+2012,fed_all_returns,665320.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/12in12hi.xls"
+2014,fed_all_returns,681840.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/14in12hi.xls"
+2015,fed_all_returns,688570.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/15in12hi.xlsx"
+2017,fed_all_returns,692790.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/17in12hi.xlsx"
+2018,fed_all_returns,694860.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/18in12hi.xlsx"
+2019,fed_all_returns,714760.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/19in12hi.xlsx"
+2020,fed_all_returns,707510.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/20in12hi.xlsx"
+2021,fed_all_returns,693580.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/21in12hi.xlsx"
+2022,fed_all_returns,689960.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_all_returns,695470.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2010,fed_eitc_dollars_k,222544.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/10in12hi.xls"
+2011,fed_eitc_dollars_k,235605.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/11in12hi.xls"
+2012,fed_eitc_dollars_k,240483.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/12in12hi.xls"
+2014,fed_eitc_dollars_k,246619.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/14in12hi.xls"
+2015,fed_eitc_dollars_k,239484.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/15in12hi.xlsx"
+2017,fed_eitc_dollars_k,215515.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/17in12hi.xlsx"
+2018,fed_eitc_dollars_k,209045.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/18in12hi.xlsx"
+2019,fed_eitc_dollars_k,209851.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/19in12hi.xlsx"
+2020,fed_eitc_dollars_k,181212.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/20in12hi.xlsx"
+2021,fed_eitc_dollars_k,211633.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/21in12hi.xlsx"
+2022,fed_eitc_dollars_k,185872.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_dollars_k,200670.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_dollars_k_kids0,9375.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_dollars_k_kids0,9277.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_dollars_k_kids1,63563.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_dollars_k_kids1,68930.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_dollars_k_kids2,65693.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_dollars_k_kids2,71340.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_dollars_k_kids3,47240.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_dollars_k_kids3,51125.0,$thousand,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2010,fed_eitc_returns,111789.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/10in12hi.xls"
+2011,fed_eitc_returns,114700.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/11in12hi.xls"
+2012,fed_eitc_returns,114580.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/12in12hi.xls"
+2014,fed_eitc_returns,114020.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/14in12hi.xls"
+2015,fed_eitc_returns,110700.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/15in12hi.xlsx"
+2017,fed_eitc_returns,100550.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/17in12hi.xlsx"
+2018,fed_eitc_returns,96910.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/18in12hi.xlsx"
+2019,fed_eitc_returns,98810.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/19in12hi.xlsx"
+2020,fed_eitc_returns,90860.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/20in12hi.xlsx"
+2021,fed_eitc_returns,115380.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/21in12hi.xlsx"
+2022,fed_eitc_returns,84970.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_returns,84460.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_returns_kids0,26900.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_returns_kids0,26400.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_returns_kids1,27820.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_returns_kids1,27650.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_returns_kids2,18460.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_returns_kids2,18470.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2022,fed_eitc_returns_kids3,11790.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/22in12hi.xlsx"
+2023,fed_eitc_returns_kids3,11940.0,returns,"IRS SOI Historic Table 2, Hawaii, https://www.irs.gov/pub/irs-soi/23in12hi.xlsx"
+2010,fed_max_credit_kids0,457,$,Rev. Proc. 2009-50
+2011,fed_max_credit_kids0,464,$,Rev. Proc. 2011-12
+2012,fed_max_credit_kids0,475,$,Rev. Proc. 2011-52
+2013,fed_max_credit_kids0,487,$,Rev. Proc. 2013-15
+2014,fed_max_credit_kids0,496,$,Rev. Proc. 2013-35
+2015,fed_max_credit_kids0,503,$,Rev. Proc. 2014-61
+2016,fed_max_credit_kids0,506,$,Rev. Proc. 2015-53
+2017,fed_max_credit_kids0,510,$,Rev. Proc. 2016-55
+2018,fed_max_credit_kids0,519,$,Rev. Proc. 2018-18 (IRB 2018-10)
+2019,fed_max_credit_kids0,529,$,Rev. Proc. 2018-57
+2020,fed_max_credit_kids0,538,$,Rev. Proc. 2019-44
+2021,fed_max_credit_kids0,543,$,Rev. Proc. 2020-45 (pre-ARPA: ARPA raised the childless maximum for TY2021 only)
+2022,fed_max_credit_kids0,560,$,Rev. Proc. 2021-45
+2023,fed_max_credit_kids0,600,$,Rev. Proc. 2022-38
+2024,fed_max_credit_kids0,632,$,IRS EITC tables page
+2025,fed_max_credit_kids0,649,$,IRS EITC tables page
+2026,fed_max_credit_kids0,664,$,IRS EITC tables page
+2010,fed_max_credit_kids1,3050,$,Rev. Proc. 2009-50
+2011,fed_max_credit_kids1,3094,$,Rev. Proc. 2011-12
+2012,fed_max_credit_kids1,3169,$,Rev. Proc. 2011-52
+2013,fed_max_credit_kids1,3250,$,Rev. Proc. 2013-15
+2014,fed_max_credit_kids1,3305,$,Rev. Proc. 2013-35
+2015,fed_max_credit_kids1,3359,$,Rev. Proc. 2014-61
+2016,fed_max_credit_kids1,3373,$,Rev. Proc. 2015-53
+2017,fed_max_credit_kids1,3400,$,Rev. Proc. 2016-55
+2018,fed_max_credit_kids1,3461,$,Rev. Proc. 2018-18 (IRB 2018-10)
+2019,fed_max_credit_kids1,3526,$,Rev. Proc. 2018-57
+2020,fed_max_credit_kids1,3584,$,Rev. Proc. 2019-44
+2021,fed_max_credit_kids1,3618,$,Rev. Proc. 2020-45 (pre-ARPA: ARPA raised the childless maximum for TY2021 only)
+2022,fed_max_credit_kids1,3733,$,Rev. Proc. 2021-45
+2023,fed_max_credit_kids1,3995,$,Rev. Proc. 2022-38
+2024,fed_max_credit_kids1,4213,$,IRS EITC tables page
+2025,fed_max_credit_kids1,4328,$,IRS EITC tables page
+2026,fed_max_credit_kids1,4427,$,IRS EITC tables page
+2010,fed_max_credit_kids2,5036,$,Rev. Proc. 2009-50
+2011,fed_max_credit_kids2,5112,$,Rev. Proc. 2011-12
+2012,fed_max_credit_kids2,5236,$,Rev. Proc. 2011-52
+2013,fed_max_credit_kids2,5372,$,Rev. Proc. 2013-15
+2014,fed_max_credit_kids2,5460,$,Rev. Proc. 2013-35
+2015,fed_max_credit_kids2,5548,$,Rev. Proc. 2014-61
+2016,fed_max_credit_kids2,5572,$,Rev. Proc. 2015-53
+2017,fed_max_credit_kids2,5616,$,Rev. Proc. 2016-55
+2018,fed_max_credit_kids2,5716,$,Rev. Proc. 2018-18 (IRB 2018-10)
+2019,fed_max_credit_kids2,5828,$,Rev. Proc. 2018-57
+2020,fed_max_credit_kids2,5920,$,Rev. Proc. 2019-44
+2021,fed_max_credit_kids2,5980,$,Rev. Proc. 2020-45 (pre-ARPA: ARPA raised the childless maximum for TY2021 only)
+2022,fed_max_credit_kids2,6164,$,Rev. Proc. 2021-45
+2023,fed_max_credit_kids2,6604,$,Rev. Proc. 2022-38
+2024,fed_max_credit_kids2,6960,$,IRS EITC tables page
+2025,fed_max_credit_kids2,7152,$,IRS EITC tables page
+2026,fed_max_credit_kids2,7316,$,IRS EITC tables page
+2010,fed_max_credit_kids3,5666,$,Rev. Proc. 2009-50
+2011,fed_max_credit_kids3,5751,$,Rev. Proc. 2011-12
+2012,fed_max_credit_kids3,5891,$,Rev. Proc. 2011-52
+2013,fed_max_credit_kids3,6044,$,Rev. Proc. 2013-15
+2014,fed_max_credit_kids3,6143,$,Rev. Proc. 2013-35
+2015,fed_max_credit_kids3,6242,$,Rev. Proc. 2014-61
+2016,fed_max_credit_kids3,6269,$,Rev. Proc. 2015-53
+2017,fed_max_credit_kids3,6318,$,Rev. Proc. 2016-55
+2018,fed_max_credit_kids3,6431,$,Rev. Proc. 2018-18 (IRB 2018-10)
+2019,fed_max_credit_kids3,6557,$,Rev. Proc. 2018-57
+2020,fed_max_credit_kids3,6660,$,Rev. Proc. 2019-44
+2021,fed_max_credit_kids3,6728,$,Rev. Proc. 2020-45 (pre-ARPA: ARPA raised the childless maximum for TY2021 only)
+2022,fed_max_credit_kids3,6935,$,Rev. Proc. 2021-45
+2023,fed_max_credit_kids3,7430,$,Rev. Proc. 2022-38
+2024,fed_max_credit_kids3,7830,$,IRS EITC tables page
+2025,fed_max_credit_kids3,8046,$,IRS EITC tables page
+2026,fed_max_credit_kids3,8231,$,IRS EITC tables page
+2018,hi_statutory_rate_of_federal,0.2,ratio,"Act 107 SLH 2017: 20% of federal, nonrefundable (hi_eitc.py)"
+2019,hi_statutory_rate_of_federal,0.2,ratio,"Act 107 SLH 2017: 20% of federal, nonrefundable (hi_eitc.py)"
+2020,hi_statutory_rate_of_federal,0.2,ratio,"Act 107 SLH 2017: 20% of federal, nonrefundable (hi_eitc.py)"
+2021,hi_statutory_rate_of_federal,0.2,ratio,"Act 107 SLH 2017: 20% of federal, nonrefundable (hi_eitc.py)"
+2022,hi_statutory_rate_of_federal,0.2,ratio,"Act 107 SLH 2017: 20% of federal, nonrefundable (hi_eitc.py)"
+2023,hi_statutory_rate_of_federal,0.4,ratio,"Act 114 SLH 2022 / Act 163 SLH 2023: 40% of federal, refundable (hi_eitc.py)"
+2024,hi_statutory_rate_of_federal,0.4,ratio,"Act 114 SLH 2022 / Act 163 SLH 2023: 40% of federal, refundable (hi_eitc.py)"
+2019,irs_central_eitc_avg,2165.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2020,irs_central_eitc_avg,2138.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2021,irs_central_eitc_avg,1840.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2022,irs_central_eitc_avg,2214.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2023,irs_central_eitc_avg,2387.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2024,irs_central_eitc_avg,2520.0,$,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2019,irs_central_eitc_claims,94000.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2020,irs_central_eitc_claims,90000.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2021,irs_central_eitc_claims,113000.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2022,irs_central_eitc_claims,82000.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2023,irs_central_eitc_claims,82000.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2024,irs_central_eitc_claims,81800.0,claims,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2019,irs_central_eitc_dollars_k,203000.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2020,irs_central_eitc_dollars_k,192000.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2021,irs_central_eitc_dollars_k,208000.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2022,irs_central_eitc_dollars_k,181000.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2023,irs_central_eitc_dollars_k,196000.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"
+2024,irs_central_eitc_dollars_k,206200.0,$thousand,"IRS EITC Central statistics by state (claims processed in the following year, rounded), https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/statistics-for-tax-returns-with-the-earned-income-tax-credit-eitc"

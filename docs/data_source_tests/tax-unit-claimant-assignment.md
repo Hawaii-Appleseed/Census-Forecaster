@@ -473,11 +473,180 @@ The EITC row is half the EITC dollar steps because expiry moves the rate from 40
 
 (TY2023 and TY2024 come from different DOTAX reports; the EITC report itself puts TY2023 applied at $75.6M against TY2024 applied $78.5M, +3.9%. Three observations, mixed bases: weak evidence.) The data say claims fell 7% in the one year observed while both models hold claims at the TY2022 IRS count through TY2031, and that dollars per claim rose faster (+7.6%) than either projection (legacy about 2.3% a year, new about 1.7% a year over TY2024-2031, against about 2.4% a year for the federal maximum credit's indexation in the model). If claims keep falling and per-claim credit keeps rising, both projections overstate the count and understate the per-claim figure; the dollar total is not clearly biased either way. The legacy path is not better supported on growth for being higher, and the new path is not better for being lower: both depend on lever 3a holding the counts.
 
-**What would settle it:** (1) DOTAX's TY2025 Earned Income Tax Credit Report (the TY2024 one is dated December 2025): a second year of claims and dollars on one basis; (2) the IRS Statistics of Income Hawaii EITC returns by children for TY2023 and TY2024, which would replace the stale TY2022 targets lever 3a and the truncation use (the count is what moves the answer), after which the model's implied claims trend could be compared to the actual one; (3) rerunning this script with the reweight targets set to the IRS count for each year: if the projections then agree across constructions at about $80-81M (the rake-only figures above) the gap is the lever's stale targets, not the fix.
+**What would settle it:** (1) DOTAX's TY2025 Earned Income Tax Credit Report (the TY2024 one is dated December 2025): a second year of claims and dollars on one basis; (2) the IRS Statistics of Income Hawaii EITC returns by children for TY2023 and TY2024, which would replace the stale TY2022 targets lever 3a and the truncation use (the count is what moves the answer), after which the model's implied claims trend could be compared to the actual one; (3) rerunning this script with the reweight targets set to the IRS count for each year: if the projections then agree across constructions at about $80-81M (the rake-only figures above) the gap is the lever's stale targets, not the fix. **Settled in section 6b**: TY2023 counts were obtained and rerun; the constructions do not converge (the gap is not a stale-target effect), and the data cannot say which projection's growth history supports.
 
 ### Measured and inferred
 
 Measured (by the replay, exact against the chain): every figure in the tables above, the stage waterfall, the by-bucket waterfall, the pool, lift, kept and claimant counts, the schedule-region shares, the identity new / legacy = dollar ratio x factor ratio, the anchor agreement ($76.98M in all three runs). Inferred: that the 3+-child swing is ageing-driven record composition (not decomposed within the bucket); that the food-credit decline comes from the smaller lift in low-income family weight; that the DOTAX/IRS trend rows are comparable across reports; the reading that the legacy extra growth is the reweight's compensation for a short pool rather than real growth. The order of the three waterfall steps does not matter beyond $0.03M. Not done: stage-level decomposition of the food and care credits; the TY2022 and TY2023 model years (the TY2022 credit is re-pegged to its nominal DOTAX dollars by the take-up step, so it is not a growth observation).
+
+## 6b. Validating the projected growth
+
+Question: do the data support the working-family projections' growth after TY2024, and which of legacy / re-derived does history support? Analysis only: nothing published, no model behaviour or default changed, `site/` and `runs/` untouched. Scripts: `analyses/hi_eitc_history.py` (fetch and assemble the history), `analyses/wfc_growth_validation.py` (decompositions, tables), `analyses/wfc_targets_backtest.py` (the two replays that need compute); the replays reuse `wfc_projection_decomposition.py`. Files beside this doc: `tax-unit-claimant-assignment_hi_eitc_history.csv` (every historical number, with a source column), `_hi_eitc_history_derived.csv`, `_growth_rates.csv`, `_backtest.csv`, `_stale_targets.csv`.
+
+### The answer in seven lines
+
+1. **Growth can be validated only partly.** Hawaii federal EITC returns and dollars exist for 12 tax years (TY2010-2012, 2014, 2015, 2017-2023; TY2013 and TY2016 are missing because the IRS file posted under those names is a different table), plus an IRS preliminary TY2024. Hawaii by-children counts exist for **two** years only (TY2022, TY2023). DOTAX's state series is not comparable across the TY2022/TY2023 law change, so it yields one usable pair. [M]
+2. **Returns have fallen, then stopped.** TY2010-2019: -1.4% a year (log-linear trend -1.9%, se 0.4 pt); the log-linear trend over TY2010-2023 without 2020-21 is -2.5% a year; TY2019 to TY2022 fell 14% in three years; since TY2022 they are flat (SOI 84,970 then 84,460; IRS processed claims 82K, 82K, 81.8K for TY2022-2024). "Claims flat through TY2031" is consistent with the last three years and inconsistent with the 2010-2019 trend. [M]
+3. **Parameter-adjusted dollars per return fell about 0.9% a year before the pandemic** (TY2010-2019), and are flat to slightly up since (+0.4% a year TY2022-2024, one clean pair). The model's own parameter indexation is +2.2-2.3% a year (federal maximum credit, TY2022 return mix); the legacy projection's real growth is -0.3% to +0.1% a year, the re-derived one's -1.0% to -0.5%. [M]
+4. **Backtest (one year, ACS 2018-2022 file, TY2022 calibration only): both constructions forecast TY2023 federal EITC dollars within 1% (legacy -0.7%, re-derived -0.4%) and returns within 0.3%.** One pair; it cannot discriminate, and the returns test is nearly built in (the targets are flat). Re-derived has the better level (-5.0% vs -6.8% at TY2022 raw; -3.6% vs -7.5% against the IRS TY2024 average credit). [M]
+5. **The stale target is not the source of the gap.** With the TY2023 by-children counts the two constructions do not converge (TY2028 $83.55M vs $80.62M, TY2031 $90.38M vs $86.56M; same 3.5-4.2% gap). They converge, and cross, only when the targets also trend down with returns (about $76-78M flat in nominal dollars to TY2031). [M]
+6. **Verdict: (c), history cannot discriminate between the two projections' growth; and it leans, weakly, toward (d) if the 2010-2019 decline resumes**: then both overstate, legacy by more (TY2031 $76.8M legacy, $78.0M re-derived against $90.3M and $86.3M published). The evidence for any growth verdict is thin: 8 clean pre-pandemic year-pairs for returns, 1-2 post-pandemic pairs, 1 backtest pair, 2 by-children years.
+7. **Nothing found argues against adopting the new construction.** Every level test favours it (anchor claims +1.0% vs +5.3% against DOTAX; TY2024 credit per return -3.6% vs -7.5% against IRS; backtest level -5.0% vs -6.8%) and the growth tests tie. What the new construction does not do is fix the count assumption, which both share.
+
+### 1. The historical record [M]
+
+Sources (all fetched by `analyses/hi_eitc_history.py`, one request per file, no retries; every row of the CSV carries its URL):
+
+- Federal, Hawaii: IRS SOI Historic Table 2, workbook `{yy}in12hi.xls[x]`, TY2010-2023, "Earned income credit" number and amount, all returns. The repo's bundled `irs_soi_hi_eitc_panel.csv` held TY2015, 2017-2022 returns only (and no dollars); `irs_soi_hi_table2.json` holds TY2022-2023 AGI classes, no EITC rows. SOI TY2012 and TY2014 are `.xls`; the IRS posts for TY2013 and TY2016 a workbook that is Table 11/12 (`13in12hi.xls` and `16in12hi.xls`, which the IRS's own Historic Table 2 archive pages link, open as Table 12; the same-named files with state number 11 are Table 11): **no Hawaii EITC data for those two years from this route**. TY2024: no SOI workbook yet.
+- By qualifying children: the SOI Table 2 workbook carries the four by-children lines **only from TY2022** (the TY2020 and TY2021 workbooks do not). That is the source of the model's 26,900 / 27,820 / 18,460 / 11,790 (`EITC_RETURNS_BY_CHILDREN_HI_TY2022`). TY2023: **26,400 / 27,650 / 18,470 / 11,940 (84,460)**. So Hawaii by-children counts exist for two years; the national by-children table (SOI Table 2.5) is not Hawaii and was not fetched.
+- IRS EITC Central, "Statistics for tax returns with the EITC" (claims processed by December of the next year, rounded as printed): Hawaii TY2019 94K / $203M; TY2020 90K / $192M; TY2021 113K / $208M; TY2022 82K / $181M; TY2023 82K / $196M; **TY2024 81.8K / $206.2M, average $2,520**. It runs about 3% below SOI (84,970 / $185.9M; 84,460 / $200.7M for TY2022 / TY2023), a processing-date difference, and is used only for TY2024 and as a cross-check.
+- DOTAX: Tax Credits Claimed Tables A-1/A-2 for TY2018-2023 (`2018credit_tables.xlsx` ... `2023credit_tables.xlsx`); the TY2024 EITC Report is the bundled `dotax_eitc_2024.json`. The Act 107 EITC report PDFs for other years returned HTTP 404 (TY2018-2021) and 429 (TY2022-2024; route stopped, not retried); the TY2023 report's applied $75.6M is taken from the repo's note, not re-read.
+- Federal maximum credit by children, TY2010-2023: Revenue Procedures 2009-50, 2011-12, 2011-52, 2013-15, 2013-35, 2014-61, 2015-53, 2016-55, IRB 2018-10 (Rev. Proc. 2018-18), 2018-57, 2019-44, 2020-45, 2021-45, 2022-38 (parsed from the PDFs on irs.gov/pub/irs-drop; they reproduce the repo's TY2022-2024 parameters exactly); TY2024-2026 from the IRS EITC tables page.
+
+| tax year | SOI EITC returns | federal $M | $ per return | EITC share of all returns | max-credit index $ [a] | real index [b] |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2010 | 111,789 | 222.5 | 1,991 | 17.1% | 3,024 | 0.658 |
+| 2011 | 114,700 | 235.6 | 2,054 | 17.3% | 3,069 | 0.669 |
+| 2012 | 114,580 | 240.5 | 2,099 | 17.2% | 3,143 | 0.668 |
+| 2014 | 114,020 | 246.6 | 2,163 | 16.7% | 3,278 | 0.660 |
+| 2015 | 110,700 | 239.5 | 2,163 | 16.1% | 3,330 | 0.650 |
+| 2017 | 100,550 | 215.5 | 2,143 | 14.5% | 3,371 | 0.636 |
+| 2018 | 96,910 | 209.0 | 2,157 | 14.0% | 3,432 | 0.629 |
+| 2019 | 98,810 | 209.9 | 2,124 | 13.8% | 3,498 | 0.607 |
+| 2020 (pandemic) | 90,860 | 181.2 | 1,994 | 12.8% | 3,554 | 0.561 |
+| 2021 (ARPA childless expansion) | 115,380 | 211.6 | 1,834 | 16.6% | 3,589 | 0.511 |
+| 2022 | 84,970 | 185.9 | 2,188 | 12.3% | 3,701 | 0.591 |
+| 2023 | 84,460 | 200.7 | 2,376 | 12.1% | 3,964 | 0.599 |
+
+[a] the federal maximum credit by children weighted by the TY2022 Hawaii by-children return mix (31.7 / 32.7 / 21.7 / 13.9%), held fixed: it isolates the statutory schedule from the change in the mix of families. TY2021 uses the pre-ARPA childless maximum, so the TY2021 row is not a clean index. [b] dollars per return divided by [a]: the share of an average maximum credit actually received (income and composition, not the schedule). Hawaii filers rose 653K to 715K (TY2010-2019) while EITC returns fell, so the EITC share of returns fell from 17.1% to 13.8% before the pandemic.
+
+### 2. History, decomposed [M]
+
+Annualized, between consecutive available years (a gap of two years where TY2013 or TY2016 is missing):
+
+| from-to | returns | $ per return | parameters | real $ per return | note |
+|---|---:|---:|---:|---:|---|
+| 2010-11 | +2.6% | +3.2% | +1.5% | +1.7% | |
+| 2011-12 | -0.1% | +2.2% | +2.4% | -0.2% | |
+| 2012-14 | -0.2% | +1.5% | +2.1% | -0.6% | two years |
+| 2014-15 | -2.9% | +0.0% | +1.6% | -1.6% | |
+| 2015-17 | -4.7% | -0.5% | +0.6% | -1.1% | two years |
+| 2017-18 | -3.6% | +0.6% | +1.8% | -1.1% | |
+| 2018-19 | +2.0% | -1.5% | +1.9% | -3.4% | |
+| 2019-20 | -8.1% | -6.1% | +1.6% | -7.6% | flag: pandemic (excluded) |
+| 2020-21 | +27.0% | -8.0% | +1.0% | -8.9% | flag: ARPA childless expansion (excluded) |
+| 2021-22 | -26.4% | +19.3% | +3.1% | +15.7% | flag: reversal (excluded) |
+| 2022-23 | -0.6% | +8.6% | +7.1% | +1.4% | the one clean post-pandemic pair |
+
+| window | returns | $ per return | parameters | real $ per return | federal $ |
+|---|---:|---:|---:|---:|---:|
+| TY2010-2019 (8 clean pairs) | -1.36% | +0.72% | +1.63% | -0.90% | -0.65% |
+| TY2015-2019 | -2.80% | -0.46% | +1.23% | -1.67% | -3.25% |
+| TY2019-2023 (spans the pandemic) | -3.85% | +2.84% | +3.17% | -0.32% | -1.11% |
+| TY2022-2023 | -0.60% | +8.61% | +7.10% | +1.41% | +7.96% |
+| TY2022-2024 (IRS processed claims) | -0.12% | +6.73% | +6.25% | +0.41% | +6.73% |
+
+Log-linear trend in returns: TY2010-2019 -1.89% a year (se 0.42 pt, 8 points); TY2012-2019 -2.68% (se 0.48, 6); TY2015-2019 -3.09% (se 1.03, 4); TY2010-2023 without 2020-21 **-2.48%** (se 0.30, 10); TY2017-2023 without 2020-21 -3.11% (se 0.50, 5). By children, TY2022 to TY2023: 0 children -1.9%, 1 child -0.6%, 2 children +0.1%, 3+ children +1.3%.
+
+Reading. Returns **fell** about 1.4% a year before the pandemic (more by the trend fit, which weights the 2015-2019 slide), then the ARPA/pandemic swings, then a step to 84,970 and **flat** since. Parameter-adjusted dollars per return fell about 0.9% a year over TY2010-2019 (wages grew faster than the credit's CPI indexation, pushing units into the phase-out: inferred) and are about flat since. The one clean post-pandemic pair has +1.4% real growth, the three-year IRS pair +0.4% a year; a pair is a pair.
+
+DOTAX, on a federal-equivalent basis (state dollars over the statutory rate: 20% nonrefundable TY2018-2022, Act 107; 40% refundable TY2023 on, Acts 114 and 163; `hi_eitc.py`):
+
+| tax year | DOTAX claims | DOTAX $M | claims / SOI returns | DOTAX $ / (rate x SOI federal $) | $ per claim, federal equivalent |
+|---:|---:|---:|---:|---:|---:|
+| 2018 | 57,134 | 15.6 | 0.59 | 0.37 | 1,364 |
+| 2019 | 61,406 | 18.1 | 0.62 | 0.43 | 1,475 |
+| 2020 | 64,430 | 21.1 | 0.71 | 0.58 | 1,640 |
+| 2021 | 80,990 | 21.8 | 0.70 | 0.52 | 1,346 |
+| 2022 | 60,903 | 19.8 | 0.72 | 0.53 | 1,624 |
+| 2023 | 84,470 | 77.1 | 1.00 | 0.96 | 2,281 |
+| 2024 (new credit) | 78,399 | 77.0 | | | 2,455 |
+
+TY2018-2022 DOTAX counts and dollars are capped by state liability (nonrefundable), so they measure liability, not claimants: 59-72% of the federal count and 37-58% of the statutory dollars. They break at TY2023, when the credit became refundable at twice the rate, and say nothing about trend. Only **TY2023 to TY2024** is on one footing: claims -7.2% (new credit; -5.0% on the applied basis, 84,470 to 80,279, if A-2's TY2023 count is applied-basis, which I could not check), dollars -0.1%, federal-equivalent dollars per claim +7.6% against +5.4% for the schedule (real +2.1%). That pair shows a fall in DOTAX claims that the federal series for the same year does not (IRS processed claims 82K to 81.8K): the DOTAX drop is not a drop in federal EITC returns, and so is not evidence on the count the model holds flat. [I: possibly residents-only counting and the legacy carryforwards in "applied"; not resolved]
+
+### 3. The projections, decomposed the same way [M]
+
+Federal credit per claimant = HI EITC at 40% / 0.40 / claimants; the take-up factor cancels (claimants and dollars both carry it), so this is the model's own dollars per kept unit. Parameters: the model's federal maximum credit (TY2022 return mix; CPI 2.1% a year past TY2026 in `eitc_parameters_for_year`). Real = (1 + $ per claimant) / (1 + parameters) - 1. From the decomposition replays (exact against the chain runs).
+
+| period | returns / claimants | $ per return / claimant | parameters | real $ per return | federal $ |
+|---|---:|---:|---:|---:|---:|
+| **History** TY2010-2019 | -1.36% | +0.72% | +1.63% | -0.90% | -0.65% |
+| History TY2015-2019 | -2.80% | -0.46% | +1.23% | -1.67% | -3.25% |
+| History TY2019-2023 | -3.85% | +2.84% | +3.17% | -0.32% | -1.11% |
+| History TY2022-2024 (IRS processed) | -0.12% | +6.73% | +6.25% | +0.41% | +6.73% |
+| **Legacy** TY2024-2028 | +0.02% | +2.04% | +2.30% | -0.25% | +2.06% |
+| Legacy TY2024-2031 | +0.03% | +2.28% | +2.22% | +0.06% | +2.31% |
+| **Re-derived** TY2024-2028 | -0.08% | +1.25% | +2.30% | -1.03% | +1.17% |
+| Re-derived TY2024-2031 | -0.03% | +1.68% | +2.22% | -0.53% | +1.64% |
+
+Claimants: legacy 82,525 (TY2024) to 82,592 (TY2028) and 82,713 (TY2031); re-derived 79,218 to 78,969 and 79,049. Federal credit per claimant: legacy $2,332 to $2,528 and $2,730; re-derived $2,429 to $2,553 and $2,729.
+
+- **Claims.** Both hold them flat, as the targets do. History: flat for three years (TY2022-2024), falling 1.4-2.5% a year over the longer record. Flat is the better short-run description and the worse long-run one; the data cannot say which regime applies to TY2024-2031.
+- **Parameters.** The model's +2.2-2.3% a year sits between the pre-pandemic history (+1.6%) and the post-2019 history (+3.2%, inflation). It is an assumption about CPI, not a finding.
+- **Remainder (real $ per return).** History: -0.9% a year (long), +0.4% (recent). Re-derived: -1.0% to -0.5%, nearer the long history; legacy: about 0, nearer the recent pairs. Within the year-to-year scatter of the history (clean pairs range -3.4% to +1.7%) neither is rejected.
+- **Net, dollars.** If returns keep their TY2010-2019 slope and real dollars per return theirs, federal dollars at the model's 2.2% indexation would move about -0.1% a year (-2% to -2.3% with the 2015-2019 or 2019-2023 slopes), against +1.2% to +1.6% (re-derived) and +2.1% to +2.3% (legacy). Over TY2022-2024, with claims flat and the schedule up 6.3% a year, federal dollars rose 6.7% a year; the models' schedule growth is 2.2% a year, so only the real part (+0.4%) is comparable.
+
+### 4. Backtest [M]
+
+Feasible, one year ahead. What the step needs: `PUMS_INCOME_DOLLAR_YEAR = 2024` is a constant (`detect_pums_dollar_year` reads ADJINC but returns the default regardless of the file), the rake is fitted to the TY2023 IRS table (`IRS_RAKE_YEAR`), the take-up factor to DOTAX TY2024, and lever 3a / the truncation to TY2022 counts. The 2018-2022 file (`packages/data/raw/pums`, incomes in 2022 dollars, about 38.8K tax units) therefore runs only if, in the analysis (nothing in the model changes): the projector's base year is set to 2022, the rake year to 2022 (TY2022 table), and the DOTAX take-up factor is dropped (it would pull TY2024 information in). `wfc_targets_backtest.py backtest` does that and reports the **unscaled** federal returns and dollars (the count truncation only), so nothing dated after TY2022 enters except the CBO Feb 2026 income path, which already knows TY2023 (a leak that favours the forecast: the aging is not a true ex-ante forecast). The 2020-2024 file cannot be used: its dollar-year is 2024 and no earlier base exists inside it (a five-year file pools survey years 2020-2024 at 2024 dollars). Time: about 5 minutes a variant.
+
+| | legacy | re-derived | actual |
+|---|---:|---:|---:|
+| model TY2022 federal $M, raw | 173.2 | 176.5 | 185.9 (SOI) |
+| level error TY2022 | -6.8% | -5.0% | |
+| model growth TY2022 to 2023 | +7.25% | +7.50% | +7.96% (SOI) |
+| TY2023 federal $M, anchored on SOI TY2022 x model growth | 199.3 | 199.8 | 200.7 (SOI) |
+| error, anchored | -0.66% | -0.43% | |
+| error, raw level (no anchor) | -7.4% | -5.4% | |
+| TY2023 kept returns | 84,322 | 84,213 | 84,460 (SOI); error -0.16% / -0.29% |
+| TY2024 HI EITC $M, TY2023 DOTAX x model growth | 81.7 | 81.6 | 77.0 new / 78.5 applied (DOTAX): +6.1% / +4.0% |
+| TY2024 claims, TY2023 DOTAX x model kept growth | 84,422 | 84,326 | 78,399 new / 80,279 applied: +7.7% / +5.2% |
+
+What it shows. One-year growth is forecast to within 0.7 pt by both (re-derived slightly nearer); the level the model starts from is nearer for re-derived. Returns are near-exact by construction (targets flat; actual TY2022 to 2023 was -0.6%). The TY2024 row, which is two years ahead and on mixed bases (the DOTAX counts are not the federal ones), overshoots in both: both hold claims and dollars up while DOTAX's fell, the same direction and size for both constructions. **Not possible**: a longer horizon (no federal actual after TY2023 except the rounded IRS TY2024; the TY2018-2022 file's own survey years cannot be forecast from), and any test of the by-children shape (the targets are the TY2022 counts the truncation enforces).
+
+### 5. The stale-target test [M]
+
+`wfc_targets_backtest.py targets` replays the production path (ACS 2024 1-year, aged, rake, lever 3a, truncation, take-up factor fitted to DOTAX TY2024) under three target sets, in memory only. The flat TY2022 case reproduces the decomposition replay to the last digit (take-up factors 0.9788 and 0.9369; HI EITC at 40%: $83.534M and $80.640M at TY2028). TY2023 counts (26,400 / 27,650 / 18,470 / 11,940) feed lever 3a and the truncation, the pooled truncation count scaled by the same ratio production uses (84,010 / 84,970). Trend: the TY2023 counts moved at the measured log-linear trend of returns (-2.48% a year; -1.36% and -3.11% as bracket).
+
+HI EITC at 40%, $M (take-up factor refitted to $76.98M at TY2024 in every case), claimants in thousands:
+
+| targets | | TY2024 | TY2028 | TY2031 | claimants TY2024 / 2031 |
+|---|---|---:|---:|---:|---:|
+| TY2022 counts, flat (production) | legacy | 76.98 | 83.53 | 90.34 | 82.5 / 82.7 |
+| | re-derived | 76.98 | 80.64 | 86.29 | 79.2 / 79.0 |
+| | re-derived / legacy | 1.000 | 0.965 | 0.955 | |
+| TY2023 counts, flat | legacy | 76.98 | 83.55 | 90.38 | 82.0 / 82.3 |
+| | re-derived | 76.98 | 80.62 | 86.56 | 78.9 / 78.8 |
+| | re-derived / legacy | 1.000 | 0.965 | 0.958 | |
+| TY2023 counts, -1.4% a year | legacy | 76.98 | 79.24 | 82.41 | 81.9 / 74.6 |
+| | re-derived | 76.98 | 78.42 | 80.62 | 78.5 / 71.2 |
+| TY2023 counts, -2.5% a year | legacy | 76.98 | 75.93 | 76.82 | 81.9 / 68.8 |
+| | re-derived | 76.98 | 77.00 | 78.03 | 77.6 / 65.3 |
+| | re-derived / legacy | 1.000 | 1.014 | 1.016 | |
+| TY2023 counts, -3.1% a year | legacy | 76.98 | 74.67 | 74.42 | 82.0 / 65.7 |
+| | re-derived | 76.98 | 76.02 | 76.72 | 77.5 / 62.1 |
+
+- **The constructions do not converge on a refreshed flat target.** Replacing TY2022 with TY2023 counts moves TY2031 by $0.04M (legacy) and $0.27M (re-derived); the 3.5% (TY2028) and 4.2% (TY2031) gaps stay. The stale target is therefore not what separates them. (The hypothesis in section 6a's "what would settle it", that a per-year target would make the projections agree at about $80-81M, is **not** supported.) The gap is the legacy construction's higher dollars per kept unit growth, fitted to a base year in which re-derived had the truncation advantage.
+- **With targets that trend down, level and gap both change.** At -2.5% a year the claimants fall to 65-69K by TY2031 and the dollar path is flat in nominal terms, $76-78M to TY2031 (the credit schedule's +2.2% a year is offset by fewer claimants). The constructions then sit within 1.4-1.6% of each other and the sign of the gap flips; at -1.4% legacy is above (+2.2% by TY2031), at -3.1% below (-3.0%). **The "lower" projection after the fix is not a robust property of the construction**: it is specific to holding claims flat.
+- **At the anchor, the trending targets make the new construction reconcile with DOTAX.** DOTAX TY2024 reports 78,399 claims. The new construction's claimants are 77.5-78.5K under every trend rate (-1.2% to +0.1%) and 78.9K flat (+0.6%); the legacy construction's are 81.9-82.5K (+4.4% to +5.3%) under every target set, and its fitted take-up factor goes to 1.00 (guard 1.10) while its claim count implies 0.96. The re-derived construction's dollar-fit factor and its claim-count factor agree within 1%; the legacy's within 4-5%. [M]
+
+### 6. TY2024 level check against the IRS preliminary figure [M]
+
+IRS EITC Central, TY2024, Hawaii: 81.8K claims, $206.2M, average credit $2,520 (+5.6% on TY2023's $2,387 same source, against +5.4% for the schedule: real +0.2%). The take-up factor cancels in the models' federal credit per unit: **re-derived $2,429 (-3.6%), legacy $2,332 (-7.5%)**. Independent of the DOTAX fit. Counts: IRS 81.8K processed, about 84-85K on the SOI basis (the 3-4% processing difference of TY2022-2023); the models' kept units are 84.3K (legacy) and 84.6K (re-derived), both within 1% of that.
+
+### 7. Verdict
+
+**(c): history is consistent with both projections' growth and cannot discriminate between them, with a weak lean to (d).**
+
+- *Why not (a) or (b).* On growth the tests tie or split: backtest one-year growth within 0.3 pt of each other (re-derived nearer by 0.2 pt); real dollars per return history favours re-derived in the long run (-0.9% a year vs -0.5% / -1.0% re-derived, -0.25% / 0.06% legacy) and legacy in the last two years (+0.4% a year); claims identical. Levels (anchor, TY2024 IRS average, backtest base) favour re-derived, but levels are not growth, and the projection's growth is what 6a asked about.
+- *Why a lean to (d).* If the long record is the guide, both are too high: returns falling 1.4-2.5% a year with schedule indexation at 2.2% and real dollars falling 0.9% would give about -0.1% to -2% a year in federal dollars against the models' +1.2% to +2.3%. At -2.5% a year the TY2031 HI EITC at 40% is $78.0M (re-derived) and $76.8M (legacy) against $86.3M and $90.3M published: the published figures are 11% (re-derived) and 18% (legacy) above those. If the last three years are the guide (claims flat), both projections' flat claims are right and their dollars grow more slowly than indexation (recent real growth +0.4%).
+- *Strength.* Thin. Returns: 12 observations, 8 clean pre-pandemic year-pairs, the trend se 0.3-0.5 pt but resting on breaks (pandemic TY2020; ARPA TY2021; the 14% fall TY2019-2022 is a step, not a slope). Post-pandemic: one SOI pair and one IRS-processed triple. By-children: two years. DOTAX: one comparable pair. Backtest: one pair. Parameter indexation past TY2026 is the model's CPI assumption, not data.
+
+**Does anything argue against adopting the new construction?** Not on the evidence here: it is nearer on every level test and the growth tests tie. Three caveats, none a reason to keep legacy. (1) The lower TY2028 and TY2031 figures (-3.5%, -4.5%) are a base-year effect of holding claims flat, not evidence about the credit: with trending targets the gap shrinks to within 1.6% and changes sign, so the change should be described as a correction of the TY2024 base, not a lower outlook. (2) Re-derived real dollars per return fall 0.5-1.0% a year; if the recent +0.4% is the regime, it is about 1 pt a year low (legacy about 0.5 pt a year low). (3) The `claimant_assignment` choice does not touch the count assumption that both share; the stronger open question is whether claims should be held flat at all (a decline of 1.4-2.5% a year would cut the TY2031 cost 10-15%), which needs a decision on the targets, not on the construction.
+
+### Measured and inferred
+
+Measured: every historical figure (sources in the CSV), the year-pair and window rates, the log-linear fits, the projection decompositions (from the exact chain replays), the backtest, the target replays (the flat TY2022 case reproduces the earlier replay exactly), the IRS TY2024 comparison. Taken from documents, not re-measured: the TY2023 DOTAX applied $75.6M, the TY2024 DOTAX report (bundled JSON), the statutory rates and dates (`hi_eitc.py`), the by-children counts. Inferred: the cause of the long-run decline and of the negative real growth (wage growth against CPI-indexed schedule, outmigration, a smaller child population: not tested), that the DOTAX fall of TY2024 is not a fall in federal returns, the reading that the 14% fall of TY2019-2022 is a step. Not done: TY2013 and TY2016 (IRS file wrong), Hawaii by-children counts before TY2022 (not in Table 2; the IRS state statistics page carries no by-children split), a backtest longer than one year, stage-level food and care credit validation, per-year trend targets by children bucket (the two years do not support a bucket trend; the trend scenario scales the TY2023 mix).
 
 ## 7. Chain stages and analyses that ran
 
@@ -547,3 +716,4 @@ Not edited here (the instruction was to list them).
 - Off-chain: `analyses/forecast_hr1_snap_medicaid.py --out <dir>/hr1_snap_medicaid`, `analyses/forecast_targeting_efficiency.py` (with `CF_RUNS_DIR`), `scripts/eitc_ctc_geo_report.py --tax-year 2025 --pums-data-dir packages/data/raw/pums_2024_1yr --apply-takeup --out <dir>`
 - Before/after: `uv run python analyses/headline_before_after.py --before <legacy runs> --after-old-factors <A> --after-rederived <B> --geo-* ... --out <csv>`; cell by cell: `analyses/before_after_runs.py`.
 - Why the working-family projections come out lower: `CF_MAX_WORKERS=2 uv run python analyses/wfc_projection_decomposition.py run --variant legacy|cons|new --out <dir>` (about 6 minutes each), then `... assemble --out <dir> --csv-dir docs/data_source_tests --chain-runs legacy=<runs A> cons=<runs> new=<runs>` (section 6a).
+- Validating the projected growth (section 6b): `uv run --with xlrd python analyses/hi_eitc_history.py fetch --dir <src>` then `build --dir <src> --out docs/data_source_tests/tax-unit-claimant-assignment_hi_eitc_history.csv`; `CF_MAX_WORKERS=2 uv run python analyses/wfc_targets_backtest.py backtest|targets --variant legacy|new --out <dir>` (about 5 and 8 minutes each; `targets --trend-rates -0.0136 -0.0311` for the sensitivity); `uv run --with tabulate python analyses/wfc_growth_validation.py --decomp <decomposition dir> --tb <dir> --csv-dir docs/data_source_tests`.
