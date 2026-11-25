@@ -1,0 +1,73 @@
+component,year,growth_factor_from_2022,annual_cagr_pct,source_note
+wages,2022,1.0,0.0,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2023,1.030939,3.094,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2024,1.074114,4.188,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2025,1.11654,3.95,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2026,1.155906,3.526,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2027,1.200326,3.843,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2028,1.246422,3.84,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2029,1.292315,3.682,CBO salaries and wages / total nonfarm employment (per worker)
+wages,2030,1.338963,3.61,CBO salaries and wages / total nonfarm employment (per worker)
+interest,2022,1.0,0.0,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2023,1.207045,20.705,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2024,1.284703,6.434,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2025,1.33641,4.025,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2026,1.4579,9.091,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2027,1.549074,6.254,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2028,1.674315,8.085,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2029,1.79415,7.157,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+interest,2030,1.839299,2.516,CBO taxable interest+ordinary dividends / CBO number of returns (per return)
+dividends,2022,1.0,0.0,CBO qualified dividends / CBO number of returns (per return)
+dividends,2023,1.072226,7.223,CBO qualified dividends / CBO number of returns (per return)
+dividends,2024,1.091961,1.841,CBO qualified dividends / CBO number of returns (per return)
+dividends,2025,1.116767,2.272,CBO qualified dividends / CBO number of returns (per return)
+dividends,2026,1.177982,5.481,CBO qualified dividends / CBO number of returns (per return)
+dividends,2027,1.170222,-0.659,CBO qualified dividends / CBO number of returns (per return)
+dividends,2028,1.160784,-0.807,CBO qualified dividends / CBO number of returns (per return)
+dividends,2029,1.151331,-0.814,CBO qualified dividends / CBO number of returns (per return)
+dividends,2030,1.197249,3.988,CBO qualified dividends / CBO number of returns (per return)
+capital_gains,2022,1.0,0.0,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2023,0.763142,-23.686,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2024,1.00381,31.536,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2025,1.274883,27.004,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2026,1.32465,3.904,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2027,1.278538,-3.481,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2028,1.212131,-5.194,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2029,1.191913,-1.668,"CBO capital gain or loss, national (unchanged)"
+capital_gains,2030,1.199222,0.613,"CBO capital gain or loss, national (unchanged)"
+proprietors,2022,1.0,0.0,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2023,1.069858,6.986,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2024,1.107819,3.548,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2025,1.147077,3.544,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2026,1.192666,3.974,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2027,1.241,4.053,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2028,1.289645,3.92,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2029,1.340464,3.941,2026-02 proprietors' growth / CBO number of returns (per return)
+proprietors,2030,1.392532,3.884,2026-02 proprietors' growth / CBO number of returns (per return)
+retirement,2022,1.0,0.0,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2023,1.014578,1.458,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2024,1.090138,7.447,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2025,1.249228,14.594,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2026,1.321878,5.816,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2027,1.346011,1.826,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2028,1.347483,0.109,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2029,1.350863,0.251,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+retirement,2030,1.359038,0.605,CBO taxable pensions+IRA+Social Security / Census 2023 projections population 65+ (per older person)
+other,2022,1.0,0.0,CBO total income / CBO number of returns (per return)
+other,2023,1.014355,1.435,CBO total income / CBO number of returns (per return)
+other,2024,1.086699,7.132,CBO total income / CBO number of returns (per return)
+other,2025,1.155287,6.312,CBO total income / CBO number of returns (per return)
+other,2026,1.207443,4.515,CBO total income / CBO number of returns (per return)
+other,2027,1.242718,2.921,CBO total income / CBO number of returns (per return)
+other,2028,1.269399,2.147,CBO total income / CBO number of returns (per return)
+other,2029,1.307215,2.979,CBO total income / CBO number of returns (per return)
+other,2030,1.345136,2.901,CBO total income / CBO number of returns (per return)
+business,2022,1.0,0.0,alias of proprietors
+business,2023,1.069858,6.986,alias of proprietors
+business,2024,1.107819,3.548,alias of proprietors
+business,2025,1.147077,3.544,alias of proprietors
+business,2026,1.192666,3.974,alias of proprietors
+business,2027,1.241,4.053,alias of proprietors
+business,2028,1.289645,3.92,alias of proprietors
+business,2029,1.340464,3.941,alias of proprietors
+business,2030,1.392532,3.884,alias of proprietors
