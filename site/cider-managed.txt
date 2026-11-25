@@ -2,4 +2,3 @@
 # scripts/build_site.py leaves these alone; see cider_managed() in that script.
 # To hand a page to Cider: add its slug here and give its Cider project a
 # `publish:` block in Cider's docsync.yml (docsync/publish.py explains it).
-working-family-credits
