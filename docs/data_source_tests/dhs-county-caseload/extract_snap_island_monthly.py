@@ -5,7 +5,7 @@ mon={m:i+1 for i,m in enumerate('JUL AUG SEP OCT NOV DEC JAN FEB MAR APR MAY JUN
 def sfy_year(sfy,m): return sfy-1 if m>=7 else sfy
 # xls
 for sfy,path in [(2025,'SFY-2025-SUMMARY.xls'),(2027,'SFY-2027-SUMMARY-1.xls')]:
-    wb=xlrd.open_workbook('/tmp/dhs1/raw/'+path)
+    wb=xlrd.open_workbook('raw/'+path)
     for sn,area in areamap.items():
         ws=wb.sheet_by_name(sn); tab=None
         for i in range(ws.nrows):
@@ -17,7 +17,7 @@ for sfy,path in [(2025,'SFY-2025-SUMMARY.xls'),(2027,'SFY-2027-SUMMARY-1.xls')]:
                 m={'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12,'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6}[c[:3].upper()]
                 if r[7]: rows_out.append((f'{sfy_year(sfy,m)}-{m:02d}',area,tab,int(r[7])))
 # xlsx SFY2026
-wb=openpyxl.load_workbook('/tmp/dhs1/raw/Partic-SFY-2026-WCAG.xlsx',data_only=True)
+wb=openpyxl.load_workbook('raw/Partic-SFY-2026-WCAG.xlsx',data_only=True)
 am={'Oahu Branch':'Honolulu','Hawaii Branch':'Hawaii','Kauai Branch':'Kauai','Maui Island':'Maui Island','Molokai Island':'Molokai','Lanai Island':'Lanai','Maui Branch':'Maui County (incl Molokai, Lanai)','STATE':'State'}
 for ws in wb:
     mm=re.match(r'(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN) (\d{4})',ws.title)
