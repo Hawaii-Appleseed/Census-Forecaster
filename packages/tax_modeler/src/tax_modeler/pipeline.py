@@ -336,6 +336,22 @@ def attach_tenure(units: pd.DataFrame, households: pd.DataFrame, *, key: str = "
     return out
 
 
+def attach_rent(units: pd.DataFrame, households: pd.DataFrame, *, key: str = "SERIALNO") -> pd.DataFrame:
+    """``units`` with ``annual_rent``, the household's contract rent for the year (PUMS ``RNTP`` x 12).
+
+    ``RNTP`` is monthly cash rent and is blank for owners and for households that pay no cash rent
+    (TEN 4); those get 0. The household's whole rent is attached to every unit in it (no pro-rata
+    split between units). Households with no ``RNTP`` column leave the frame unchanged.
+    """
+    if "RNTP" not in households.columns:
+        return units
+    hh = households.drop_duplicates("SERIALNO")
+    rntp = pd.to_numeric(hh.set_index(hh["SERIALNO"].astype(str))["RNTP"], errors="coerce")
+    out = units.copy()
+    out["annual_rent"] = out[key].astype(str).map(rntp).fillna(0.0).to_numpy(float) * 12.0
+    return out
+
+
 def enrich_for_benefits(
     df: pd.DataFrame,
     person_df: pd.DataFrame | None = None,

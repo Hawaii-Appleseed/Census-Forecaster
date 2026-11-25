@@ -116,6 +116,9 @@ def test_hi_food_excise_amount_override(taxed_units):
 # ---------------------------------------------------------------------------
 
 
+from tax_modeler.credits.hi_renters import FALLBACK_TAKEUP  # noqa: E402
+
+
 def test_hi_renters_runs(taxed_units):
     df = compute_hi_renters_for_units(taxed_units)
     assert "hi_renters_amount" in df.columns
@@ -130,9 +133,10 @@ def test_hi_renters_takeup_pct_override(taxed_units):
     base_total = base["hi_renters_amount"].sum()
     if base_total == 0:
         pytest.skip("no eligible renters on the fixture")
-    # 30% default vs. 100% override → 100/30 ratio
+    # The fixture has no tenure column, so the default is the unfitted FALLBACK_TAKEUP.
+    assert "tenure" not in taxed_units.columns
     assert full_takeup["hi_renters_amount"].sum() == pytest.approx(
-        base_total / 0.30, rel=1e-6
+        base_total / FALLBACK_TAKEUP, rel=1e-6
     )
 
 
