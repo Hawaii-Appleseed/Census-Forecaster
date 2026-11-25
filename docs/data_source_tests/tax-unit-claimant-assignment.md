@@ -351,6 +351,134 @@ Other published files that change (cell counts, [M]; all cells in `analyses/befo
 - *EITC by filing status* (TY2024 check against DOTAX Table 4, share of claims): joint 30.2% -> 23.1% construction only / 24.4% re-derived (DOTAX 23.2%); HoH 40.1% -> 45.2% construction only (DOTAX 41.3%) / 43.6% re-derived; single 29.6% -> 31.7% / 31.9% (DOTAX 35.2%). The construction fix fixes the joint over-weight; the HoH factor then over-corrects, which is what the re-derivation removes.
 - *H.R.1*: the construction fix only (the poverty denominator). Loser counts are drawn from SNAP and Medicaid receipt, not from tax units.
 
+## 6a. Why the working-family projections come out lower
+
+Question: the EITC take-up factor is fitted to DOTAX dollars, so the cost of existing credits should stay pinned near the same total with the factor absorbing the larger eligible pool. Why are TY2028 and TY2031 lower, by more in the later year (-3.5%, -4.5% on the EITC at 40%)? Analysis only: nothing published, no model behaviour changed. Script `analyses/wfc_projection_decomposition.py`; result files beside this doc: `tax-unit-claimant-assignment_wfc_stages.csv`, `_wfc_waterfall.csv`, `_wfc_by_children_waterfall.csv`, `_wfc_kept_by_children.csv`, `_wfc_claimants.csv`, `_wfc_cost_by_variant.csv`, `_wfc_eitc_check_ty2024.csv`.
+
+**Method.** The script replays the working-family step's population path (`units_for_year`: aged with CBO components, IRS household rake, lever 3a reweight, IRS-count take-up truncation, then `state_credits`, `takeup_factors`, `_totals`) for the three constructions and records every stage. The replay reproduces `revenue_by_year.csv` of the three scratch chain runs (legacy, construction only, re-derived) to the last digit (max absolute difference 0.000000 over every cell), so the decomposition is of the published-figure path itself, not of a stand-in. "Legacy" = `claimant_assignment="legacy"` with the old factors (HoH 1.30). [M]
+
+### The answer in four lines
+
+1. **The fit pins one year, TY2024, and nothing else.** Every run models $76.98M at TY2024 (DOTAX's new credit, $76.98M on 78,399 claims). The factor is a single number per run; each later year is that run's own growth path times it. So the whole difference is a difference in growth from TY2024: legacy +8.5% by TY2028 and +17.4% by TY2031, re-derived +4.8% and +12.1%.
+2. **The take-up step does not scale a pool; it truncates it, and the lever-3a reweight sets the pool.** The model ranks EITC-eligible units by credit within each children bucket and keeps the top ones until the weighted count reaches the IRS TY2022 count (26,900 / 27,820 / 18,460 / 11,790), the same targets lever 3a lifts short buckets to. Kept units are about 84,400 in every year of every run (the IRS count; the 2024 kept weight is 84,312 legacy, 84,555 re-derived). Claimants are kept weight times the factor. The factor is not absorbing a larger pool: it absorbs the higher dollars per kept unit.
+3. **At the anchor the fix raises dollars per kept unit by 4.2% (federal $2,332 to $2,429), so the factor falls 4.3% (0.979 to 0.937).** After the rake and the reweight the pools are the same size (94,258 legacy, 94,436 new): the +8.6% raw eligible gain (+12.5% before the head-of-household re-derivation) is spent filling the buckets lever 3a used to fill by weight. The legacy construction had short pools in the 1-, 2- and 3+-child buckets, so lever 3a lifted every eligible unit there (x1.35 / 1.14 / 1.03), keeping the marginal low-credit units; the new construction has surplus in the 2- and 3+-child buckets (19,334 vs a target of 18,460; 12,949 vs 11,790), so the truncation discards its lowest-credit units (smallest kept credit $584 and $1,051 against $198 and $121 legacy) and the kept units average $4,084 / $4,530 against $3,842 / $4,228.
+4. **That advantage is a base-year effect and it fades.** As incomes are aged past the credit's indexation the pools shrink (new 3+-child pool 12,949 to about 11,600 by TY2031, needing a lift of x1.02; 2-child pool 19,334 to about 17,000, lift x1.08), the surplus is gone and so is the truncation gain. Unscaled federal dollars per kept unit end up level ($2,730 legacy, $2,729 new at TY2031) while the new run's factor stays 4.3% lower. New / legacy = (unscaled dollar ratio) x (factor ratio) = 1.045 x 0.957 at TY2024, 1.009 x 0.957 at TY2028, 0.998 x 0.957 at TY2031 = 1.000, 0.965, 0.955 (the three percentages quoted above). [M]
+
+| tax year | retained federal EITC, legacy $M | new $M | ratio | take-up factor ratio | product = new / legacy HI EITC |
+|---|---:|---:|---:|---:|---:|
+| 2024 | 196.62 | 205.42 | 1.0447 | 0.9572 | 1.0000 |
+| 2028 | 213.36 | 215.18 | 1.0086 | 0.9572 | 0.9654 |
+| 2031 | 230.74 | 230.26 | 0.9979 | 0.9572 | 0.9552 |
+
+So the question's premise holds at the anchor and fails afterwards because the factor is fitted to a base-year level that contains a truncation advantage the later years do not have. The aged-and-raked population on its own grows the same under both constructions (next table, steps 1-2), so the construction is not what changes the growth; the lever-3a reweight, which forces counts to the IRS TY2022 targets every year, is.
+
+### Waterfall, Hawaii EITC at 40% (cost of the existing credit), $M [M]
+
+Method: the three growth ratios of the credit total from TY2024 (population aged only; then with the IRS rake; then with the reweight; each pipeline refitted to $76.98M at TY2024) are swapped from the legacy run's to the new run's one at a time, in that order. The sum of the three steps is exact (it ends at the chain's number); changing the order moves any step by at most $0.03M (checked over all six orders). A step is "what happens to this year's total if this growth is replaced".
+
+| step | TY2028 re-derived | TY2031 re-derived | TY2028 construction only | TY2031 construction only |
+|---|---:|---:|---:|---:|
+| Legacy (before) | 83.53 | 90.34 | 83.53 | 90.34 |
+| 1. Raw units and income ageing (growth of the take-up-truncated credit total) | +0.30 | +0.41 | +0.68 | +0.98 |
+| 2. IRS household rake | -0.15 | -0.22 | -0.10 | -0.21 |
+| 3. By-children reweight (lever 3a) | -3.05 | -4.24 | -3.68 | -6.40 |
+| New run (after) | 80.64 | 86.29 | 80.43 | 84.70 |
+
+Reading it: steps 1 and 2 are small and mostly cancel. Step 3 is the whole of the difference: -$3.05M of -$2.90M in TY2028 and -$4.24M of -$4.05M in TY2031 (re-derived); the construction-only run lost more to it (-$3.68M, -$6.40M). The filing-status re-derivation gives back $0.21M in TY2028 and $1.59M in TY2031 relative to the construction-only run (80.43 to 80.64, 84.70 to 86.29).
+
+Without lever 3a the new construction does not project lower at all: with the IRS rake only, TY2028 is $78.00M new / $77.86M legacy / $78.40M construction only, and TY2031 is $80.49M / $80.32M / $81.01M (new within +0.2% of legacy). With neither rake nor reweight: TY2031 $80.19M new, $79.83M legacy. [M]
+
+**What lever 3a adds to the TY2028 and TY2031 totals** (growth attributable to the reweight, $M, with each pipeline refitted at TY2024; unit weight added to the tax-unit total that year) [M]:
+
+| | legacy | construction only | re-derived |
+|---|---:|---:|---:|
+| dollars added by lever 3a, TY2028 | +5.67 | +2.03 | +2.64 |
+| dollars added by lever 3a, TY2031 | +10.02 | +3.70 | +5.80 |
+| tax-unit weight added, TY2024 / TY2028 / TY2031 | +1.32% / +1.82% / +2.10% | +0.23% / +0.51% / +0.67% | +0.44% / +0.76% / +1.03% |
+| 1-child lift, TY2024 / TY2028 / TY2031 | x1.352 / 1.496 / 1.539 | x1.065 / 1.158 / 1.192 | x1.134 / 1.237 / 1.274 |
+
+The legacy reweight does grow with the horizon (1.8% then 2.1% of all tax-unit weight, against 1.0% in the new run) and carries 11% of the legacy TY2031 total ($10.0M of $90.3M); the new run's carries 6.7% ($5.8M of $86.3M). The lift grows in both because the natural pool of EITC-eligible units shrinks as aged incomes outrun the credit's indexation (raw eligible units 83,063 to 72,525 by TY2031 legacy, 90,208 to 79,443 new, -12.7% and -11.9%) while the targets stay at IRS TY2022 counts. [M]
+
+### Where in the population: by children bucket [M]
+
+| TY | kids | legacy pool after reweight | new pool | legacy lift | new lift | legacy avg federal credit $ | new $ | legacy HI EITC $M | new $M | change $M |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 | 0 | 36,188 | 34,333 | 1.000 | 1.000 | 465 | 447 | 4.85 | 4.48 | -0.37 |
+| 2024 | 1 | 27,820 | 27,820 | 1.352 | 1.134 | 2,331 | 2,362 | 25.30 | 24.58 | -0.72 |
+| 2024 | 2 | 18,460 | 19,334 | 1.140 | 1.000 | 3,842 | 4,084 | 27.46 | 28.00 | +0.54 |
+| 2024 | 3+ | 11,790 | 12,949 | 1.029 | 1.000 | 4,228 | 4,530 | 19.36 | 19.91 | +0.55 |
+| 2024 | all | | | | | | | 76.98 | 76.98 | -0.00 |
+| 2028 | 0 | 31,813 | 30,314 | 1.000 | 1.000 | 487 | 469 | 5.11 | 4.68 | -0.42 |
+| 2028 | 1 | 27,820 | 27,820 | 1.496 | 1.237 | 2,590 | 2,573 | 27.91 | 26.57 | -1.34 |
+| 2028 | 2 | 18,460 | 18,460 | 1.203 | 1.018 | 4,001 | 4,189 | 28.80 | 28.70 | -0.10 |
+| 2028 | 3+ | 11,790 | 12,105 | 1.112 | 1.000 | 4,743 | 4,670 | 21.72 | 20.69 | -1.02 |
+| 2028 | all | | | | | | | 83.53 | 80.64 | -2.89 |
+| 2031 | 0 | 31,409 | 29,872 | 1.000 | 1.000 | 520 | 498 | 5.42 | 4.96 | -0.46 |
+| 2031 | 1 | 27,820 | 27,820 | 1.539 | 1.274 | 2,705 | 2,694 | 29.47 | 27.90 | -1.56 |
+| 2031 | 2 | 18,460 | 18,460 | 1.293 | 1.084 | 4,372 | 4,521 | 31.40 | 31.27 | -0.13 |
+| 2031 | 3+ | 11,790 | 11,790 | 1.173 | 1.020 | 5,250 | 5,063 | 24.05 | 22.15 | -1.90 |
+| 2031 | all | | | | | | | 90.34 | 86.29 | -4.05 |
+
+The 3+-child bucket alone is -$1.90M of the -$4.05M TY2031 gap, the 1-child bucket -$1.56M, childless -$0.46M, the 2-child bucket -$0.13M. At TY2024 the new run is +$0.54M / +$0.55M in the 2- and 3+-child buckets (the truncation gain) and -$0.37M / -$0.72M in the childless and 1-child buckets (after the factor). By TY2031 the 3+-child legacy bucket's average federal credit has grown 24% ($4,228 to $5,250), the new one 12% ($4,530 to $5,063): the legacy bucket is small, is lifted by x1.17 and rests on few PUMS records, so most of this is what ageing does to which records stay eligible, not a policy effect. I did not decompose within the bucket. [I]
+
+### Composition across the credit schedule (candidate 2) [M]
+
+Kept claimants by schedule region (federal earned income below the plateau, above the phase-out start by the greater of earnings and AGI, else plateau) are close under both constructions, and drift the same way: phase-in 25.6 / 25.9 / 26.0% legacy against 26.1 / 25.7 / 26.4% new at TY2024 / 2028 / 2031; plateau 18.6 / 16.8 / 16.2% against 16.7 / 14.9 / 14.0%; phase-out 55.8 / 57.2 / 57.8% against 57.2 / 59.4 / 59.6%. Composition is not what separates the growth paths; the level of the average credit in each region at TY2024 is (phase-in $1,725 legacy, $1,844 new; phase-out $1,967, $2,179), which is the truncation effect again. A population closer to the phase-out end does not explain the gap.
+
+### Claimants against eligible units (candidate 4) [M]
+
+| | raw eligible units | after IRS rake | after reweight | kept after truncation | factor | claimants | HI credit per claimant |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| legacy TY2024 | 83,063 | 84,409 | 94,258 | 84,312 | 0.979 | 82,525 | $933 |
+| re-derived TY2024 | 90,208 | 91,141 | 94,436 | 84,555 | 0.937 | 79,218 | $972 |
+| legacy TY2028 | 75,073 | 76,357 | 89,883 | 84,381 | 0.979 | 82,592 | $1,011 |
+| re-derived TY2028 | 82,179 | 83,045 | 88,699 | 84,289 | 0.937 | 78,969 | $1,021 |
+| legacy TY2031 | 72,525 | 73,818 | 89,479 | 84,505 | 0.979 | 82,713 | $1,092 |
+| re-derived TY2031 | 79,443 | 80,302 | 87,942 | 84,375 | 0.937 | 79,049 | $1,092 |
+
+(The construction-only run's raw TY2024 pool is the 93,456 the headline quotes; the re-derived HoH factor takes it to 90,208 because it down-weights HoH units.) "Claimants" is the kept weight times the factor, each year. Eligible units rise 8.6% (re-derived vs legacy, raw, TY2024) but kept units are held at the IRS count, so claimants move only with the factor: -4.0% at TY2024 (82,525 to 79,218), -4.4% at TY2028, -4.4% at TY2031. In both runs claimant counts are flat over the horizon by construction (about 82,600 and 79,000), so the model implies no change in claims from TY2024 to TY2031 while DOTAX shows claims falling. The raw-pool increase never reaches the claimant count. HI credit per claimant converges by TY2031 ($1,092 both) after starting 4.2% apart.
+
+### Federal side (candidate 5) [M]
+
+The state credit is 40% of the federal one, so dollars per claimant are federal dollars per kept unit: $2,332 legacy and $2,429 new at TY2024 (+4.2%), $2,529 and $2,553 at TY2028 (+1.0%), $2,730 and $2,729 at TY2031 (0%). By children bucket at TY2024 the new run's average is -3.9% childless, +1.3% 1-child, +6.3% 2-child, +7.1% 3+ (table above). That is consistent with the mechanism above (which units the truncation keeps), not with the fix adding units that earn more; I did not test the second explanation separately. [I]
+
+### Act 163 expiry cost (candidate 6) [M, food and care causes I]
+
+| step | TY2028 | TY2031 |
+|---|---:|---:|
+| Legacy (before) | 84.96 | 86.88 |
+| EITC part: raw units and ageing | +0.15 | +0.20 |
+| EITC part: IRS rake | -0.07 | -0.11 |
+| EITC part: by-children reweight | -1.52 | -2.12 |
+| Food/excise credit | -0.35 | -0.33 |
+| Child and dependent care credit | +0.02 | +0.00 |
+| New run (after) | 83.19 | 84.52 |
+
+The EITC row is half the EITC dollar steps because expiry moves the rate from 40% to 20% of the same federal credit, so the cost is half the expanded total. It carries -$1.45M of -$1.77M (TY2028) and -$2.02M of -$2.36M (TY2031). The food/excise cost is lower by $0.35M and $0.33M and the care credit unchanged. Food and care are fitted at TY2023 and are not on the take-up truncation; the run-level difference is small at the anchor ($37.93M to $37.88M at TY2024) and widens with the horizon, which is consistent with the reweight adding less low-income family weight under the new construction (above) but I did not decompose them by stage. Guards: the take-up factor guard (0.5 to 1.10) did not bind (0.979, 0.915, 0.937). In the counterfactual pipelines without lever 3a the pools fall short of the IRS counts and the take-up step logs shortfalls (13.7% to 34%, in the legacy replay log); the full path, which is the published one, does not.
+
+### Is the lower projection more credible? Undetermined on growth; better at the anchor
+
+**At the anchor the new construction is closer to DOTAX** [M]. TY2024 claims: DOTAX 78,399; legacy 82,525 (+5.3%), new 79,218 (+1.0%). HI credit per claim: DOTAX $982; $933 (-5.0%) and $972 (-1.0%). Against DOTAX's TY2024 filing-status table (`_wfc_eitc_check_ty2024.csv`): joint $22.7M (legacy $31.8M, new $25.5M), head of household $43.6M ($39.9M, $43.8M), single $12.0M ($5.3M, $7.7M). The legacy projection starts from a base that over-counts claimants by 5% and puts 40% too many EITC dollars on joint filers; the 4% drop is that base being corrected, and its larger apparent growth is the lever-3a lift needed to make up the short pools (+$10.0M by TY2031 vs +$5.8M), not growth in the credit.
+
+**On growth, neither projection is tested** [M for the data, I for the reading]. What DOTAX and the IRS show over the years available:
+
+| | claims | dollars | dollars per claim, federal equivalent (HI / 0.40) |
+|---|---:|---:|---:|
+| TY2022, IRS federal (caseload table, 84,010 returns) | 84,010 | $184.7M federal | $2,199 |
+| TY2023, DOTAX Table A-1 / A-2 | 84,470 | $77.05M HI | $2,281 |
+| TY2024, DOTAX EITC report, new credit | 78,399 | $76.98M HI | $2,455 |
+| growth TY2023 to TY2024 | -7.2% | -0.1% | +7.6% |
+| model TY2023 to TY2024 (legacy / new) | about flat (pinned) | +6.2% / +6.1% | +6.3% / +6.3% |
+| model TY2024 to TY2028 per year (legacy / new) | flat (pinned) | +2.1% / +1.2% | +2.0% / +1.2% |
+
+(TY2023 and TY2024 come from different DOTAX reports; the EITC report itself puts TY2023 applied at $75.6M against TY2024 applied $78.5M, +3.9%. Three observations, mixed bases: weak evidence.) The data say claims fell 7% in the one year observed while both models hold claims at the TY2022 IRS count through TY2031, and that dollars per claim rose faster (+7.6%) than either projection (legacy about 2.3% a year, new about 1.7% a year over TY2024-2031, against about 2.4% a year for the federal maximum credit's indexation in the model). If claims keep falling and per-claim credit keeps rising, both projections overstate the count and understate the per-claim figure; the dollar total is not clearly biased either way. The legacy path is not better supported on growth for being higher, and the new path is not better for being lower: both depend on lever 3a holding the counts.
+
+**What would settle it:** (1) DOTAX's TY2025 Earned Income Tax Credit Report (the TY2024 one is dated December 2025): a second year of claims and dollars on one basis; (2) the IRS Statistics of Income Hawaii EITC returns by children for TY2023 and TY2024, which would replace the stale TY2022 targets lever 3a and the truncation use (the count is what moves the answer), after which the model's implied claims trend could be compared to the actual one; (3) rerunning this script with the reweight targets set to the IRS count for each year: if the projections then agree across constructions at about $80-81M (the rake-only figures above) the gap is the lever's stale targets, not the fix.
+
+### Measured and inferred
+
+Measured (by the replay, exact against the chain): every figure in the tables above, the stage waterfall, the by-bucket waterfall, the pool, lift, kept and claimant counts, the schedule-region shares, the identity new / legacy = dollar ratio x factor ratio, the anchor agreement ($76.98M in all three runs). Inferred: that the 3+-child swing is ageing-driven record composition (not decomposed within the bucket); that the food-credit decline comes from the smaller lift in low-income family weight; that the DOTAX/IRS trend rows are comparable across reports; the reading that the legacy extra growth is the reweight's compensation for a short pool rather than real growth. The order of the three waterfall steps does not matter beyond $0.03M. Not done: stage-level decomposition of the food and care credits; the TY2022 and TY2023 model years (the TY2022 credit is re-pegged to its nominal DOTAX dollars by the take-up step, so it is not a growth observation).
+
 ## 7. Chain stages and analyses that ran
 
 All ran to completion on this machine ([M]; the chain is fast here, about 5 minutes end to end with warm caches; the 2.5-minute tax-unit cache rebuild and the 1-year unit rebuild are inside it):
@@ -418,3 +546,4 @@ Not edited here (the instruction was to list them).
 - Chain into a scratch directory (stages 1-3 of `scripts/rerun_models.py`, one step at a time): `CF_RUNS_DIR=<dir> CF_MAX_WORKERS=2 uv run python chain/forecast_sb3125_enhanced.py --cd 2`, then `chain/forecast_act24_vs_pre_act46.py`, `chain/forecast_sb3125_vs_fy26base.py --cd 2`, `chain/forecast_cg_rate_options.py`, `chain/forecast_working_family_credits.py`, `scripts/build_simulator_population.py --population-only` and `--from-saved`.
 - Off-chain: `analyses/forecast_hr1_snap_medicaid.py --out <dir>/hr1_snap_medicaid`, `analyses/forecast_targeting_efficiency.py` (with `CF_RUNS_DIR`), `scripts/eitc_ctc_geo_report.py --tax-year 2025 --pums-data-dir packages/data/raw/pums_2024_1yr --apply-takeup --out <dir>`
 - Before/after: `uv run python analyses/headline_before_after.py --before <legacy runs> --after-old-factors <A> --after-rederived <B> --geo-* ... --out <csv>`; cell by cell: `analyses/before_after_runs.py`.
+- Why the working-family projections come out lower: `CF_MAX_WORKERS=2 uv run python analyses/wfc_projection_decomposition.py run --variant legacy|cons|new --out <dir>` (about 6 minutes each), then `... assemble --out <dir> --csv-dir docs/data_source_tests --chain-runs legacy=<runs A> cons=<runs> new=<runs>` (section 6a).
