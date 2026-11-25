@@ -48,6 +48,8 @@ from tax_modeler.units.relshipp_codes import (
     REFERENCE_PERSON,
     ROOMMATE,
     SIBLING,
+    SPOUSE_OPPOSITE,
+    SPOUSE_SAME,
     UNMARRIED_PARTNER,
 )
 
@@ -65,6 +67,7 @@ MAX_PARENT_GAP = 50
 TYPICAL_PARENT_GAP = 28
 
 _UNRELATED = frozenset({ROOMMATE, OTHER_NONRELATIVE})
+_HOUSEHOLD_CORE = frozenset({REFERENCE_PERSON, 1, SPOUSE_OPPOSITE, SPOUSE_SAME}) | set(UNMARRIED_PARTNER)
 _NONRELATIVE_PARENT_RELS = frozenset({ROOMMATE, OTHER_NONRELATIVE})
 
 
@@ -202,6 +205,11 @@ def assign_claimants(
             continue
         rel = _int(child.get("RELSHIPP"))
         age = _int(child.get("AGEP"))
+
+        # The householder's spouse or unmarried partner, or the householder, who is a minor: nobody's dependent.
+        if rel in _HOUSEHOLD_CORE:
+            basis[child_id] = "unclaimed"
+            continue
 
         # (a1) the householder's own child or foster child: the householder.
         if rel in OWN_CHILD or rel == FOSTER_CHILD:

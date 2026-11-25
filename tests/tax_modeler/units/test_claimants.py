@@ -197,3 +197,9 @@ def test_every_person_is_still_in_a_unit_or_a_dependent_of_one():
     for d in new['dependents']:
         covered |= set(d)
     assert {'1_1', '1_2', '1_3', '1_4', '1_5', '1_6'} <= covered
+
+
+def test_a_minor_spouse_or_partner_is_nobodys_dependent():
+    hh = _hh([_p(1, 40, 20, wagp=60000), _p(2, 17, 22, wagp=0)])
+    deps, basis = identify_dependents_with_basis(hh)
+    assert _claimant_of(deps, '1_2') is None and basis['1_2'] == 'unclaimed'
