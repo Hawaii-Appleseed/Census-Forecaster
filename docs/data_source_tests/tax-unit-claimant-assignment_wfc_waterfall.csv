@@ -1,0 +1,51 @@
+to,year,step,eitc_40pct_$M,delta_$M
+new,2027,legacy (full pipeline),80.85182223097895,
+new,2027,raw units and income ageing (growth of the take-up-truncated credit total),81.09206628587604,0.2402440548970901
+new,2027,IRS household rake (extra growth),80.98325357195252,-0.10881271392352687
+new,2027,"by-children reweight, lever 3a (extra growth)",78.1717331450532,-2.811520426899321
+new,2027,end (the re-derived run),78.1717331450532,
+new,2028,legacy (full pipeline),83.53412197249915,
+new,2028,raw units and income ageing (growth of the take-up-truncated credit total),83.83218844561937,0.2980664731202154
+new,2028,IRS household rake (extra growth),83.68615347184868,-0.14603497377068209
+new,2028,"by-children reweight, lever 3a (extra growth)",80.64028801907922,-3.045865452769462
+new,2028,end (the re-derived run),80.64028801907922,
+new,2029,legacy (full pipeline),84.63566465606986,
+new,2029,raw units and income ageing (growth of the take-up-truncated credit total),84.9932947209598,0.357630064889932
+new,2029,IRS household rake (extra growth),84.83234607334202,-0.16094864761777217
+new,2029,"by-children reweight, lever 3a (extra growth)",82.04051288248534,-2.7918331908566785
+new,2029,end (the re-derived run),82.04051288248536,
+new,2030,legacy (full pipeline),88.21930374104981,
+new,2030,raw units and income ageing (growth of the take-up-truncated credit total),88.63720008208752,0.4178963410377037
+new,2030,IRS household rake (extra growth),88.42938766241622,-0.20781241967129915
+new,2030,"by-children reweight, lever 3a (extra growth)",84.37713397219272,-4.052253690223495
+new,2030,end (the re-derived run),84.37713397219271,
+new,2031,legacy (full pipeline),90.33885268779578,
+new,2031,raw units and income ageing (growth of the take-up-truncated credit total),90.748467225766,0.40961453797022784
+new,2031,IRS household rake (extra growth),90.52573116572046,-0.22273606004554836
+new,2031,"by-children reweight, lever 3a (extra growth)",86.29071922987987,-4.235011935840589
+new,2031,end (the re-derived run),86.29071922987988,
+cons,2027,legacy (full pipeline),80.85182223097895,
+cons,2027,raw units and income ageing (growth of the take-up-truncated credit total),81.41445141231459,0.5626291813356374
+cons,2027,IRS household rake (extra growth),81.29683260378104,-0.11761880853354967
+cons,2027,"by-children reweight, lever 3a (extra growth)",78.43360652228385,-2.8632260814971886
+cons,2027,end (the construction-only run),78.43360652228387,
+cons,2028,legacy (full pipeline),83.53412197249915,
+cons,2028,raw units and income ageing (growth of the take-up-truncated credit total),84.21055434708639,0.676432374587236
+cons,2028,IRS household rake (extra growth),84.11051337881734,-0.10004096826904174
+cons,2028,"by-children reweight, lever 3a (extra growth)",80.42595742631428,-3.684555952503061
+cons,2028,end (the construction-only run),80.42595742631428,
+cons,2029,legacy (full pipeline),84.63566465606986,
+cons,2029,raw units and income ageing (growth of the take-up-truncated credit total),85.4381418581455,0.8024772020756359
+cons,2029,IRS household rake (extra growth),85.31628585227746,-0.12185600586803957
+cons,2029,"by-children reweight, lever 3a (extra growth)",81.59417636886154,-3.7221094834159203
+cons,2029,end (the construction-only run),81.59417636886154,
+cons,2030,legacy (full pipeline),88.21930374104981,
+cons,2030,raw units and income ageing (growth of the take-up-truncated credit total),89.15669081502655,0.9373870739767369
+cons,2030,IRS household rake (extra growth),89.00117001049807,-0.1555208045284786
+cons,2030,"by-children reweight, lever 3a (extra growth)",82.91253878191067,-6.088631228587403
+cons,2030,end (the construction-only run),82.91253878191067,
+cons,2031,legacy (full pipeline),90.33885268779578,
+cons,2031,raw units and income ageing (growth of the take-up-truncated credit total),91.31405748313071,0.9752047953349319
+cons,2031,IRS household rake (extra growth),91.10755318691977,-0.20650429621093735
+cons,2031,"by-children reweight, lever 3a (extra growth)",84.70257255713209,-6.404980629787687
+cons,2031,end (the construction-only run),84.70257255713209,

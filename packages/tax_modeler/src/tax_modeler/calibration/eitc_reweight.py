@@ -4,8 +4,10 @@ The Hawaii tax microsimulation builds tax units from PUMS at their natural
 person/household weights — the EITC/poverty path applies no IPF rake. Aggregated
 to EITC-*eligible* units, the with-children buckets fall short of the IRS SOI
 Historic Table 2 Hawaii by-children counts: 1-child and 2-child eligibles come
-in at ~0.74 / ~0.77 of their IRS targets, while childless and 3+ eligibles run
-at or above target. A take-up truncation (pooled or the per-bucket
+in at ~0.74 / ~0.77 of their IRS targets (with children assigned to the
+householder first; since November 25, 2026 children go to their own parent first,
+and only the 1-child bucket, ~0.9 of target in TY2024, is short), while childless
+and 3+ eligibles run at or above target. A take-up truncation (pooled or the per-bucket
 :func:`tax_modeler.calibration.takeup_imputation.impute_takeup_eitc_by_children`)
 can only *cap* an over-produced bucket; it cannot manufacture eligibles a short
 bucket lacks. The result is an EITC childless-claimer share stuck near 36-37%

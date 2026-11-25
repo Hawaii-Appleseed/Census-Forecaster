@@ -1,12 +1,12 @@
 {
-  "hi_net_tax_revenue": 122366014.12,
-  "total_weighted_filers": 6262.0,
+  "hi_net_tax_revenue": 120172928.5,
+  "total_weighted_filers": 6134.0,
   "quintile_hi_gross_tax": [
-    239106.58999999997,
-    2588701.52,
-    7451785.720000001,
-    25341933.04,
-    86930057.24999999
+    157396.25,
+    2608734.27,
+    7220653.9,
+    24950148.0,
+    85681796.08
   ],
   "_comment": "Golden revenue values; regenerate with `pytest --update-golden`.",
   "tolerance_pct": 2.0

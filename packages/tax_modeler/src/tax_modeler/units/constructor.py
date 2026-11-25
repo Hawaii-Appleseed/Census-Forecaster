@@ -16,7 +16,7 @@ from typing import Any
 import pandas as pd
 from tqdm import tqdm
 
-from .dependencies import identify_dependents
+from .dependencies import identify_dependents_with_basis
 from .fixes import apply_overcounting_fixes
 from .income import calculate_persons_income, extract_person_income_components
 
@@ -47,6 +47,21 @@ DEFAULT_NUM_PROCESSES = max(1, mp.cpu_count() - 1)
 # Configure logging
 logger = logging.getLogger(__name__)
 
+#: Per-filing-status weight factors, normalized to MFJ = 1.0, that bring the units' natural filing-status mix to
+#: the DOTAX TY2022 shares (single 52.8% / MFJ 34.1% / HoH 10.6% / MFS 2.5%). Derived by
+#: ``scripts/rederive_filing_status_factors.py`` (the ratio of DOTAX share to the model's natural share on the 2024
+#: 1-year PUMS units; ``scripts/diagnose_filing_status.py`` prints the shares). The one source for the unit weight
+#: and its 80 replicates. Re-derived 2026-11-25 on the parent-first construction (single 0.834, HoH 1.181, MFS 1.351,
+#: rounded to two places as before): the earlier 0.82 / 1.30 / 1.35 were set on the construction that gave every child
+#: to the householder, which built too few HoH units, so HoH was weighted up and single down; the recipe returns
+#: those values (0.823 / 1.291 / 1.351) on that construction.
+FILING_STATUS_WEIGHT_FACTORS = {
+    'single': 0.83,
+    'married_filing_jointly': 1.0,
+    'head_of_household': 1.18,
+    'married_filing_separately': 1.35,
+}
+
 
 class TaxUnitConstructor:
     """
@@ -69,7 +84,9 @@ class TaxUnitConstructor:
                  soi_calibration_method: str = 'filing_status',
                  dotax_benchmarks: dict | None = None,
                  irs_benchmarks: dict | None = None,
-                 include_replicate_weights: bool = True):
+                 include_replicate_weights: bool = True,
+                 claimant_assignment: str = 'parent_first',
+                 parent_link: str = 'sfn'):
         """
         Initialize the TaxUnitConstructor.
 
@@ -91,7 +108,20 @@ class TaxUnitConstructor:
                 estimate_hi_eitc_takeup). Auto-no-ops if the replicate columns are
                 missing from the input frames. Each replicate adds ~0.3 MB to
                 a 42K-row tax-unit frame.
+            claimant_assignment: who claims each child. ``'parent_first'`` (default): the child's own
+                parent in the household, else the householder (``units.claimants``). ``'legacy'``
+                reproduces the earlier assignment exactly (householder or spouse only; used for
+                before/after measurements and tests).
+            parent_link: how a child's parent is found under ``parent_first`` (``claimants.PARENT_LINKS``;
+                default ``'sfn'``: the Census subfamily variables, with an age-gap rule where none exists).
         """
+        from tax_modeler.units.claimants import ASSIGNMENTS, PARENT_LINKS
+        if claimant_assignment not in ASSIGNMENTS:
+            raise ValueError(f"claimant_assignment must be one of {ASSIGNMENTS}, got {claimant_assignment!r}")
+        if parent_link not in PARENT_LINKS:
+            raise ValueError(f"parent_link must be one of {PARENT_LINKS}, got {parent_link!r}")
+        self.claimant_assignment = claimant_assignment
+        self.parent_link = parent_link
         self.person_df = person_df.copy()
         self.hh_df = hh_df.copy()
         self.tax_units = None
@@ -607,7 +637,17 @@ class TaxUnitConstructor:
             
         # Vectorized dependent identification
         logger.debug("Identifying all dependents in household using vectorized operations")
-        dependents = identify_dependents(hh_group)
+        dependents, basis = identify_dependents_with_basis(
+            hh_group, assignment=self.claimant_assignment, parent_link=self.parent_link)
+        if basis:
+            # A child claimed as the claimant's own (subfamily or age-gap parent link) is an own child in the
+            # credit code whatever its relationship to the householder (a partner's child is RELSHIPP 36).
+            from tax_modeler.units.claimants import OWN_CHILD_BASES, OWN_CHILD_CODE
+            own = [pid for pid, b in basis.items() if b in OWN_CHILD_BASES]
+            if own:
+                hh_group = hh_group.copy()
+                hh_group['RELSHIPP_CLAIM'] = hh_group['RELSHIPP']
+                hh_group.loc[own, 'RELSHIPP_CLAIM'] = OWN_CHILD_CODE
         
         # Convert dependents to a more efficient structure
         dependents = {k: set(v) for k, v in dependents.items()}
@@ -782,7 +822,18 @@ class TaxUnitConstructor:
             
             for dep_id in sorted(unclaimed_deps):
                 dependent = hh_group.loc[dep_id]
-                
+
+                if self.claimant_assignment == 'parent_first':
+                    # Claimant never filed (e.g. was itself claimed as a dependent): the unit that holds it.
+                    holder = next((g for g, ds in dependents.items() if dep_id in ds), None)
+                    for idx, tax_unit in enumerate(tax_units):
+                        if holder is not None and (holder in tax_unit['dependents']
+                                                   or holder in (tax_unit.get('primary_filer_id'),
+                                                                 tax_unit.get('secondary_filer_id'))):
+                            assignments.append((idx, dep_id))
+                            break
+                    continue
+
                 # Find the first tax unit that can claim this dependent
                 for idx, tax_unit in enumerate(tax_units):
                     if self._can_claim_dependent(tax_unit, dependent, hh_group):
@@ -1341,14 +1392,7 @@ class TaxUnitConstructor:
         # AGI) changed the natural mix: HoH dropped 1.88->1.30 (it no longer
         # over-counts via mis-decoded partner/roommate codes), MFS rose
         # 1.05->1.35, single 0.85->0.82. See scripts/diagnose_filing_status.py.
-        calibration_factors = {
-            'single': 0.82,
-            'married_filing_jointly': 1.0,
-            'head_of_household': 1.30,
-            'married_filing_separately': 1.35,
-        }
-
-        adjustment = calibration_factors.get(filing_status, 1.0)
+        adjustment = FILING_STATUS_WEIGHT_FACTORS.get(filing_status, 1.0)
         calibrated_weight = hybrid_weight * adjustment
 
         return max(calibrated_weight, 0.1)  # Ensure weight is never zero or negative
@@ -1394,13 +1438,7 @@ class TaxUnitConstructor:
         if not self._wgtp_replicate_cols:
             return {}
 
-        calibration_factors = {
-            'single': 0.82,
-            'married_filing_jointly': 1.0,
-            'head_of_household': 1.30,
-            'married_filing_separately': 1.35,
-        }
-        adjustment = calibration_factors.get(filing_status, 1.0)
+        adjustment = FILING_STATUS_WEIGHT_FACTORS.get(filing_status, 1.0)
         # Mirror _calculate_hybrid_weight: only a *one-person* tax unit uses
         # the per-person weight; 0 or ≥2 members use the household weight.
         use_person_weight = n_members == 1
@@ -1497,7 +1535,9 @@ class TaxUnitConstructor:
                 _pw = 0.0
             details.append({
                 'age': _safe_int(d.get('AGEP', 0)),
-                'relationship': _safe_int(d.get('RELSHIPP', 0)),
+                # Relationship to the claimant where the assignment knows it (an own child claimed by its
+                # parent is 25), else to the householder.
+                'relationship': _safe_int(d.get('RELSHIPP_CLAIM', d.get('RELSHIPP', 0))),
                 'citizenship': _safe_int(d.get('CIT', 1), default=1),
                 'months_in_home': 12,  # PUMS has no sub-year residency data
                 'school_level': _safe_int(d.get('SCHL', 0)),
