@@ -61,8 +61,8 @@ elasticity of ~0.6 with respect to the ~31% combined top rate (23.8% federal +
 
 Nonresidents: excluded from the headline, as in the ITEP figures, and scored
 apart on returns of their own (tax_modeler.calibration.nonresident_cg): DOTAX
-Table 21 and A-3 by Hawaii AGI class, which reproduce A-3's TY2021-2023 tax
-within 1-2%. Their gains fill the brackets from the bottom of their Hawaii
+Table 21 and A-3 by Hawaii AGI class, which reproduce A-3's TY2018-2023 tax
+within 1.2% in total. Their gains fill the brackets from the bottom of their Hawaii
 income, and the part of a rate rise their home state credits back draws no
 response. Three levels of gains (TY2018-2020, TY2023, TY2021-2022, each
 repriced with the Hawaii house price index) and, at the central level, gains
