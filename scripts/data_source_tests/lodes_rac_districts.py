@@ -44,3 +44,13 @@ for (c, m), x in D.groupby(["chamber", "measure"]):
           "p90 %.3f" % x["diff"].abs().quantile(.9), "max %.3f" % x["diff"].abs().max(),
           "share>20%%: %.2f" % (x["diff"].abs() > .2).mean(), "weighted misallocation %.3f" % w)
 # low-earner share of resident workers, by district, vs PUMA-implied
+# Conditional: low-earner count vs PUMA CE01 split in proportion to the district's resident WORKERS (C000) -> isolates
+# earnings-mix differences from workers-vs-population differences.
+for lvl in ("house", "senate"):
+    g = B.groupby(["PUMA", lvl]).agg(c=("C000", "sum"), v=("CE01", "sum")).reset_index()
+    g["prop"] = g.groupby("PUMA")["v"].transform("sum") * g["c"] / g.groupby("PUMA")["c"].transform("sum")
+    d = g.groupby(lvl).agg(actual=("v", "sum"), prop=("prop", "sum")); d = d[d["actual"] > 0]
+    r = (d["actual"] / d["prop"] - 1).abs()
+    print(lvl, "CE01 vs worker-proportional: median|diff| %.3f p90 %.3f max %.3f share>20%%: %.2f weighted %.3f" % (
+        r.median(), r.quantile(.9), r.max(), (r > .2).mean(), (d["actual"] - d["prop"]).abs().sum() / d["actual"].sum()))
+print("PUMAs:", B["PUMA"].nunique(), "districts per PUMA (house):", B.groupby("PUMA")["house"].nunique().to_dict())

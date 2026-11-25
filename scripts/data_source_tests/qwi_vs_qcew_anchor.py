@@ -12,7 +12,7 @@ qwi_path, data = sys.argv[1:3]
 R = list(csv.DictReader(gzip.open(qwi_path, "rt")))
 q = defaultdict(dict)  # geo -> year -> {quarter: (earn, emp)}
 for x in R:
-    if x["sex"] == "0" and x["agegrp"] == "A00" and x["EarnS"]:
+    if x["sex"] == "0" and x["agegrp"] == "A00" and x["industry"] == "00" and x["EarnS"]:
         q[x["geography"]].setdefault(int(x["year"]), {})[int(x["quarter"])] = (float(x["EarnS"]), float(x["Emp"] or 0))
 qwi = {g: {y: 12 * np.mean([v[0] for v in qs.values()]) for y, qs in ys.items() if len(qs) == 4} for g, ys in q.items()}
 qcew = {int(k): v for k, v in json.load(open(f"{data}/anchors/qcew_hawaii_wages.json"))["values_by_year"].items()}

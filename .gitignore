@@ -80,3 +80,6 @@ credentials.json
 client_secret*.json
 service-account*.json
 *_api_key
+
+# Data-source test downloads
+data/qwi-lodes/
