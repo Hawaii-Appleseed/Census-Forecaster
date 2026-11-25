@@ -33,8 +33,12 @@ manifest.json. Standard errors are ACS sampling error from the 80 replicate weig
 Static: no change in work or household formation, the payment is not taxed and does not reduce
 SNAP or any other benefit, and everyone eligible receives it. A uniform take-up rate would scale a
 policy's cost and its people lifted alike, leaving people lifted per $1M unchanged; take-up that
-differs by group would not. Headcounts use each unit's expected state credits, not the step's
-draws of who claims them, so the baseline rate differs slightly from the step's published one.
+differs by group would not.
+
+Headcounts and poverty gaps are means over draws (``--draws``, the step's claim draws): who claims
+each state credit, and each unit's medical spending drawn from its donor pool (``benefits.moop``).
+Expected credits and a pool-mean MOOP put every unit of a kind on one side of the line together and
+the people a payment lifts swing on that bunching. The income test reads expected resources.
 """
 from __future__ import annotations
 
@@ -58,6 +62,7 @@ PUMS = {"five-year": ("pums_2020_2024", "HI 5-year 2020-2024"), "one-year": ("pu
 BUDGETS_M = (25.0, 50.0, 100.0, 250.0)
 AMOUNTS = (500.0, 1_000.0, 2_000.0, 3_000.0, 5_000.0)
 INCOME_TESTS = (None, 2.0, 1.5)     # None: no test; else baseline resources under this multiple of the SPM line
+N_DRAWS = 200                       # draws of claims and medical spending the policies are scored over
 Z90 = 1.645                         # 90 percent, as the Census Bureau publishes
 
 
@@ -68,9 +73,13 @@ class Population:
     weights: np.ndarray
     persons: np.ndarray
     children: np.ndarray
-    resources: np.ndarray       # baseline (current law) SPM resources
+    resources: np.ndarray       # baseline (current law) SPM resources, expected credits and MOOP
     threshold: np.ndarray
     eligible: dict[str, np.ndarray]   # group key -> eligible persons per unit
+    draws: np.ndarray | None = None   # (units, draws) baseline resources in each draw; None: ``resources``, one draw
+
+    def by_draw(self) -> np.ndarray:
+        return self.resources[:, None] if self.draws is None else self.draws
 
 
 GROUPS: tuple[tuple[str, str], ...] = (
@@ -125,15 +134,19 @@ def _sdr(theta: np.ndarray) -> float:
 
 
 def score(pop: Population, payment: np.ndarray) -> dict[str, float]:
-    """Cost and poverty effect of adding ``payment`` ($ per SPM unit) to baseline resources."""
-    w, n, kids, thr = pop.weights, pop.persons, pop.children, pop.threshold
-    after = pop.resources + payment
-    poor = pop.resources < thr
-    lifted = poor & ~(after < thr)
-    deep_lifted = (pop.resources < 0.5 * thr) & ~(after < 0.5 * thr)
-    gap_closed = np.maximum(thr - pop.resources, 0) - np.maximum(thr - after, 0)
+    """Cost and poverty effect of adding ``payment`` to baseline resources: $ per SPM unit, the same in
+    every draw (units,) or draw by draw (units, draws). Headcounts and gaps are means over the draws."""
+    w, n, kids, thr = pop.weights, pop.persons, pop.children, pop.threshold[:, None]
+    before = pop.by_draw()
+    pay = payment[:, None] if payment.ndim == 1 else payment
+    after = before + pay
+    lifted = (before < thr).mean(axis=1) - (after < thr).mean(axis=1)
+    deep_lifted = (before < 0.5 * thr).mean(axis=1) - (after < 0.5 * thr).mean(axis=1)
+    gap_closed = (np.maximum(thr - before, 0) - np.maximum(thr - after, 0)).mean(axis=1)
+    pay_mean = pay.mean(axis=1) if pay.shape[1] > 1 else pay[:, 0]
+    to_poor = (pay * (before < thr)).mean(axis=1)
 
-    cost = w @ payment
+    cost = w @ pay_mean
     persons_lifted = w @ (n * lifted)
     per_million = np.divide(persons_lifted, cost / 1e6, out=np.zeros_like(cost), where=cost > 0)
     gap_share = np.divide(w @ gap_closed, cost, out=np.zeros_like(cost), where=cost > 0)
@@ -147,12 +160,12 @@ def score(pop: Population, payment: np.ndarray) -> dict[str, float]:
         "persons_lifted_per_$M": per_million[0],
         "persons_lifted_per_$M_se": _sdr(per_million),
         # dollars reaching units that are poor before the payment, and dollars that fill their gap
-        "share_of_dollars_to_poor_units": float(w[0] @ (payment * poor)) / cost[0] if cost[0] > 0 else 0.0,
+        "share_of_dollars_to_poor_units": float(w[0] @ to_poor) / cost[0] if cost[0] > 0 else 0.0,
         "share_of_dollars_closing_gap": gap_share[0],
         "share_of_dollars_closing_gap_se": _sdr(gap_share),
     }
     out["cost_per_person_lifted_$"] = cost[0] / persons_lifted[0] if persons_lifted[0] > 0 else float("nan")
-    out["poverty_rate_after"] = float(w[0] @ (n * (after < thr))) / float(w[0] @ n)
+    out["poverty_rate_after"] = float(w[0] @ (n * (after < thr).mean(axis=1))) / float(w[0] @ n)
     out["persons_lifted_per_$M_low90"] = out["persons_lifted_per_$M"] - Z90 * out["persons_lifted_per_$M_se"]
     out["persons_lifted_per_$M_high90"] = out["persons_lifted_per_$M"] + Z90 * out["persons_lifted_per_$M_se"]
     return out
@@ -173,7 +186,8 @@ def _test_label(income_test: float | None) -> str:
 def group_profile(pop: Population) -> pd.DataFrame:
     """Who is in each group at baseline: size, poverty rate, and how far its poor sit below the line."""
     w, thr = pop.weights[0], pop.threshold
-    poor = pop.resources < thr
+    r = pop.by_draw()
+    poor = (r < thr[:, None]).mean(axis=1)                  # probability of being poor
     gap_per_person = np.maximum(thr - pop.resources, 0) / np.maximum(pop.persons, 1)
     all_poor = float(w @ (pop.persons * poor))
     rows = []
@@ -181,7 +195,7 @@ def group_profile(pop: Population) -> pd.DataFrame:
         c = pop.eligible[key]
         members = float(w @ c)
         members_poor = float(w @ (c * poor))
-        in_group_poor = poor & (c > 0)
+        in_group_poor = (pop.resources < thr) & (c > 0)
         order = np.argsort(gap_per_person[in_group_poor])
         cw = np.cumsum((w * c)[in_group_poor][order])
         median_gap = (float(gap_per_person[in_group_poor][order][np.searchsorted(cw, cw[-1] / 2)])
@@ -192,6 +206,7 @@ def group_profile(pop: Population) -> pd.DataFrame:
             "poverty_rate": members_poor / members if members else float("nan"),
             # eligible persons in poverty as a share of everyone in poverty; groups overlap
             "share_of_all_persons_in_poverty": members_poor / all_poor,
+            # among units poor on expected resources
             "median_gap_per_person_among_poor_$": median_gap,
             "sample_units": int((c > 0).sum()), "sample_units_in_poverty": int(in_group_poor.sum()),
         })
@@ -231,17 +246,19 @@ def same_payment(pop: Population, amounts=AMOUNTS, income_tests=INCOME_TESTS) ->
 
 
 def nearest_the_line(pop: Population, budget: float) -> np.ndarray:
-    """Payments ($ per unit) that lift the most people ``budget`` can: each poor unit's whole gap,
-    cheapest per person first, until the money runs out (the last unit funded is left short)."""
-    w = pop.weights[0]
-    gap = np.maximum(pop.threshold - pop.resources, 0)
-    poor = np.flatnonzero(gap > 0)
-    order = poor[np.argsort(gap[poor] / np.maximum(pop.persons[poor], 1), kind="stable")]
-    spent = np.cumsum(w[order] * gap[order])
-    payment = np.zeros_like(gap)
-    funded = order[spent <= budget]
-    # a hair over the gap: a unit is counted out of poverty once resources are not below the line
-    payment[funded] = gap[funded] + 0.01
+    """Payments ($ per unit, per draw) that lift the most people ``budget`` can: in each draw, each poor
+    unit's whole gap, cheapest per person first, until the money runs out (the last unit funded is left
+    short). Knows every unit's resources in every draw, as no program can."""
+    w, thr = pop.weights[0], pop.threshold
+    r = pop.by_draw()
+    payment = np.zeros_like(r)
+    for k in range(r.shape[1]):
+        gap = np.maximum(thr - r[:, k], 0)
+        poor = np.flatnonzero(gap > 0)
+        order = poor[np.argsort(gap[poor] / np.maximum(pop.persons[poor], 1), kind="stable")]
+        funded = order[np.cumsum(w[order] * gap[order]) <= budget]
+        # a hair over the gap: a unit is counted out of poverty once resources are not below the line
+        payment[funded, k] = gap[funded] + 0.01
     return payment
 
 
@@ -255,14 +272,18 @@ def references(pop: Population, act163_gain: np.ndarray, budgets_m=BUDGETS_M) ->
     return pd.DataFrame(rows)
 
 
-def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, dict]:
+def build_population(pums: str = "five-year", n_draws: int = N_DRAWS) -> tuple[Population, np.ndarray, dict]:
     """TY2028 SPM units built as the working-family credits step's, with current law as the baseline.
 
     ``pums`` is a key of :data:`PUMS`; "one-year" is the step's own population.
 
-    Returns the population, each unit's gain if Act 163 is renewed, and the run's parameters.
+    Returns the population, each unit's gain if Act 163 is renewed in each draw, and the run's parameters.
     """
+    import dataclasses
+
     import forecast_working_family_credits as wfc
+    from tax_modeler.benefits.moop import moop_resource_draws
+    from tax_modeler.poverty.draws import resources_by_draw
     from tax_modeler.poverty.impact import compute_poverty_impact
 
     pums_dir = REPO / "packages" / "data" / "raw" / PUMS[pums][0]
@@ -274,7 +295,8 @@ def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, d
         u = wfc.units_for_year(base, yr, rake)
         frames[yr] = (u, wfc.state_credits(u))
     p_eitc, p_food, p_cdcc = wfc.takeup_factors(frames)
-    u = wfc.with_expected_credits(*frames[wfc.POVERTY_YEAR], p_eitc, p_food, p_cdcc)
+    u, c = frames[wfc.POVERTY_YEAR]
+    u = wfc.with_expected_credits(u, c, p_eitc, p_food, p_cdcc)
     frame = wfc.spm_frame(u, persons)
     res = compute_poverty_impact(frame, tax_year=wfc.POVERTY_YEAR, scenarios=("act163_sunset",),
                                  extrapolate_thresholds=True)
@@ -283,8 +305,12 @@ def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, d
     if not rep_cols:
         raise SystemExit("the SPM units carry no weight_r01..weight_r80 columns; cannot give sampling error")
     # Current law in TY2028 is the expansions expired: the step's renewed-case resources less each unit's loss.
-    renewed = f["spm_resources"].to_numpy(dtype=float)
     current_law = f["spm_resources_act163_sunset"].to_numpy(dtype=float)
+    # The step's draws of who claims each credit, with medical spending drawn per unit: "baseline" is Act 163
+    # renewed, "act163_sunset" current law.
+    spec = dataclasses.replace(wfc.claim_draws(u, c, p_eitc, p_food, p_cdcc, n_draws=n_draws),
+                               resource_draws=moop_resource_draws(u, persons, year=wfc.POVERTY_YEAR))
+    drawn = resources_by_draw(spec, f)
     pop = Population(
         weights=np.vstack([f["weight"].to_numpy(dtype=float)] + [f[c].to_numpy(dtype=float) for c in rep_cols]),
         persons=f["n_persons"].to_numpy(dtype=float),
@@ -292,17 +318,19 @@ def build_population(pums: str = "five-year") -> tuple[Population, np.ndarray, d
         resources=current_law,
         threshold=f["spm_threshold"].to_numpy(dtype=float),
         eligible=eligible_counts(f, persons),
+        draws=drawn["act163_sunset"],
     )
     params = {"pums": pums, "tax_year": wfc.POVERTY_YEAR, "baseline": "current law, Act 163 expansions expired",
               "takeup_eitc": round(p_eitc, 4), "takeup_food": round(p_food, 4), "takeup_cdcc": round(p_cdcc, 4),
-              "irs_reweight": rake is not None, "replicates": len(rep_cols), "spm_units": len(f)}
-    return pop, renewed - current_law, params
+              "irs_reweight": rake is not None, "replicates": len(rep_cols), "spm_units": len(f),
+              "draws": n_draws, "draw_seed": spec.seed}
+    return pop, drawn["baseline"] - drawn["act163_sunset"], params
 
 
 def _print_summary(pop: Population, groups: pd.DataFrame, budget_table: pd.DataFrame, refs: pd.DataFrame) -> None:
     pd.set_option("display.width", 220)
     w = pop.weights[0]
-    rate = float(w @ (pop.persons * (pop.resources < pop.threshold))) / float(w @ pop.persons)
+    rate = float(w @ (pop.persons * (pop.by_draw() < pop.threshold[:, None]).mean(axis=1))) / float(w @ pop.persons)
     print(f"\nBaseline SPM poverty rate (current law): {rate:.2%}")
     print("\nGroups at baseline:")
     print(groups[["label", "eligible_persons", "poverty_rate", "share_of_all_persons_in_poverty",
@@ -329,11 +357,12 @@ def main(argv: list[str] | None = None) -> None:
                     help="payments per eligible person to compare, $")
     ap.add_argument("--pums", choices=list(PUMS), default="five-year",
                     help="ACS file the population is built from (one-year: the working-family credits step's)")
+    ap.add_argument("--draws", type=int, default=N_DRAWS, help="draws of claims and medical spending")
     args = ap.parse_args(argv)
 
     t0 = time.perf_counter()
     print(f"Building the TY2028 SPM population from the {args.pums} ACS file...", flush=True)
-    pop, act163_gain, params = build_population(args.pums)
+    pop, act163_gain, params = build_population(args.pums, args.draws)
     poor_units = int((pop.resources < pop.threshold).sum())
     print(f"  {params['spm_units']:,} SPM units, {poor_units:,} of them in poverty ({time.perf_counter() - t0:.0f}s)", flush=True)
     groups = group_profile(pop)

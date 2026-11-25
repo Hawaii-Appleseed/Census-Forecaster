@@ -1299,10 +1299,13 @@ exactly.
   each credit, and the Monte Carlo error covers both. A pool mean gives every
   unit in it the same amount and bunches units around the line: on the TY2028
   working-family population it put the Act 163 expiry at 10,328 people
-  pushed into poverty against about 3,600 with drawn MOOP. The working-family
-  credits and H.R.1 runs draw it; scripts that score expected values
-  (`poverty_impact_report.py`, `forecast_hi_eitc_revert_20.py`) do not, and
-  their headcounts carry that bunching.
+  pushed into poverty against about 3,600 with drawn MOOP. Every poverty
+  run draws it: the working-family credits step and H.R.1 through their claim
+  draws; `poverty_impact_report.py` and `forecast_hi_eitc_revert_20.py` pass a
+  spec that carries only the MOOP draws, and `compute_poverty_impact` then
+  draws every scenario it scores (an expansion's take-up included);
+  `analyses/forecast_targeting_efficiency.py` scores its policies against a
+  matrix of drawn resources (`poverty.draws.resources_by_draw`).
 
 Until November 2026 MOOP was matched per tax unit to `cps_moop_donors.csv`, a
 200-row synthetic test fixture, which put Hawaiʻi MOOP at about half of

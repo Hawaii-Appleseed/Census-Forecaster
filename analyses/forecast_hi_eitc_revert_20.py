@@ -382,8 +382,16 @@ def main(argv: list | None = None) -> int:
     if args.behavioral:
         scenarios.append("hi_eitc_revert_20_behavioral")
 
+    import dataclasses
+
+    from tax_modeler.benefits.moop import moop_resource_draws
+    from tax_modeler.poverty.draws import DrawSpec
     from tax_modeler.poverty.impact import compute_poverty_impact
     draws = _exit_draws(units) if (args.behavioral and args.lfp_elasticity > 0) else None
+    # Medical spending drawn per SPM unit in every case (benefits.moop), with or without the exit draws.
+    moop = moop_resource_draws(units, persons, year=args.tax_year)
+    draws = (DrawSpec(blocks=(), resource_draws=moop) if draws is None
+             else dataclasses.replace(draws, resource_draws=moop))
     result = compute_poverty_impact(
         poverty_frame, tax_year=args.tax_year,
         scenarios=tuple(scenarios),

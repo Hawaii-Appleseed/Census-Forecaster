@@ -77,9 +77,9 @@ class DrawResult:
     seed: int
 
 
-def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weights: Mapping[str, np.ndarray]) -> DrawResult:
-    """Run the draws for the SPM frame ``df`` (needs ``spm_unit_id``); ``weights``: named per-unit weights whose total
-    over the units below the line is recorded for every draw (persons, children, ...)."""
+def _draw_chunks(spec: DrawSpec, df: pd.DataFrame):
+    """Yield, chunk by chunk, ``{case: (SPM units, chunk) resources}`` for the baseline (when drawn) and each
+    scenario in ``spec.scenario_fixed``."""
     from scipy import sparse
 
     n = len(df)
@@ -95,10 +95,6 @@ def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weigh
     if base_fixed is None and spec.resource_draws is not None:
         base_fixed = df["spm_resources"].to_numpy(dtype=float)
     scn_fixed = {s: np.asarray(f(df), dtype=float) for s, f in spec.scenario_fixed.items()}
-    names = (["baseline"] if base_fixed is not None else []) + list(scn_fixed)
-    poor_sum = {k: np.zeros(n) for k in names}
-    gap_sum = {k: np.zeros(n) for k in names}
-    counts = {(w, k): [] for w in weights for k in names}
     rng = np.random.default_rng(spec.seed)
     resource_rng = np.random.default_rng([spec.seed, 1])
     done = 0
@@ -114,13 +110,23 @@ def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weigh
         if spec.resource_draws is not None:
             extra = np.asarray(spec.resource_draws(df, resource_rng, c), dtype=float)
             recv = {k: r + extra for k, r in recv.items()}
+        yield recv
+        done += c
+
+
+def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weights: Mapping[str, np.ndarray]) -> DrawResult:
+    """Run the draws for the SPM frame ``df`` (needs ``spm_unit_id``); ``weights``: named per-unit weights whose total
+    over the units below the line is recorded for every draw (persons, children, ...)."""
+    poor_sum: dict[str, np.ndarray] = {}
+    gap_sum: dict[str, np.ndarray] = {}
+    counts: dict[tuple[str, str], list] = {}
+    for recv in _draw_chunks(spec, df):
         for k, r in recv.items():
             poor = r < threshold[:, None]
-            poor_sum[k] += poor.sum(axis=1)
-            gap_sum[k] += np.maximum(threshold[:, None] - r, 0.0).sum(axis=1)
+            poor_sum[k] = poor_sum.get(k, 0) + poor.sum(axis=1)
+            gap_sum[k] = gap_sum.get(k, 0) + np.maximum(threshold[:, None] - r, 0.0).sum(axis=1)
             for w, vec in weights.items():
-                counts[(w, k)].append(np.asarray(vec, dtype=float) @ poor)
-        done += c
+                counts.setdefault((w, k), []).append(np.asarray(vec, dtype=float) @ poor)
     return DrawResult(
         poor_prob={k: v / spec.n_draws for k, v in poor_sum.items()},
         gap={k: v / spec.n_draws for k, v in gap_sum.items()},
@@ -128,4 +134,15 @@ def poverty_draws(spec: DrawSpec, df: pd.DataFrame, threshold: np.ndarray, weigh
         n_draws=spec.n_draws, seed=spec.seed)
 
 
-__all__ = ["ClaimBlock", "DrawSpec", "DrawResult", "poverty_draws", "DEFAULT_DRAWS", "DEFAULT_SEED"]
+def resources_by_draw(spec: DrawSpec, df: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Every SPM unit's resources in every draw: ``{case: (SPM units, n_draws)}`` for the baseline (when drawn) and
+    each scenario in ``spec.scenario_fixed``, the same draws :func:`poverty_draws` scores. For scoring many policies
+    against one set of draws."""
+    out: dict[str, list] = {}
+    for recv in _draw_chunks(spec, df):
+        for k, r in recv.items():
+            out.setdefault(k, []).append(r)
+    return {k: np.concatenate(v, axis=1) for k, v in out.items()}
+
+
+__all__ = ["ClaimBlock", "DrawSpec", "DrawResult", "poverty_draws", "resources_by_draw", "DEFAULT_DRAWS", "DEFAULT_SEED"]
