@@ -1074,7 +1074,8 @@ def build_working_families() -> tuple[str, dict]:
                  for k, g in stat.items()]
     joint, single, hoh = stat["Joint"], stat["Single"], stat["Head of household"]
     within_55 = max(abs(g["model_$M"] / g["dotax_$M"] - 1) for g in rng[:4])
-    _more_less = lambda g: "more" if g["model_$M_share"] > g["dotax_$M_share"] else "less"
+    def _more_less(g):
+        return "more" if g["model_$M_share"] > g["dotax_$M_share"] else "less"
     oos = cal['TY2022 food/excise $M, prior table (out of sample)']
     oos_off = 100 * abs(oos['model'] / oos['dotax'] - 1)
     cdcc_oos = cal['TY2022 child and dependent care $M, prior limits (out of sample)']
