@@ -1132,6 +1132,13 @@ def main(argv: list | None = None) -> int:
                            hi_eitc_100pct=args.hi_eitc_100pct_takeup_rate,
                            arpa_ctc=args.arpa_ctc_takeup_rate),
     )
+    # Medical spending drawn per SPM unit from its donor pool in every case (benefits.moop): the expected MOOP
+    # alone bunches units at the line. compute_poverty_impact then draws every scenario.
+    if args.apply_moop and not args.by_tax_unit:
+        from tax_modeler.benefits.moop import moop_resource_draws
+        from tax_modeler.poverty.draws import DrawSpec
+        impact_kwargs["draws"] = DrawSpec(blocks=(), resource_draws=moop_resource_draws(
+            units, persons, year=args.tax_year))
     if args.replicate_weights:
         result = compute_poverty_impact_with_se(
             poverty_frame, n_replicates=args.n_replicates, **impact_kwargs,

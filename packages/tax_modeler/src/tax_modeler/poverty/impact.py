@@ -399,6 +399,36 @@ def _expansion_claim(
     return None
 
 
+def _complete_draws(draws: DrawSpec, df: pd.DataFrame, scenarios, columns: PovertyColumns, takeup: TakeupRates,
+                    claim_draws: bool) -> DrawSpec:
+    """``draws`` with every scenario in ``scenarios`` drawn, for a spec that carries ``resource_draws``.
+
+    Something drawn for every unit (medical spending) has to be drawn in every case scored against the baseline, or
+    a scenario's headcount would compare drawn and undrawn resources. A scenario the spec does not name is drawn
+    from its own resources (``spm_resources_<scenario>``); an expansion whose increment is claimed with a take-up
+    probability (:func:`_expansion_claim`), with ``claim_draws``, from the baseline plus the increment for the
+    units drawn to claim it.
+    """
+    import dataclasses
+
+    from .draws import ClaimBlock
+
+    fixed = dict(draws.scenario_fixed)
+    blocks = list(draws.blocks)
+    ids = df["spm_unit_id"].to_numpy()
+    for scn in scenarios:
+        if scn in fixed:
+            continue
+        claim = _expansion_claim(df, scn, columns, takeup) if claim_draws else None
+        if claim is None:
+            fixed[scn] = lambda d, s=scn: d[f"spm_resources_{s}"].to_numpy(dtype=float)
+        else:
+            inc, rate = claim
+            blocks.append(ClaimBlock(ids, np.where(inc != 0, rate, 0.0), np.zeros(len(ids)), {scn: inc}))
+            fixed[scn] = lambda d: d["spm_resources"].to_numpy(dtype=float)
+    return dataclasses.replace(draws, blocks=tuple(blocks), scenario_fixed=fixed)
+
+
 def _group_positions(units: pd.DataFrame, group_col: str | None) -> list[tuple[object, np.ndarray]]:
     """Each group's key and row positions, in the order :func:`_aggregate`
     reports them: the whole frame for ``group_col=None``, else
@@ -544,6 +574,8 @@ def compute_poverty_impact(
     draws:
         Credits to draw instead of giving everyone the expected amount (:class:`.draws.DrawSpec`): the headcounts
         of the baseline and the scenarios it names are then each unit's probability of being poor over the draws.
+        A spec with ``resource_draws`` (medical spending drawn per unit) draws every scenario in ``scenarios``,
+        named or not (:func:`_complete_draws`).
     claim_draws:
         An expansion scenario whose increment is scaled by a take-up rate (``expanded_ctc_2021``,
         ``hi_eitc_100pct``, ``hi_ctc_<NNN>``) counts persons with the increment received or not, each SPM unit
@@ -626,6 +658,8 @@ def compute_poverty_impact(
                 df[f"gap_draw_{scn}"] = (rate * np.maximum(threshold - (baseline_r + inc), 0.0)
                                          + (1.0 - rate) * np.maximum(threshold - baseline_r, 0.0))
     draw_info: dict = {}
+    if draws is not None and draws.resource_draws is not None:
+        draws = _complete_draws(draws, df, scenarios, columns, takeup, claim_draws)
     if draws is not None:
         n_ch = df["n_children"].fillna(0).to_numpy(dtype=float) if "n_children" in df.columns else None
         weights = {"persons": person_w}
