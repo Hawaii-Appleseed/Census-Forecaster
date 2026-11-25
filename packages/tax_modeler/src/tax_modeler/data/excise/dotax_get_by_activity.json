@@ -1,0 +1,89 @@
+{
+ "basis": "cash; the base is of allocated collections only, state tax (county surcharges are apart)",
+ "fetch_date": "2026-11-25",
+ "fiscal_years": {
+  "2025": {
+   "base": {
+    "all other rentals": 10560608302.515043,
+    "commissions": 1462459173.8214965,
+    "contracting": 14786427946.983189,
+    "grand total": 148451967137.77628,
+    "hotel rentals": 7463314551.546373,
+    "insurance solicitors": 753157920.2638488,
+    "interest & all others": 4601206696.473549,
+    "manufacturing": 448739651.35640746,
+    "producing": 372321627.9419439,
+    "retailing": 49108101876.922134,
+    "services": 22450093138.864925,
+    "services (wholesale)": 1427865510.462879,
+    "theater, amuse., radio, etc.": 491613626.09961,
+    "use (1/2%)": 8099225554.743581,
+    "use (4%)": 753943578.637269,
+    "wholesaling": 25672887981.144016
+   },
+   "tax": {
+    "all other rentals": 422424332.1006017,
+    "allocated collections": 4648345694.183184,
+    "commissions": 58498366.95285985,
+    "contracting": 591457117.8793275,
+    "grand total": 4630396252.22,
+    "hotel rentals": 298532582.061855,
+    "insurance solicitors": 1129736.8803957733,
+    "interest & all others": 184048267.85894197,
+    "manufacturing": 2243698.2567820377,
+    "producing": 1861608.1397097195,
+    "retailing": 1964324075.0768852,
+    "services": 898003725.554597,
+    "services (wholesale)": 7139327.552314394,
+    "theater, amuse., radio, etc.": 19664545.0439844,
+    "unallocated net collections": -17949441.963183172,
+    "use (1/2%)": 40496127.77371791,
+    "use (4%)": 30157743.145490758,
+    "wholesaling": 128364439.90572008
+   }
+  },
+  "2026": {
+   "base": {
+    "all other rentals": 10675288117.83191,
+    "commissions": 1483496814.7132215,
+    "contracting": 14410473868.700977,
+    "grand total": 152890919564.25415,
+    "hotel rentals": 7578307003.483099,
+    "insurance solicitors": 709510998.5555546,
+    "interest & all others": 4664505717.5097885,
+    "manufacturing": 469212909.21778005,
+    "producing": 368224432.0059075,
+    "retailing": 51111864945.27727,
+    "services": 23051488426.294907,
+    "services (wholesale)": 1449430843.209511,
+    "theater, amuse., radio, etc.": 489765794.18318087,
+    "use (1/2%)": 8447620072.29204,
+    "use (4%)": 1565273129.5070636,
+    "wholesaling": 26416456491.471924
+   },
+   "tax": {
+    "all other rentals": 427011524.71327645,
+    "allocated collections": 4788037542.938877,
+    "commissions": 59339872.58852885,
+    "contracting": 576418954.7480392,
+    "grand total": 4835813426.400001,
+    "hotel rentals": 303132280.13932395,
+    "insurance solicitors": 1064266.4978333318,
+    "interest & all others": 186580228.70039153,
+    "manufacturing": 2346064.5460889004,
+    "producing": 1841122.1600295373,
+    "retailing": 2044474597.8110907,
+    "services": 922059537.0517966,
+    "services (wholesale)": 7247154.216047554,
+    "theater, amuse., radio, etc.": 19590631.767327234,
+    "unallocated net collections": 47775883.46112412,
+    "use (1/2%)": 42238100.3614602,
+    "use (4%)": 62610925.18028253,
+    "wholesaling": 132082282.45735961
+   }
+  }
+ },
+ "sha256": "5c7d7cf011ec4283eb2d0ccce4f0a48eb15080a742c2c00d732cecd80b809364",
+ "source": "Hawaii Department of Taxation, General Excise and Use Tax Collections and Base: https://files.hawaii.gov/tax/stats/monthly/202606ge.xlsx",
+ "units": "dollars, fiscal year ending June 30"
+}
