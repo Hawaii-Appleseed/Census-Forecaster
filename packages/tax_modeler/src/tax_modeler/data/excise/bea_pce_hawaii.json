@@ -1,0 +1,1471 @@
+{
+ "fetch_date": "2026-11-25",
+ "lines": {
+  "1": {
+   "description": "Personal consumption expenditures",
+   "millions": {
+    "2020": 64097.9,
+    "2021": 71947.8,
+    "2022": 78495.3,
+    "2023": 83090.1,
+    "2024": 87534.2,
+    "2025": 91264.1
+   }
+  },
+  "10": {
+   "description": "Women's and girls' clothing",
+   "millions": {
+    "2020": 734.5,
+    "2021": 950.4,
+    "2022": 994.8,
+    "2023": 1066.4,
+    "2024": 1086.0,
+    "2025": 1141.6
+   }
+  },
+  "100": {
+   "description": "Food services and accommodations",
+   "millions": {
+    "2020": 3785.1,
+    "2021": 5434.4,
+    "2022": 6666.3,
+    "2023": 7557.8,
+    "2024": 8078.4,
+    "2025": 8359.9
+   }
+  },
+  "101": {
+   "description": "Food services",
+   "millions": {
+    "2020": 3001.4,
+    "2021": 4027.5,
+    "2022": 4913.9,
+    "2023": 5423.5,
+    "2024": 5846.7,
+    "2025": 6129.0
+   }
+  },
+  "102": {
+   "description": "Purchased meals and beverages",
+   "millions": {
+    "2020": 2836.7,
+    "2021": 3856.3,
+    "2022": 4716.4,
+    "2023": 5206.2,
+    "2024": 5618.7,
+    "2025": 5882.7
+   }
+  },
+  "103": {
+   "description": "Food furnished to employees (including military)",
+   "millions": {
+    "2020": 164.8,
+    "2021": 171.2,
+    "2022": 197.5,
+    "2023": 217.4,
+    "2024": 228.0,
+    "2025": 246.2
+   }
+  },
+  "104": {
+   "description": "Accommodations",
+   "millions": {
+    "2020": 783.7,
+    "2021": 1406.9,
+    "2022": 1752.4,
+    "2023": 2134.2,
+    "2024": 2231.6,
+    "2025": 2231.0
+   }
+  },
+  "105": {
+   "description": "Financial services and insurance",
+   "millions": {
+    "2020": 4645.8,
+    "2021": 5009.9,
+    "2022": 5233.0,
+    "2023": 5476.2,
+    "2024": 6028.4,
+    "2025": 6394.0
+   }
+  },
+  "106": {
+   "description": "Financial services",
+   "millions": {
+    "2020": 2668.8,
+    "2021": 2929.0,
+    "2022": 3131.3,
+    "2023": 3257.6,
+    "2024": 3651.5,
+    "2025": 3931.7
+   }
+  },
+  "107": {
+   "description": "Financial services furnished without payment",
+   "millions": {
+    "2020": 1521.6,
+    "2021": 1657.0,
+    "2022": 1817.2,
+    "2023": 1898.3,
+    "2024": 2139.1,
+    "2025": 2227.0
+   }
+  },
+  "108": {
+   "description": "Financial service charges, fees, and commissions",
+   "millions": {
+    "2020": 1147.2,
+    "2021": 1272.0,
+    "2022": 1314.1,
+    "2023": 1359.3,
+    "2024": 1512.4,
+    "2025": 1704.7
+   }
+  },
+  "109": {
+   "description": "Insurance",
+   "millions": {
+    "2020": 1977.0,
+    "2021": 2080.9,
+    "2022": 2101.7,
+    "2023": 2218.6,
+    "2024": 2377.0,
+    "2025": 2462.3
+   }
+  },
+  "11": {
+   "description": "Men's and boys' clothing",
+   "millions": {
+    "2020": 496.5,
+    "2021": 643.6,
+    "2022": 679.1,
+    "2023": 719.9,
+    "2024": 732.9,
+    "2025": 775.7
+   }
+  },
+  "110": {
+   "description": "Life insurance",
+   "millions": {
+    "2020": 498.7,
+    "2021": 555.0,
+    "2022": 611.5,
+    "2023": 741.5,
+    "2024": 842.4,
+    "2025": 848.4
+   }
+  },
+  "111": {
+   "description": "Net household insurance",
+   "millions": {
+    "2020": 67.6,
+    "2021": 65.7,
+    "2022": 68.5,
+    "2023": 73.8,
+    "2024": 80.9,
+    "2025": 80.7
+   }
+  },
+  "112": {
+   "description": "Net health insurance",
+   "millions": {
+    "2020": 952.3,
+    "2021": 986.7,
+    "2022": 950.3,
+    "2023": 926.5,
+    "2024": 933.2,
+    "2025": 981.5
+   }
+  },
+  "113": {
+   "description": "Medical care and hospitalization",
+   "millions": {
+    "2020": 777.5,
+    "2021": 854.4,
+    "2022": 789.5,
+    "2023": 763.3,
+    "2024": 768.3,
+    "2025": 821.1
+   }
+  },
+  "114": {
+   "description": "Income loss",
+   "millions": {
+    "2020": 14.7,
+    "2021": 13.7,
+    "2022": 11.5,
+    "2023": 11.4,
+    "2024": 11.5,
+    "2025": 10.6
+   }
+  },
+  "115": {
+   "description": "Workers' compensation",
+   "millions": {
+    "2020": 160.1,
+    "2021": 118.5,
+    "2022": 149.3,
+    "2023": 151.8,
+    "2024": 153.4,
+    "2025": 149.9
+   }
+  },
+  "116": {
+   "description": "Net motor vehicle and other transportation insurance",
+   "millions": {
+    "2020": 458.3,
+    "2021": 473.5,
+    "2022": 471.4,
+    "2023": 476.7,
+    "2024": 520.5,
+    "2025": 551.7
+   }
+  },
+  "117": {
+   "description": "Other goods and services",
+   "millions": {
+    "2020": 3711.6,
+    "2021": 4104.0,
+    "2022": 4442.6,
+    "2023": 4683.1,
+    "2024": 4942.1,
+    "2025": 5084.4
+   }
+  },
+  "118": {
+   "description": "Personal care",
+   "millions": {
+    "2020": 1180.2,
+    "2021": 1361.0,
+    "2022": 1564.1,
+    "2023": 1677.0,
+    "2024": 1745.7,
+    "2025": 1793.5
+   }
+  },
+  "119": {
+   "description": "Personal items",
+   "millions": {
+    "2020": 367.2,
+    "2021": 443.0,
+    "2022": 498.1,
+    "2023": 489.1,
+    "2024": 593.4,
+    "2025": 584.2
+   }
+  },
+  "12": {
+   "description": "Children's and infants' clothing",
+   "millions": {
+    "2020": 65.7,
+    "2021": 81.3,
+    "2022": 81.9,
+    "2023": 84.5,
+    "2024": 88.0,
+    "2025": 92.7
+   }
+  },
+  "120": {
+   "description": "Social services and religious activities",
+   "millions": {
+    "2020": 832.7,
+    "2021": 923.9,
+    "2022": 995.7,
+    "2023": 1095.3,
+    "2024": 1160.2,
+    "2025": 1215.7
+   }
+  },
+  "121": {
+   "description": "Professional and other services",
+   "millions": {
+    "2020": 682.8,
+    "2021": 751.4,
+    "2022": 786.7,
+    "2023": 836.6,
+    "2024": 881.1,
+    "2025": 947.1
+   }
+  },
+  "122": {
+   "description": "Legal services",
+   "millions": {
+    "2020": 270.8,
+    "2021": 292.9,
+    "2022": 311.0,
+    "2023": 328.4,
+    "2024": 343.4,
+    "2025": 378.1
+   }
+  },
+  "123": {
+   "description": "Accounting and other business services",
+   "millions": {
+    "2020": 168.1,
+    "2021": 193.7,
+    "2022": 205.7,
+    "2023": 234.6,
+    "2024": 263.2,
+    "2025": 276.4
+   }
+  },
+  "124": {
+   "description": "Labor organization dues",
+   "millions": {
+    "2020": 124.5,
+    "2021": 130.8,
+    "2022": 139.5,
+    "2023": 139.5,
+    "2024": 142.3,
+    "2025": 147.4
+   }
+  },
+  "125": {
+   "description": "Professional association dues",
+   "millions": {
+    "2020": 29.8,
+    "2021": 32.4,
+    "2022": 30.9,
+    "2023": 35.1,
+    "2024": 38.2,
+    "2025": 43.9
+   }
+  },
+  "126": {
+   "description": "Funeral and burial services",
+   "millions": {
+    "2020": 89.5,
+    "2021": 101.6,
+    "2022": 99.5,
+    "2023": 99.1,
+    "2024": 93.9,
+    "2025": 101.3
+   }
+  },
+  "127": {
+   "description": "Tobacco",
+   "millions": {
+    "2020": 648.8,
+    "2021": 624.8,
+    "2022": 598.0,
+    "2023": 585.1,
+    "2024": 561.7,
+    "2025": 543.9
+   }
+  },
+  "128": {
+   "description": "Net foreign travel and expenditures abroad by U.S. residents",
+   "millions": {
+    "2020": -42.9,
+    "2021": 78.2,
+    "2022": -117.2,
+    "2023": -235.3,
+    "2024": -268.5,
+    "2025": -185.8
+   }
+  },
+  "129": {
+   "description": "Foreign travel by U.S. residents",
+   "millions": {
+    "2020": 239.1,
+    "2021": 437.3,
+    "2022": 888.5,
+    "2023": 1106.1,
+    "2024": 1237.9,
+    "2025": 1320.3
+   }
+  },
+  "13": {
+   "description": "Other clothing materials",
+   "millions": {
+    "2020": 25.8,
+    "2021": 25.4,
+    "2022": 24.3,
+    "2023": 26.0,
+    "2024": 26.6,
+    "2025": 28.5
+   }
+  },
+  "130": {
+   "description": "Less: Expenditures in the United States by nonresidents",
+   "millions": {
+    "2020": 282.0,
+    "2021": 359.0,
+    "2022": 1005.7,
+    "2023": 1341.4,
+    "2024": 1506.4,
+    "2025": 1506.1
+   }
+  },
+  "132": {
+   "description": "Final consumption expenditures of nonprofit institutions serving households (NPISHs)",
+   "millions": {
+    "2020": 3241.7,
+    "2021": 2834.1,
+    "2022": 3496.6,
+    "2023": 3259.2,
+    "2024": 3624.7,
+    "2025": 3729.8
+   }
+  },
+  "133": {
+   "description": "Gross output of nonprofit institutions",
+   "millions": {
+    "2020": 8678.8,
+    "2021": 8808.7,
+    "2022": 9335.4,
+    "2023": 9613.5,
+    "2024": 10497.1,
+    "2025": 11133.6
+   }
+  },
+  "134": {
+   "description": "Less: Receipts from sales of goods and services by nonprofit institutions",
+   "millions": {
+    "2020": 5437.1,
+    "2021": 5974.6,
+    "2022": 5838.8,
+    "2023": 6354.3,
+    "2024": 6872.5,
+    "2025": 7403.8
+   }
+  },
+  "14": {
+   "description": "Cleaning, repair, and rental of clothing",
+   "millions": {
+    "2020": 63.0,
+    "2021": 77.9,
+    "2022": 102.4,
+    "2023": 110.0,
+    "2024": 119.8,
+    "2025": 124.7
+   }
+  },
+  "15": {
+   "description": "Laundry and dry cleaning services",
+   "millions": {
+    "2020": 39.5,
+    "2021": 51.4,
+    "2022": 68.5,
+    "2023": 73.4,
+    "2024": 81.6,
+    "2025": 85.4
+   }
+  },
+  "16": {
+   "description": "Clothing repair, rental, and alterations",
+   "millions": {
+    "2020": 23.5,
+    "2021": 26.6,
+    "2022": 34.0,
+    "2023": 36.6,
+    "2024": 38.2,
+    "2025": 39.3
+   }
+  },
+  "17": {
+   "description": "Footwear",
+   "millions": {
+    "2020": 200.0,
+    "2021": 256.2,
+    "2022": 266.0,
+    "2023": 280.2,
+    "2024": 290.5,
+    "2025": 307.7
+   }
+  },
+  "18": {
+   "description": "Housing, utilities, and fuels",
+   "millions": {
+    "2020": 14446.6,
+    "2021": 14921.8,
+    "2022": 15778.3,
+    "2023": 16776.6,
+    "2024": 17087.3,
+    "2025": 17515.5
+   }
+  },
+  "19": {
+   "description": "Housing",
+   "millions": {
+    "2020": 12670.1,
+    "2021": 13148.7,
+    "2022": 13649.5,
+    "2023": 14708.7,
+    "2024": 15021.3,
+    "2025": 15316.4
+   }
+  },
+  "2": {
+   "description": "Household consumption expenditures",
+   "millions": {
+    "2020": 60856.1,
+    "2021": 69113.7,
+    "2022": 74998.7,
+    "2023": 79830.8,
+    "2024": 83909.6,
+    "2025": 87534.3
+   }
+  },
+  "20": {
+   "description": "Rental of tenant-occupied nonfarm housing",
+   "millions": {
+    "2020": 3026.4,
+    "2021": 3427.4,
+    "2022": 3332.4,
+    "2023": 3742.5,
+    "2024": 3696.0,
+    "2025": 3665.3
+   }
+  },
+  "21": {
+   "description": "Imputed rental of owner-occupied nonfarm housing",
+   "millions": {
+    "2020": 9492.9,
+    "2021": 9640.4,
+    "2022": 10124.8,
+    "2023": 10859.5,
+    "2024": 11212.3,
+    "2025": 11504.9
+   }
+  },
+  "22": {
+   "description": "Rental value of farm dwellings",
+   "millions": {
+    "2020": 141.4,
+    "2021": 72.8,
+    "2022": 183.7,
+    "2023": 97.8,
+    "2024": 106.7,
+    "2025": 140.5
+   }
+  },
+  "23": {
+   "description": "Group housing",
+   "millions": {
+    "2020": 9.4,
+    "2021": 8.1,
+    "2022": 8.5,
+    "2023": 8.9,
+    "2024": 6.3,
+    "2025": 5.7
+   }
+  },
+  "24": {
+   "description": "Household utilities and fuels",
+   "millions": {
+    "2020": 1776.5,
+    "2021": 1773.0,
+    "2022": 2128.8,
+    "2023": 2067.8,
+    "2024": 2066.0,
+    "2025": 2199.0
+   }
+  },
+  "25": {
+   "description": "Water supply and sanitation",
+   "millions": {
+    "2020": 755.1,
+    "2021": 696.1,
+    "2022": 774.1,
+    "2023": 756.8,
+    "2024": 758.0,
+    "2025": 782.0
+   }
+  },
+  "26": {
+   "description": "Electricity, gas, and other fuels",
+   "millions": {
+    "2020": 1021.4,
+    "2021": 1077.0,
+    "2022": 1354.8,
+    "2023": 1311.1,
+    "2024": 1308.0,
+    "2025": 1417.0
+   }
+  },
+  "27": {
+   "description": "Electricity",
+   "millions": {
+    "2020": 863.6,
+    "2021": 893.5,
+    "2022": 1096.3,
+    "2023": 1097.2,
+    "2024": 1085.1,
+    "2025": 1156.0
+   }
+  },
+  "28": {
+   "description": "Natural gas",
+   "millions": {
+    "2020": 75.1,
+    "2021": 75.9,
+    "2022": 87.9,
+    "2023": 71.7,
+    "2024": 87.7,
+    "2025": 113.1
+   }
+  },
+  "29": {
+   "description": "Fuel oil and other fuels",
+   "millions": {
+    "2020": 82.8,
+    "2021": 107.5,
+    "2022": 170.5,
+    "2023": 142.2,
+    "2024": 135.1,
+    "2025": 147.9
+   }
+  },
+  "3": {
+   "description": "Food and beverages purchased for off-premises consumption",
+   "millions": {
+    "2020": 6600.8,
+    "2021": 7114.9,
+    "2022": 7670.6,
+    "2023": 7882.3,
+    "2024": 8145.0,
+    "2025": 8373.2
+   }
+  },
+  "30": {
+   "description": "Furnishings, household equipment, and routine household maintenance",
+   "millions": {
+    "2020": 2494.3,
+    "2021": 2769.2,
+    "2022": 2914.8,
+    "2023": 2964.4,
+    "2024": 3045.0,
+    "2025": 3126.5
+   }
+  },
+  "31": {
+   "description": "Furniture, furnishings, and floor coverings",
+   "millions": {
+    "2020": 781.4,
+    "2021": 870.4,
+    "2022": 892.0,
+    "2023": 904.3,
+    "2024": 924.5,
+    "2025": 958.4
+   }
+  },
+  "32": {
+   "description": "Household textiles",
+   "millions": {
+    "2020": 164.7,
+    "2021": 185.4,
+    "2022": 200.1,
+    "2023": 211.6,
+    "2024": 221.0,
+    "2025": 231.7
+   }
+  },
+  "33": {
+   "description": "Household appliances",
+   "millions": {
+    "2020": 419.1,
+    "2021": 495.7,
+    "2022": 521.8,
+    "2023": 516.8,
+    "2024": 526.4,
+    "2025": 533.1
+   }
+  },
+  "34": {
+   "description": "Glassware, tableware, and household utensils",
+   "millions": {
+    "2020": 144.0,
+    "2021": 157.4,
+    "2022": 167.6,
+    "2023": 179.9,
+    "2024": 190.7,
+    "2025": 205.5
+   }
+  },
+  "35": {
+   "description": "Tools and equipment for house and garden",
+   "millions": {
+    "2020": 243.8,
+    "2021": 273.8,
+    "2022": 294.6,
+    "2023": 292.4,
+    "2024": 294.2,
+    "2025": 297.5
+   }
+  },
+  "36": {
+   "description": "Other household goods and services",
+   "millions": {
+    "2020": 741.3,
+    "2021": 786.6,
+    "2022": 838.7,
+    "2023": 859.4,
+    "2024": 888.2,
+    "2025": 900.3
+   }
+  },
+  "37": {
+   "description": "Health",
+   "millions": {
+    "2020": 12845.1,
+    "2021": 13852.5,
+    "2022": 14670.9,
+    "2023": 15946.6,
+    "2024": 17290.3,
+    "2025": 18452.4
+   }
+  },
+  "38": {
+   "description": "Medical products, appliances, and equipment",
+   "millions": {
+    "2020": 2471.2,
+    "2021": 2527.0,
+    "2022": 2651.4,
+    "2023": 2866.1,
+    "2024": 3032.7,
+    "2025": 3213.3
+   }
+  },
+  "39": {
+   "description": "Pharmaceutical and other medical products",
+   "millions": {
+    "2020": 2115.2,
+    "2021": 2111.4,
+    "2022": 2228.7,
+    "2023": 2426.4,
+    "2024": 2580.5,
+    "2025": 2747.0
+   }
+  },
+  "4": {
+   "description": "Food and nonalcoholic beverages purchased for off-premises consumption",
+   "millions": {
+    "2020": 5587.5,
+    "2021": 5997.1,
+    "2022": 6502.0,
+    "2023": 6686.4,
+    "2024": 6931.4,
+    "2025": 7140.9
+   }
+  },
+  "40": {
+   "description": "Pharmaceutical products",
+   "millions": {
+    "2020": 2080.6,
+    "2021": 2072.0,
+    "2022": 2185.6,
+    "2023": 2380.2,
+    "2024": 2533.7,
+    "2025": 2697.8
+   }
+  },
+  "41": {
+   "description": "Other medical products",
+   "millions": {
+    "2020": 34.6,
+    "2021": 39.4,
+    "2022": 43.1,
+    "2023": 46.2,
+    "2024": 46.8,
+    "2025": 49.2
+   }
+  },
+  "42": {
+   "description": "Therapeutic appliances and equipment",
+   "millions": {
+    "2020": 356.1,
+    "2021": 415.7,
+    "2022": 422.7,
+    "2023": 439.7,
+    "2024": 452.2,
+    "2025": 466.3
+   }
+  },
+  "43": {
+   "description": "Outpatient services",
+   "millions": {
+    "2020": 5067.0,
+    "2021": 5673.7,
+    "2022": 6071.0,
+    "2023": 6625.8,
+    "2024": 7239.3,
+    "2025": 7732.8
+   }
+  },
+  "44": {
+   "description": "Physician services",
+   "millions": {
+    "2020": 2376.9,
+    "2021": 2641.7,
+    "2022": 2808.7,
+    "2023": 3107.2,
+    "2024": 3323.6,
+    "2025": 3496.0
+   }
+  },
+  "45": {
+   "description": "Dental services",
+   "millions": {
+    "2020": 494.5,
+    "2021": 607.2,
+    "2022": 653.8,
+    "2023": 676.4,
+    "2024": 717.2,
+    "2025": 754.5
+   }
+  },
+  "46": {
+   "description": "Paramedical services",
+   "millions": {
+    "2020": 2195.6,
+    "2021": 2424.8,
+    "2022": 2608.6,
+    "2023": 2842.2,
+    "2024": 3198.5,
+    "2025": 3482.3
+   }
+  },
+  "47": {
+   "description": "Home health care",
+   "millions": {
+    "2020": 339.8,
+    "2021": 385.5,
+    "2022": 400.1,
+    "2023": 430.7,
+    "2024": 481.5,
+    "2025": 556.9
+   }
+  },
+  "48": {
+   "description": "Medical laboratories",
+   "millions": {
+    "2020": 263.9,
+    "2021": 320.5,
+    "2022": 328.0,
+    "2023": 322.3,
+    "2024": 360.3,
+    "2025": 377.9
+   }
+  },
+  "49": {
+   "description": "Other professional medical services",
+   "millions": {
+    "2020": 1591.9,
+    "2021": 1718.8,
+    "2022": 1880.5,
+    "2023": 2089.1,
+    "2024": 2356.6,
+    "2025": 2547.5
+   }
+  },
+  "5": {
+   "description": "Alcoholic beverages purchased for off-premises consumption",
+   "millions": {
+    "2020": 1012.7,
+    "2021": 1117.0,
+    "2022": 1167.7,
+    "2023": 1195.0,
+    "2024": 1212.5,
+    "2025": 1231.1
+   }
+  },
+  "50": {
+   "description": "Hospital and nursing home services",
+   "millions": {
+    "2020": 5306.8,
+    "2021": 5651.7,
+    "2022": 5948.5,
+    "2023": 6454.8,
+    "2024": 7018.2,
+    "2025": 7506.2
+   }
+  },
+  "51": {
+   "description": "Hospitals",
+   "millions": {
+    "2020": 4602.4,
+    "2021": 4944.5,
+    "2022": 5196.2,
+    "2023": 5611.7,
+    "2024": 6092.6,
+    "2025": 6509.2
+   }
+  },
+  "52": {
+   "description": "Nursing homes",
+   "millions": {
+    "2020": 704.4,
+    "2021": 707.2,
+    "2022": 752.3,
+    "2023": 843.0,
+    "2024": 925.6,
+    "2025": 997.0
+   }
+  },
+  "53": {
+   "description": "Transportation",
+   "millions": {
+    "2020": 3817.6,
+    "2021": 5462.3,
+    "2022": 6473.7,
+    "2023": 6827.6,
+    "2024": 7160.6,
+    "2025": 7374.6
+   }
+  },
+  "54": {
+   "description": "Motor vehicles",
+   "millions": {
+    "2020": 1778.1,
+    "2021": 2182.5,
+    "2022": 2237.5,
+    "2023": 2311.7,
+    "2024": 2298.8,
+    "2025": 2430.8
+   }
+  },
+  "55": {
+   "description": "New motor vehicles",
+   "millions": {
+    "2020": 1341.9,
+    "2021": 1565.8,
+    "2022": 1639.5,
+    "2023": 1737.5,
+    "2024": 1733.3,
+    "2025": 1863.4
+   }
+  },
+  "56": {
+   "description": "Net purchases of used motor vehicles",
+   "millions": {
+    "2020": 436.2,
+    "2021": 616.7,
+    "2022": 598.1,
+    "2023": 574.2,
+    "2024": 565.6,
+    "2025": 567.4
+   }
+  },
+  "57": {
+   "description": "Motor vehicle operation",
+   "millions": {
+    "2020": 1477.9,
+    "2021": 1977.9,
+    "2022": 2345.0,
+    "2023": 2274.4,
+    "2024": 2296.7,
+    "2025": 2286.5
+   }
+  },
+  "58": {
+   "description": "Motor vehicle parts and accessories",
+   "millions": {
+    "2020": 231.4,
+    "2021": 271.2,
+    "2022": 312.7,
+    "2023": 334.7,
+    "2024": 342.7,
+    "2025": 350.0
+   }
+  },
+  "59": {
+   "description": "Motor vehicle fuels, lubricants, and fluids",
+   "millions": {
+    "2020": 563.5,
+    "2021": 816.4,
+    "2022": 1023.0,
+    "2023": 927.2,
+    "2024": 895.3,
+    "2025": 832.8
+   }
+  },
+  "6": {
+   "description": "Food produced and consumed on farms",
+   "millions": {
+    "2020": 0.7,
+    "2021": 0.8,
+    "2022": 0.9,
+    "2023": 0.9,
+    "2024": 1.1,
+    "2025": 1.1
+   }
+  },
+  "60": {
+   "description": "Motor vehicle maintenance and repair",
+   "millions": {
+    "2020": 589.4,
+    "2021": 683.3,
+    "2022": 778.4,
+    "2023": 810.8,
+    "2024": 806.5,
+    "2025": 808.1
+   }
+  },
+  "61": {
+   "description": "Other motor vehicle services",
+   "millions": {
+    "2020": 93.5,
+    "2021": 207.0,
+    "2022": 231.0,
+    "2023": 201.7,
+    "2024": 252.2,
+    "2025": 295.7
+   }
+  },
+  "62": {
+   "description": "Public transportation",
+   "millions": {
+    "2020": 561.6,
+    "2021": 1301.9,
+    "2022": 1891.2,
+    "2023": 2241.6,
+    "2024": 2565.1,
+    "2025": 2657.3
+   }
+  },
+  "63": {
+   "description": "Ground transportation",
+   "millions": {
+    "2020": 133.0,
+    "2021": 194.4,
+    "2022": 291.9,
+    "2023": 307.9,
+    "2024": 389.9,
+    "2025": 440.9
+   }
+  },
+  "64": {
+   "description": "Air transportation",
+   "millions": {
+    "2020": 408.7,
+    "2021": 1070.9,
+    "2022": 1544.8,
+    "2023": 1875.4,
+    "2024": 2110.8,
+    "2025": 2149.9
+   }
+  },
+  "65": {
+   "description": "Water transportation",
+   "millions": {
+    "2020": 19.8,
+    "2021": 36.6,
+    "2022": 54.4,
+    "2023": 58.3,
+    "2024": 64.3,
+    "2025": 66.5
+   }
+  },
+  "66": {
+   "description": "Communication",
+   "millions": {
+    "2020": 1225.8,
+    "2021": 1324.6,
+    "2022": 1416.7,
+    "2023": 1472.2,
+    "2024": 1492.8,
+    "2025": 1540.0
+   }
+  },
+  "67": {
+   "description": "Telephone and related communication equipment",
+   "millions": {
+    "2020": 51.2,
+    "2021": 65.2,
+    "2022": 74.7,
+    "2023": 79.2,
+    "2024": 81.9,
+    "2025": 84.7
+   }
+  },
+  "68": {
+   "description": "Postal and delivery services",
+   "millions": {
+    "2020": 36.1,
+    "2021": 36.2,
+    "2022": 37.8,
+    "2023": 36.3,
+    "2024": 37.2,
+    "2025": 32.3
+   }
+  },
+  "69": {
+   "description": "First-class postal service by U.S. Postal Service (USPS)",
+   "millions": {
+    "2020": 21.7,
+    "2021": 22.0,
+    "2022": 22.7,
+    "2023": 23.1,
+    "2024": 23.5,
+    "2025": 18.1
+   }
+  },
+  "7": {
+   "description": "Clothing, footwear, and related services",
+   "millions": {
+    "2020": 1585.6,
+    "2021": 2034.9,
+    "2022": 2148.6,
+    "2023": 2287.0,
+    "2024": 2343.9,
+    "2025": 2470.9
+   }
+  },
+  "70": {
+   "description": "Other delivery services (by non-USPS facilities)",
+   "millions": {
+    "2020": 14.4,
+    "2021": 14.2,
+    "2022": 15.1,
+    "2023": 13.2,
+    "2024": 13.7,
+    "2025": 14.3
+   }
+  },
+  "71": {
+   "description": "Telecommunication services",
+   "millions": {
+    "2020": 739.2,
+    "2021": 801.0,
+    "2022": 860.1,
+    "2023": 891.6,
+    "2024": 880.3,
+    "2025": 902.2
+   }
+  },
+  "72": {
+   "description": "Internet access",
+   "millions": {
+    "2020": 399.3,
+    "2021": 422.2,
+    "2022": 444.1,
+    "2023": 465.1,
+    "2024": 493.3,
+    "2025": 520.8
+   }
+  },
+  "73": {
+   "description": "Recreation",
+   "millions": {
+    "2020": 4433.2,
+    "2021": 5619.0,
+    "2022": 6244.2,
+    "2023": 6714.9,
+    "2024": 7002.5,
+    "2025": 7422.2
+   }
+  },
+  "74": {
+   "description": "Video and audio equipment, computers, and related services",
+   "millions": {
+    "2020": 1301.7,
+    "2021": 1566.5,
+    "2022": 1595.2,
+    "2023": 1662.3,
+    "2024": 1705.3,
+    "2025": 1812.1
+   }
+  },
+  "75": {
+   "description": "Video and audio equipment",
+   "millions": {
+    "2020": 249.3,
+    "2021": 321.4,
+    "2022": 341.5,
+    "2023": 367.7,
+    "2024": 381.7,
+    "2025": 398.8
+   }
+  },
+  "76": {
+   "description": "Information processing equipment",
+   "millions": {
+    "2020": 506.7,
+    "2021": 657.6,
+    "2022": 634.9,
+    "2023": 660.0,
+    "2024": 689.3,
+    "2025": 772.6
+   }
+  },
+  "77": {
+   "description": "Services related to video and audio goods and computers",
+   "millions": {
+    "2020": 545.6,
+    "2021": 587.5,
+    "2022": 618.8,
+    "2023": 634.6,
+    "2024": 634.3,
+    "2025": 640.7
+   }
+  },
+  "78": {
+   "description": "Sports and recreational goods and related services",
+   "millions": {
+    "2020": 986.8,
+    "2021": 1216.9,
+    "2022": 1315.6,
+    "2023": 1396.8,
+    "2024": 1447.0,
+    "2025": 1531.8
+   }
+  },
+  "79": {
+   "description": "Sports and recreational vehicles",
+   "millions": {
+    "2020": 147.6,
+    "2021": 179.2,
+    "2022": 179.6,
+    "2023": 166.0,
+    "2024": 167.5,
+    "2025": 168.0
+   }
+  },
+  "8": {
+   "description": "Clothing",
+   "millions": {
+    "2020": 1385.5,
+    "2021": 1778.6,
+    "2022": 1882.6,
+    "2023": 2006.8,
+    "2024": 2053.4,
+    "2025": 2163.3
+   }
+  },
+  "80": {
+   "description": "Other sporting and recreational goods",
+   "millions": {
+    "2020": 824.4,
+    "2021": 1021.9,
+    "2022": 1119.9,
+    "2023": 1215.8,
+    "2024": 1264.5,
+    "2025": 1349.0
+   }
+  },
+  "81": {
+   "description": "Maintenance and repair of recreational vehicles and sports equipment",
+   "millions": {
+    "2020": 14.8,
+    "2021": 15.7,
+    "2022": 16.0,
+    "2023": 15.0,
+    "2024": 15.0,
+    "2025": 14.8
+   }
+  },
+  "82": {
+   "description": "Membership clubs, sports centers, parks, theaters, and museums",
+   "millions": {
+    "2020": 570.9,
+    "2021": 883.2,
+    "2022": 1249.4,
+    "2023": 1418.3,
+    "2024": 1475.8,
+    "2025": 1550.5
+   }
+  },
+  "83": {
+   "description": "Membership clubs and participant sports centers",
+   "millions": {
+    "2020": 176.5,
+    "2021": 242.2,
+    "2022": 293.8,
+    "2023": 333.9,
+    "2024": 369.3,
+    "2025": 384.8
+   }
+  },
+  "84": {
+   "description": "Amusements parks, campgrounds, and related recreational services",
+   "millions": {
+    "2020": 158.8,
+    "2021": 239.3,
+    "2022": 334.0,
+    "2023": 365.8,
+    "2024": 363.3,
+    "2025": 380.1
+   }
+  },
+  "85": {
+   "description": "Admissions to specified spectator amusements",
+   "millions": {
+    "2020": 215.6,
+    "2021": 371.9,
+    "2022": 585.3,
+    "2023": 677.9,
+    "2024": 701.1,
+    "2025": 739.7
+   }
+  },
+  "86": {
+   "description": "Motion picture theaters",
+   "millions": {
+    "2020": 17.2,
+    "2021": 31.8,
+    "2022": 52.5,
+    "2023": 63.5,
+    "2024": 60.9,
+    "2025": 62.3
+   }
+  },
+  "87": {
+   "description": "Live entertainment, excluding sports",
+   "millions": {
+    "2020": 179.1,
+    "2021": 299.1,
+    "2022": 479.2,
+    "2023": 555.5,
+    "2024": 577.1,
+    "2025": 609.5
+   }
+  },
+  "88": {
+   "description": "Spectator sports",
+   "millions": {
+    "2020": 19.3,
+    "2021": 40.9,
+    "2022": 53.5,
+    "2023": 59.0,
+    "2024": 63.1,
+    "2025": 67.9
+   }
+  },
+  "89": {
+   "description": "Museums and libraries",
+   "millions": {
+    "2020": 20.0,
+    "2021": 29.9,
+    "2022": 36.3,
+    "2023": 40.7,
+    "2024": 42.2,
+    "2025": 45.9
+   }
+  },
+  "9": {
+   "description": "Garments",
+   "millions": {
+    "2020": 1296.7,
+    "2021": 1675.3,
+    "2022": 1755.8,
+    "2023": 1870.8,
+    "2024": 1907.0,
+    "2025": 2010.0
+   }
+  },
+  "90": {
+   "description": "Magazines, newspapers, books, and stationery",
+   "millions": {
+    "2020": 355.1,
+    "2021": 429.2,
+    "2022": 445.9,
+    "2023": 484.6,
+    "2024": 520.0,
+    "2025": 554.9
+   }
+  },
+  "91": {
+   "description": "Gambling",
+   "millions": {
+    "2020": 724.5,
+    "2021": 948.0,
+    "2022": 1022.8,
+    "2023": 1084.6,
+    "2024": 1157.8,
+    "2025": 1261.4
+   }
+  },
+  "92": {
+   "description": "Pets, pet products, and related services",
+   "millions": {
+    "2020": 426.2,
+    "2021": 494.9,
+    "2022": 522.4,
+    "2023": 557.4,
+    "2024": 572.6,
+    "2025": 586.3
+   }
+  },
+  "93": {
+   "description": "Photographic goods and services",
+   "millions": {
+    "2020": 62.9,
+    "2021": 72.2,
+    "2022": 79.9,
+    "2023": 94.4,
+    "2024": 103.8,
+    "2025": 105.2
+   }
+  },
+  "94": {
+   "description": "Package tours",
+   "millions": {
+    "2020": 5.1,
+    "2021": 8.2,
+    "2022": 13.0,
+    "2023": 16.4,
+    "2024": 20.1,
+    "2025": 20.0
+   }
+  },
+  "95": {
+   "description": "Education",
+   "millions": {
+    "2020": 1307.6,
+    "2021": 1388.0,
+    "2022": 1456.1,
+    "2023": 1477.4,
+    "2024": 1561.7,
+    "2025": 1606.5
+   }
+  },
+  "96": {
+   "description": "Educational books",
+   "millions": {
+    "2020": 7.0,
+    "2021": 8.2,
+    "2022": 9.0,
+    "2023": 9.3,
+    "2024": 9.8,
+    "2025": 9.7
+   }
+  },
+  "97": {
+   "description": "Higher education",
+   "millions": {
+    "2020": 917.4,
+    "2021": 941.2,
+    "2022": 966.2,
+    "2023": 953.9,
+    "2024": 1011.0,
+    "2025": 1019.6
+   }
+  },
+  "98": {
+   "description": "Nursery, elementary, and secondary schools",
+   "millions": {
+    "2020": 198.5,
+    "2021": 213.1,
+    "2022": 220.9,
+    "2023": 231.1,
+    "2024": 236.4,
+    "2025": 250.9
+   }
+  },
+  "99": {
+   "description": "Commercial and vocational schools",
+   "millions": {
+    "2020": 184.6,
+    "2021": 225.5,
+    "2022": 260.0,
+    "2023": 283.1,
+    "2024": 304.5,
+    "2025": 326.3
+   }
+  }
+ },
+ "sha256_zip": "e4f132908f1d067aa8694063c851c8b4173d25bb9612875105d791892d0361bf",
+ "source": "BEA regional accounts, table SAPCE4 (personal consumption expenditures by function), Hawaii: https://apps.bea.gov/regional/zip/SAPCE.zip, member SAPCE4_HI_1997_2025.csv",
+ "units": "millions of current dollars"
+}
