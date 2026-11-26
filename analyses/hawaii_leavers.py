@@ -10,7 +10,7 @@ Three groups from the ACS 2020-2024 5-year PUMS, by where each person lived a ye
 
 Headline groups are civilians in housing units: households with a member in the armed forces (``ESR`` 4/5) and
 group quarters (dorms, barracks, prisons) are dropped, since their moves are orders and enrolment. Veterans
-(``MIL`` 2) stay in; ``--sensitivity`` reports the results without them and without survey year 2020.
+(``MIL`` 2) stay in; two sensitivity cases drop every veteran household and survey year 2020.
 
 Person statistics cover adults (18+). Tax statistics cover tax units built by ``build_raw_units`` and are
 assigned to a group by the primary filer. Each leaver unit is scored under Hawaiʻi law *as if it had stayed*:
@@ -22,37 +22,47 @@ filing-status factors set to 1.0 for every group, since they are Hawaiʻi calibr
 Census successive-difference replicate formula over the 80 replicate weights. Incomes are in 2024 dollars
 (``ADJINC``). Poverty is the official measure (``POVPIP``), the same federal line in every state.
 
-The IRS SOI state-to-state migration files (``stateoutflow2122.csv`` etc. from https://www.irs.gov/pub/irs-soi/)
-go in ``data/tax_modeler/external/irs_migration/`` (gitignored) for the benchmark; it is skipped when they are
-absent. Results and caveats: ``HAWAII_LEAVERS.md``.
+The IRS side is the SOI gross migration files by size of AGI, 2015-16 to 2022-23, whose Hawaiʻi rows
+``scripts/fetch_irs_migration.py`` writes to ``data/tax_modeler/irs_soi/migration_hawaii_by_agi.csv``: returns and
+AGI moving out and in, all filers and $200,000 or more, with the AGI each side reported from Hawaiʻi.
 
-    uv run python analyses/hawaii_leavers.py [--sensitivity] [--out reports/hawaii_leavers]
+Outputs (``runs/hawaii_leavers/``, published to ``site/data/hawaii-leavers/`` by ``scripts/build_site.py
+--import-runs hawaii-leavers``): results.csv (every statistic and its standard error, by case), destinations.csv,
+irs_flows.csv, irs_by_agi.csv, manifest.json. Results and caveats: ``HAWAII_LEAVERS.md``.
+
+    uv run python analyses/hawaii_leavers.py [--no-sensitivity]
 """
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(REPO / "scripts")]
 RAW = REPO / "packages" / "data" / "raw"
 HI_DIR = RAW / "pums_2020_2024"
 US_DIR = RAW / "pums_2020_2024_us"
-IRS_DIR = REPO / "data" / "tax_modeler" / "external" / "irs_migration"
+IRS_CSV = REPO / "data" / "tax_modeler" / "irs_soi" / "migration_hawaii_by_agi.csv"
+TOP_CLASS = "$200,000 or more"
 HAWAII = 15
 GROUPS = ("stayers", "movers in", "leavers")
 REPS = [f"PWGTP{i}" for i in range(1, 81)]
 UNIT_REPS = [f"weight_r{i:02d}" for i in range(1, 81)]
 AGE_BANDS = [(18, 29), (30, 44), (45, 64), (65, 200)]
 STATE_NAMES = {
-    1: "AL", 2: "AK", 4: "AZ", 5: "AR", 6: "CA", 8: "CO", 9: "CT", 10: "DE", 11: "DC", 12: "FL", 13: "GA",
-    16: "ID", 17: "IL", 18: "IN", 19: "IA", 20: "KS", 21: "KY", 22: "LA", 23: "ME", 24: "MD", 25: "MA", 26: "MI",
-    27: "MN", 28: "MS", 29: "MO", 30: "MT", 31: "NE", 32: "NV", 33: "NH", 34: "NJ", 35: "NM", 36: "NY", 37: "NC",
-    38: "ND", 39: "OH", 40: "OK", 41: "OR", 42: "PA", 44: "RI", 45: "SC", 46: "SD", 47: "TN", 48: "TX", 49: "UT",
-    50: "VT", 51: "VA", 53: "WA", 54: "WV", 55: "WI", 56: "WY", 72: "PR",
+    1: "Alabama", 2: "Alaska", 4: "Arizona", 5: "Arkansas", 6: "California", 8: "Colorado", 9: "Connecticut",
+    10: "Delaware", 11: "District of Columbia", 12: "Florida", 13: "Georgia", 16: "Idaho", 17: "Illinois",
+    18: "Indiana", 19: "Iowa", 20: "Kansas", 21: "Kentucky", 22: "Louisiana", 23: "Maine", 24: "Maryland",
+    25: "Massachusetts", 26: "Michigan", 27: "Minnesota", 28: "Mississippi", 29: "Missouri", 30: "Montana",
+    31: "Nebraska", 32: "Nevada", 33: "New Hampshire", 34: "New Jersey", 35: "New Mexico", 36: "New York",
+    37: "North Carolina", 38: "North Dakota", 39: "Ohio", 40: "Oklahoma", 41: "Oregon", 42: "Pennsylvania",
+    44: "Rhode Island", 45: "South Carolina", 46: "South Dakota", 47: "Tennessee", 48: "Texas", 49: "Utah",
+    50: "Vermont", 51: "Virginia", 53: "Washington", 54: "West Virginia", 55: "Wisconsin", 56: "Wyoming",
+    72: "Puerto Rico",
 }
 
 
@@ -263,19 +273,46 @@ def destinations(adults: pd.DataFrame, n: int = 10) -> list:
              "records": int((lv["ST"] == s).sum())} for s, v in top.items()]
 
 
-def irs_benchmark() -> dict:
-    """Hawaiʻi totals from the IRS SOI state-to-state migration files (returns, people, AGI in $000)."""
-    out = {}
-    for path in sorted(IRS_DIR.glob("state*flow*.csv")):
-        df = pd.read_csv(path, encoding="latin-1")
-        key = "y1_statefips" if "outflow" in path.name else "y2_statefips"
-        other = "y2_statefips" if key == "y1_statefips" else "y1_statefips"
-        row = df[(df[key] == HAWAII) & (df[other] == 97)]
-        if len(row):
-            r = row.iloc[0]
-            out[path.stem] = {"returns": int(r["n1"]), "people": int(r["n2"]),
-                              "agi_per_return": round(float(r["AGI"]) * 1000 / float(r["n1"]))}
+def irs_flows() -> pd.DataFrame:
+    """Hawaiʻi filers moving out and in, all filers and AGI $200,000 or more, by pair of filing years.
+
+    Each side's AGI is the year it filed from Hawaiʻi: the first year for those leaving, the second for those
+    arriving. The leaving rate divides those leaving by every return filed from Hawaiʻi in the first year that
+    could be matched (non-migrants, movers within the state and those leaving)."""
+    t = pd.read_csv(IRS_CSV)
+    rows = []
+    for (y1, y2), yr in t.groupby(["year1", "year2"]):
+        for cls, label in (("All", "all"), (TOP_CLASS, "200k_plus")):
+            f = yr[yr["agi_class"] == cls].set_index("flow")
+            base = f.loc[["nonmigrant", "same_state", "outflow"], "returns"].sum()
+            rows.append({"year1": y1, "year2": y2, "agi_class": label,
+                         "returns_out": f.loc["outflow", "returns"], "returns_in": f.loc["inflow", "returns"],
+                         "leaving_rate": f.loc["outflow", "returns"] / base,
+                         "agi_out_k": f.loc["outflow", "agi_year1_k"], "agi_in_k": f.loc["inflow", "agi_year2_k"]})
+    out = pd.DataFrame(rows)
+    out["net_returns_in"] = out["returns_in"] - out["returns_out"]
+    out["net_agi_in_k"] = out["agi_in_k"] - out["agi_out_k"]
     return out
+
+
+def tidy(case: str, res: dict) -> pd.DataFrame:
+    """One row per (table, group, band, metric) with its estimate and standard error."""
+    rows = []
+
+    def add(table, group, band, d):
+        for metric, v in d.items():
+            est, se = (v, np.nan) if not isinstance(v, (tuple, list)) else v
+            rows.append({"case": case, "table": table, "group": group, "band": band, "metric": metric,
+                         "estimate": est, "se": se})
+
+    for table in ("persons", "units", "born_in_hawaii"):
+        for g, d in res[table].items():
+            add(table, g, "", d)
+    for band, by_g in res["by_age"].items():
+        for g, d in by_g.items():
+            add("by_age", g, band, d)
+    add("net", "leavers minus movers in", "", res["net_tax_out_minus_in"])
+    return pd.DataFrame(rows)
 
 
 def run(p: pd.DataFrame, hi_h: pd.DataFrame, lv_h: pd.DataFrame) -> dict:
@@ -296,20 +333,33 @@ def run(p: pd.DataFrame, hi_h: pd.DataFrame, lv_h: pd.DataFrame) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--sensitivity", action="store_true", help="also run without veterans and without 2020")
-    ap.add_argument("--out", type=Path, default=REPO / "reports" / "hawaii_leavers")
+    ap.add_argument("--no-sensitivity", action="store_true", help="skip the no-veteran and no-2020 cases")
     args = ap.parse_args()
 
+    from _forecast_common import save_run, silence_noise
+
+    silence_noise()
     hi_p, hi_h, lv_p, lv_h = load()
     p = prepare_persons(hi_p, lv_p)
-    results = {"main": run(p, hi_h, lv_h), "irs_benchmark": irs_benchmark()}
-    if args.sensitivity:
+    main_case = run(p, hi_h, lv_h)
+    cases = {"main": main_case}
+    if not args.no_sensitivity:
         vet_hh = p.loc[p["veteran"] & p["group"].notna(), "SERIALNO"]
-        results["no_veteran_households"] = run(p[~p["SERIALNO"].isin(vet_hh)], hi_h, lv_h)
-        results["no_2020"] = run(p[p["year"] != 2020], hi_h, lv_h)
-    args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "results.json").write_text(json.dumps(results, indent=2))
-    print(f"wrote {args.out / 'results.json'}")
+        cases["no_veteran_households"] = run(p[~p["SERIALNO"].isin(vet_hh)], hi_h, lv_h)
+        cases["no_2020"] = run(p[p["year"] != 2020], hi_h, lv_h)
+    frames = {
+        "results.csv": pd.concat([tidy(c, r) for c, r in cases.items()], ignore_index=True),
+        "destinations.csv": pd.DataFrame(main_case["destinations"]),
+        "irs_flows.csv": irs_flows(),
+        "irs_by_agi.csv": pd.read_csv(IRS_CSV),
+    }
+    run_dir = save_run(
+        "hawaii_leavers", frames, script="analyses/hawaii_leavers.py",
+        params={"acs": "2020-2024 5-year", "tax_current": "act46 TY2026", "tax_act24": "act24 TY2027",
+                "filing_status_factors": "1.0", "cases": list(cases)},
+        inputs={f.name: f.stat().st_size for f in (US_DIR / "psam_p_leavers.csv", US_DIR / "psam_h_leavers.csv",
+                                                    HI_DIR / "psam_p15.csv", IRS_CSV)})
+    print(f"wrote {run_dir}")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,26 @@
 # Who leaves Hawaiʻi
 
-People who moved out of Hawaiʻi, compared with people who moved in and people who stayed. The comparison uses the ACS 2020–2024 5-year PUMS, and each group is scored under Hawaiʻi income tax law. It is aimed at the tax-flight argument against Act 24. Status: first results on `feature/hawaii-leavers`. It is not on the chain and has no site page yet.
+People who moved out of Hawaiʻi, compared with people who moved in and people who stayed. The comparison uses the ACS 2020–2024 5-year PUMS, and each group is scored under Hawaiʻi income tax law. It also uses the IRS migration files by AGI class, 2015–2023. It is aimed at the tax-flight argument against raising taxes on high earners.
 
-- Code: `scripts/fetch_hawaii_leavers.py` pulls the data and `analyses/hawaii_leavers.py` runs the analysis.
-- Output: `reports/hawaii_leavers/results.json`.
+- **Site page:** `site/hawaii-leavers/`, built by `build_leavers` in `scripts/build_site.py`.
+- **Not on the chain:** `publish.py` does not rerun it.
+- **Code:** `scripts/fetch_hawaii_leavers.py`, `scripts/fetch_irs_migration.py` and `analyses/hawaii_leavers.py`.
+- **Outputs:** written to `runs/hawaii_leavers/` and published to `site/data/hawaii-leavers/`.
+
+**Refreshing.** To pick up a new ACS 5-year vintage:
+
+1. Download the national `csv_pus.zip` and `csv_hus.zip`.
+2. Run `scripts/fetch_hawaii_leavers.py`.
+
+To pick up a new IRS year:
+
+1. Add the pair to `YEARS` in `scripts/fetch_irs_migration.py`.
+2. Run it with `uv run --with xlrd`.
+
+After either refresh:
+
+1. Run `python analyses/hawaii_leavers.py` and commit.
+2. Run `python scripts/build_site.py --import-runs hawaii-leavers`.
 
 ## Data and groups
 
@@ -79,16 +96,31 @@ Leavers' top destinations are California (5,600 adults a year), Texas, Washingto
 
 Neither case changes the direction of the results.
 
-## IRS benchmark
+## IRS migration by AGI class
 
-From the IRS SOI state-to-state migration files (filers only, nominal dollars):
+Source: the IRS SOI gross migration files by size of AGI (`<yy><yy>inmigall`), filing-year pairs 2015–16 through 2022–23. `scripts/fetch_irs_migration.py` writes their Hawaiʻi rows to `data/tax_modeler/irs_soi/migration_hawaii_by_agi.csv`, which is tracked. The pre-2020 files are `.xls`, so the fetch runs as `uv run --with xlrd`.
 
-| Filing years | Returns out | AGI per return out | Returns in | AGI per return in |
-|---|---|---|---|---|
-| 2021→22 | 28,636 | $76,955 | 25,286 | $100,915 |
-| 2022→23 | 27,623 | $70,863 | 25,026 | $78,083 |
+- **Income year.** Each workbook reports AGI for both years. Out-migrants' year-1 AGI is the income they reported while still filing from Hawaiʻi, which avoids the ACS post-move problem.
+- **Income class.** The workbooks do not say which year's AGI sets the income class. For $200k+ out-migrants, AGI per return is about $300k in year 1 and about $430k in year 2. That pattern is consistent with classing on year-2 AGI.
+- **Leaving rate.** Out-migrants divided by the Hawaiʻi year-1 matched base: non-migrants plus same-state movers plus out-migrants.
 
-The IRS shows the same pattern as the ACS. More households leave than arrive, 1.10 to 1.13 to 1 in the IRS against 1.17 to 1 in ACS tax units. The households that arrive have higher incomes than the ones that leave.
+| Filing years | $200k+ out | $200k+ in | Net in | Leaving rate, $200k+ | Leaving rate, all filers |
+|---|---|---|---|---|---|
+| 2015–16 | 710 | 823 | +113 | 3.3% | 5.0% |
+| 2016–17 | 1,022 | 1,202 | +180 | 4.5% | 6.9% |
+| 2017–18 | 870 | 1,005 | +135 | 3.4% | 5.1% |
+| 2018–19 | 922 | 1,021 | +99 | 3.3% | 4.9% |
+| 2019–20 | 963 | 1,388 | +425 | 3.2% | 4.9% |
+| 2020–21 | 1,217 | 1,707 | +490 | 4.1% | 5.1% |
+| 2021–22 | 1,672 | 2,027 | +355 | 4.2% | 5.0% |
+| 2022–23 | 1,561 | 1,714 | +153 | 3.8% | 4.8% |
+
+- **More $200k+ filers arrive than leave in every year.** That is 1,950 net over the eight years.
+- **They leave at a lower rate than filers overall.** The averages are about 3.7 percent against 5.2 percent.
+- **Across all incomes, more filers leave than arrive,** about 3,500 a year net (2016–17 included). The net outflow is below $200k.
+- **2016–17 is an outlier.** Out-migration that year spikes for every income class (39,448 returns against about 29,000 in other years). Treat it as an IRS matching artifact, not a real exodus. The pattern holds with or without it.
+
+The ACS shows the same pattern, with more tax units leaving than arriving: 1.17 to 1 in the ACS against 1.10 to 1.13 to 1 in the IRS files.
 
 ## What it supports
 
@@ -103,7 +135,9 @@ The IRS shows the same pattern as the ACS. More households leave than arrive, 1.
   - The born-in-Hawaiʻi leavers are a small, young, lower-income group.
   - That is a cost-of-living story, not a tax story.
 
-Possible headline: *"The people leaving Hawaiʻi aren't the rich. They're young, they earn less than the people who stay, and the people moving in more than replace their taxes."*
+- **High earners arrive faster than they leave** in all eight IRS years, and they leave at a lower rate than other filers.
+
+Possible headline: *"The people leaving Hawaiʻi aren't the rich. More $200,000 earners moved in than out every year since 2015, and the people who do leave are young and earn less than those who stay."*
 
 ## Caveats
 
@@ -111,13 +145,12 @@ Possible headline: *"The people leaving Hawaiʻi aren't the rich. They're young,
 2. **The ACS cannot settle the millionaire question.**
    - The ACS records only 17 stayer units at $1M or more, while DOTAX counts 1,824 resident filers. Top incomes are also top-coded.
    - Zero leaver records means millionaires are rare among leavers. Using the rule of three, the bound is under about 70 units a year, and it is soft given how badly the ACS undercounts the top.
-   - A claim about millionaires should rest on DOTAX or IRS data by income class: SOI publishes migration by AGI class only for the top bracket ($200k+).
+   - A claim about millionaires should rest on DOTAX or IRS data by income class. SOI's top migration class is $200k+, and that class is covered above.
 3. **Recently discharged service members** probably remain among the civilian leavers, since the veteran share is 15%. The no-veteran case bounds this.
 4. **2020 is in the window.** Dropping that year changes nothing material.
 5. **Mixed households.** A leaver's household mates may not have lived in Hawaiʻi. Units follow the primary filer.
 
 ## Next
 
-- Get IRS SOI migration by AGI class (the `$200k+` rows) to address the top end directly.
-- Build a site page in the pattern of `hr1-snap-medicaid`.
 - Optionally, add an occupation and education cut for the "who leaves" story.
+- Once the IRS publishes 2027–28, it will show the first year under Act 24's brackets.

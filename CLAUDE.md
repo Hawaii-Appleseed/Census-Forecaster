@@ -59,6 +59,7 @@
 - `SB3125_CD1_FORECAST.md` — Act 24 (SB 3125 CD1/CD2) methodology, scenarios, results.
 - `RETITC_REPORT_METHODOLOGY.md` — REEC/RETITC credit pipeline walkthrough.
 - `HR1_SNAP_MEDICAID_METHODOLOGY.md` — H.R.1 SNAP/Medicaid work-rule estimate and its site page (`site/hr1-snap-medicaid/`). Not on the chain: `publish.py` does not rerun it; its "Refreshing" section lists which inputs change when and the two commands. SNAP on the population for every poverty run is `benefits.snap.calibrate_snap_receipt` (reported households, draws to the DHS caseload, DHS issuance); districts come from the population-weighted `puma_crosswalk.population_crosswalk` (all 51 House and 25 Senate).
+- `HAWAII_LEAVERS.md` — who leaves Hawaiʻi vs who arrives (ACS 2020–24 national leavers + IRS SOI migration by AGI class) and its site page (`site/hawaii-leavers/`). Not on the chain; its "Refreshing" paragraph lists the commands. The national ACS zips (3.2 GB) live in the main checkout's `packages/data/raw/pums_2020_2024_us/`, which `new_worktree.py` clones into every worktree.
 - `docs/archive/` — finished scoping docs, audits and reviews (e.g. `CBO_COMPONENT_AGING_SCOPE.md`: shipped, `--cbo-aging` is on by default); `docs/archive/README.md` says what each was and when it was superseded.
 
 ## Companion docs (in vault)

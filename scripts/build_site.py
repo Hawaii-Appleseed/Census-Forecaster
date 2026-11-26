@@ -168,7 +168,19 @@ HR1 = Estimate(
     stamp=("manifest.json",),
 )
 
-ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR, HR1)
+LEAVERS = Estimate(
+    slug="hawaii-leavers",
+    files={f: f"hawaii_leavers/{f}" for f in (
+        "results.csv",
+        "destinations.csv",
+        "irs_flows.csv",
+        "irs_by_agi.csv",
+        "manifest.json",
+    )},
+    stamp=("manifest.json",),
+)
+
+ESTIMATES = (ACT24, WORKING_FAMILIES, CAPITAL_GAINS, CONVEYANCE, TAX_SIMULATOR, HR1, LEAVERS)
 
 
 # What a run's outputs depend on: a commit that changed none of these since the
@@ -1949,6 +1961,223 @@ def build_hr1() -> tuple[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# Who leaves Hawaiʻi (analyses/hawaii_leavers.py; HAWAII_LEAVERS.md)
+# ---------------------------------------------------------------------------
+
+LEAVER_GROUPS = (("stayers", "Stayed"), ("movers in", "Moved in"), ("leavers", "Left"))
+
+
+def _n100(v: float) -> str:
+    """Survey counts: nearest hundred."""
+    return f"{round(v, -2):,.0f}"
+
+
+def _usd100(v: float) -> str:
+    return f"${round(v, -2):,.0f}"
+
+
+def build_leavers() -> tuple[str, dict]:
+    d = DATA / LEAVERS.slug
+    manifest = json.loads((d / "manifest.json").read_text())
+    run = datetime.fromisoformat(manifest["created_at"]).astimezone(HST).isoformat()
+    year = datetime.fromisoformat(run).year
+    notes = Notes()
+
+    res = {(r["case"], r["table"], r["group"], r["band"] or "", r["metric"]): (r["estimate"], r["se"])
+           for r in read_csv(d / "results.csv")}
+
+    def R(group: str, metric: str, table: str = "persons", case: str = "main") -> float:
+        return res[(case, table, group, "", metric)][0]
+
+    def moe(group: str, metric: str, table: str = "persons", case: str = "main") -> float:
+        return 1.645 * res[(case, table, group, "", metric)][1]
+
+    flows = read_csv(d / "irs_flows.csv")
+    top = [r for r in flows if r["agi_class"] == "200k_plus"]
+    allf = {int(r["year1"]): r for r in flows if r["agi_class"] == "all"}
+    years = [f"{int(r['year1'])}–{str(int(r['year2']))[2:]}" for r in top]
+    net_top = sum(r["net_returns_in"] for r in top)
+    every_year = all(r["net_returns_in"] > 0 for r in top)
+    rate_top = 100 * sum(r["leaving_rate"] for r in top) / len(top)
+    rate_all = 100 * sum(r["leaving_rate"] for r in allf.values()) / len(allf)
+    agi_in, agi_out = sum(r["agi_in_k"] for r in top) / 1e6, sum(r["agi_out_k"] for r in top) / 1e6
+    net_all = sum(r["net_returns_in"] for r in allf.values()) / len(allf)
+    first, last = int(top[0]["year1"]), int(top[-1]["year2"])
+    dest = read_csv(d / "destinations.csv")
+
+    lv_tax, in_tax = R("leavers", "tax_current_total", "units"), R("movers in", "tax_current_total", "units")
+    net_tax = R("leavers minus movers in", "tax_current_total", "net")
+    net_moe = math.hypot(moe("leavers", "tax_current_total", "units"), moe("movers in", "tax_current_total", "units"))
+
+    T_irs = ('Internal Revenue Service, Statistics of Income Division, “Gross Migration for Selected Income Items by '
+             'State, Size of Adjusted Gross Income, and Age of Taxpayer,” filing years 2015–2016 to 2022–2023. '
+             '<a href="https://www.irs.gov/statistics/soi-tax-stats-migration-data">irs.gov</a>')
+    T_acs = ('U.S. Census Bureau, American Community Survey 2020–2024 five-year Public Use Microdata Sample, Hawaiʻi '
+             'and national person and housing files. '
+             '<a href="https://www.census.gov/programs-surveys/acs/microdata.html">census.gov</a>')
+    T_hrs = ('Hawaiʻi Revised Statutes §235-51, tax imposed on individuals; rates. '
+             '<a href="https://www.capitol.hawaii.gov/hrscurrent/Vol04_Ch0201-0257/HRS0235/HRS_0235-0051.htm">capitol.hawaii.gov</a>')
+    T_code = (f'Hawaiʻi Appleseed, <code>analyses/hawaii_leavers.py</code> and <code>scripts/fetch_irs_migration.py</code>, '
+              f'Census-Forecaster model, commit <code>{esc(manifest["git_sha"])}</code>; method and caveats in '
+              f'<a href="{REPO_URL}/blob/main/HAWAII_LEAVERS.md"><code>HAWAII_LEAVERS.md</code></a>.')
+
+    hero = f"""
+<section class="ha-est__hero"><div class="ha-est__hero-inner">
+<p class="ha-est__eyebrow">Current policy · Taxes and migration</p>
+<h1>Who Leaves Hawaiʻi</h1>
+<hr class="ha-est__hero-rule">
+<p class="ha-est__deck">Every proposal to ask more of Hawaiʻi’s highest earners meets the warning that they will move away. Eight years of IRS records and the Census Bureau’s survey of who moved show who actually leaves, who arrives and what each group pays.</p>
+<p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · IRS filing years {first} to {last}; American Community Survey 2020–24</p>
+</div></section>
+<div class="ha-est__stats">
+<div class="ha-est__stat"><div class="ha-est__stat-num">{net_top:+,.0f}</div><div class="ha-est__stat-label"><strong>More high earners arrived than left.</strong> Filers with incomes of $200,000 or more, {first} to {last}{", with more arriving than leaving in every year" if every_year else ", net"}.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{pct(rate_top, 1)} percent</div><div class="ha-est__stat-label">Of Hawaiʻi’s $200,000-plus filers <strong>leave in a year,</strong> against {pct(rate_all, 1)} percent of all filers.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{_usd100(R("leavers", "median_income"))}</div><div class="ha-est__stat-label"><strong>Median income of adults who left,</strong> against {_usd100(R("stayers", "median_income"))} for adults who stayed.</div></div>
+<div class="ha-est__stat"><div class="ha-est__stat-num">{millions(in_tax / 1e6)}</div><div class="ha-est__stat-label">State income tax <strong>new arrivals owe</strong> in a year, against {millions(lv_tax / 1e6)} that those who left would owe had they stayed.</div></div>
+</div>"""
+
+    # --- 1: the claim
+    s1 = section("The Warning and the Record", f"""
+{lead("When Hawaiʻi asks", f"its highest earners to pay more, the same warning follows: they will leave and take their taxes with them. Hawaiʻi’s income tax already reaches 11 percent on the highest incomes,{notes.ref(T_hrs)} so if high earners move away to escape taxes, it should show here.")}
+<p>Two public records can test the warning. The IRS matches each tax return to the one the same filer sent the year before, so it sees every filer who moves between states and the income they reported.{notes.ref(T_irs)} The Census Bureau’s American Community Survey asks everyone where they lived a year earlier, in every state, so it sees the people who left Hawaiʻi as well as the people who stayed.{notes.ref(T_acs)}</p>
+<p>Both records say the same thing. High earners move to Hawaiʻi faster than they leave, and the people who do leave are young and earn less than the people who stay.</p>
+""", "claim")
+
+    # --- 2: IRS, high earners
+    irows = [[y, f"{r['returns_out']:,.0f}", f"{r['returns_in']:,.0f}", f"{r['net_returns_in']:+,.0f}".replace("-", "−"),
+              pct(100 * r["leaving_rate"], 1), pct(100 * allf[int(r["year1"])]["leaving_rate"], 1)]
+             for y, r in zip(years, top, strict=True)]
+    series = [("Left Hawaiʻi", C_SECOND, [r["returns_out"] for r in top]),
+              ("Moved to Hawaiʻi", C_PRIMARY, [r["returns_in"] for r in top])]
+    chart = column_chart(years, series, fmt=lambda v: f"{v:,.0f}",
+                         label=("Filers with incomes of $200,000 or more leaving and moving to Hawaiʻi, by filing years: "
+                                + "; ".join(f"{y}, {r['returns_out']:,.0f} left and {r['returns_in']:,.0f} arrived"
+                                            for y, r in zip(years, top, strict=True)) + "."))
+    opener = f"In every year from {first} to {last}," if every_year else f"From {first} to {last},"
+    s2 = section("High Earners Arrive Faster Than They Leave", f"""
+{lead(opener, f"more filers with incomes of $200,000 or more moved to Hawaiʻi than moved away: {net_top:,.0f} more over the eight years. They are also less likely to leave than other filers. In a typical year, {pct(rate_top, 1)} percent of Hawaiʻi’s $200,000-plus filers moved to another state, against {pct(rate_all, 1)} percent of all filers.{notes.ref(T_irs)}")}
+{figure(1, "Filers With Incomes of $200,000 or More, Leaving and Arriving", chart, "Source: Hawaiʻi Appleseed from IRS Statistics of Income migration data. Each pair of years compares the address on a filer’s return with the one on the next year’s.", series=series)}
+{table(["Filing years", "Left", "Arrived", "Net arrivals", "Leaving rate, $200,000+ (percent)", "Leaving rate, all filers (percent)"],
+       irows, caption="Table 1. Filers With Incomes of $200,000 or More Moving Out of and Into Hawaiʻi")}
+<p class="ha-est__source">Source: IRS Statistics of Income migration data. $200,000 or more is the highest income class the IRS publishes. The leaving rate divides filers who left by all filers from Hawaiʻi the IRS could match across the two years.</p>
+<p>The income follows the same pattern. Over the eight years, the $200,000-plus filers who arrived reported ${agi_in:,.1f} billion in income in their first year filing from Hawaiʻi. Those who left had reported ${agi_out:,.1f} billion in their last.</p>
+<p>Across all incomes, more filers leave Hawaiʻi than arrive, about {_n100(-net_all)} a year on net. The ones leaving are not the high earners.</p>
+""", "irs")
+
+    # --- 3: who leaves
+    def prow(label, metric, fmt, with_moe=False):
+        cells = []
+        for g, _ in LEAVER_GROUPS:
+            v = R(g, metric)
+            cells.append(f"{fmt(v)} ± {fmt(moe(g, metric))}" if with_moe and g != "stayers" else fmt(v))
+        return [label, *cells]
+
+    def p0(v):
+        return pct(100 * v)
+
+    def p1(v):
+        return pct(100 * v, 1)
+
+    prows = [prow("Adults a year", "adults_per_year", _n100),
+             prow("Median age", "median_age", lambda v: f"{v:.0f}"),
+             prow("Median income", "median_income", _usd100, True),
+             prow("Average income at stayers’ ages", "age_std_mean_income", _usd100, True),
+             prow("Income $200,000 or more (percent)", "share_200k_plus", p1, True),
+             prow("Below the poverty line (percent)", "share_poor", p0, True),
+             prow("Born in Hawaiʻi (percent)", "share_born_hi", p0),
+             prow("Native Hawaiian (percent)", "share_native_hawaiian", p0),
+             prow("Veterans (percent)", "share_veteran", p0)]
+    top_dest = ", ".join(r["state"] for r in dest[:4]) + " and " + dest[4]["state"]
+
+    def born(g: str, metric: str) -> float:
+        return R(g, metric, "born_in_hawaii")
+
+    st_med, in_med = _usd100(R("stayers", "median_income")), _usd100(R("movers in", "median_income"))
+    others = (f"against {st_med} for both those who stayed and those who arrived" if st_med == in_med
+              else f"against {st_med} for those who stayed and {in_med} for those who arrived")
+    s3 = section("Who Leaves", f"""
+{lead("The Census survey", f"counts about {_n100(R('leavers', 'adults_per_year'))} adults a year who lived in Hawaiʻi the year before and now live in another state, and about {_n100(R('movers in', 'adults_per_year'))} who made the opposite move.{notes.ref(T_acs)} These counts leave out households with a member on active military duty, whose moves follow orders, and people in dormitories and barracks.")}
+<p>Those who leave are young. Half are {R('leavers', 'median_age'):.0f} or younger, against {R('stayers', 'median_age'):.0f} for adults who stayed. Their median income is {_usd100(R('leavers', 'median_income'))}, {others}.</p>
+<p>Most of that gap is age. Compared at the same ages as stayers, those who left averaged {_usd100(R('leavers', 'age_std_mean_income'))} in income, against {_usd100(R('stayers', 'age_std_mean_income'))}, a difference within the survey’s margin of error. Those who arrived averaged {_usd100(R('movers in', 'age_std_mean_income'))}.</p>
+{table(["Adults 18 and over", *(lab for _, lab in LEAVER_GROUPS)], prows, caption="Table 2. Adults Who Stayed in, Moved to and Left Hawaiʻi, per Year")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the American Community Survey 2020–24. Income is personal income in 2024 dollars. “Average income at stayers’ ages” weights each group’s averages for ages 18 to 29, 30 to 44, 45 to 64 and 65 and over by the stayers’ age mix. Ranges are 90 percent margins of error from the survey’s 80 replicate weights. Poverty is the official federal measure.</p>
+<p>Most of those who leave came from somewhere else: {p0(R('leavers', 'share_born_hi'))} percent were born in Hawaiʻi, against {p0(R('stayers', 'share_born_hi'))} percent of those who stayed. The roughly {_n100(born('leavers', 'adults_per_year'))} Hawaiʻi-born adults who leave each year are younger still, with a median age of {born('leavers', 'median_age'):.0f} and a median income of {_usd100(born('leavers', 'median_income'))}, and {p0(born('leavers', 'share_poor'))} percent of them lived below the poverty line. They are not high earners avoiding a tax bill.</p>
+<p>The most common destinations are {top_dest}.</p>
+""", "who")
+
+    # --- 4: tax base
+    def urow(label, metric, fmt, with_moe=True):
+        cells = []
+        for g, _ in LEAVER_GROUPS:
+            v = R(g, metric, "units")
+            cells.append(f"{fmt(v)} ± {fmt(moe(g, metric, 'units'))}" if with_moe and g != "stayers" else fmt(v))
+        return [label, *cells]
+
+    urows = [urow("Tax units", "units", _n100, False),
+             urow("Median income", "median_unit_income", _usd100),
+             urow("Income tax, current law ($ millions)", "tax_current_total", lambda v: m1(v / 1e6)),
+             urow("Income tax, Act 24 in 2027 ($ millions)", "tax_act24_total", lambda v: m1(v / 1e6)),
+             urow("Income tax per unit, current law", "tax_current_per_unit", dollars)]
+    favor = "arrivals’" if net_tax < 0 else "leavers’"
+    s4 = section("The Tax Base That Leaves Is Replaced", f"""
+{lead("Taxed as if they still lived here,", f"the households that left would owe about {millions(lv_tax / 1e6)} a year in Hawaiʻi income tax under current law. The households that arrived owe about {millions(in_tax / 1e6)}. The difference, {millions(abs(net_tax) / 1e6)} in the {favor} favor, is well inside the survey’s margin of error of about {millions(net_moe / 1e6)}.")}
+{table(["Per year", *(lab for _, lab in LEAVER_GROUPS)], urows, caption="Table 3. Hawaiʻi Income Tax Owed by Households Who Stayed, Arrived and Left")}
+<p class="ha-est__source">Source: Hawaiʻi Appleseed estimates from the American Community Survey 2020–24. Tax units are the individuals and families who would file together; each is placed by the person who would file first. Current law is tax year 2026; Act 24’s brackets start in 2027. Tax after credits, on 2024 incomes.</p>
+<p>This is not an estimate of revenue lost. The survey asks about income over the past 12 months, so for those who left it is mostly income earned after the move. The table shows the kind of tax base that leaves and arrives, and the two are about the same size.</p>
+""", "tax")
+
+    # --- 5: limits
+    vet_med = R("leavers", "median_income", case="no_veteran_households")
+    no20_med = R("leavers", "median_income", case="no_2020")
+    stay_med = min(R("stayers", "median_income", case=c) for c in ("no_veteran_households", "no_2020"))
+    holds = max(vet_med, no20_med) < stay_med
+    s5 = section("What These Records Cannot Show", f"""
+{lead("Neither record counts millionaires well.", f"The IRS publishes nothing above $200,000, and the Census survey samples too few millionaires anywhere to count them among those who leave: {R('stayers', 'records_1m_plus', 'units'):.0f} of its {R('stayers', 'records', 'units'):,.0f} Hawaiʻi tax units, and none of the {R('leavers', 'records', 'units'):,.0f} who left.")}
+<p>The records also end before Act 24’s brackets take effect in 2027. They test the warning at the tax rates Hawaiʻi already has, which include an 11 percent top rate.</p>
+<p>The survey results {"hold" if holds else "change"} when the groups change. Without households that include a veteran, whose moves may follow military service, the median income of those who left is {_usd100(vet_med)}. Without 2020’s pandemic-year responses, it is {_usd100(no20_med)}.{" Both stay below the median of those who stayed." if holds else ""}</p>
+""", "limits")
+
+    close = section("What This Means", """
+<p>The record does not support the warning. High earners move to Hawaiʻi faster than they leave, and the people who do leave are young residents with modest incomes, about as well off as stayers their age.</p>
+<p>What Hawaiʻi’s highest earners should pay deserves to be decided on its merits. The threat of flight is not one of them.</p>
+""", "next")
+
+    s6 = section("How These Estimates Are Calculated", f"""
+{lead("Two sources,", "each used where it is strongest." + notes.ref(T_code))}
+<p>The IRS figures are the Hawaiʻi rows of the Statistics of Income gross migration files, which compare the address on each return with the same filer’s return the year before. Income is adjusted gross income, in the dollars of each year, and each side’s income is from the year it filed from Hawaiʻi. The files cover filers only, and each filer is in the income class the IRS assigns.</p>
+<p>The survey figures come from the American Community Survey’s 2020–24 microdata: every Hawaiʻi resident, and every person in another state who reported living in Hawaiʻi a year earlier, with their households. Each household is split into tax units and taxed under Hawaiʻi’s current income tax and Act 24 with the same model as this site’s other estimates, but on the survey’s own weights, without the adjustments that fit those estimates to Department of Taxation counts, so that people in other states are treated the same way. Incomes are in 2024 dollars.</p>
+<h3 style="font-size:18px;margin:28px 0 10px">Download the data</h3>
+<ul class="ha-est__downloads">
+<li><a href="../data/{LEAVERS.slug}/irs_flows.csv"><code>irs_flows.csv</code></a>: filers leaving and arriving, all filers and $200,000 or more, by year (Table 1, Figure 1)</li>
+<li><a href="../data/{LEAVERS.slug}/irs_by_agi.csv"><code>irs_by_agi.csv</code></a>: the IRS’s Hawaiʻi rows, every income class and flow</li>
+<li><a href="../data/{LEAVERS.slug}/results.csv"><code>results.csv</code></a>: every survey estimate with its standard error, including ages, the Hawaiʻi-born and both sensitivity cases (Tables 2 and 3)</li>
+<li><a href="../data/{LEAVERS.slug}/destinations.csv"><code>destinations.csv</code></a>: where those who left now live</li>
+<li><a href="../data/{LEAVERS.slug}/manifest.json"><code>manifest.json</code></a>: run parameters, inputs and code version</li>
+</ul>
+""", "method")
+
+    endnotes = section("Endnotes", notes.html(), "endnotes")
+    body = hero + s1 + s2 + s3 + s4 + s5 + close + s6 + endnotes
+    desc = (f"From {first} to {last}, {net_top:,.0f} more filers with incomes of $200,000 or more moved to Hawaiʻi than "
+            f"left. The people who leave are young and earn less than those who stay, and those who arrive replace "
+            f"their income tax.")
+    card = {
+        "slug": LEAVERS.slug,
+        "category": "current",
+        "eyebrow": "Taxes and migration",
+        "title": "Who Leaves Hawaiʻi",
+        "text": "Who moves away, who arrives and what each pays in state income tax, from IRS records and the Census survey: a test of the warning that high earners leave.",
+        "stat": f"{net_top:+,.0f}",
+        "stat_label": f"more $200,000-plus filers arrived than left, {first} to {last}",
+        "date": long_date(run),
+        "year": year,
+    }
+    html_out = page(title="Who Leaves Hawaiʻi: Taxes and Migration | Hawaiʻi Appleseed Estimates",
+                    description=desc, body=body, depth=1, year=year)
+    return html_out, card
+
+
+# ---------------------------------------------------------------------------
 # hub
 # ---------------------------------------------------------------------------
 
@@ -2138,7 +2367,7 @@ def _card(c: dict) -> str:
 
 HOW_WE_ESTIMATE = """
 <section class="ha-est__section" id="how"><div class="ha-est__section-inner"><h2>How These Estimates Are Calculated</h2><hr class="ha-est__h2-rule">
-<p>The income tax and credit estimates on this site come from the same approach: a model of Hawaiʻi’s taxpayers is taxed under current law and again under the proposed change, and the difference between the two is the estimate. The conveyance tax estimate works differently, from county records of home sales, and so does the SNAP and Medicaid estimate, which adds the federal audit sample of SNAP cases and Med-QUEST’s enrollment counts; each page explains how. Each page ends with its own detailed method and the data needed to check it.</p>
+<p>The income tax and credit estimates on this site come from the same approach: a model of Hawaiʻi’s taxpayers is taxed under current law and again under the proposed change, and the difference between the two is the estimate. The conveyance tax estimate works differently, from county records of home sales, and so does the SNAP and Medicaid estimate, which adds the federal audit sample of SNAP cases and Med-QUEST’s enrollment counts, and the page on who leaves Hawaiʻi, which adds IRS records of filers who move; each page explains how. Each page ends with its own detailed method and the data needed to check it.</p>
 <h3 style="font-size:18px;margin:28px 0 10px">Building the Model</h3>
 <p>No one publishes every Hawaiʻi tax return, so the model uses a stand-in made of tax units, meaning the individuals and families who file together, drawn from the Census Bureau’s American Community Survey, which records income, family type, age and where people live. The income tax estimates use about 40,000 of these units, calibrated to Department of Taxation statistics, with filers whose incomes are above $1 million, whom survey data miss, added from IRS and Department of Taxation statistics, and each unit’s income is then grown year by year with Congressional Budget Office projections, out to tax years 2027 through 2031.</p>
 <p>The model then computes each unit’s tax under current law and again under the proposal, using the statute’s own rates, brackets, deductions and credit schedules. The estimate is the difference, added up across the state and by income group, which shows who would pay more or less as well as the total.</p>
@@ -2194,6 +2423,7 @@ def build(out: Path = SITE) -> list[Path]:
     cv_html, cv_card = build_conveyance()
     ts_html, ts_card = build_tax_simulator()
     hr_html, hr_card = build_hr1()
+    lv_html, lv_card = build_leavers()
     written = {
         out / "act-24" / "index.html": a24_html,
         out / "working-family-credits" / "index.html": wf_html,
@@ -2201,7 +2431,8 @@ def build(out: Path = SITE) -> list[Path]:
         out / "conveyance-tax" / "index.html": cv_html,
         out / "tax-simulator" / "index.html": ts_html,
         out / HR1.slug / "index.html": hr_html,
-        out / "index.html": build_index([a24_card, wf_card, hr_card, cg_card, cv_card, ts_card]),
+        out / LEAVERS.slug / "index.html": lv_html,
+        out / "index.html": build_index([a24_card, wf_card, hr_card, lv_card, cg_card, cv_card, ts_card]),
         out / ".nojekyll": "",
     }
     for slug in cider_managed():
