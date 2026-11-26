@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parent.parent
 RAW = REPO / "data" / "tax_modeler" / "external" / "irs_migration"
 OUT = REPO / "data" / "tax_modeler" / "irs_soi" / "migration_hawaii_by_agi.csv"
 BASE = "https://www.irs.gov/pub/irs-soi/"
-YEARS = ["1516", "1617", "1718", "1819", "1920", "2021", "2122", "2223"]
+YEARS = ["1516", "1617", "1718", "1819", "1920", "2021", "2122", "2223", "2324"]
 FLOWS = {"Non-migrant": "nonmigrant", "Outflow": "outflow", "Inflow": "inflow", "Same State": "same_state"}
 
 

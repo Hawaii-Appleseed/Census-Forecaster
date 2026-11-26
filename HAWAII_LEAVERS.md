@@ -1,6 +1,6 @@
 # Who leaves Hawaiʻi
 
-People who moved out of Hawaiʻi, compared with people who moved in and people who stayed. The comparison uses the ACS 2020–2024 5-year PUMS, and each group is scored under Hawaiʻi income tax law. It also uses the IRS migration files by AGI class, 2015–2023. It is aimed at the tax-flight argument against raising taxes on high earners.
+People who moved out of Hawaiʻi, compared with people who moved in and people who stayed. The comparison uses the ACS 2020–2024 5-year PUMS, and each group is scored under Hawaiʻi income tax law. It also uses the IRS migration files by AGI class, 2015–2024. It is aimed at the tax-flight argument against raising taxes on high earners.
 
 - **Site page:** `site/hawaii-leavers/`, built by `build_leavers` in `scripts/build_site.py`.
 - **Not on the chain:** `publish.py` does not rerun it.
@@ -98,7 +98,7 @@ Neither case changes the direction of the results.
 
 ## IRS migration by AGI class
 
-Source: the IRS SOI gross migration files by size of AGI (`<yy><yy>inmigall`), filing-year pairs 2015–16 through 2022–23. `scripts/fetch_irs_migration.py` writes their Hawaiʻi rows to `data/tax_modeler/irs_soi/migration_hawaii_by_agi.csv`, which is tracked. The pre-2020 files are `.xls`, so the fetch runs as `uv run --with xlrd`.
+Source: the IRS SOI gross migration files by size of AGI (`<yy><yy>inmigall`), filing-year pairs 2015–16 through 2023–24. `scripts/fetch_irs_migration.py` writes their Hawaiʻi rows to `data/tax_modeler/irs_soi/migration_hawaii_by_agi.csv`, which is tracked. The pre-2020 files are `.xls`, so the fetch runs as `uv run --with xlrd`.
 
 - **Income year.** Each workbook reports AGI for both years. Out-migrants' year-1 AGI is the income they reported while still filing from Hawaiʻi, which avoids the ACS post-move problem.
 - **Income class.** The workbooks do not say which year's AGI sets the income class. For $200k+ out-migrants, AGI per return is about $300k in year 1 and about $430k in year 2. That pattern is consistent with classing on year-2 AGI.
@@ -113,10 +113,11 @@ Source: the IRS SOI gross migration files by size of AGI (`<yy><yy>inmigall`), f
 | 2019–20 | 963 | 1,388 | +425 | 3.2% | 4.9% |
 | 2020–21 | 1,217 | 1,707 | +490 | 4.1% | 5.1% |
 | 2021–22 | 1,672 | 2,027 | +355 | 4.2% | 5.0% |
-| 2022–23 | 1,561 | 1,714 | +153 | 3.8% | 4.8% |
+| 2022–23 | 1,561 | 1,714 | +153 | 3.7% | 4.8% |
+| 2023–24 | 1,682 | 1,689 | +7 | 3.7% | 4.6% |
 
-- **More $200k+ filers arrive than leave in every year.** That is 1,950 net over the eight years.
-- **They leave at a lower rate than filers overall.** The averages are about 3.7 percent against 5.2 percent.
+- **More $200k+ filers arrive than leave in every year.** That is 1,957 net over the nine years. The latest year, 2023–24, was close to even at +7, and the page says so.
+- **They leave at a lower rate than filers overall.** The averages are about 3.7 percent against 5.1 percent.
 - **Across all incomes, more filers leave than arrive,** about 3,500 a year net (2016–17 included). The net outflow is below $200k.
 - **2016–17 is an outlier.** Out-migration that year spikes for every income class (39,448 returns against about 29,000 in other years). Treat it as an IRS matching artifact, not a real exodus. The pattern holds with or without it.
 
@@ -135,9 +136,9 @@ The ACS shows the same pattern, with more tax units leaving than arriving: 1.17 
   - The born-in-Hawaiʻi leavers are a small, young, lower-income group.
   - That is a cost-of-living story, not a tax story.
 
-- **High earners arrive faster than they leave** in all eight IRS years, and they leave at a lower rate than other filers.
+- **High earners arrive faster than they leave** in all nine IRS years, and they leave at a lower rate than other filers.
 
-Possible headline: *"The people leaving Hawaiʻi aren't the rich. More $200,000 earners moved in than out every year since 2015, and the people who do leave are young and earn less than those who stay."*
+Possible headline: *"The people leaving Hawaiʻi aren't the rich. More $200,000 earners moved in than out every year from 2015 to 2024, and the people who do leave are young and earn less than those who stay."*
 
 ## Caveats
 
