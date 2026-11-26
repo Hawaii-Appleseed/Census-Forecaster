@@ -182,3 +182,13 @@ def test_the_fetch_script_parses_both_blocks_of_the_departments_sheet():
                             "base": {"retailing": 1000.0}},
                    "2025": {"tax": {"retailing": 36.0, "wholesaling": 4.0, "allocated collections": 40.0},
                             "base": {"retailing": 900.0}}}
+
+
+def test_the_bundled_survey_profile_has_every_item_the_categories_read():
+    p = gi.SpendingProfile.load(2024)
+    assert len(p.income) == 10
+    for item in ITEMS:
+        assert len(p.items[item]) == 10 and (p.items[item] > 0).all(), item
+    assert p.at(("FOODHOME",), p.income[:1])[0] == pytest.approx(3_655)
+    with pytest.raises(ConfigError):
+        gi.SpendingProfile.load(1999)

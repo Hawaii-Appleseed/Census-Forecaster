@@ -1,9 +1,8 @@
 # General excise tax incidence: methodology
 
-**Status: first cut, November 25, 2026.** The model, its tests and two of its three inputs are in
-the repository. The third input, the expenditure survey's decile means, is not yet fetched (the
-BLS public API's daily limit; see [Refreshing](#refreshing)), so `runs/get_incidence/` does not
-exist yet and no distribution figure is published. Nothing here is on the chain or the site.
+**Status: first cut, November 26, 2026.** The model, its tests and its three inputs are in the
+repository and the analysis has been run once (figures below). Nothing here is on the chain or the
+site, and the figures have not been checked against outside estimates.
 
 ## What it answers
 
@@ -69,9 +68,8 @@ residents' hotel stays are taxable and left out (no clean series for either).
 ## What is left out
 
 `control_totals.csv` sets the modelled state tax beside the Department's allocated collections.
-With BEA's 2024 levels the modelled part comes to about a third of fiscal year 2025's $4.65
-billion (a trial with a stand-in profile; the total is nearly all BEA's levels times the rate, so
-the survey shape will move it little). The rest is not an estimate of anything. It holds, together:
+With BEA's 2024 levels the modelled part is $1.62 billion, 35 percent of fiscal year 2025's $4.65
+billion. The rest is not an estimate of anything. It holds, together:
 
 - **Business inputs past the wholesale levy.** Contracting ($591 million of tax), business
   services, commercial rent. These reach households through prices, including the price of new
@@ -86,6 +84,33 @@ the survey shape will move it little). The rest is not an estimate of anything. 
 
 So every figure is the tax in resident households' own purchases, not the tax residents bear.
 An exemption's cost is likewise what resident households stop paying; visitors buy groceries too.
+
+## First run (November 26, 2026)
+
+2024 households, 2024 spending, state tax plus county surcharge. Shares are a fifth's tax over
+its income; the standard error is ACS sampling error only.
+
+| Fifth of households | Mean income | Tax per household | Share of income (SE) | Food/excise credit | Share net of credit |
+|---|---|---|---|---|---|
+| Lowest | $22,116 | $1,711 | 7.7% (0.2) | $234 | 6.7% |
+| Second | $64,444 | $2,700 | 4.2% (0.1) | $109 | 4.0% |
+| Middle | $105,475 | $3,362 | 3.2% (0.0) | $74 | 3.1% |
+| Fourth | $162,389 | $4,369 | 2.7% (0.0) | $63 | 2.7% |
+| Top | $338,967 | $6,241 | 1.8% (0.0) | $92 | 1.8% |
+| All | $138,675 | $3,676 | 2.7% (0.0) | $115 | 2.6% |
+
+| Exemption | State cost, residents only | County cost | Share of saving to the lowest two fifths |
+|---|---|---|---|
+| Groceries | $251M | $31M | 25% |
+| Out-of-pocket medical services | $29M | $4M | 23% |
+| Residential rent | $163M | $20M | 43% |
+
+- The level matters as much as anything: at the survey's own dollars the modelled state tax is
+  $0.99 billion, against $1.62 billion at BEA's. The scale factors run from 0.6 (gasoline) to 4.1
+  (personal care), so the two sources disagree by category, not only in total. Every dollar
+  figure above moves with that choice; the shares of income move in proportion.
+- The lowest fifth's grocery tax ($240 a household) is about its food/excise credit ($234).
+- The credit column is not zero at the top because a household can hold a low-income tax unit.
 
 ## Known weaknesses
 
@@ -114,8 +139,8 @@ An exemption's cost is likewise what resident households stop paying; visitors b
 
 ## Next
 
-1. Fetch the survey deciles, run the analysis, read the tables against ITEP's Hawaiʻi sales and
-   excise shares and the Department's fiscal notes on grocery exemption bills.
+1. Read the first run against ITEP's Hawaiʻi sales and excise shares and the Department's fiscal
+   notes on grocery exemption bills, and settle the level (BEA's or the survey's).
 2. Survey microdata (the interview files). bls.gov refuses scripted downloads, so someone has to
    download the zip in a browser. With it: spending by income, household size, age and tenure,
    and the Honolulu sample as a check on the national shape.
