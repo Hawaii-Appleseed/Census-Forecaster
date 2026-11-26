@@ -12,6 +12,7 @@ from fiscal_notes.translator import (
     build_prompt,
     check,
     effective_brackets,
+    in_force,
     parse_response,
     prompt_rules,
     run_claude,
@@ -154,6 +155,18 @@ def test_bracket_floor_not_in_bill():
     r = recorded("2026_HB2306_HD1")
     r["spec"]["income_tax"]["bracket_vintages"][0]["brackets"]["single"][1][0] = 9601
     assert any("$9,601" in m and "does not appear" in m for m in problems_for(r))
+
+
+def test_figure_only_in_repealed_text_does_not_count():
+    # HB 2306 HD1 repeals the 2027 schedule whose joint top floor is $800,000
+    r = recorded("2026_HB2306_HD1")
+    assert "$800,000" in ex.bill_text("2026_HB2306_HD1")
+    r["spec"]["income_tax"]["bracket_vintages"][0]["brackets"]["married_filing_jointly"][-1][0] = 800000
+    assert any("$800,000" in p for p in problems_for(r))
+
+
+def test_in_force_strips_nested_repeals():
+    assert in_force("a [b [c] d] e [f]").split() == ["a", "e"]
 
 
 def test_bracket_rate_not_in_bill():

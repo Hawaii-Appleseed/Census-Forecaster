@@ -61,14 +61,15 @@ Catch:
 - a spec the model's own validator rejects (unknown keys, bad schedules, wrong first year);
 - a quote that is not verbatim in the bill (whitespace collapsed on both sides);
 - a bracket floor (`$9,600`), bracket rate (`3.20%`), standard deduction, personal exemption or
-  capital gains rate (`7.25%` or `7.25 per cent`) that is not written in the bill text;
+  capital gains rate (`7.25%` or `7.25 per cent`) that is not written in the bill text the bill
+  leaves in force ([bracketed] repealed material does not count);
 - a modeled provision citing a spec key that is not there, and a spec key (`income_tax.*`,
   `credits.*`) that no modeled provision claims.
 
 Do not catch:
 
 - a real figure from the bill put in the wrong place (a floor from the head-of-household table in
-  the single schedule, a figure from a repealed [bracketed] schedule, the wrong tax year);
+  the single schedule, the wrong tax year);
 - a provision the model left out, or a summary that misdescribes its quote;
 - a figure that occurs in the bill for some unrelated reason.
 

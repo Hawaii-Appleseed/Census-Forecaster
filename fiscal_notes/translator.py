@@ -114,6 +114,17 @@ def _collapse(s: str) -> str:
     return " ".join(s.split())
 
 
+_REPEALED = re.compile(r"\[[^\[\]]*\]")
+
+
+def in_force(text: str) -> str:
+    """The bill text without its [bracketed] repealed material, innermost first."""
+    prev = None
+    while prev != text:
+        prev, text = text, _REPEALED.sub(" ", text)
+    return text
+
+
 def _num_text(v: float) -> str:
     """12 -> '12', 7.25 -> '7.25' (no trailing zeros)."""
     return f"{v:.6f}".rstrip("0").rstrip(".")
@@ -232,7 +243,8 @@ def check(response: dict, bill_text: str, name: str) -> CheckResult:
                             f"{p['quote'][:80]!r}")
 
     if spec is not None:
-        problems.extend(_figure_problems(spec, haystack))
+        # a figure only in repealed text is not a figure the bill enacts
+        problems.extend(_figure_problems(spec, _collapse(in_force(bill_text))))
         claimed: set[str] = set()
         for p in provisions:
             if not p["modeled"]:
