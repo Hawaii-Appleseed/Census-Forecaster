@@ -1,4 +1,4 @@
-"""``python -m fiscal_notes translate|eval``."""
+"""``python -m fiscal_notes translate|eval|score|run|diff``."""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +14,9 @@ from pathlib import Path
 
 import yaml
 
+from fiscal_notes.diff import render_diff, resolve_draft
+from fiscal_notes.note import render_note, render_out_of_scope_note
+from fiscal_notes.score import ScoreError, dumps, score_spec_file
 from fiscal_notes.translator import (
     PROMPT_PATH,
     Translation,
@@ -131,7 +134,100 @@ def cmd_eval(args, runner: Callable[[str], str] | None = None) -> int:
     return 1 if failures else 0
 
 
-def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = None) -> int:
+def spec_name(spec_path: Path) -> str:
+    """``hb2306_hd1_2026.spec.yaml`` -> ``hb2306_hd1_2026``."""
+    n = spec_path.name
+    return n[: -len(".spec.yaml")] if n.endswith(".spec.yaml") else spec_path.stem
+
+
+def _write_note(translation: dict, score: dict | None, out: Path, name: str) -> list[Path]:
+    out.mkdir(parents=True, exist_ok=True)
+    written = []
+    if score is None:
+        note = render_out_of_scope_note(translation)
+    else:
+        note = render_note(translation, score)
+        path = out / f"{name}.score.json"
+        path.write_text(dumps(score))
+        written.append(path)
+    path = out / f"{name}.note.md"
+    path.write_text(note)
+    return [*written, path]
+
+
+def _score_and_write(translation: dict, spec_path: Path | None, out: Path, name: str,
+                     scorer: Callable[[Path], dict] | None, population: str | None) -> int:
+    """Shared by ``score`` and ``run``: refuse invalid, write the short note for out_of_scope,
+    otherwise score the spec and write the note and score JSON."""
+    verdict = translation["verdict"]
+    if verdict == "invalid":
+        print(f"refusing to score {translation['label']}: the translation is invalid", file=sys.stderr)
+        for p in translation.get("problems", []):
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+    if verdict == "out_of_scope":
+        written = _write_note(translation, None, out, name)
+    else:
+        scorer = scorer or functools.partial(score_spec_file, population_dir=population)
+        try:
+            score = scorer(spec_path)
+        except ScoreError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        written = _write_note(translation, score, out, name)
+    for p in written:
+        print(f"wrote {p}")
+    return 0
+
+
+def cmd_score(args, scorer: Callable[[Path], dict] | None = None) -> int:
+    spec_path = Path(args.spec)
+    name = spec_name(spec_path)
+    tr_path = Path(args.translation) if args.translation else spec_path.with_name(f"{name}.translation.json")
+    if not tr_path.exists():
+        print(f"ERROR: translation file not found: {tr_path} (pass --translation)", file=sys.stderr)
+        return 2
+    translation = json.loads(tr_path.read_text())
+    out = Path(args.out) if args.out else spec_path.parent
+    return _score_and_write(translation, spec_path, out, name, scorer, args.population)
+
+
+def cmd_run(args, runner: Callable[[str], str] | None = None,
+            scorer: Callable[[Path], dict] | None = None) -> int:
+    bill_text = Path(args.bill).read_text()
+    header = parse_header(bill_text)
+    runner = runner or functools.partial(run_claude, model=args.model)
+    t = translate_bill(bill_text, header["name"], runner)
+    out = Path(args.out) if args.out else REPO / "reforms" / "bills" / header["session"]
+    written = write_outputs(bill_text, t, header, args.model, out)
+    print(summary(t, header))
+    for p in written:
+        print(f"wrote {p}")
+    translation = json.loads((out / f"{header['name']}.translation.json").read_text())
+    spec_path = out / f"{header['name']}.spec.yaml"
+    return _score_and_write(translation, spec_path, out, header["name"], scorer, args.population)
+
+
+def cmd_diff(args) -> int:
+    paths = [resolve_draft(a) for a in (args.old, args.new)]
+    for score_path, _ in paths:
+        if not score_path.exists():
+            print(f"ERROR: score file not found: {score_path}", file=sys.stderr)
+            return 2
+    loaded = []
+    for score_path, tr_path in paths:
+        tr = json.loads(tr_path.read_text()) if tr_path.exists() else None
+        loaded.append((json.loads(score_path.read_text()), tr))
+    text = render_diff(loaded[0][0], loaded[0][1], loaded[1][0], loaded[1][1])
+    print(text)
+    if args.out:
+        Path(args.out).write_text(text if text.endswith("\n") else text + "\n")
+        print(f"wrote {args.out}")
+    return 0
+
+
+def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = None,
+         scorer: Callable[[Path], dict] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m fiscal_notes", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     tr = sub.add_parser("translate", help="translate one bill draft into a spec")
@@ -141,9 +237,31 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
     ev = sub.add_parser("eval", help="run the real translator over the fixture bills")
     ev.add_argument("--record", action="store_true", help="rewrite the recorded responses")
     ev.add_argument("--model", default="sonnet")
+    sc = sub.add_parser("score", help="score a spec and write the draft note and score JSON")
+    sc.add_argument("spec", help="spec file (.spec.yaml)")
+    sc.add_argument("--translation", help="translation JSON (default: <name>.translation.json beside the spec)")
+    sc.add_argument("--out", help="output directory (default: beside the spec)")
+    sc.add_argument("--population", help="simulator population directory (default runs/tax_simulator)")
+    rn = sub.add_parser("run", help="translate a bill draft, score it, write the note")
+    rn.add_argument("bill", help="bill text file")
+    rn.add_argument("--out", help="output directory (default reforms/bills/<session>/)")
+    rn.add_argument("--model", default="sonnet")
+    rn.add_argument("--population", help="simulator population directory (default runs/tax_simulator)")
+    df = sub.add_parser("diff", help="compare two drafts of one bill")
+    df.add_argument("old", help="DIR/name prefix or .score.json of the older draft")
+    df.add_argument("new", help="DIR/name prefix or .score.json of the newer draft")
+    df.add_argument("--out", help="also write the comparison to this Markdown file")
     args = ap.parse_args(argv)
     logging.disable(logging.INFO)  # tax_modeler logs every schedule it loads
-    return cmd_translate(args, runner) if args.cmd == "translate" else cmd_eval(args, runner)
+    if args.cmd == "translate":
+        return cmd_translate(args, runner)
+    if args.cmd == "eval":
+        return cmd_eval(args, runner)
+    if args.cmd == "score":
+        return cmd_score(args, scorer)
+    if args.cmd == "run":
+        return cmd_run(args, runner, scorer)
+    return cmd_diff(args)
 
 
 if __name__ == "__main__":

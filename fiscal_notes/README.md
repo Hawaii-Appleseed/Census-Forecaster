@@ -1,8 +1,10 @@
 # fiscal_notes: bill text to policy spec
 
-First piece of the shadow fiscal notes tool. It turns the text of a Hawaii bill draft into the
+Shadow fiscal notes tool. The translator turns the text of a Hawaii bill draft into the
 model's `IncomeTaxSpec` (see `TAX_SIMULATOR_SCOPE.md`, "The policy spec"): an LLM reads the bill,
-and deterministic checks around the call refuse anything the bill does not support.
+and deterministic checks around the call refuse anything the bill does not support. The scorer
+then runs that spec through the simulator and writes a one-page draft note (`score.py`, `note.py`),
+and `diff` compares two drafts of a bill (`diff.py`).
 
 This directory sits outside every workspace package and every `common.fingerprint.SCRIPT_DIRS`
 directory on purpose: the cache key hashes those, so nothing here can move a published number or a
@@ -28,6 +30,9 @@ Fixtures: `tests/fiscal_notes/bills/`.
 ```
 python -m fiscal_notes translate BILL.txt [--out DIR] [--model sonnet]
 python -m fiscal_notes eval [--record] [--model sonnet]
+python -m fiscal_notes score SPEC.yaml [--translation FILE] [--out DIR] [--population DIR]
+python -m fiscal_notes run BILL.txt [--out DIR] [--model sonnet] [--population DIR]
+python -m fiscal_notes diff OLD NEW [--out FILE.md]
 ```
 
 `translate` writes `<name>.spec.yaml` (when there is a spec; a header comment says it is
@@ -41,6 +46,50 @@ expectation in `expectations.py` holds (the same expectations the offline tests 
 rewrites `tests/fiscal_notes/responses/`, which the tests replay; re-record after any change to
 `prompt.md`. The model is called through the `claude` CLI (`CLAUDE_BIN` overrides the binary); no
 test calls it.
+
+### Scoring and the note
+
+`score` scores the spec with the library calls `analyses/forecast_custom.py --spec` makes
+(`load_spec`, `Population.load(runs/tax_simulator)`, `score_spec`; no model logic is duplicated) and
+writes, beside the spec by default, `<name>.note.md` and `<name>.score.json`. The translation JSON
+defaults to `<name>.translation.json` beside the spec. The score JSON is the full numeric result
+with sorted keys (revenue by tax year for LOW, MID, HIGH after behavioral response and MID static;
+credits when the spec changes them; the total; five-year sums; the quintile and income-class tables
+for the first year the spec applies; provenance), so a later draft's file diffs line by line against
+it. The simulator population (`runs/tax_simulator/population.npz`) is a local, uncommitted input: no
+test needs it (they use canned score results), and `score` stops with a message when it is missing.
+A spec that changes credits needs the credits table: `runs/tax_simulator/credits.json` if the
+population build wrote one, else the same table built from `runs/working_family_credits/`
+(`tax_modeler.simulator.credits.load_credit_table`, what the build script calls); with neither, it
+stops with a message.
+
+`run` is `translate`, then `score` when the verdict is `full` or `partial`, then the note. For
+`out_of_scope` it writes the translation JSON and a three-line note (nothing can be scored; the
+provisions found) and scores nothing. For `invalid` it writes the translation JSON, prints the
+problems and exits 1. `score` refuses an `invalid` translation too.
+
+The note (`note.py`, a pure function of the translation JSON and the score result) has, in order: a
+title and a DRAFT status line with the verdict in words; the bottom line (MID five-year change vs
+current law, Act 24, and the LOW-HIGH range, in $ millions); the revenue table by tax year; who pays
+and who gains; what is scored (section, summary, verbatim quote); what is NOT scored (the estimate
+leaves these out); the translator's reviewer notes; method and provenance (model commit, sha256 of
+the bill text, translator model). A positive figure means more revenue. The sample below is the real
+output for HB 2306 HD1: `examples/hb2306_hd1_2026.{spec.yaml,translation.json,score.json,note.md}`.
+
+The note describes the spec file that was scored, but its provision list comes from the
+translation JSON: if a person edits the spec after translation, the note's "What is scored" no
+longer matches it. The spec's sha256 is in the provenance lines so the edit is visible.
+
+`diff OLD NEW` takes the directory-and-name prefix (or the `.score.json` path) of two drafts of the
+same bill and prints a Markdown comparison: spec settings that changed, bracket rows that changed
+(by filing status and vintage, matched by floor), provisions added, dropped or changed (matched by
+section number and spec keys; when the match is not one to one both sides are listed), and the change
+in the revenue table (MID by year and five-year, plus the LOW and HIGH five-year range).
+
+Checking the scorer by hand (not a test, needs the population): score a spec both ways and compare.
+`python -m fiscal_notes score X.spec.yaml` and `python analyses/forecast_custom.py --spec X.spec.yaml`
+must print the same revenue, credits and distribution figures; a translation of current law (SB 3125
+CD2, the enrolled text) must score exactly zero in every year and scenario.
 
 ## Verdicts
 
