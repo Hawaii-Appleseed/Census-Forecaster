@@ -2003,6 +2003,8 @@ def build_leavers() -> tuple[str, dict]:
     agi_in, agi_out = sum(r["agi_in_k"] for r in top) / 1e6, sum(r["agi_out_k"] for r in top) / 1e6
     net_all = sum(r["net_returns_in"] for r in allf.values()) / len(allf)
     first, last = int(top[0]["year1"]), int(top[-1]["year2"])
+    n_years = {8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}.get(len(top), str(len(top)))
+    latest = top[-1]
     dest = read_csv(d / "destinations.csv")
 
     lv_tax, in_tax = R("leavers", "tax_current_total", "units"), R("movers in", "tax_current_total", "units")
@@ -2010,7 +2012,7 @@ def build_leavers() -> tuple[str, dict]:
     net_moe = math.hypot(moe("leavers", "tax_current_total", "units"), moe("movers in", "tax_current_total", "units"))
 
     T_irs = ('Internal Revenue Service, Statistics of Income Division, “Gross Migration for Selected Income Items by '
-             'State, Size of Adjusted Gross Income, and Age of Taxpayer,” filing years 2015–2016 to 2022–2023. '
+             'State, Size of Adjusted Gross Income, and Age of Taxpayer,” filing years ' f'{first}–{first + 1} to {last - 1}–{last}. '
              '<a href="https://www.irs.gov/statistics/soi-tax-stats-migration-data">irs.gov</a>')
     T_acs = ('U.S. Census Bureau, American Community Survey 2020–2024 five-year Public Use Microdata Sample, Hawaiʻi '
              'and national person and housing files. '
@@ -2026,7 +2028,7 @@ def build_leavers() -> tuple[str, dict]:
 <p class="ha-est__eyebrow">Current policy · Taxes and migration</p>
 <h1>Who Leaves Hawaiʻi</h1>
 <hr class="ha-est__hero-rule">
-<p class="ha-est__deck">Every proposal to ask more of Hawaiʻi’s highest earners meets the warning that they will move away. Eight years of IRS records and the Census Bureau’s survey of who moved show who actually leaves, who arrives and what each group pays.</p>
+<p class="ha-est__deck">Every proposal to ask more of Hawaiʻi’s highest earners meets the warning that they will move away. {n_years.capitalize()} years of IRS records and the Census Bureau’s survey of who moved show who actually leaves, who arrives and what each group pays.</p>
 <p class="ha-est__meta">Hawaiʻi Appleseed · Model run {esc(long_date(run))} · IRS filing years {first} to {last}; American Community Survey 2020–24</p>
 </div></section>
 <div class="ha-est__stats">
@@ -2054,13 +2056,17 @@ def build_leavers() -> tuple[str, dict]:
                                 + "; ".join(f"{y}, {r['returns_out']:,.0f} left and {r['returns_in']:,.0f} arrived"
                                             for y, r in zip(years, top, strict=True)) + "."))
     opener = f"In every year from {first} to {last}," if every_year else f"From {first} to {last},"
+    # a near-even latest year is said plainly rather than left inside "every year"
+    close_year = (f"<p>The latest year, {years[-1]}, was close to even: {latest['returns_out']:,.0f} high earners left and "
+                  f"{latest['returns_in']:,.0f} arrived.</p>\n"
+                  if abs(latest["net_returns_in"]) < 0.05 * latest["returns_out"] else "")
     s2 = section("High Earners Arrive Faster Than They Leave", f"""
-{lead(opener, f"more filers with incomes of $200,000 or more moved to Hawaiʻi than moved away: {net_top:,.0f} more over the eight years. They are also less likely to leave than other filers. In a typical year, {pct(rate_top, 1)} percent of Hawaiʻi’s $200,000-plus filers moved to another state, against {pct(rate_all, 1)} percent of all filers.{notes.ref(T_irs)}")}
+{lead(opener, f"more filers with incomes of $200,000 or more moved to Hawaiʻi than moved away: {net_top:,.0f} more over the {n_years} years. They are also less likely to leave than other filers. In a typical year, {pct(rate_top, 1)} percent of Hawaiʻi’s $200,000-plus filers moved to another state, against {pct(rate_all, 1)} percent of all filers.{notes.ref(T_irs)}")}
 {figure(1, "Filers With Incomes of $200,000 or More, Leaving and Arriving", chart, "Source: Hawaiʻi Appleseed from IRS Statistics of Income migration data. Each pair of years compares the address on a filer’s return with the one on the next year’s.", series=series)}
 {table(["Filing years", "Left", "Arrived", "Net arrivals", "Leaving rate, $200,000+ (percent)", "Leaving rate, all filers (percent)"],
        irows, caption="Table 1. Filers With Incomes of $200,000 or More Moving Out of and Into Hawaiʻi")}
 <p class="ha-est__source">Source: IRS Statistics of Income migration data. $200,000 or more is the highest income class the IRS publishes. The leaving rate divides filers who left by all filers from Hawaiʻi the IRS could match across the two years.</p>
-<p>The income follows the same pattern. Over the eight years, the $200,000-plus filers who arrived reported ${agi_in:,.1f} billion in income in their first year filing from Hawaiʻi. Those who left had reported ${agi_out:,.1f} billion in their last.</p>
+{close_year}<p>The income follows the same pattern. Over the {n_years} years, the $200,000-plus filers who arrived reported ${agi_in:,.1f} billion in income in their first year filing from Hawaiʻi. Those who left had reported ${agi_out:,.1f} billion in their last.</p>
 <p>Across all incomes, more filers leave Hawaiʻi than arrive, about {_n100(-net_all)} a year on net. The ones leaving are not the high earners.</p>
 """, "irs")
 
