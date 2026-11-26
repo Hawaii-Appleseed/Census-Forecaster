@@ -112,6 +112,37 @@ its income; the standard error is ACS sampling error only.
 - The lowest fifth's grocery tax ($240 a household) is about its food/excise credit ($234).
 - The credit column is not zero at the top because a household can hold a low-income tax unit.
 
+## Check against ITEP (November 26, 2026)
+
+ITEP's *Who Pays?* (7th edition, Hawaiʻi: 2024 law, 2023 incomes, non-senior families) prints
+"General Sales, Individuals" as a share of family income by income range. The model's households
+sorted into the same dollar ranges, state tax plus surcharge:
+
+| Income range | Share of households | Model, BEA level | Model, survey level | ITEP |
+|---|---|---|---|---|
+| Under $21,900 | 10% | 14.6% | 9.3% | 4.8% |
+| $21,900 to $44,200 | 10% | 5.8% | 3.7% | 5.6% |
+| $44,200 to $80,100 | 19% | 4.3% | 2.7% | 4.4% |
+| $80,100 to $136,600 | 24% | 3.2% | 2.0% | 3.2% |
+| $136,600 to $278,200 | 28% | 2.5% | 1.5% | 2.3% |
+| $278,200 to $594,900 | 9% | 1.8% | 1.0% | 1.3% |
+| Over $594,900 | 1% | 1.3% | 0.7% | 0.5% |
+
+- **The level.** Between $21,900 and $278,200, four fifths of households, the BEA level is within
+  0.2 points of ITEP in every range and the survey level is about a third under. The BEA level
+  stays the default.
+- **The bottom.** Under $21,900 the model is three times ITEP. Spending is held where the lowest
+  decile has it however low income falls, so tax over income climbs without limit. This is the
+  overstatement named below, and it is large: the lowest fifth's 7.7 percent leans on it.
+- **The top.** Above $278,200 the model runs over ITEP. Spending past the highest decile's mean
+  grows with the last interval's elasticity, which looks too steep.
+- The comparison is loose: ITEP's units are families without seniors, its incomes are 2023's and
+  broader than cash income, and its line may treat the tax on rent differently. The model was not
+  fitted to it and should not be.
+
+No Department of Taxation estimate of a grocery exemption has been set beside the $251 million
+yet.
+
 ## Known weaknesses
 
 - **Spending is read from income alone.** The published tables do not cross income with
@@ -139,8 +170,8 @@ its income; the standard error is ACS sampling error only.
 
 ## Next
 
-1. Read the first run against ITEP's Hawaiʻi sales and excise shares and the Department's fiscal
-   notes on grocery exemption bills, and settle the level (BEA's or the survey's).
+1. The two tails the ITEP check shows: spending below the lowest decile's mean and above the
+   highest. Then the Department's fiscal notes on grocery exemption bills beside the $251 million.
 2. Survey microdata (the interview files). bls.gov refuses scripted downloads, so someone has to
    download the zip in a browser. With it: spending by income, household size, age and tenure,
    and the Honolulu sample as a check on the national shape.
