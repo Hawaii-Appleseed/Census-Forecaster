@@ -1,0 +1,628 @@
+{
+  "credits": {
+    "eitc": {
+      "2027": -0.0,
+      "2028": -42.791834586470394,
+      "2029": -43.476649335421385,
+      "2030": -44.84765644265426,
+      "2031": -47.393751323565965
+    },
+    "food_excise": {
+      "2027": -0.0,
+      "2028": -33.673980012583776,
+      "2029": -32.2299656529723,
+      "2030": -31.60357633499566,
+      "2031": -30.79339775262743
+    },
+    "total": {
+      "2027": -0.0,
+      "2028": -76.46581459905417,
+      "2029": -75.70661498839368,
+      "2030": -76.45123277764992,
+      "2031": -78.18714907619339
+    }
+  },
+  "distribution": {
+    "income_class": [
+      {
+        "avg_baseline_tax": -358.14669833603426,
+        "avg_bracket_change": 0.0,
+        "avg_reform_tax": -358.14669833603426,
+        "filer_count": 88524.46336803315,
+        "group": "Under $10K",
+        "pct_no_change": 100.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 0.0,
+        "total_baseline_$M": -31.704744277230287,
+        "total_bracket_$M": 0.0,
+        "total_reform_$M": -31.704744277230287
+      },
+      {
+        "avg_baseline_tax": -186.02955439176128,
+        "avg_bracket_change": 37.394941232404314,
+        "avg_reform_tax": -148.63461315935695,
+        "filer_count": 125482.33131775007,
+        "group": "$10K–$30K",
+        "pct_no_change": 65.7872849006888,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 34.212715099311204,
+        "total_baseline_$M": -23.343422179080395,
+        "total_bracket_$M": 4.6924044053323515,
+        "total_reform_$M": -18.651017773748045
+      },
+      {
+        "avg_baseline_tax": 903.9257009076558,
+        "avg_bracket_change": 306.5632823665021,
+        "avg_reform_tax": 1210.4889832741578,
+        "filer_count": 147614.55777951586,
+        "group": "$30K–$60K",
+        "pct_no_change": 4.81246340499078,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 95.18753659500922,
+        "total_baseline_$M": 133.43259260502253,
+        "total_bracket_$M": 45.25320335796806,
+        "total_reform_$M": 178.68579596299057
+      },
+      {
+        "avg_baseline_tax": 2635.26259538003,
+        "avg_bracket_change": 522.5239590710752,
+        "avg_reform_tax": 3157.786554451105,
+        "filer_count": 106377.48471109934,
+        "group": "$60K–$100K",
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 280.3326064497711,
+        "total_bracket_$M": 55.584784467266395,
+        "total_reform_$M": 335.9173909170375
+      },
+      {
+        "avg_baseline_tax": 5212.621593227211,
+        "avg_bracket_change": 737.1129411298156,
+        "avg_reform_tax": 5949.734534357025,
+        "filer_count": 97325.76849483987,
+        "group": "$100K–$175K",
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 507.32240243363486,
+        "total_bracket_$M": 71.74008346295096,
+        "total_reform_$M": 579.0624858965857
+      },
+      {
+        "avg_baseline_tax": 11193.77145332791,
+        "avg_bracket_change": 1081.123044546791,
+        "avg_reform_tax": 12274.8944978747,
+        "filer_count": 50632.3973130882,
+        "group": "$175K–$350K",
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 566.7674836568035,
+        "total_bracket_$M": 54.73985153582868,
+        "total_reform_$M": 621.5073351926321
+      },
+      {
+        "avg_baseline_tax": 24318.017290380798,
+        "avg_bracket_change": 1683.5645988366696,
+        "avg_reform_tax": 26001.58188921747,
+        "filer_count": 6748.277737709158,
+        "group": "$350K–$500K",
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 164.10473470590313,
+        "total_bracket_$M": 11.361161502324746,
+        "total_reform_$M": 175.46589620822786
+      },
+      {
+        "avg_baseline_tax": 42819.75695570122,
+        "avg_bracket_change": 2339.4414443912488,
+        "avg_reform_tax": 45159.19840009247,
+        "filer_count": 6096.375171556118,
+        "group": "$500K–$1M",
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 261.0453031568043,
+        "total_bracket_$M": 14.262112736896192,
+        "total_reform_$M": 275.3074158937005
+      },
+      {
+        "avg_baseline_tax": 327464.182443338,
+        "avg_bracket_change": -7775.5843108799345,
+        "avg_reform_tax": 319688.598132458,
+        "filer_count": 2387.067199456538,
+        "group": "$1M+",
+        "pct_no_change": 1.4210854715202004e-14,
+        "pct_pay_less": 38.00032751851951,
+        "pct_pay_more": 61.999672481480474,
+        "total_baseline_$M": 781.6790089073436,
+        "total_bracket_$M": -18.560842265110363,
+        "total_reform_$M": 763.1181666422332
+      }
+    ],
+    "quintile": [
+      {
+        "avg_per_hh_baseline_tax": -178.98723648475863,
+        "avg_per_hh_bracket_change": 66.60728627961257,
+        "avg_per_hh_reform_tax": -112.37995020514605,
+        "group": "Q1 (bottom 20%)",
+        "household_count": 98722.0,
+        "pct_no_change": 58.6454893539434,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 41.3545106460566,
+        "total_baseline_$M": -17.66997796024834,
+        "total_bracket_$M": 6.575604516095911,
+        "total_reform_$M": -11.094373444152428
+      },
+      {
+        "avg_per_hh_baseline_tax": 1168.0183496539569,
+        "avg_per_hh_bracket_change": 350.2520166536335,
+        "avg_per_hh_reform_tax": 1518.2703663075902,
+        "group": "Q2",
+        "household_count": 98814.0,
+        "pct_no_change": 1.0767704981075639,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 98.92322950189244,
+        "total_baseline_$M": 115.41656520270608,
+        "total_bracket_$M": 34.60980277361214,
+        "total_reform_$M": 150.0263679763182
+      },
+      {
+        "avg_per_hh_baseline_tax": 2305.5398580832293,
+        "avg_per_hh_bracket_change": 457.8634898028559,
+        "avg_per_hh_reform_tax": 2763.4033478860856,
+        "group": "Q3",
+        "household_count": 98732.0,
+        "pct_no_change": 0.03342381396103633,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 99.96657618603896,
+        "total_baseline_$M": 227.63056126827342,
+        "total_bracket_$M": 45.20577807521557,
+        "total_reform_$M": 272.836339343489
+      },
+      {
+        "avg_per_hh_baseline_tax": 4336.251555541679,
+        "avg_per_hh_bracket_change": 658.2114109401078,
+        "avg_per_hh_reform_tax": 4994.462966481788,
+        "group": "Q4",
+        "household_count": 98809.0,
+        "pct_no_change": 0.0,
+        "pct_pay_less": 0.0,
+        "pct_pay_more": 100.0,
+        "total_baseline_$M": 428.46067995151776,
+        "total_bracket_$M": 65.03721130358112,
+        "total_reform_$M": 493.4978912550989
+      },
+      {
+        "avg_per_hh_baseline_tax": 19091.083499496082,
+        "avg_per_hh_bracket_change": 887.2772809499214,
+        "avg_per_hh_reform_tax": 19978.360780446004,
+        "group": "Q5 (top 20%)",
+        "household_count": 98779.0,
+        "pct_no_change": 1.5210055437364645e-14,
+        "pct_pay_less": 0.9157850898660475,
+        "pct_pay_more": 99.08421491013394,
+        "total_baseline_$M": 1885.7981369967233,
+        "total_bracket_$M": 87.64436253495228,
+        "total_reform_$M": 1973.4424995316758
+      }
+    ],
+    "year": 2027
+  },
+  "first_year": 2027,
+  "five_year": {
+    "credits": {
+      "eitc": -178.50989168811202,
+      "food_excise": -128.30091975317916,
+      "total": -306.81081144129115
+    },
+    "income_tax": {
+      "high": 1911.798539416206,
+      "low": 1841.4083784264749,
+      "mid": 1879.3273268052576,
+      "static_mid": 1947.7536151307418
+    },
+    "total": {
+      "high": 1604.9877279749148,
+      "low": 1534.5975669851837,
+      "mid": 1572.5165153639664,
+      "static_mid": 1640.9428036894506
+    }
+  },
+  "income_tax": {
+    "high": {
+      "2027": 235.45677385937597,
+      "2028": 233.92586728206334,
+      "2029": 478.05752218745783,
+      "2030": 483.18734512492756,
+      "2031": 481.17103096238134
+    },
+    "low": {
+      "2027": 225.36570377292946,
+      "2028": 224.50014942380812,
+      "2029": 460.9333208383855,
+      "2030": 465.8396065304519,
+      "2031": 464.7695978608999
+    },
+    "mid": {
+      "2027": 230.1700641525431,
+      "2028": 230.25946466046116,
+      "2029": 470.14610127959213,
+      "2030": 474.9630906392904,
+      "2031": 473.78860607337083
+    },
+    "static_mid": {
+      "2027": 239.07275920345728,
+      "2028": 239.27124335415465,
+      "2029": 486.5824610904715,
+      "2030": 491.8562595144913,
+      "2031": 490.97089196816705
+    }
+  },
+  "label": "HB 2306 HD1 (2026)",
+  "name": "hb2306_hd1_2026",
+  "provenance": {
+    "credits_source": {
+      "created_at": "2026-10-19T21:40:12+00:00",
+      "git_sha": "2cba8d0",
+      "params_fingerprint": "ba444def670dd6ff",
+      "run": "working_family_credits",
+      "takeup_eitc": 0.9809,
+      "takeup_food": 0.7455
+    },
+    "model_git_sha": "46d33bbb5b8761906ceb9208ac556c7cdf37474e",
+    "model_tree_dirty": false,
+    "population_created_at": "2026-11-26T22:41:43+00:00",
+    "population_git_sha": "73e6912",
+    "spec_sha256": "041fdc1763bf1644273895ea82e2cb0590c11cd70d54d08019b93d6a92853c23"
+  },
+  "revenue_rows": [
+    {
+      "baseline_$M": 2610.3548922687496,
+      "behavioral_$M": 225.36570377292946,
+      "filers_1m_post_response": 2272.961860858764,
+      "reform_$M": 2848.7287756250525,
+      "scenario": "low",
+      "static_$M": 238.37388335630294,
+      "tax_year": 2027
+    },
+    {
+      "baseline_$M": 2766.8803286581365,
+      "behavioral_$M": 224.50014942380812,
+      "filers_1m_post_response": 2417.5096732159727,
+      "reform_$M": 3004.8692830809387,
+      "scenario": "low",
+      "static_$M": 237.98895442280218,
+      "tax_year": 2028
+    },
+    {
+      "baseline_$M": 2662.8623222688047,
+      "behavioral_$M": 460.9333208383855,
+      "filers_1m_post_response": 2502.2302261748564,
+      "reform_$M": 3148.4823393389265,
+      "scenario": "low",
+      "static_$M": 485.6200170701218,
+      "tax_year": 2029
+    },
+    {
+      "baseline_$M": 2781.3643470488164,
+      "behavioral_$M": 465.8396065304519,
+      "filers_1m_post_response": 2657.2541139411433,
+      "reform_$M": 3272.2609175311213,
+      "scenario": "low",
+      "static_$M": 490.8965704823049,
+      "tax_year": 2030
+    },
+    {
+      "baseline_$M": 2886.502557368065,
+      "behavioral_$M": 464.7695978608999,
+      "filers_1m_post_response": 2732.9308820384767,
+      "reform_$M": 3376.8117017800446,
+      "scenario": "low",
+      "static_$M": 490.30914441197956,
+      "tax_year": 2031
+    },
+    {
+      "baseline_$M": 2639.635965458972,
+      "behavioral_$M": 230.1700641525431,
+      "filers_1m_post_response": 2370.7034396920494,
+      "reform_$M": 2878.708724662429,
+      "scenario": "mid",
+      "static_$M": 239.07275920345728,
+      "tax_year": 2027
+    },
+    {
+      "baseline_$M": 2795.0175838150653,
+      "behavioral_$M": 230.25946466046116,
+      "filers_1m_post_response": 2502.230226174856,
+      "reform_$M": 3034.28882716922,
+      "scenario": "mid",
+      "static_$M": 239.27124335415465,
+      "tax_year": 2028
+    },
+    {
+      "baseline_$M": 2703.585629995953,
+      "behavioral_$M": 470.14610127959213,
+      "filers_1m_post_response": 2660.0244579350306,
+      "reform_$M": 3190.1680910864243,
+      "scenario": "mid",
+      "static_$M": 486.5824610904715,
+      "tax_year": 2029
+    },
+    {
+      "baseline_$M": 2835.9067864998237,
+      "behavioral_$M": 474.9630906392904,
+      "filers_1m_post_response": 2773.1392294450357,
+      "reform_$M": 3327.763046014315,
+      "scenario": "mid",
+      "static_$M": 491.8562595144913,
+      "tax_year": 2030
+    },
+    {
+      "baseline_$M": 2960.3484734431154,
+      "behavioral_$M": 473.78860607337083,
+      "filers_1m_post_response": 2966.323341299353,
+      "reform_$M": 3451.3193654112824,
+      "scenario": "mid",
+      "static_$M": 490.97089196816705,
+      "tax_year": 2031
+    },
+    {
+      "baseline_$M": 2698.6323327676973,
+      "behavioral_$M": 235.45677385937597,
+      "filers_1m_post_response": 2502.230226174856,
+      "reform_$M": 2937.3805474474248,
+      "scenario": "high",
+      "static_$M": 238.74821467972743,
+      "tax_year": 2027
+    },
+    {
+      "baseline_$M": 2890.9092911890584,
+      "behavioral_$M": 233.92586728206334,
+      "filers_1m_post_response": 2715.365129582708,
+      "reform_$M": 3128.2021402977825,
+      "scenario": "high",
+      "static_$M": 237.2928491087241,
+      "tax_year": 2028
+    },
+    {
+      "baseline_$M": 2826.535751394884,
+      "behavioral_$M": 478.05752218745783,
+      "filers_1m_post_response": 2886.3233412993527,
+      "reform_$M": 3310.808412798748,
+      "scenario": "high",
+      "static_$M": 484.2726614038643,
+      "tax_year": 2029
+    },
+    {
+      "baseline_$M": 2970.2919487786903,
+      "behavioral_$M": 483.18734512492756,
+      "filers_1m_post_response": 3576.8773404372314,
+      "reform_$M": 3459.8492652501745,
+      "scenario": "high",
+      "static_$M": 489.5573164714842,
+      "tax_year": 2030
+    },
+    {
+      "baseline_$M": 3134.5563053694664,
+      "behavioral_$M": 481.17103096238134,
+      "filers_1m_post_response": 4599.661126820923,
+      "reform_$M": 3622.345648719466,
+      "scenario": "high",
+      "static_$M": 487.78934334999985,
+      "tax_year": 2031
+    }
+  ],
+  "spec": {
+    "baseline": "act24",
+    "behavior": [
+      "static",
+      "low",
+      "mid",
+      "high"
+    ],
+    "credits": {
+      "eitc_percent": 40.0,
+      "food_excise": "act163"
+    },
+    "first_year": 2027,
+    "income_tax": {
+      "brackets": {
+        "head_of_household": [
+          [
+            0.0,
+            1.4
+          ],
+          [
+            14400.0,
+            3.2
+          ],
+          [
+            21600.0,
+            5.5
+          ],
+          [
+            28800.0,
+            6.4
+          ],
+          [
+            36000.0,
+            6.8
+          ],
+          [
+            54000.0,
+            7.2
+          ],
+          [
+            72000.0,
+            7.6
+          ],
+          [
+            187500.0,
+            7.9
+          ],
+          [
+            262500.0,
+            8.25
+          ],
+          [
+            337500.0,
+            10.0
+          ],
+          [
+            412500.0,
+            11.0
+          ],
+          [
+            487500.0,
+            12.0
+          ]
+        ],
+        "married_filing_jointly": [
+          [
+            0.0,
+            1.4
+          ],
+          [
+            19200.0,
+            3.2
+          ],
+          [
+            28800.0,
+            5.5
+          ],
+          [
+            38400.0,
+            6.4
+          ],
+          [
+            48000.0,
+            6.8
+          ],
+          [
+            72000.0,
+            7.2
+          ],
+          [
+            96000.0,
+            7.6
+          ],
+          [
+            250000.0,
+            7.9
+          ],
+          [
+            350000.0,
+            8.25
+          ],
+          [
+            450000.0,
+            10.0
+          ],
+          [
+            550000.0,
+            11.0
+          ],
+          [
+            650000.0,
+            12.0
+          ]
+        ],
+        "single": [
+          [
+            0.0,
+            1.4
+          ],
+          [
+            9600.0,
+            3.2
+          ],
+          [
+            14400.0,
+            5.5
+          ],
+          [
+            19200.0,
+            6.4
+          ],
+          [
+            24000.0,
+            6.8
+          ],
+          [
+            36000.0,
+            7.2
+          ],
+          [
+            48000.0,
+            7.6
+          ],
+          [
+            125000.0,
+            7.9
+          ],
+          [
+            175000.0,
+            8.25
+          ],
+          [
+            225000.0,
+            10.0
+          ],
+          [
+            275000.0,
+            11.0
+          ],
+          [
+            325000.0,
+            12.0
+          ]
+        ]
+      },
+      "capital_gains_rate": "current_law",
+      "personal_exemption": "current_law",
+      "standard_deduction": "current_law"
+    },
+    "label": "HB 2306 HD1 (2026)",
+    "name": "hb2306_hd1_2026"
+  },
+  "total": {
+    "high": {
+      "2027": 235.45677385937597,
+      "2028": 157.46005268300917,
+      "2029": 402.3509071990642,
+      "2030": 406.73611234727764,
+      "2031": 402.98388188618793
+    },
+    "low": {
+      "2027": 225.36570377292946,
+      "2028": 148.03433482475396,
+      "2029": 385.22670584999184,
+      "2030": 389.38837375280195,
+      "2031": 386.5824487847065
+    },
+    "mid": {
+      "2027": 230.1700641525431,
+      "2028": 153.793650061407,
+      "2029": 394.4394862911985,
+      "2030": 398.51185786164046,
+      "2031": 395.6014569971774
+    },
+    "static_mid": {
+      "2027": 239.07275920345728,
+      "2028": 162.80542875510048,
+      "2029": 410.87584610207784,
+      "2030": 415.40502673684136,
+      "2031": 412.78374289197365
+    }
+  },
+  "years": [
+    2027,
+    2028,
+    2029,
+    2030,
+    2031
+  ]
+}

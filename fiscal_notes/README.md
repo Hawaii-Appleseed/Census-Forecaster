@@ -73,8 +73,17 @@ title and a DRAFT status line with the verdict in words; the bottom line (MID fi
 current law, Act 24, and the LOW-HIGH range, in $ millions); the revenue table by tax year; who pays
 and who gains; what is scored (section, summary, verbatim quote); what is NOT scored (the estimate
 leaves these out); the translator's reviewer notes; method and provenance (model commit, sha256 of
-the bill text, translator model). A positive figure means more revenue. The sample below is the real
-output for HB 2306 HD1: `examples/hb2306_hd1_2026.{spec.yaml,translation.json,score.json,note.md}`.
+the bill text, translator model). A positive figure means more revenue.
+
+Sample: `examples/hb2306_hd1_2026.note.md` is the note for HB 2306 HD1, with the spec, translation and
+score JSON it came from (`hb2306_hd1_2026.{spec.yaml,translation.json,score.json}`). The translation
+is the recorded model response in `tests/fiscal_notes/responses/`, not a fresh call. Its bottom line:
+
+> Against current law (Act 24), the bill as scored raises $1,572.5 million over tax years 2027-2031 in
+> the MID scenario, after behavioral response. Across the LOW to HIGH scenarios the five-year change
+> runs from a gain of $1,534.6 million to a gain of $1,605.0 million. Of the MID figure, income tax is
+> +1,879.3 and credits are -306.8 ($ millions). The estimate leaves out the provisions listed under
+> "What is NOT scored".
 
 The note describes the spec file that was scored, but its provision list comes from the
 translation JSON: if a person edits the spec after translation, the note's "What is scored" no

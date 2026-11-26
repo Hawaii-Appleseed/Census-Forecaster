@@ -48,7 +48,12 @@ def _flat(spec: dict) -> dict[str, Any]:
 
 
 def _show(v: Any) -> str:
-    return "(not set)" if v is None else str(v)
+    if v is None:
+        return "(not set)"
+    if isinstance(v, dict):
+        return ", ".join(f"{k} {x:,.0f}" if isinstance(x, (int, float)) else f"{k} {x}"
+                         for k, x in sorted(v.items()))
+    return str(v)
 
 
 def _rate(rows: list, floor: float) -> str | None:
@@ -135,6 +140,8 @@ def provision_changes(old: list[dict], new: list[dict]) -> list[str]:
     for p in new:
         groups.setdefault(_key(p), ([], []))[1].append(p)
     added, dropped, changed, unsure = [], [], [], []
+    only_old: list[dict] = []
+    only_new: list[dict] = []
     for key in sorted(groups):
         o, n = groups[key]
         # identical quotes pair off first
@@ -151,8 +158,20 @@ def provision_changes(old: list[dict], new: list[dict]) -> list[str]:
         elif o and n:
             unsure += [f"old: {_line(p)}" for p in o] + [f"new: {_line(p)}" for p in n]
         else:
-            dropped += [_line(p) for p in o]
-            added += [_line(p) for p in n]
+            only_old += o
+            only_new += n
+    # a provision whose section number moved between drafts: same non-empty spec keys, one on each side
+    for p in list(only_old):
+        same = [q for q in only_new if p["spec_keys"] and q["spec_keys"] == p["spec_keys"]]
+        twins = [q for q in only_old if p["spec_keys"] and q["spec_keys"] == p["spec_keys"]]
+        if len(same) == 1 and len(twins) == 1:
+            q = same[0]
+            only_old.remove(p)
+            only_new.remove(q)
+            diffs = [f"renumbered section {p['section']} -> {q['section']}", *_changed(p, q)]
+            changed.append(f"{_line(q)}: {'; '.join(diffs)}")
+    dropped += [_line(p) for p in only_old]
+    added += [_line(p) for p in only_new]
     out: list[str] = []
     for title, items in (("Provisions added in the new draft", added),
                          ("Provisions dropped from the old draft", dropped),
@@ -185,7 +204,8 @@ def revenue_changes(old: dict, new: dict) -> list[str]:
     rng = []
     for k, name in (("low", "LOW"), ("high", "HIGH")):
         rng.append([name, signed(fo[k]), signed(fn[k]), delta(fo[k], fn[k])])
-    out += ["Five-year range ($ millions):", "", *table(["Scenario", "Old", "New", "Difference"], rng), ""]
+    out += ["Five-year range ($ millions):", "", *table(["Scenario", "Old", "New", "Difference"], rng), "",
+            "Differences are computed from the unrounded figures.", ""]
     return out
 
 

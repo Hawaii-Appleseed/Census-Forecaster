@@ -397,3 +397,18 @@ def test_provision_status_change_reported():
     old = [_prov(1, ["income_tax.brackets"], "same quote")]
     new = [_prov(1, ["income_tax.brackets"], "same quote", blank=True)]
     assert "blank flag False -> True" in "\n".join(provision_changes(old, new))
+
+
+def test_provision_renumbered_section_matches_on_spec_keys():
+    old = [_prov(4, ["credits.eitc_percent", "credits.food_excise"], "sunset text")]
+    new = [_prov(3, ["credits.eitc_percent", "credits.food_excise"], "sunset text")]
+    text = "\n".join(provision_changes(old, new))
+    assert "renumbered section 4 -> 3" in text and "added" not in text and "dropped" not in text
+
+
+def test_provision_renumbered_ambiguous_is_not_matched():
+    keys = ["income_tax.brackets"]
+    old = [_prov(1, keys, "a"), _prov(2, keys, "b")]
+    new = [_prov(3, keys, "c")]
+    text = "\n".join(provision_changes(old, new))
+    assert "renumbered" not in text and "added" in text and "dropped" in text
