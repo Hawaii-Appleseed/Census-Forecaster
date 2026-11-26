@@ -1,0 +1,30 @@
+{
+  "created_at": "2026-11-26T06:25:14+00:00",
+  "git_sha": "b0aea5c",
+  "script": "analyses/hawaii_leavers.py",
+  "params": {
+    "acs": "2020-2024 5-year",
+    "tax_current": "act46 TY2026",
+    "tax_act24": "act24 TY2027",
+    "filing_status_factors": "1.0",
+    "cases": [
+      "main",
+      "no_veteran_households",
+      "no_2020"
+    ]
+  },
+  "params_fingerprint": "8e61dd3e557be44b",
+  "inputs": {
+    "psam_p_leavers.csv": 3330497,
+    "psam_h_leavers.csv": 1287047,
+    "psam_p15.csv": 54172246,
+    "migration_hawaii_by_agi.csv": 17614
+  },
+  "outputs": [
+    "destinations.csv",
+    "irs_by_agi.csv",
+    "irs_flows.csv",
+    "results.csv"
+  ],
+  "published_at": "2026-11-26T06:25:14+00:00"
+}
