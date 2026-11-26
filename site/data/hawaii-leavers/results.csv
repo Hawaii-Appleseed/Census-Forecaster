@@ -1,0 +1,367 @@
+case,table,group,band,metric,estimate,se
+main,persons,stayers,,records,52726.0,
+main,persons,stayers,,adults_per_year,1006294.0,2467.5039614963134
+main,persons,stayers,,median_income,41763.435,238.99443754663173
+main,persons,stayers,,p90_income,122201.7,405.3668323426011
+main,persons,stayers,,share_200k_plus,0.03452172029247914,0.00098812478545026
+main,persons,stayers,,share_poor,0.09253458730748668,0.001794514501626477
+main,persons,stayers,,median_age,51.0,0.22360679774997896
+main,persons,stayers,,share_born_hi,0.5092964879051252,0.002962745148893416
+main,persons,stayers,,share_native_hawaiian,0.20497488805458444,0.0029984931905726827
+main,persons,stayers,,share_veteran,0.07609307021606011,0.0014349187425162424
+main,persons,stayers,,age_std_mean_income,59037.57709789448,380.22427470915864
+main,persons,stayers,,age_std_share_poor,0.09253458730748668,0.0018000086460450242
+main,persons,stayers,,age_std_share_200k_plus,0.03452172029247914,0.0009883399680311459
+main,persons,movers in,,records,1253.0,
+main,persons,movers in,,adults_per_year,27398.0,1067.532833218726
+main,persons,movers in,,median_income,41763.435,3326.860992848938
+main,persons,movers in,,p90_income,143777.39,12064.36924899014
+main,persons,movers in,,share_200k_plus,0.0506606321629316,0.0070138832009395986
+main,persons,movers in,,share_poor,0.14957296153003868,0.01653214266342826
+main,persons,movers in,,median_age,37.0,0.806225774829855
+main,persons,movers in,,share_born_hi,0.22154901817650924,0.018967241871906224
+main,persons,movers in,,share_native_hawaiian,0.08011533688590408,0.011551633980490139
+main,persons,movers in,,share_veteran,0.08500620483246953,0.008697760256262241
+main,persons,movers in,,age_std_mean_income,70702.7938611615,3157.5814878668907
+main,persons,movers in,,age_std_share_poor,0.13450443033651596,0.01831410778999835
+main,persons,movers in,,age_std_share_200k_plus,0.06475002406015312,0.00930523494711278
+main,persons,leavers,,records,1394.0,
+main,persons,leavers,,adults_per_year,32749.0,1295.7021455566091
+main,persons,leavers,,median_income,33515.79,1693.3083996109394
+main,persons,leavers,,p90_income,116858.3878,10766.111132597916
+main,persons,leavers,,share_200k_plus,0.03694769305933006,0.008090199973181998
+main,persons,leavers,,share_poor,0.14272191517298238,0.012919659031757737
+main,persons,leavers,,median_age,35.0,1.02469507659596
+main,persons,leavers,,share_born_hi,0.1341720357873523,0.012947722211658111
+main,persons,leavers,,share_native_hawaiian,0.05597117469235702,0.009905611580867784
+main,persons,leavers,,share_veteran,0.14837094262420228,0.01279745742064992
+main,persons,leavers,,age_std_mean_income,61510.104462900636,4718.77031893906
+main,persons,leavers,,age_std_share_poor,0.11303485150683318,0.011989004285848448
+main,persons,leavers,,age_std_share_200k_plus,0.04854421761714932,0.012061142468825477
+main,units,stayers,,records,37135.0,
+main,units,stayers,,units,718050.0,2650.9381671723922
+main,units,stayers,,tax_current_total,2894407500.548633,32515024.000424262
+main,units,stayers,,tax_act24_total,2587887063.894982,31328990.308720957
+main,units,stayers,,tax_current_per_unit,4030.9275127757583,46.716684594903434
+main,units,stayers,,median_unit_income,52882.330655000005,827.5086695319883
+main,units,stayers,,units_200k_plus,55652.0,1138.2618398248906
+main,units,stayers,,share_tax_from_200k_plus,0.44963443607008935,0.006537597336884132
+main,units,stayers,,records_1m_plus,17.0,
+main,units,stayers,,records_500k_plus,465.0,
+main,units,movers in,,records,927.0,
+main,units,movers in,,units,20325.0,859.4927416797198
+main,units,movers in,,tax_current_total,91505765.77154714,7165567.892802294
+main,units,movers in,,tax_act24_total,82875524.67565122,6809410.329964927
+main,units,movers in,,tax_current_per_unit,4502.128697247092,324.6653899564885
+main,units,movers in,,median_unit_income,51006.159999999996,2949.6386330301916
+main,units,movers in,,units_200k_plus,1812.0,214.1898853810737
+main,units,movers in,,share_tax_from_200k_plus,0.4830449515371826,0.04046317093696864
+main,units,movers in,,records_1m_plus,0.0,
+main,units,movers in,,records_500k_plus,13.0,
+main,units,leavers,,records,1012.0,
+main,units,leavers,,units,23807.0,1005.9246495138646
+main,units,leavers,,tax_current_total,89730567.24228494,12083613.965870032
+main,units,leavers,,tax_act24_total,80590665.45541422,11697511.619191691
+main,units,leavers,,tax_current_per_unit,3769.0833470107505,507.0304871839973
+main,units,leavers,,median_unit_income,41978.799999999996,1799.4557443509216
+main,units,leavers,,units_200k_plus,1740.0,313.2440925220457
+main,units,leavers,,share_tax_from_200k_plus,0.4998132667017217,0.07349602429991094
+main,units,leavers,,records_1m_plus,0.0,
+main,units,leavers,,records_500k_plus,6.0,
+main,born_in_hawaii,stayers,,records,28041.0,
+main,born_in_hawaii,stayers,,adults_per_year,512502.0,3247.472617282554
+main,born_in_hawaii,stayers,,median_income,42956.676,439.24707293542076
+main,born_in_hawaii,stayers,,share_poor,0.08232358117626858,0.0027916028828432614
+main,born_in_hawaii,stayers,,median_age,49.0,0.0
+main,born_in_hawaii,movers in,,records,281.0,
+main,born_in_hawaii,movers in,,adults_per_year,6070.0,503.9614072525792
+main,born_in_hawaii,movers in,,median_income,36660.51,10767.460066576208
+main,born_in_hawaii,movers in,,share_poor,0.10543657331136738,0.027754256133965895
+main,born_in_hawaii,movers in,,median_age,32.0,2.0615528128088303
+main,born_in_hawaii,leavers,,records,177.0,
+main,born_in_hawaii,leavers,,adults_per_year,4394.0,429.91214218721484
+main,born_in_hawaii,leavers,,median_income,30550.425,2146.4003231359193
+main,born_in_hawaii,leavers,,share_poor,0.1579426490669094,0.02647114612816697
+main,born_in_hawaii,leavers,,median_age,30.0,2.418677324489565
+main,by_age,stayers,18-29,records,6813.0,
+main,by_age,stayers,18-29,median_income,19552.272,870.5176153453979
+main,by_age,stayers,18-29,share_poor,0.11640981233171419,0.005017000029988179
+main,by_age,movers in,18-29,records,373.0,
+main,by_age,movers in,18-29,median_income,20989.4,3410.2188128063617
+main,by_age,movers in,18-29,share_poor,0.2526440879382056,0.0314621230083691
+main,by_age,leavers,18-29,records,453.0,
+main,by_age,leavers,18-29,median_income,25187.28,2047.0372899502604
+main,by_age,leavers,18-29,share_poor,0.2184814388234252,0.02506915933284623
+main,by_age,stayers,30-44,records,11040.0,
+main,by_age,stayers,30-44,median_income,48880.68,408.77431818205554
+main,by_age,stayers,30-44,share_poor,0.0893155427568383,0.004391168210376219
+main,by_age,movers in,30-44,records,369.0,
+main,by_age,movers in,30-44,median_income,59662.05,3638.4943826262597
+main,by_age,movers in,30-44,share_poor,0.08242370238360437,0.01806967655858395
+main,by_age,leavers,30-44,records,412.0,
+main,by_age,leavers,30-44,median_income,48275.62,3293.456702030875
+main,by_age,leavers,30-44,share_poor,0.11112197984935929,0.021996909493804034
+main,by_age,stayers,45-64,records,17981.0,
+main,by_age,stayers,45-64,median_income,50762.5,403.9112710697844
+main,by_age,stayers,45-64,share_poor,0.08514597797807522,0.002924608671475909
+main,by_age,movers in,45-64,records,308.0,
+main,by_age,movers in,45-64,median_income,54315.875,5174.585178544807
+main,by_age,movers in,45-64,share_poor,0.103862382343395,0.029833132036542715
+main,by_age,leavers,45-64,records,325.0,
+main,by_age,leavers,45-64,median_income,50273.685,8721.069644551353
+main,by_age,leavers,45-64,share_poor,0.11274315204446209,0.021038615803295344
+main,by_age,stayers,65+,records,16892.0,
+main,by_age,stayers,65+,median_income,38183.712,678.8106254831887
+main,by_age,stayers,65+,share_poor,0.0914722851039974,0.0031057202514282395
+main,by_age,movers in,65+,records,203.0,
+main,by_age,movers in,65+,median_income,37825.7397,6982.821302846633
+main,by_age,movers in,65+,share_poor,0.15404631798074422,0.042608493957075416
+main,by_age,leavers,65+,records,204.0,
+main,by_age,leavers,65+,median_income,31501.5624,7598.0181843195405
+main,by_age,leavers,65+,share_poor,0.05975013579576317,0.02202693216622259
+main,net,leavers minus movers in,,tax_current_total,-1775198.5292622,
+main,net,leavers minus movers in,,tax_act24_total,-2284859.220237002,
+no_veteran_households,persons,stayers,,records,42346.0,
+no_veteran_households,persons,stayers,,adults_per_year,824495.0,4294.25332275589
+no_veteran_households,persons,stayers,,median_income,41763.435,292.1935034805895
+no_veteran_households,persons,stayers,,p90_income,121119.325,1087.997457758672
+no_veteran_households,persons,stayers,,share_200k_plus,0.034142111231723664,0.0010643625981174001
+no_veteran_households,persons,stayers,,share_poor,0.09937355593423854,0.002040815578192443
+no_veteran_households,persons,stayers,,median_age,50.0,0.0
+no_veteran_households,persons,stayers,,share_born_hi,0.5103754419371858,0.003529889043240212
+no_veteran_households,persons,stayers,,share_native_hawaiian,0.20678475915560435,0.003734523134279646
+no_veteran_households,persons,stayers,,share_veteran,0.0,0.0
+no_veteran_households,persons,stayers,,age_std_mean_income,58871.38045010817,443.920531411097
+no_veteran_households,persons,stayers,,age_std_share_poor,0.09937355593423855,0.0020566059080792537
+no_veteran_households,persons,stayers,,age_std_share_200k_plus,0.034142111231723664,0.0010701065504315512
+no_veteran_households,persons,movers in,,records,999.0,
+no_veteran_households,persons,movers in,,adults_per_year,22680.0,1034.373264348997
+no_veteran_households,persons,movers in,,median_income,41763.435,3870.0359563629786
+no_veteran_households,persons,movers in,,p90_income,150821.055,15042.521042432852
+no_veteran_households,persons,movers in,,share_200k_plus,0.05035273368606702,0.008373798040631522
+no_veteran_households,persons,movers in,,share_poor,0.16560846560846562,0.019274319179943013
+no_veteran_households,persons,movers in,,median_age,36.0,1.2649110640673518
+no_veteran_households,persons,movers in,,share_born_hi,0.22861552028218696,0.021498803797496174
+no_veteran_households,persons,movers in,,share_native_hawaiian,0.08293650793650793,0.01298315441993835
+no_veteran_households,persons,movers in,,share_veteran,0.0,0.0
+no_veteran_households,persons,movers in,,age_std_mean_income,72200.95324089183,3926.838569018302
+no_veteran_households,persons,movers in,,age_std_share_poor,0.14986847119424962,0.022190018558225773
+no_veteran_households,persons,movers in,,age_std_share_200k_plus,0.06447246196503095,0.010769805343883422
+no_veteran_households,persons,leavers,,records,1092.0,
+no_veteran_households,persons,leavers,,adults_per_year,25725.0,1080.2539284816326
+no_veteran_households,persons,leavers,,median_income,30550.425,1410.8700710798184
+no_veteran_households,persons,leavers,,p90_income,109981.53,4911.277014451527
+no_veteran_households,persons,leavers,,share_200k_plus,0.03572400388726919,0.009099152300335882
+no_veteran_households,persons,leavers,,share_poor,0.16034985422740525,0.014997889869321305
+no_veteran_households,persons,leavers,,median_age,35.0,1.161895003862225
+no_veteran_households,persons,leavers,,share_born_hi,0.15160349854227406,0.015913781727703538
+no_veteran_households,persons,leavers,,share_native_hawaiian,0.06553935860058309,0.01217862440171913
+no_veteran_households,persons,leavers,,share_veteran,0.0,0.0
+no_veteran_households,persons,leavers,,age_std_mean_income,58204.944837926116,5532.190331323825
+no_veteran_households,persons,leavers,,age_std_share_poor,0.1330065275492051,0.015324674933143868
+no_veteran_households,persons,leavers,,age_std_share_200k_plus,0.04872549507378185,0.012940389762631874
+no_veteran_households,units,stayers,,records,30169.0,
+no_veteran_households,units,stayers,,units,595917.0,3286.8519396877036
+no_veteran_households,units,stayers,,tax_current_total,2371449625.3614874,32336278.13456162
+no_veteran_households,units,stayers,,tax_act24_total,2123085182.475918,31103594.413554717
+no_veteran_households,units,stayers,,tax_current_per_unit,3979.4965160609404,53.81101696204877
+no_veteran_households,units,stayers,,median_unit_income,51843.81799999999,791.0274461617973
+no_veteran_households,units,stayers,,units_200k_plus,44896.0,1096.484701444621
+no_veteran_households,units,stayers,,share_tax_from_200k_plus,0.45396220070906157,0.007607299879673568
+no_veteran_households,units,stayers,,records_1m_plus,15.0,
+no_veteran_households,units,stayers,,records_500k_plus,409.0,
+no_veteran_households,units,movers in,,records,756.0,
+no_veteran_households,units,movers in,,units,17079.0,866.4068487149292
+no_veteran_households,units,movers in,,tax_current_total,78051127.86589077,6984449.570008068
+no_veteran_households,units,movers in,,tax_act24_total,70920264.0637688,6640025.4646239765
+no_veteran_households,units,movers in,,tax_current_per_unit,4570.005730188581,392.90582635301394
+no_veteran_households,units,movers in,,median_unit_income,49325.09,3771.022153091178
+no_veteran_households,units,movers in,,units_200k_plus,1587.0,209.48044658080767
+no_veteran_households,units,movers in,,share_tax_from_200k_plus,0.5016899630949602,0.04499434508677749
+no_veteran_households,units,movers in,,records_1m_plus,0.0,
+no_veteran_households,units,movers in,,records_500k_plus,12.0,
+no_veteran_households,units,leavers,,records,814.0,
+no_veteran_households,units,leavers,,units,19150.0,869.3150007337674
+no_veteran_households,units,leavers,,tax_current_total,65230172.08280629,11162197.091313893
+no_veteran_households,units,leavers,,tax_act24_total,58730407.73261301,10847066.60226464
+no_veteran_households,units,leavers,,tax_current_per_unit,3406.275304585185,586.5681711867423
+no_veteran_households,units,leavers,,median_unit_income,36660.509999999995,1854.7740220570838
+no_veteran_households,units,leavers,,units_200k_plus,1228.0,264.440355278753
+no_veteran_households,units,leavers,,share_tax_from_200k_plus,0.5361907424093263,0.08998031568608145
+no_veteran_households,units,leavers,,records_1m_plus,0.0,
+no_veteran_households,units,leavers,,records_500k_plus,6.0,
+no_veteran_households,born_in_hawaii,stayers,,records,22567.0,
+no_veteran_households,born_in_hawaii,stayers,,adults_per_year,420802.0,3642.6789729538345
+no_veteran_households,born_in_hawaii,stayers,,median_income,43553.005,749.9912028530676
+no_veteran_households,born_in_hawaii,stayers,,share_poor,0.08868303857871399,0.003210845231848639
+no_veteran_households,born_in_hawaii,stayers,,median_age,47.0,0.0
+no_veteran_households,born_in_hawaii,movers in,,records,230.0,
+no_veteran_households,born_in_hawaii,movers in,,adults_per_year,5185.0,506.4511328845064
+no_veteran_households,born_in_hawaii,movers in,,median_income,37780.92,13198.288277448895
+no_veteran_households,born_in_hawaii,movers in,,share_poor,0.11398264223722276,0.031206661623203364
+no_veteran_households,born_in_hawaii,movers in,,median_age,32.0,2.0124611797498106
+no_veteran_households,born_in_hawaii,leavers,,records,158.0,
+no_veteran_households,born_in_hawaii,leavers,,adults_per_year,3900.0,416.8163864341228
+no_veteran_households,born_in_hawaii,leavers,,median_income,29831.025,4503.35285798078
+no_veteran_households,born_in_hawaii,leavers,,share_poor,0.17461538461538462,0.02910878618922623
+no_veteran_households,born_in_hawaii,leavers,,median_age,28.0,1.857417562100671
+no_veteran_households,by_age,stayers,18-29,records,5759.0,
+no_veteran_households,by_age,stayers,18-29,median_income,19569.1524,913.0934611779421
+no_veteran_households,by_age,stayers,18-29,share_poor,0.1231617502264582,0.005882766350579355
+no_veteran_households,by_age,movers in,18-29,records,314.0,
+no_veteran_households,by_age,movers in,18-29,median_income,21478.338,5050.772760809404
+no_veteran_households,by_age,movers in,18-29,share_poor,0.2653225806451613,0.03404510946691028
+no_veteran_households,by_age,leavers,18-29,records,367.0,
+no_veteran_households,by_age,leavers,18-29,median_income,24440.34,2152.364836209896
+no_veteran_households,by_age,leavers,18-29,share_poor,0.23619130624251009,0.027713088453092748
+no_veteran_households,by_age,stayers,30-44,records,9366.0,
+no_veteran_households,by_age,stayers,30-44,median_income,48880.68,758.870343973158
+no_veteran_households,by_age,stayers,30-44,share_poor,0.09355739121810222,0.004626239439779658
+no_veteran_households,by_age,movers in,30-44,records,307.0,
+no_veteran_households,by_age,movers in,30-44,median_income,60915.0,5847.3821076442755
+no_veteran_households,by_age,movers in,30-44,share_poor,0.09141940657578188,0.02087304974883432
+no_veteran_households,by_age,leavers,30-44,records,316.0,
+no_veteran_households,by_age,leavers,30-44,median_income,43433.9724,4305.74251186864
+no_veteran_households,by_age,leavers,30-44,share_poor,0.1199236155315086,0.02404816560917873
+no_veteran_households,by_age,stayers,45-64,records,14943.0,
+no_veteran_households,by_age,stayers,45-64,median_income,50762.5,406.5228087312857
+no_veteran_households,by_age,stayers,45-64,share_poor,0.09093071276446232,0.0033256267659898795
+no_veteran_households,by_age,movers in,45-64,records,231.0,
+no_veteran_households,by_age,movers in,45-64,median_income,55127.7342,6086.739415226165
+no_veteran_households,by_age,movers in,45-64,share_poor,0.12395041983206717,0.036764347983694094
+no_veteran_households,by_age,leavers,45-64,records,244.0,
+no_veteran_households,by_age,leavers,45-64,median_income,39348.9474,7461.887519475727
+no_veteran_households,by_age,leavers,45-64,share_poor,0.14267767408470927,0.028605834245801567
+no_veteran_households,by_age,stayers,65+,records,12278.0,
+no_veteran_households,by_age,stayers,65+,median_income,36660.51,507.0454432285178
+no_veteran_households,by_age,stayers,65+,share_poor,0.10203444832750874,0.003880502606052213
+no_veteran_households,by_age,movers in,65+,records,147.0,
+no_veteran_households,by_age,movers in,65+,median_income,34856.4216,6738.278696143317
+no_veteran_households,by_age,movers in,65+,share_poor,0.1734397677793904,0.05549637102104455
+no_veteran_households,by_age,leavers,65+,records,165.0,
+no_veteran_households,by_age,leavers,65+,median_income,26193.45,5864.791015168497
+no_veteran_households,by_age,leavers,65+,share_poor,0.07053542802180186,0.026360705338635243
+no_veteran_households,net,leavers minus movers in,,tax_current_total,-12820955.783084482,
+no_veteran_households,net,leavers minus movers in,,tax_act24_total,-12189856.331155792,
+no_2020,persons,stayers,,records,42550.0,
+no_2020,persons,stayers,,adults_per_year,806474.0,2743.5329868620133
+no_2020,persons,stayers,,median_income,40889.2638,451.2810080528508
+no_2020,persons,stayers,,p90_income,121215.4405,1129.8530251418747
+no_2020,persons,stayers,,share_200k_plus,0.03419577072540466,0.001085096260152221
+no_2020,persons,stayers,,share_poor,0.09592869701937075,0.0020797310174941073
+no_2020,persons,stayers,,median_age,52.0,0.22360679774997896
+no_2020,persons,stayers,,share_born_hi,0.5044353568744931,0.0034323383726012915
+no_2020,persons,stayers,,share_native_hawaiian,0.20607731929361642,0.0033079719898518917
+no_2020,persons,stayers,,share_veteran,0.07522375178865034,0.0015530726077810683
+no_2020,persons,stayers,,age_std_mean_income,58426.86749469473,429.05670352084593
+no_2020,persons,stayers,,age_std_share_poor,0.09592869701937075,0.002083007399079343
+no_2020,persons,stayers,,age_std_share_200k_plus,0.03419577072540466,0.0010722594307585563
+no_2020,persons,movers in,,records,1020.0,
+no_2020,persons,movers in,,adults_per_year,22047.0,972.015020460075
+no_2020,persons,movers in,,median_income,41763.435,3496.1070389436422
+no_2020,persons,movers in,,p90_income,135313.5294,9458.81070318089
+no_2020,persons,movers in,,share_200k_plus,0.04358869687485826,0.0062452515896358266
+no_2020,persons,movers in,,share_poor,0.13788724089445276,0.016735850949502074
+no_2020,persons,movers in,,median_age,37.0,0.9486832980505138
+no_2020,persons,movers in,,share_born_hi,0.22701501338050528,0.018798745941515642
+no_2020,persons,movers in,,share_native_hawaiian,0.08676917494443688,0.013538651205965072
+no_2020,persons,movers in,,share_veteran,0.08191590692611239,0.010884454569892139
+no_2020,persons,movers in,,age_std_mean_income,69446.93402432097,3356.2042079581056
+no_2020,persons,movers in,,age_std_share_poor,0.12468020279993562,0.019238961367542495
+no_2020,persons,movers in,,age_std_share_200k_plus,0.05870524706654638,0.009065476802411382
+no_2020,persons,leavers,,records,1166.0,
+no_2020,persons,leavers,,adults_per_year,25564.0,1276.2037258995917
+no_2020,persons,leavers,,median_income,34632.51,1914.7440954265646
+no_2020,persons,leavers,,p90_income,111719.3,6631.413255599422
+no_2020,persons,leavers,,share_200k_plus,0.032741355030511655,0.007600485238128121
+no_2020,persons,leavers,,share_poor,0.14583007354091693,0.013990799372483693
+no_2020,persons,leavers,,median_age,36.0,1.449137674618944
+no_2020,persons,leavers,,share_born_hi,0.12365044593960256,0.01372815331570717
+no_2020,persons,leavers,,share_native_hawaiian,0.04568925050852762,0.00817289695851603
+no_2020,persons,leavers,,share_veteran,0.1609685495227664,0.012459632471460296
+no_2020,persons,leavers,,age_std_mean_income,58196.74139710972,4357.503549781235
+no_2020,persons,leavers,,age_std_share_poor,0.11297611383323511,0.013023957400104414
+no_2020,persons,leavers,,age_std_share_200k_plus,0.04013038857996552,0.009715916713607121
+no_2020,units,stayers,,records,29975.0,
+no_2020,units,stayers,,units,574708.0,2337.850161526787
+no_2020,units,stayers,,tax_current_total,2290118010.866335,30526621.631041322
+no_2020,units,stayers,,tax_act24_total,2047160559.7792034,29507962.676723104
+no_2020,units,stayers,,tax_current_per_unit,3984.8375363947166,53.73549301202977
+no_2020,units,stayers,,median_unit_income,52473.49999999999,388.0151761909299
+no_2020,units,stayers,,units_200k_plus,44032.0,1110.0313596924848
+no_2020,units,stayers,,share_tax_from_200k_plus,0.45058717721427766,0.007647806967078005
+no_2020,units,stayers,,records_1m_plus,15.0,
+no_2020,units,stayers,,records_500k_plus,386.0,
+no_2020,units,movers in,,records,750.0,
+no_2020,units,movers in,,units,16313.0,758.2347561935119
+no_2020,units,movers in,,tax_current_total,72168395.74350622,5350798.006027392
+no_2020,units,movers in,,tax_act24_total,65189304.41790798,5034832.353411656
+no_2020,units,movers in,,tax_current_per_unit,4423.980613222965,301.6137163746141
+no_2020,units,movers in,,median_unit_income,50762.5,3238.6809012332956
+no_2020,units,movers in,,units_200k_plus,1412.0,175.9353119751909
+no_2020,units,movers in,,share_tax_from_200k_plus,0.46629299223805504,0.03943074013934062
+no_2020,units,movers in,,records_1m_plus,0.0,
+no_2020,units,movers in,,records_500k_plus,11.0,
+no_2020,units,leavers,,records,846.0,
+no_2020,units,leavers,,units,18552.0,979.0248365082138
+no_2020,units,leavers,,tax_current_total,64036801.155322194,8774018.046100179
+no_2020,units,leavers,,tax_act24_total,56864561.19476886,8364000.446314561
+no_2020,units,leavers,,tax_current_per_unit,3451.7465047068886,416.3089052102368
+no_2020,units,leavers,,median_unit_income,45235.144570000004,3107.0618743701925
+no_2020,units,leavers,,units_200k_plus,1114.0,231.03285697061241
+no_2020,units,leavers,,share_tax_from_200k_plus,0.42470542980498327,0.07051639560184382
+no_2020,units,leavers,,records_1m_plus,0.0,
+no_2020,units,leavers,,records_500k_plus,4.0,
+no_2020,born_in_hawaii,stayers,,records,22448.0,
+no_2020,born_in_hawaii,stayers,,adults_per_year,406814.0,3158.3080042959714
+no_2020,born_in_hawaii,stayers,,median_income,41978.8,241.29972221731484
+no_2020,born_in_hawaii,stayers,,share_poor,0.0838933763341478,0.0029519676668510733
+no_2020,born_in_hawaii,stayers,,median_age,49.0,0.4472135954999579
+no_2020,born_in_hawaii,movers in,,records,218.0,
+no_2020,born_in_hawaii,movers in,,adults_per_year,5005.0,445.1043136164825
+no_2020,born_in_hawaii,movers in,,median_income,36731.45,12549.390118544392
+no_2020,born_in_hawaii,movers in,,share_poor,0.09410589410589411,0.02716594282218162
+no_2020,born_in_hawaii,movers in,,median_age,33.0,1.746424919657298
+no_2020,born_in_hawaii,leavers,,records,149.0,
+no_2020,born_in_hawaii,leavers,,adults_per_year,3161.0,368.4877202838651
+no_2020,born_in_hawaii,leavers,,median_income,29831.025,4481.381649808013
+no_2020,born_in_hawaii,leavers,,share_poor,0.20658019614046189,0.03523893439159835
+no_2020,born_in_hawaii,leavers,,median_age,30.0,2.692582403567252
+no_2020,by_age,stayers,18-29,records,5431.0,
+no_2020,by_age,stayers,18-29,median_income,19289.75,927.9185200729756
+no_2020,by_age,stayers,18-29,share_poor,0.11859774212715389,0.005302164031303264
+no_2020,by_age,movers in,18-29,records,292.0,
+no_2020,by_age,movers in,18-29,median_income,21478.338,3900.5565536137187
+no_2020,by_age,movers in,18-29,share_poor,0.23558741040822687,0.03056542875998242
+no_2020,by_age,leavers,18-29,records,369.0,
+no_2020,by_age,leavers,18-29,median_income,25187.28,3811.454458961879
+no_2020,by_age,leavers,18-29,share_poor,0.23359852415542487,0.028533858741750514
+no_2020,by_age,stayers,30-44,records,8870.0,
+no_2020,by_age,stayers,30-44,median_income,47729.64,535.2579540004913
+no_2020,by_age,stayers,30-44,share_poor,0.09196958861449664,0.004505323629685038
+no_2020,by_age,movers in,30-44,records,308.0,
+no_2020,by_age,movers in,30-44,median_income,58540.9132,3588.0915886662247
+no_2020,by_age,movers in,30-44,share_poor,0.08290084676317946,0.02123329134633392
+no_2020,by_age,leavers,30-44,records,349.0,
+no_2020,by_age,leavers,30-44,median_income,47226.15,3254.074391158179
+no_2020,by_age,leavers,30-44,share_poor,0.11222039681536712,0.02513192712066725
+no_2020,by_age,stayers,45-64,records,14403.0,
+no_2020,by_age,stayers,45-64,median_income,50762.5,292.6524123932281
+no_2020,by_age,stayers,45-64,share_poor,0.0909115179252479,0.0036148922454547717
+no_2020,by_age,movers in,45-64,records,251.0,
+no_2020,by_age,movers in,45-64,median_income,52793.0,5833.974621565127
+no_2020,by_age,movers in,45-64,share_poor,0.09264677199141798,0.03071716296128196
+no_2020,by_age,leavers,45-64,records,274.0,
+no_2020,by_age,leavers,45-64,median_income,50273.685,8953.292101622239
+no_2020,by_age,leavers,45-64,share_poor,0.10553346587143804,0.021890625417606235
+no_2020,by_age,stayers,65+,records,13846.0,
+no_2020,by_age,stayers,65+,median_income,36990.471,601.1154312437841
+no_2020,by_age,stayers,65+,share_poor,0.09342305528541088,0.0033104270576783915
+no_2020,by_age,movers in,65+,records,169.0,
+no_2020,by_age,movers in,65+,median_income,38410.602,10738.985736435527
+no_2020,by_age,movers in,65+,share_poor,0.14025157232704402,0.04611922840751818
+no_2020,by_age,leavers,65+,records,174.0,
+no_2020,by_age,leavers,65+,median_income,36521.556,7285.367847423351
+no_2020,by_age,leavers,65+,share_poor,0.0601631543167913,0.021828194975240817
+no_2020,net,leavers minus movers in,,tax_current_total,-8131594.588184029,
+no_2020,net,leavers minus movers in,,tax_act24_total,-8324743.223139122,

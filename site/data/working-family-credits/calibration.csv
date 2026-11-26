@@ -1,16 +1,16 @@
 check,model,dotax
-"take-up factor, EITC",0.9788028221824834,
-"take-up factor, food/excise",0.7382198411358397,
-"take-up factor, child and dependent care",0.7651883693387089,
+"take-up factor, EITC",0.9372254888355667,
+"take-up factor, food/excise",0.7613036349744497,
+"take-up factor, child and dependent care",0.7424883427525044,
 TY2024 EITC $M (fit),76.981028,76.981028
-TY2024 EITC claims,82524.6466070473,78399.0
-TY2023 EITC $M (out of sample),72.5059108976298,77.054
-TY2023 EITC claims (out of sample),82631.524860071,84470.0
-TY2023 food/excise $M (fit),63.95700000000001,63.957
-TY2023 food/excise claims,249083.4876673134,249806.0
-"TY2022 food/excise $M, prior table (out of sample)",24.950208026457535,24.961
-"TY2022 food/excise claims, prior table",208737.99597917826,208786.0
+TY2024 EITC claims,79180.20334375497,78399.0
+TY2023 EITC $M (out of sample),72.53834178984165,77.054
+TY2023 EITC claims (out of sample),79323.33245750426,84470.0
+TY2023 food/excise $M (fit),63.957,63.957
+TY2023 food/excise claims,253661.22148990651,249806.0
+"TY2022 food/excise $M, prior table (out of sample)",24.869779821768017,24.961
+"TY2022 food/excise claims, prior table",212804.39998410744,208786.0
 TY2023 child and dependent care $M (fit),14.82,14.82
-TY2023 child and dependent care claims,14545.102819433921,18119.0
-"TY2022 child and dependent care $M, prior limits (out of sample)",6.453195736223501,6.479
-"TY2022 child and dependent care claims, prior limits",14200.7096562661,16415.0
+TY2023 child and dependent care claims,14497.745766294305,18119.0
+"TY2022 child and dependent care $M, prior limits (out of sample)",6.444379902574121,6.479
+"TY2022 child and dependent care claims, prior limits",14141.90570101258,16415.0

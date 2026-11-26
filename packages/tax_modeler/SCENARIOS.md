@@ -172,7 +172,7 @@ counterfactual = result.counterfactual_units
 | `ctc`                  | `credits.ctc` (federal)                              | `amount_pct`                                                    |
 | `hi_eitc`              | `credits.hi_eitc`                                    | `rate_of_federal`, `refundable`, `amount_pct`                  |
 | `hi_food_excise`       | `credits.hi_food_excise`                             | `single`, `joint` (AGI tables), `amount_pct`, `income_threshold_factor` |
-| `hi_renters`           | `credits.hi_renters`                                 | `takeup_pct`, `amount_pct`, `income_threshold_factor`          |
+| `hi_renters`           | `credits.hi_renters`                                 | `takeup_pct`, `per_exemption_amount`, `income_limit`, `amount_pct`, `income_threshold_factor` |
 | `aca_ptc`              | `benefits.aca_ptc`                                   | `credit_pct`, `benchmark_premium_pct`, `income_threshold_factor` |
 | `medicaid`             | `benefits.medicaid_hi_quest`                         | `adult_pmpm_pct`, `child_pmpm_pct`, `aged_pmpm_pct`            |
 | `wic`                  | `benefits.wic`                                       | `package_value_pct`, `income_threshold_factor`                 |

@@ -12,6 +12,25 @@ chooses to replace what was lost.
 
 ## Changelog
 
+- **November 25, 2026 (seventh version).** Rerun on the code of the claimant-assignment change (children are
+  placed with their own parent, `SB3125_CD1_FORECAST.md`, "Children claimed by their own parent") and of the
+  renters-credit change merged in PR #111. The baseline SPM rate falls to 12.02% (from 12.22%) and MID to 800
+  people (90% interval 600 to 1,000; 820 before), 80 of them children (87), because parents now file with their
+  own children and the head-of-household tax and credits land on the households that hold them; the move in
+  people is inside the sampling error. The added shortfall is $20.9M (MID, unchanged within rounding). Adults
+  losing SNAP and Medicaid coverage do not move (they are drawn from SNAP and Medicaid receipt, not from tax
+  units); the model's SNAP households are 78,430 (78,427 before). Not added: the county-share reallocation or any
+  other method.
+- **November 25, 2026 (sixth version).** Housing assistance on the poverty side is now one value per renter
+  household, Census's SPM valuation (the lesser of the Fair Market Rent and the housing part of the household's
+  renter line, less 30% of its income), with take-up a single probability that meets HUD's 15,600 households and
+  is drawn per household (`benefits.housing`). Before, it was valued per tax unit at $30,000 less 30% of income
+  and given to the lowest incomes first, so the cutoff fell among tax units with no income and which households
+  got $30,000 was an arbitrary tie-break: different tie-breaks alone moved MID between 692 and 969, and small
+  income changes moved it by 160. The poverty draws now hash each household's own random numbers. Modeled housing
+  aid is $147.5M against HUD's $140M (about $470M before). The baseline SPM rate rises to 12.22%, MID to 820
+  people (90% interval 620 to 1,020); a change in interest income's growth that moved MID by 162 now moves it by
+  28. SNAP and Medicaid figures are unchanged.
 - **November 25, 2026 (fifth version).** Rerun after two changes on the poverty side, neither in this analysis's
   own code: the SPM thresholds and medical-spending draws (PRs #103, #106, #107), which had already moved the
   published page to an 11.71% baseline and 852 people pushed into poverty (MID) without this note being updated,
@@ -42,22 +61,22 @@ chooses to replace what was lost.
   unchanged.
 - **November 22, 2026 (PR #97).** First estimate: SNAP from the QC file, Medicaid from the ACS.
 
-## Results (run of November 25, 2026, commit `e7f8eec`)
+## Results (run of November 25, 2026, commit `2ba2a2c`)
 
 | | LOW | MID | HIGH |
 |---|---|---|---|
 | SNAP: adults losing eligibility | 4,950 | 7,250 | 9,630 |
 | SNAP: benefits lost a year, FY2027 allotments | $22.9M | $33.3M | $44.0M |
-| SPM: people pushed into poverty | 520 | 760 | 950 |
-| SPM: children among them | 42 | 62 | 78 |
-| SPM: added shortfall below the line | $12.6M | $18.1M | $22.7M |
+| SPM: people pushed into poverty | 550 | 800 | 1,040 |
+| SPM: children among them | 55 | 80 | 108 |
+| SPM: added shortfall below the line | $14.6M | $20.9M | $25.9M |
 | Medicaid: expansion adults losing coverage | 24,400 | 39,140 | 51,800 |
 | Medicaid: federal dollars for those adults, a full year | $125.9M | $201.9M | $267.2M |
 | Medicaid: all federal funding lost, 2025-2034, KFF's method | $2,927M | $3,902M | $4,878M |
 
 - SNAP, 90% sampling interval on MID: 5,620 to 8,990 adults; $25.5M to $41.1M.
-- SPM, 90% sampling interval on MID: 550 to 970 people (ACS replicate weights). Baseline SPM rate 11.81% (TY2027).
-- 47% of the adults who lose SNAP (MID) are in SPM units already in poverty; 19% under half the line.
+- SPM, 90% sampling interval on MID: 600 to 1,000 people (ACS replicate weights). Baseline SPM rate 12.02% (TY2027).
+- 52% of the adults who lose SNAP (MID) are in SPM units already in poverty; 23% under half the line.
 - SNAP costs moved to the State from federal fiscal year 2028: $91.1M a year for benefits at the 15% tier
   Hawaiʻi's FY2025 error rate implies ($0, $30.4M or $60.7M at the lower tiers), plus $14.8M for administration.
 - Medicaid: of 129,577 expansion adults, 48% already meet the test, 28% are exempt on what the survey shows, and
@@ -69,8 +88,8 @@ chooses to replace what was lost.
   2025-2034: work requirement $1,805M, six-month redeterminations $347M, state-directed payments $859M, eligibility
   and enrollment rules $449M, provider taxes $329M, other expansion-group changes $198M, other changes $205M, less
   interactions $290M.
-- By county (MID): Honolulu 24,460 lose Medicaid, 4,500 lose SNAP, 500 pushed into poverty; Hawaiʻi 7,760,
-  1,590, 170; Maui 4,800, 810, 70; Kauaʻi 2,130, 360, 30. Hawaiʻi County loses the most Medicaid coverage for its
+- By county (MID): Honolulu 24,460 lose Medicaid, 4,500 lose SNAP, 490 pushed into poverty; Hawaiʻi 7,760,
+  1,590, 190; Maui 4,800, 810, 80; Kauaʻi 2,130, 360, 40. Hawaiʻi County loses the most Medicaid coverage for its
   size (4.1% of residents).
 
 LOW, MID and HIGH differ only in the share of people who fail to keep a benefit. That share is an assumption

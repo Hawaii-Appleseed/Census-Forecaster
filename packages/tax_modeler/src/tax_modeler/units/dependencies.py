@@ -51,20 +51,51 @@ def _self_support_floor(age: float) -> int:
 
 
 def identify_dependents(
-    household: pd.DataFrame, tax_year: int = _DEFAULT_DEP_TAX_YEAR
+    household: pd.DataFrame,
+    tax_year: int = _DEFAULT_DEP_TAX_YEAR,
+    *,
+    assignment: str = "parent_first",
+    parent_link: str = "sfn",
 ) -> dict[str, list[str]]:
     """
     Identify all potential dependents in a household.
-    
+
     Args:
         household: DataFrame containing all persons in a household
-        
+        tax_year: tax year (selects the qualifying-relative gross-income limit)
+        assignment: ``"parent_first"`` (default) gives each child to its own parent in the household, else the
+            householder (:mod:`tax_modeler.units.claimants`); ``"legacy"`` is the earlier rule, which could
+            match a child only to the householder or spouse and left partners' and unrelated adults'
+            minors, and non-student relatives' minors, unclaimed.
+        parent_link: how a child's parent is found under ``parent_first`` (``claimants.PARENT_LINKS``).
+
     Returns:
         dict: Mapping from person ID to list of their potential dependents
     """
+    return identify_dependents_with_basis(
+        household, tax_year, assignment=assignment, parent_link=parent_link)[0]
+
+
+def identify_dependents_with_basis(
+    household: pd.DataFrame,
+    tax_year: int = _DEFAULT_DEP_TAX_YEAR,
+    *,
+    assignment: str = "parent_first",
+    parent_link: str = "sfn",
+) -> tuple[dict[str, list[str]], dict[str, str]]:
+    """:func:`identify_dependents` plus how each child was assigned (``{}`` under ``legacy``).
+
+    The basis (``claimants.assign_claimants``) says whether a child was claimed as its claimant's own child
+    (``subfamily`` / ``rule``: the credit code then sees an own-child relationship), by the householder
+    (``own_child``, ``householder``, ``student_householder``), or by nobody (``unclaimed``).
+    """
+    from tax_modeler.units import claimants
+
+    if assignment not in claimants.ASSIGNMENTS:
+        raise ValueError(f"assignment must be one of {claimants.ASSIGNMENTS}, got {assignment!r}")
     if household.empty:
-        return {}
-        
+        return {}, {}
+
     # Initialize result
     dependents = {person_id: [] for person_id in household.index}
     
@@ -95,8 +126,26 @@ def identify_dependents(
         | is_young_student        # enrolled 18-23
     ].copy()
 
-    # First, assign children and students to potential filers
-    for _, child in children.iterrows():
+    basis: dict[str, str] = {}
+    parents_with_children: set = set()
+    if assignment == "parent_first":
+        claims, basis = claimants.assign_claimants(
+            household, adults, children,
+            parent_link=parent_link,
+            is_student=_is_student,
+            calc_income=_calculate_income,
+            skip=lambda c: c.get('AGEP', 0) >= 18 and _provides_over_half_own_support(c, household),
+        )
+        for child_id, claimant_id in claims.items():
+            dependents[claimant_id].append(child_id)
+            if basis[child_id] in claimants.OWN_CHILD_BASES:
+                parents_with_children.add(claimant_id)
+        legacy_children = children.iloc[0:0]
+    else:
+        legacy_children = children
+
+    # First, assign children and students to potential filers (legacy rule)
+    for _, child in legacy_children.iterrows():
         child_id = child.name
 
         # Skip if this is already an adult filer
@@ -141,14 +190,19 @@ def identify_dependents(
         # Skip if this adult is already a dependent
         if any(adult_id in deps for deps in dependents.values()):
             continue
-            
+
+        # A parent holding a child of their own is the child's claimant, not another adult's dependent: made one,
+        # the child would lose its claimant (and its credits) with them.
+        if adult_id in parents_with_children:
+            continue
+
         # Check if this adult could be a qualifying relative of another adult
         for _, potential_guardian in adults[adults.index != adult_id].iterrows():
             if _is_qualifying_relative(adult, potential_guardian, household, tax_year):
                 dependents[potential_guardian.name].append(adult_id)
                 break
     
-    return dependents
+    return dependents, basis
 
 def _find_potential_guardians(
     child: pd.Series, 

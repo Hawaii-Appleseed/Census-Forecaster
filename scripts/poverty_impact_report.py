@@ -93,7 +93,12 @@ def _load_units(
     """
     from tax_modeler.analysis.puma_crosswalk import assign_geography
     from tax_modeler.base import build_raw_units
-    from tax_modeler.pipeline import attach_secondary_hours, attach_tenure, enrich_for_credits
+    from tax_modeler.pipeline import (
+        attach_rent,
+        attach_secondary_hours,
+        attach_tenure,
+        enrich_for_credits,
+    )
 
     if use_fixture or pums_data_dir is None:
         persons_path = DEFAULT_FIXTURE_DIR / "synthetic_pums_persons.parquet"
@@ -174,6 +179,8 @@ def _load_units(
     # The SPM line depends on tenure (poverty.thresholds); without it every unit is held to the renter line.
     if "TEN" in households.columns:
         units = attach_tenure(units, households, key="hh_id")
+    # The renters credit needs more than $1,000 of rent paid in the year (HRS 235-55.7(c)).
+    units = attach_rent(units, households, key="hh_id")
     return units, persons
 
 
@@ -232,23 +239,22 @@ def _apply_hi_eitc(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
     return compute_hi_eitc_for_units(units, tax_year=tax_year)
 
 
-def _apply_hi_renters(units: pd.DataFrame) -> pd.DataFrame:
+def _apply_hi_renters(units: pd.DataFrame, *, tax_year: int | None = None) -> pd.DataFrame:
     """Compute the HI Low-Income Household Renters Credit (HRS §235-55.7).
 
-    Tiered refundable credit ($50 / $100 / $150) for renting filers with AGI
-    below status-specific ceilings ($30K single / $40K MFJ / $35K HoH /
-    $20K MFS). The credit's take-up rate is currently a 0.30 placeholder
-    (no DOTAX caseload bundled — TODO in credits/hi_renters.py); the
-    formula smooths to a deterministic 0.30 × full-credit per eligible
-    unit. Aggregate disbursement matches an explicit Bernoulli model.
+    $50 per qualified exemption (doubled for each person 65 or over) for
+    filers with AGI under $30,000 who paid more than $1,000 of rent in the
+    year (the current-law schedule in credits/hi_renters.py). Only units whose
+    household rents (``tenure == "renter"``, PUMS ``TEN``) qualify. The take-up multiplier is fitted so renters-only
+    model dollars equal DOTAX's claimed dollars for ``tax_year`` (capped at
+    the latest published year; see credits/hi_renters.py).
 
-    Once this column rides on the tax-unit frame, ``compute_spm_resources``
-    picks it up automatically via the ``hi_renters_col="hi_renters_amount"``
-    kwarg in poverty/spm.py.
+    ``compute_spm_resources`` picks the column up through the
+    ``hi_renters_col="hi_renters_amount"`` kwarg in poverty/spm.py.
     """
     from tax_modeler.credits.hi_renters import compute_hi_renters_for_units
     LOG.info("Computing HI Low-Income Household Renters Credit")
-    return compute_hi_renters_for_units(units)
+    return compute_hi_renters_for_units(units, tax_year=tax_year)
 
 
 def _apply_snap(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
@@ -270,12 +276,12 @@ def _apply_snap(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
 
 
 def _apply_housing_subsidy(units: pd.DataFrame, *, tax_year: int) -> pd.DataFrame:
-    """Impute Section-8/public-housing benefit, then take-up-impute against HUD anchor."""
-    from tax_modeler.benefits.housing import compute_housing_for_units
+    """Section-8/public-housing value per renter household, and take-up as one probability that meets HUD's
+    caseload (``benefits.housing``)."""
+    from tax_modeler.benefits.housing import compute_housing_for_units, housing_takeup
     from tax_modeler.calibration.admin_caseload import AdminCaseload
-    from tax_modeler.calibration.takeup_imputation import impute_takeup
 
-    LOG.info("Computing housing-subsidy benefits + take-up imputation for TY %d", tax_year)
+    LOG.info("Computing housing-subsidy value and take-up probability for TY %d", tax_year)
     out = compute_housing_for_units(units, tax_year=tax_year)
     try:
         target = AdminCaseload.load().target("housing", tax_year)
@@ -286,10 +292,11 @@ def _apply_housing_subsidy(units: pd.DataFrame, *, tax_year: int) -> pd.DataFram
             tax_year, exc,
         )
         target = AdminCaseload.load().target("housing", 2022)
-    out = impute_takeup(
-        out, target=target, benefit_col="housing_subsidy_amount",
-        score_col="income", ascending=True, weight_col="weight",
-    )
+    out = housing_takeup(out, target_households=target.count)
+    w = out["hh_weight"] if "hh_weight" in out.columns else out["weight"]
+    LOG.info("housing: %.0f eligible households, take-up %.3f, $%.1fM expected (HUD $%.1fM)",
+             float(w[out["housing_eligible"]].sum()), float(out["housing_takeup_prob"].max()),
+             float((w * out["housing_subsidy_amount"]).sum()) / 1e6, target.annual_dollars_millions)
     return out
 
 
@@ -372,7 +379,9 @@ def _apply_eitc_reweight(units: pd.DataFrame) -> pd.DataFrame:
     """Lever 3a: up-weight EITC-eligible units in short with-children buckets.
 
     The microsimulation under-produces EITC-eligible 1-/2-qualifying-child tax
-    units relative to IRS SOI Hawaii (~0.74 / ~0.77 of the by-children targets);
+    units relative to IRS SOI Hawaii (~0.74 / ~0.77 of the by-children targets
+    under the pre-2026-11-25 claimant assignment; with children on their own
+    parents' returns only the 1-child bucket is short, by about 10%);
     a take-up truncation can cap over-produced buckets but cannot fill short
     ones. This reweight lifts the short buckets to their IRS targets *before*
     ``_apply_credit_takeup``, so the stratified take-up then trims each bucket to
@@ -985,9 +994,9 @@ def main(argv: list | None = None) -> int:
     # 3c. HI Low-Income Household Renters Credit (HRS §235-55.7). Small
     #     refundable credit for renters under the AGI ceilings; populates
     #     hi_renters_amount which compute_spm_resources picks up as a
-    #     positive SPM resource. Take-up at unanchored 0.30 placeholder
-    #     (see credits/hi_renters.py TODO).
-    units = _apply_hi_renters(units)
+    #     positive SPM resource. Renters only, take-up fitted to DOTAX
+    #     claimed dollars (see credits/hi_renters.py).
+    units = _apply_hi_renters(units, tax_year=args.tax_year)
 
     # 4. ARPA CTC counterfactual column (required for expanded_ctc_2021 scenario).
     units = _apply_arpa_ctc(units)

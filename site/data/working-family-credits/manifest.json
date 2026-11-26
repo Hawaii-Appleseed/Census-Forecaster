@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-11-25T07:34:01+00:00",
-  "git_sha": "e7f8eec",
+  "created_at": "2026-11-25T22:53:35+00:00",
+  "git_sha": "18be4ee",
   "script": "chain/forecast_working_family_credits.py",
   "params": {
     "years": [
@@ -20,9 +20,9 @@
       0.4,
       0.2
     ],
-    "takeup_eitc": 0.9788,
-    "takeup_food": 0.7382,
-    "takeup_cdcc": 0.7652,
+    "takeup_eitc": 0.9372,
+    "takeup_food": 0.7613,
+    "takeup_cdcc": 0.7425,
     "cdcc_caps": {
       "expanded": [
         10000.0,
@@ -58,15 +58,15 @@
       "max_abs_rel_error": 0.0,
       "households": 5181,
       "households_targeted": 4862,
-      "factor_min": 0.7104,
-      "factor_max": 1.5954,
-      "factor_p1": 0.8751,
-      "factor_p99": 1.1599,
-      "ess_before": 4305.428,
-      "ess_after": 4297.781
+      "factor_min": 0.7139,
+      "factor_max": 1.5579,
+      "factor_p1": 0.8776,
+      "factor_p99": 1.1621,
+      "ess_before": 4362.2187,
+      "ess_after": 4356.696
     }
   },
-  "params_fingerprint": "8d41c1d70c25187c",
+  "params_fingerprint": "274a12caf5fe57d8",
   "inputs": {
     "pums": "HI 1-year 2024 (packages/data/raw/pums_2024_1yr)",
     "dotax": "Tax Credits Claimed by Hawai\u02bbi Taxpayers, TY2022-2023, Tables A-1/A-2 (EITC, food/excise, child and dependent care)",
@@ -84,5 +84,5 @@
     "revenue_by_year.csv",
     "sampling_error_ty2028.csv"
   ],
-  "published_at": "2026-11-25T07:34:38+00:00"
+  "published_at": "2026-11-25T22:53:36+00:00"
 }

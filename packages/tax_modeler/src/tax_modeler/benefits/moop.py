@@ -87,6 +87,7 @@ class _Donors:
         self.values: list[np.ndarray] = []
         self.probs: list[np.ndarray] = []
         self.means: list[float] = []
+        self.cum: list[np.ndarray] = []
         self.levels: list[tuple[list[str], dict]] = []
         for cols in (["size", "old", "q"], ["size", "old"], ["old"]):
             table = {}
@@ -96,8 +97,11 @@ class _Donors:
         self.overall = self._add(moop, w)
 
     def _add(self, values: np.ndarray, weights: np.ndarray) -> int:
+        order = np.argsort(values, kind="stable")      # sorted, so a draw's uniform is the donor's rank in the pool
+        values, weights = np.asarray(values, dtype=float)[order], np.asarray(weights, dtype=float)[order]
         self.values.append(values)
         self.probs.append(weights / weights.sum())
+        self.cum.append(np.cumsum(self.probs[-1]))
         self.means.append(float(values @ self.probs[-1]))
         return len(self.values) - 1
 
@@ -122,11 +126,14 @@ class _Donors:
     def mean(self, pools: np.ndarray) -> np.ndarray:
         return np.asarray(self.means)[pools]
 
-    def draw(self, pools: np.ndarray, rng: np.random.Generator, n_draws: int) -> np.ndarray:
-        out = np.zeros((len(pools), n_draws))
+    def draw(self, pools: np.ndarray, u: np.ndarray) -> np.ndarray:
+        """The donor MOOP at each row's uniform ``u`` (rows x draws) in its pool's weighted distribution: the
+        inverse CDF, so a unit's draw depends on its own uniform and pool only."""
+        out = np.zeros(u.shape)
         for pool in np.unique(pools):
             rows = np.flatnonzero(pools == pool)
-            out[rows] = rng.choice(self.values[pool], size=(len(rows), n_draws), p=self.probs[pool])
+            idx = np.searchsorted(self.cum[pool], u[rows], side="right")
+            out[rows] = self.values[pool][np.minimum(idx, len(self.values[pool]) - 1)]
         return out
 
 
@@ -237,8 +244,9 @@ def moop_resource_draws(
 
     ``units`` and ``persons`` as for :func:`compute_moop_for_units`, whose
     expected MOOP the SPM frame's resources carry. The hook, called as
-    ``hook(df, rng, n_draws)`` on the SPM frame, returns an ``(SPM units,
-    n_draws)`` array: the expected MOOP less a donor's MOOP drawn in
+    ``hook(df, u)`` on the SPM frame with ``u`` an ``(SPM units, n_draws)``
+    array of uniform numbers (``poverty.draws.uniforms``, keyed by unit),
+    returns an ``(SPM units, n_draws)`` array: the expected MOOP less a donor's MOOP drawn in
     proportion to the donors' weights, in ``year``'s dollars, to add to the
     unit's resources in each draw. Its mean over draws is zero; it keeps the
     spread of medical spending that a cell mean removes. Units not found
@@ -255,13 +263,13 @@ def moop_resource_draws(
     if per_spm is None:
         raise ValueError("moop_resource_draws needs units with spm_unit_id and the persons frame")
 
-    def hook(df: pd.DataFrame, rng: np.random.Generator, n_draws: int) -> np.ndarray:
+    def hook(df: pd.DataFrame, u: np.ndarray) -> np.ndarray:
         pools = df[spm_unit_id_col].map(per_spm)
         found = pools.notna().to_numpy()
-        out = np.zeros((len(df), n_draws))
+        out = np.zeros(u.shape)
         if found.any():
             p = pools[found].to_numpy(dtype=int)
-            out[found] = (donors.mean(p)[:, None] - donors.draw(p, rng, n_draws)) * scale
+            out[found] = (donors.mean(p)[:, None] - donors.draw(p, u[found])) * scale
         return out
 
     return hook
