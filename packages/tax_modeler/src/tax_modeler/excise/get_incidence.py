@@ -44,6 +44,7 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "excise"
 STATE_RATE = 0.04
 COUNTY_SURCHARGE = 0.005      # every county since January 1, 2024 (Maui the last to adopt)
 RENT = "rent"
+TAILS = ("flat", "elastic")
 
 
 @dataclass(frozen=True)
@@ -114,23 +115,31 @@ class SpendingProfile:
         items = {k: np.array([v[d] for d in deciles], dtype=float) for k, v in rows.items()}
         return cls(income=items.pop("INCBEFTX"), items=items)
 
-    def at(self, items: tuple[str, ...], income: np.ndarray) -> np.ndarray:
+    def at(self, items: tuple[str, ...], income: np.ndarray, *, below: str = "flat",
+           above: str = "elastic") -> np.ndarray:
         """Spending on ``items`` (summed) at each ``income``.
 
-        Linear in log income between the decile means. Below the lowest decile's mean it stays at
-        that decile's spending; above the highest it grows at the last interval's elasticity.
+        Linear in log income between the decile means. The means say nothing about either end, so
+        how the curve is carried past them is a convention: ``"flat"`` holds the end decile's
+        spending, ``"elastic"`` keeps the end interval's elasticity. By default spending stays
+        where the lowest decile has it below that decile's mean income (it is three times income
+        there already) and keeps growing above the highest.
         """
         missing = [i for i in items if i not in self.items]
         if missing:
             raise ConfigError(f"the spending profile has no item {missing}; it has {sorted(self.items)}")
+        if below not in TAILS or above not in TAILS:
+            raise ConfigError(f"a tail is one of {TAILS}, not {below!r} / {above!r}")
         y = np.sum([self.items[i] for i in items], axis=0)
         x = np.log(self.income)
-        z = np.log(np.maximum(np.asarray(income, dtype=float), self.income[0]))
+        raw = np.asarray(income, dtype=float)
+        # an income of a dollar is as low as the elastic lower tail is carried
+        z = np.log(np.maximum(raw, self.income[0] if below == "flat" else 1.0))
         out = np.interp(z, x, y)
-        if y[-1] > 0 and y[-2] > 0:
-            slope = max((np.log(y[-1]) - np.log(y[-2])) / (x[-1] - x[-2]), 0.0)
-            above = z > x[-1]
-            out[above] = y[-1] * np.exp(slope * (z[above] - x[-1]))
+        for end, inner, on, past in ((-1, -2, above, z > x[-1]), (0, 1, below, z < x[0])):
+            if on == "elastic" and y[end] > 0 and y[inner] > 0:
+                slope = max((np.log(y[end]) - np.log(y[inner])) / (x[end] - x[inner]), 0.0)
+                out[past] = y[end] * np.exp(slope * (z[past] - x[end]))
         return out
 
 
@@ -190,7 +199,8 @@ class Spending:
 
 
 def impute_spending(income: np.ndarray, weight: np.ndarray, rent: np.ndarray, profile: SpendingProfile, *,
-                    pce: Mapping[int, float] | None = None, income_deflator: float = 1.0) -> Spending:
+                    pce: Mapping[int, float] | None = None, income_deflator: float = 1.0,
+                    below: str = "flat", above: str = "elastic") -> Spending:
     """Each household's annual spending by category.
 
     ``pce`` (SAPCE4 line -> dollars) scales every category that names lines so the weighted total
@@ -198,12 +208,13 @@ def impute_spending(income: np.ndarray, weight: np.ndarray, rent: np.ndarray, pr
     ``income_deflator`` divides income before the
     profile is read (a regional price parity would go here; 1.0 reads the national profile at
     Hawaiʻi's nominal incomes). ``rent`` is annual contract rent, zero for owners.
+    ``below`` and ``above`` are :meth:`SpendingProfile.at`'s tails.
     """
     income = np.asarray(income, dtype=float)
     weight = np.asarray(weight, dtype=float)
     amounts, scale = {}, {}
     for c in CATEGORIES:
-        raw = profile.at(c.cex_items or ("TOTALEXP",), income / income_deflator)
+        raw = profile.at(c.cex_items or ("TOTALEXP",), income / income_deflator, below=below, above=above)
         k = 1.0
         if pce is not None and c.pce_lines:
             total = float((raw * weight).sum())

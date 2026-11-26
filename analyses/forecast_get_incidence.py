@@ -20,6 +20,7 @@ Outputs (runs/get_incidence/):
   cost to the state and counties from resident households only, and who gains.
 * ``control_totals.csv``: the modelled state tax beside the Department of Taxation's collections.
 * ``levels.csv``: the modelled total at BEA's level and at the survey's own dollars (a floor).
+* ``tails.csv``: the lowest and top fifths under each way of carrying spending past the decile means.
 
 Standard errors are ACS sampling error from the 80 replicate weights, with the income groups held
 at the full sample's. They carry none of the error in the expenditure survey, in BEA's state
@@ -93,14 +94,57 @@ def _sdr(theta: np.ndarray) -> np.ndarray:
     return np.sqrt(4.0 / len(reps) * ((reps - theta[0]) ** 2).sum(axis=0))
 
 
-def tax_under(hh: pd.DataFrame, weight: np.ndarray, law, *, level: str = "pce"):
-    """(spending, tax) for the households under ``law``, the level set on ``weight``."""
+def tax_under(hh: pd.DataFrame, weight: np.ndarray, law, *, level: str = "pce", **tails):
+    """(spending, tax) for the households under ``law``, the level set on ``weight``. ``tails`` are
+    ``impute_spending``'s ``below`` and ``above``."""
     from tax_modeler.excise import get_incidence as gi
 
     pce = gi.pce_hawaii(YEAR)
     spending = gi.impute_spending(hh["income"].to_numpy(), weight, hh["rent"].to_numpy(),
-                                  gi.SpendingProfile.load(YEAR), pce=pce if level == "pce" else None)
+                                  gi.SpendingProfile.load(YEAR), pce=pce if level == "pce" else None, **tails)
     return spending, gi.burden(spending, law, snap=hh["snap"].to_numpy(), pce=pce)
+
+
+def _median(x: np.ndarray, w: np.ndarray) -> float:
+    order = np.argsort(x, kind="stable")
+    return float(x[order][np.searchsorted(np.cumsum(w[order]) / w.sum(), 0.5)])
+
+
+def tails(hh: pd.DataFrame, w: np.ndarray, groups: np.ndarray, law) -> pd.DataFrame:
+    """How much the figures turn on what the decile means cannot say: spending below the lowest
+    decile's mean income and above the highest's, and the households under the lowest.
+
+    Each row is one convention. The level is BEA's in all of them, so the total barely moves; what
+    moves is who the total falls on."""
+    import dataclasses
+
+    from tax_modeler.excise import get_incidence as gi
+
+    income = hh["income"].to_numpy()
+    floor = gi.SpendingProfile.load(YEAR).income[0]
+    lowest, top = groups == 0, groups == len(QUINTILES) - 1
+    groceries = dataclasses.replace(law, exempt=frozenset({"groceries"}))
+    rows = []
+    for label, kw, keep in (
+        ("As published: flat below the lowest decile, elastic above the highest", {}, None),
+        ("Flat above the highest decile", {"above": "flat"}, None),
+        ("Elastic below the lowest decile", {"below": "elastic"}, None),
+        (f"As published, lowest fifth without households under ${floor:,.0f}", {}, income >= floor),
+    ):
+        tax = tax_under(hh, w, law, **kw)[1]
+        total = tax["total"].to_numpy()
+        saved = (tax["state"] - tax_under(hh, w, groceries, **kw)[1]["state"]).to_numpy()
+        m = lowest if keep is None else lowest & keep
+
+        def share(mask, total=total):
+            return float((total[mask] * w[mask]).sum() / (income[mask] * w[mask]).sum())
+
+        rows.append({"convention": label, "lowest_fifth_share_of_income": share(m),
+                     "top_fifth_share_of_income": share(top), "state_tax_M": float((tax["state"] * w).sum()) / 1e6,
+                     "groceries_state_cost_M": float((saved * w).sum()) / 1e6,
+                     "groceries_saving_share_lowest_40": float((saved[groups <= 1] * w[groups <= 1]).sum()
+                                                               / (saved * w).sum())})
+    return pd.DataFrame(rows)
 
 
 def by_quintile(hh: pd.DataFrame, weights: np.ndarray, groups: np.ndarray, law) -> pd.DataFrame:
@@ -123,6 +167,10 @@ def by_quintile(hh: pd.DataFrame, weights: np.ndarray, groups: np.ndarray, law) 
             "state_tax": round(mean(tax["state"])), "county_tax": round(mean(tax["county"])),
             "total_tax": round(mean(tax["total"])),
             "tax_share_of_income": share[0, i], "tax_share_se": _sdr(share)[i],
+            # the middle household's own tax over its own income, among those with income; a few
+            # households with almost no income cannot move it
+            "median_share_of_income": _median((tax["total"].to_numpy() / np.where(income > 0, income, np.nan))[m & (income > 0)],
+                                              w[m & (income > 0)]),
             "food_excise_credit": round(mean(credit)),
             "net_share_of_income": float(((tax["total"].to_numpy() - credit)[m] * w[m]).sum() / inc),
         })
@@ -194,6 +242,7 @@ def main(argv: list[str] | None = None) -> None:
     quint = by_quintile(hh, weights, groups, law)
     cats = by_category(hh, w, groups, law)
     ref = reforms(hh, weights, groups, law)
+    tail = tails(hh, w, groups, law)
     _, tax = tax_under(hh, w, law)
     control = gi.control_totals(tax, w, FISCAL_YEAR)
     levels = pd.DataFrame([
@@ -203,7 +252,8 @@ def main(argv: list[str] | None = None) -> None:
 
     pd.set_option("display.width", 200)
     print(quint[["group", "mean_income", "total_tax", "tax_share_of_income", "tax_share_se",
-                 "net_share_of_income"]].to_string(index=False))
+                 "median_share_of_income", "net_share_of_income"]].to_string(index=False))
+    print(tail.to_string(index=False))
     print(control.to_string(index=False))
     print(ref[["label", "state_cost_M", "state_cost_se_M", "share_of_saving_lowest_40"]].to_string(index=False))
 
@@ -212,7 +262,7 @@ def main(argv: list[str] | None = None) -> None:
     inputs = {name: {"path": str((gi.DATA_DIR / name).relative_to(REPO)), "fetch_date": gi._read(name)["fetch_date"]}
               for name in ("cex_income_deciles.json", "bea_pce_hawaii.json", "dotax_get_by_activity.json")}
     run_dir = save_run(RUN_NAME, {"by_quintile.csv": quint, "by_category.csv": cats, "reforms.csv": ref,
-                                  "control_totals.csv": control, "levels.csv": levels},
+                                  "control_totals.csv": control, "levels.csv": levels, "tails.csv": tail},
                        script="analyses/forecast_get_incidence.py", params=params, inputs=inputs)
     print(f"wrote {run_dir.relative_to(REPO)}")
 

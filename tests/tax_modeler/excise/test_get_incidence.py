@@ -192,3 +192,17 @@ def test_the_bundled_survey_profile_has_every_item_the_categories_read():
     assert p.at(("FOODHOME",), p.income[:1])[0] == pytest.approx(3_655)
     with pytest.raises(ConfigError):
         gi.SpendingProfile.load(1999)
+
+
+def test_the_tails_are_flat_or_elastic_as_asked():
+    p = _profile()
+    low, high = np.array([2_500.0]), np.array([1_280_000.0])
+    # elasticity 0.5 throughout: a quarter of the lowest decile's income is half its spending
+    np.testing.assert_allclose(p.at(("FOODHOME",), low, below="elastic"), 500.0)
+    np.testing.assert_allclose(p.at(("FOODHOME",), low), 1_000.0)
+    np.testing.assert_allclose(p.at(("FOODHOME",), high, above="flat"), p.items["FOODHOME"][-1])
+    np.testing.assert_allclose(p.at(("FOODHOME",), high), 2 * p.items["FOODHOME"][-1])
+    assert np.isfinite(p.at(("FOODHOME",), np.array([-100.0, 0.0]), below="elastic")).all()
+    np.testing.assert_allclose(p.at(("FOODHOME",), p.income, below="elastic", above="flat"), p.items["FOODHOME"])
+    with pytest.raises(ConfigError):
+        p.at(("FOODHOME",), low, below="steep")

@@ -131,17 +131,37 @@ sorted into the same dollar ranges, state tax plus surcharge:
 - **The level.** Between $21,900 and $278,200, four fifths of households, the BEA level is within
   0.2 points of ITEP in every range and the survey level is about a third under. The BEA level
   stays the default.
-- **The bottom.** Under $21,900 the model is three times ITEP. Spending is held where the lowest
-  decile has it however low income falls, so tax over income climbs without limit. This is the
-  overstatement named below, and it is large: the lowest fifth's 7.7 percent leans on it.
-- **The top.** Above $278,200 the model runs over ITEP. Spending past the highest decile's mean
-  grows with the last interval's elasticity, which looks too steep.
+- **The bottom.** Under $21,900 the model is three times ITEP. That range is a tenth of
+  households with a mean income of $10,000, and four in ten of them report less than the survey's
+  lowest decile averages ($9,612), some of them nothing. Their tax is ordinary; their income for
+  the year is not. The tail test below shows the fifths do not turn on them.
+- **The top.** Above $278,200 the model runs over ITEP, on a tenth of households. ITEP's income
+  there is broader than cash income (it counts capital gains), which lowers its share.
 - The comparison is loose: ITEP's units are families without seniors, its incomes are 2023's and
   broader than cash income, and its line may treat the tax on rent differently. The model was not
   fitted to it and should not be.
 
 No Department of Taxation estimate of a grocery exemption has been set beside the $251 million
 yet.
+
+## The tails (November 26, 2026)
+
+The decile means say nothing about spending below the lowest decile's mean income or above the
+highest's, so the curve is carried past them by convention. `tails.csv` reruns the model under
+each. The level is BEA's throughout, so only who bears the total can move.
+
+| Convention | Lowest fifth | Top fifth | Grocery exemption, state |
+|---|---|---|---|
+| Published: flat below, elastic above | 7.7% | 1.8% | $251M |
+| Flat above the highest decile | 7.9% | 1.8% | $251M |
+| Elastic below the lowest decile | 7.5% | 1.8% | $252M |
+| Published, lowest fifth without households under $9,612 | 6.6% | 1.8% | $251M |
+
+Neither convention moves a fifth by more than 0.3 points or the grocery cost by $1 million, so
+the published ones stay. The lowest fifth is 6.6 to 7.9 percent however it is cut, and the middle
+household in it pays 7.2 percent of its own income (`median_share_of_income`), a figure a few
+near-zero incomes cannot move. What remains of the gap to ITEP at the bottom is the year's income
+standing in for means, not the extension.
 
 ## Known weaknesses
 
@@ -170,8 +190,7 @@ yet.
 
 ## Next
 
-1. The two tails the ITEP check shows: spending below the lowest decile's mean and above the
-   highest. Then the Department's fiscal notes on grocery exemption bills beside the $251 million.
+1. The Department's fiscal notes on grocery exemption bills beside the $251 million.
 2. Survey microdata (the interview files). bls.gov refuses scripted downloads, so someone has to
    download the zip in a browser. With it: spending by income, household size, age and tenure,
    and the Honolulu sample as a check on the national shape.
