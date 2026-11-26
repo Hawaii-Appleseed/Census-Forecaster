@@ -53,11 +53,14 @@ def write_outputs(bill_text: str, t: Translation, header: dict, model: str, out:
     out.mkdir(parents=True, exist_ok=True)
     res = t.result
     written = []
-    if res.spec is not None:
+    spec_path = out / f"{header['name']}.spec.yaml"
+    if res.verdict in ("out_of_scope", "invalid"):
+        # nothing to score: also remove a spec an earlier draft of the same name left behind
+        spec_path.unlink(missing_ok=True)
+    elif res.spec is not None:
         body = {"name": header["name"], "label": header["label"], **res.spec}
-        path = out / f"{header['name']}.spec.yaml"
-        path.write_text(_SPEC_COMMENT + yaml.safe_dump(body, sort_keys=False, allow_unicode=True))
-        written.append(path)
+        spec_path.write_text(_SPEC_COMMENT + yaml.safe_dump(body, sort_keys=False, allow_unicode=True))
+        written.append(spec_path)
     path = out / f"{header['name']}.translation.json"
     path.write_text(json.dumps({
         "name": header["name"],
@@ -84,6 +87,7 @@ def summary(t: Translation, header: dict) -> str:
             lines.append("modeled:" if modeled else "not modeled:")
             for p in group:
                 blank = " [blank amount]" if p["blank"] else ""
+                blank += " [approximate]" if p.get("approximate") else ""
                 lines.append(f"  s{p['section']}: {p['summary']}{blank}")
     if res.problems:
         lines.append("problems:")

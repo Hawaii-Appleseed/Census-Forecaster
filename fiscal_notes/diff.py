@@ -118,7 +118,14 @@ def _same_text(a: dict, b: dict) -> bool:
 def _line(p: dict) -> str:
     keys = f" [{', '.join(p['spec_keys'])}]" if p["spec_keys"] else ""
     state = "scored" if p["modeled"] and not p["blank"] else "not scored"
+    if state == "scored" and p.get("approximate"):
+        state = "scored approximately"
     return f"section {p['section']}: {' '.join(p['summary'].split())}{keys} ({state})"
+
+
+def _approx(p: dict) -> str:
+    text = " ".join(p.get("approximation", "").split())
+    return f'"{text}"' if text else "(none)"
 
 
 def _changed(a: dict, b: dict) -> list[str]:
@@ -127,6 +134,10 @@ def _changed(a: dict, b: dict) -> list[str]:
                     ("applies_from_tax_year", "first tax year")):
         if a[f] != b[f]:
             out.append(f"{name} {a[f]} -> {b[f]}")
+    if bool(a.get("approximate")) != bool(b.get("approximate")):
+        out.append(f"approximate flag {bool(a.get('approximate'))} -> {bool(b.get('approximate'))}")
+    if " ".join(a.get("approximation", "").split()) != " ".join(b.get("approximation", "").split()):
+        out.append(f"approximation text changed: {_approx(a)} -> {_approx(b)}")
     if not _same_text(a, b):
         out.append("quoted text differs")
     return out

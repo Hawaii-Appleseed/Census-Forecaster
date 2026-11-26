@@ -40,6 +40,8 @@ class Case:
     schedule_years: tuple[int, ...] = ()
     #: extra checks on the spec: spec -> [(label, ok)]
     extra: Callable[[dict | None], list[tuple[str, bool]]] = lambda spec: []
+    #: extra checks on the provision list: provisions -> [(label, ok)]
+    prov_extra: Callable[[list[dict]], list[tuple[str, bool]]] = lambda provisions: []
 
 
 def registry_schedule(fn: Callable, year: int) -> dict[str, list[list[float]]]:
@@ -145,6 +147,49 @@ def _introduced_extra(spec):
     return [("spec equals the pinned reading of the bill", spec == INTRODUCED_SPEC)]
 
 
+# HB 1850 HD2: capital gains are taxed as ordinary income except gains on a principal home, which keep
+# 7.25%. The spec cannot carve out the home, so it models "ordinary" and must say it is approximate.
+# first_year 2027: section 5, "shall apply to taxable years beginning after December 31, 2026".
+def _hb1850_extra(spec):
+    return [("spec is first_year 2027 and capital_gains_rate ordinary only",
+             spec == {"first_year": 2027, "income_tax": {"capital_gains_rate": "ordinary"}})]
+
+
+def _hb1850_provisions(provisions):
+    cg = [p for p in provisions if "income_tax.capital_gains_rate" in p["spec_keys"]]
+    text = " ".join(p["approximation"] for p in cg).lower()
+    return [("capital gains provision is approximate",
+             bool(cg) and all(p["modeled"] and p["approximate"] for p in cg)),
+            ("approximation mentions the principal home", "home" in text or "residence" in text)]
+
+
+# HB 1147 HD1: section 3 keeps the amended 40% EITC in force when section 235-55.75(a) is reenacted on
+# December 31, 2027 under Act 163, so the credit stays at 40% past the sunset. The bill never touches the
+# food/excise credit, so food_excise stays unset. first_year 2027: section 3's applicability clause
+# ("shall apply to taxable years beginning after December 31, 2024") clamped to the schema's earliest
+# year; the 40% is already current law through 2027, so the revenue effect starts in 2028 (the
+# reenactment proviso) whichever year is pinned. The EITC is expressed exactly, so it is not approximate.
+HB1147_FIRST_YEAR = 2027
+
+
+def _hb1147_extra(spec):
+    return [("spec is eitc_percent 40 only, no food_excise",
+             spec == {"first_year": HB1147_FIRST_YEAR, "credits": {"eitc_percent": 40}})]
+
+
+def _hb1147_provisions(provisions):
+    eitc = [p for p in provisions if "credits.eitc_percent" in p["spec_keys"]]
+    return [("EITC provision is modeled exactly, not approximate",
+             bool(eitc) and all(p["modeled"] and not p["approximate"] for p in eitc))]
+
+
+# HB 2007 SD1 (dependent care credit only; its Act 163 amendment moves only section 1's repeal, the
+# expense limits, to June 30, 2030, and keeps the December 31, 2027 repeal of the EITC and food/excise
+# provisions) and HB 476 SD1 (the capital gains rate is struck and left blank) score nothing.
+def _hb476_provisions(provisions):
+    return [("at least one provision has a blank amount", any(p["blank"] for p in provisions))]
+
+
 CASES: dict[str, Case] = {
     "2026_HB2306_HD1": Case("partial", _registry("hb2306_hd1"), tuple(YEARS), _hd1_extra),
     "2026_SB3125_SD1": Case("partial", _sd1_schedules, (2027, 2028, 2029, 2030, 2031)),
@@ -152,6 +197,10 @@ CASES: dict[str, Case] = {
     "2024_HB2404_CD1": Case("partial", _registry("act46"), tuple(YEARS), _act46_extra),
     "2024_HB2404_SD1": Case("out_of_scope", extra=_null_extra),
     "2026_HB2306_Introduced": Case("partial", extra=_introduced_extra),
+    "2026_HB1850_HD2": Case("partial", extra=_hb1850_extra, prov_extra=_hb1850_provisions),
+    "2026_HB1147_HD1": Case("partial", extra=_hb1147_extra, prov_extra=_hb1147_provisions),
+    "2026_HB2007_SD1": Case("out_of_scope", extra=_null_extra),
+    "2026_HB476_SD1": Case("out_of_scope", extra=_null_extra, prov_extra=_hb476_provisions),
 }
 
 
@@ -192,5 +241,7 @@ def evaluate(case_name: str, result: CheckResult) -> Evaluation:
         ev.expectations.append(Expectation(f"brackets {year}", not bad,
                                            f"differs for {', '.join(bad)}" if bad else ""))
     for label, ok in case.extra(result.spec):
+        ev.expectations.append(Expectation(label, ok))
+    for label, ok in case.prov_extra(result.provisions):
         ev.expectations.append(Expectation(label, ok))
     return ev

@@ -95,6 +95,21 @@ def parse_response(raw: str) -> dict:
                 raise TranslationError(f"{where} is missing `{key}`")
             if not ok(p[key]):
                 raise TranslationError(f"{where}.{key} must be {want}, got {p[key]!r}")
+        # added later than the other fields: older recorded answers lack them
+        p.setdefault("approximate", False)
+        p.setdefault("approximation", "")
+        if not isinstance(p["approximate"], bool):
+            raise TranslationError(f"{where}.approximate must be a boolean, got {p['approximate']!r}")
+        if not isinstance(p["approximation"], str):
+            raise TranslationError(f"{where}.approximation must be a string, got {p['approximation']!r}")
+        if p["approximate"]:
+            if not p["modeled"]:
+                raise TranslationError(f"{where}: `approximate` is only allowed on a modeled provision")
+            if not p["approximation"].strip():
+                raise TranslationError(f"{where}: `approximate` is true, so `approximation` must say "
+                                       "what the spec gets wrong and in which direction")
+        elif p["approximation"].strip():
+            raise TranslationError(f"{where}: `approximation` is set but `approximate` is false")
     return data
 
 
@@ -224,6 +239,8 @@ def check(response: dict, bill_text: str, name: str) -> CheckResult:
     spec = response["spec"]
     provisions = response["provisions"]
     problems: list[str] = []
+    if spec is not None and not spec_leaves(spec):
+        spec = None  # nothing modeled (e.g. only first_year): no spec, not a spec to check
 
     if spec is not None:
         try:
@@ -262,7 +279,7 @@ def check(response: dict, bill_text: str, name: str) -> CheckResult:
         verdict = "invalid"
     elif spec is None or not any(p["modeled"] for p in provisions):
         verdict = "out_of_scope"
-    elif any((not p["modeled"]) or p["blank"] for p in provisions):
+    elif any((not p["modeled"]) or p["blank"] or p.get("approximate") for p in provisions):
         verdict = "partial"
     else:
         verdict = "full"

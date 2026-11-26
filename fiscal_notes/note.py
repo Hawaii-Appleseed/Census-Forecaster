@@ -13,6 +13,8 @@ VERDICT_WORDS = {
     "partial": "some provisions are not scored, listed below",
     "out_of_scope": "nothing in the bill can be scored",
 }
+PARTIAL_APPROX = "some provisions are scored only approximately, listed below"
+PARTIAL_BOTH = "some provisions are not scored and some are scored only approximately, listed below"
 
 COLS = (("static_mid", "MID static"), ("low", "LOW"), ("mid", "MID"), ("high", "HIGH"))
 
@@ -114,6 +116,10 @@ def _scored(p: dict) -> bool:
     return p["modeled"] and not p["blank"]
 
 
+def _approximate(p: dict) -> bool:
+    return _scored(p) and bool(p.get("approximate"))
+
+
 def _provision(p: dict) -> list[str]:
     bits = []
     if p["spec_keys"]:
@@ -187,14 +193,20 @@ def render_note(translation: dict, score: dict, provenance: dict | None = None) 
     if score["credits"]:
         bottom += (f" Of the MID figure, income tax is {signed(five['income_tax']['mid'])} and credits "
                    f"are {signed(five['credits']['total'])} ($ millions).")
-    if verdict == "partial":
-        bottom += " The estimate leaves out the provisions listed under \"What is NOT scored\"."
-
-    scored = [p for p in translation["provisions"] if _scored(p)]
+    scored = [p for p in translation["provisions"] if _scored(p) and not _approximate(p)]
+    approx = [p for p in translation["provisions"] if _approximate(p)]
     unscored = [p for p in translation["provisions"] if not _scored(p)]
+    if approx:
+        bottom += (" Part of the estimate is approximate: the provisions under \"Scored approximately\" "
+                   "are in it, but the spec cannot express them exactly.")
+    if unscored:
+        bottom += " The estimate leaves out the provisions listed under \"What is NOT scored\"."
+    words = VERDICT_WORDS[verdict]
+    if verdict == "partial" and approx:
+        words = PARTIAL_BOTH if unscored else PARTIAL_APPROX
 
     out = [f"# {label}: shadow fiscal note", "",
-           f"**{DRAFT}.** Verdict `{verdict}`: {VERDICT_WORDS[verdict]}.", "",
+           f"**{DRAFT}.** Verdict `{verdict}`: {words}.", "",
            "## Bottom line", "", bottom, "",
            "## Revenue by tax year ($ millions, change vs current law)", "", *_revenue_tables(score), "",
            "## Who pays and who gains", "", *_distribution(score), "",
@@ -203,6 +215,13 @@ def render_note(translation: dict, score: dict, provenance: dict | None = None) 
         out.extend(_provision(p))
     if not scored:
         out.append("None.")
+    if approx:
+        out += ["", "## Scored approximately", ""]
+        for p in approx:
+            out.extend(_provision(p))
+            out.append(f"  Approximation: {_collapse(p['approximation'])}")
+        out += ["", "These provisions are in the estimate, but the spec only approximates them; the "
+                "direction of the error is stated for each."]
     out += ["", "## What is NOT scored", ""]
     if unscored:
         for p in unscored:
