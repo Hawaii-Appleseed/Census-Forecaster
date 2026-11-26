@@ -1,0 +1,88 @@
+# Machine-translated from the bill text by `python -m fiscal_notes translate`.
+# NOT reviewed: a person must check every figure and provision against the bill
+# before this spec is scored or cited. See fiscal_notes/README.md.
+name: hb2306_hd1_2026
+label: HB 2306 HD1 (2026)
+first_year: 2027
+income_tax:
+  bracket_vintages:
+  - from: 2027
+    brackets:
+      single:
+      - - 0
+        - 1.4
+      - - 9600
+        - 3.2
+      - - 14400
+        - 5.5
+      - - 19200
+        - 6.4
+      - - 24000
+        - 6.8
+      - - 36000
+        - 7.2
+      - - 48000
+        - 7.6
+      - - 125000
+        - 7.9
+      - - 175000
+        - 8.25
+      - - 225000
+        - 10.0
+      - - 275000
+        - 11.0
+      - - 325000
+        - 12.0
+      head_of_household:
+      - - 0
+        - 1.4
+      - - 14400
+        - 3.2
+      - - 21600
+        - 5.5
+      - - 28800
+        - 6.4
+      - - 36000
+        - 6.8
+      - - 54000
+        - 7.2
+      - - 72000
+        - 7.6
+      - - 187500
+        - 7.9
+      - - 262500
+        - 8.25
+      - - 337500
+        - 10.0
+      - - 412500
+        - 11.0
+      - - 487500
+        - 12.0
+      married_filing_jointly:
+      - - 0
+        - 1.4
+      - - 19200
+        - 3.2
+      - - 28800
+        - 5.5
+      - - 38400
+        - 6.4
+      - - 48000
+        - 6.8
+      - - 72000
+        - 7.2
+      - - 96000
+        - 7.6
+      - - 250000
+        - 7.9
+      - - 350000
+        - 8.25
+      - - 450000
+        - 10.0
+      - - 550000
+        - 11.0
+      - - 650000
+        - 12.0
+credits:
+  eitc_percent: 40
+  food_excise: act163

@@ -1,0 +1,54 @@
+{
+  "name": "hb2306_hd1_2026",
+  "label": "HB 2306 HD1 (2026)",
+  "verdict": "partial",
+  "provisions": [
+    {
+      "section": 1,
+      "summary": "Repeals the scheduled 2027 and 2029 bracket adjustments (bracketed schedules). The 2025 schedule stays in force, with the top three rates raised by one point each (8.25%->10%, 9%->11%, 10%->12% in the single schedule, and the equivalent steps in the other schedules) for tax years beginning after 12/31/2026. The 2029 schedule is repealed too, so there is a single vintage for 2027-2031.",
+      "modeled": true,
+      "spec_keys": [
+        "income_tax.bracket_vintages"
+      ],
+      "blank": false,
+      "applies_from_tax_year": 2027,
+      "quote": "Over $450,000 but $32,932.00 plus 10.00% of not over $550,000 excess over $450,000"
+    },
+    {
+      "section": 2,
+      "summary": "Raises the household and dependent care services credit's applicable percentage: 50% for AGI up to $80,000, falling in steps to 5% over $160,000. Adds a disallowance period after a fraud finding (10 taxable years) or after a final decision disallowing the claim (2 taxable years). The credit cannot be modeled.",
+      "modeled": false,
+      "spec_keys": [],
+      "blank": false,
+      "applies_from_tax_year": 2027,
+      "quote": "Not over [$25,000] $80,000 [25%] 50%"
+    },
+    {
+      "section": 2,
+      "summary": "Disallowance periods: 10 taxable years after a final decision that a claim was due to fraud, and 2 taxable years after a final decision disallowing a claim. This is an enforcement provision for the dependent care credit, which cannot be modeled.",
+      "modeled": false,
+      "spec_keys": [],
+      "blank": false,
+      "applies_from_tax_year": 2027,
+      "quote": "The period of ten taxable years after the most recent taxable year for which there was a final administrative or judicial decision"
+    },
+    {
+      "section": 3,
+      "summary": "Moves the sunset of Act 163, SLH 2023 from 12/31/2027 to 12/31/2032. This keeps the EITC at 40% of federal and the larger food/excise credit table through 2031. The dependent care credit part of Act 163 cannot be modeled.",
+      "modeled": true,
+      "spec_keys": [
+        "credits.eitc_percent",
+        "credits.food_excise"
+      ],
+      "blank": false,
+      "applies_from_tax_year": 2027,
+      "quote": "on December 31, [2027,] 2032, this Act shall be repealed"
+    }
+  ],
+  "notes": "Section 5 sets the effective date to July 1, 3000, which looks like a placeholder (HD1 draft). The model treats the bill as applying from tax year 2027, as sections 1 and 2 and the description state. Section 2 applies to taxable years beginning after 12/31/2026 and is repealed on 12/31/2032, so it sunsets after the modeled window. The description says the bill 'repeals future adjustments to income tax brackets': the bracketed 2027 and 2029 schedules are removed. As a result the 2024 schedule remains in force for 2027-2031, with the top three rates raised. The new top brackets keep the 2025 thresholds. For single filers the rates are 10% over $225,000, 11% over $275,000 and 12% over $325,000. The bill does not change the standard deduction, personal exemption or capital gains rate, so those are omitted. Section 1 leaves the schedules for 2017 and 2024 in place. Only the schedule headed 'after December 31, 2026' applies from 2027.",
+  "problems": [],
+  "model": "sonnet",
+  "attempts": 1,
+  "bill_sha256": "f78fa95b6c999ce9703f5590a29f30fd78c76bbfaf426aad813e9b74d90e3354",
+  "prompt_sha256": "e4c6c0453619d3394a36978da7b268b2025221f2d54a94a7bbd79770ad324c2f"
+}
