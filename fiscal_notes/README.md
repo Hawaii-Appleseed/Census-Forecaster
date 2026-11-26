@@ -35,8 +35,9 @@ python -m fiscal_notes run BILL.txt [--out DIR] [--model sonnet] [--population D
 python -m fiscal_notes diff OLD NEW [--out FILE.md]
 ```
 
-`translate` writes `<name>.spec.yaml` (when there is a spec; a header comment says it is
-machine-translated and unreviewed) and `<name>.translation.json` (verdict, provisions, notes,
+`translate` writes `<name>.spec.yaml` (only for a `full` or `partial` verdict; a header comment says it is
+machine-translated and unreviewed; for `out_of_scope` and `invalid` none is written and a stale one of
+the same name from an earlier run is removed) and `<name>.translation.json` (verdict, provisions, notes,
 problems, model, attempts, sha256 of the bill and of `prompt.md`) to `reforms/bills/<session>/`
 by default. `<name>` comes from the header: `hb2306_hd1_2026`. Exit code 0 for full, partial and
 out_of_scope; 1 for invalid.
@@ -71,7 +72,8 @@ problems and exits 1. `score` refuses an `invalid` translation too.
 The note (`note.py`, a pure function of the translation JSON and the score result) has, in order: a
 title and a DRAFT status line with the verdict in words; the bottom line (MID five-year change vs
 current law, Act 24, and the LOW-HIGH range, in $ millions); the revenue table by tax year; who pays
-and who gains; what is scored (section, summary, verbatim quote); what is NOT scored (the estimate
+and who gains; what is scored (section, summary, verbatim quote); scored approximately (only when a
+provision is: the same, plus what the spec gets wrong and in which direction); what is NOT scored (the estimate
 leaves these out); the translator's reviewer notes; method and provenance (model commit, sha256 of
 the bill text, translator model). A positive figure means more revenue.
 
@@ -106,11 +108,18 @@ Derived by code from the checks, never taken from the model.
 
 - `invalid`: any check failed. `translate` retries once with the problems appended; still failing, it
   reports `invalid` and the problems.
-- `out_of_scope`: the spec is null or no provision is modeled (for example, amounts indexed by a
+- `out_of_scope`: the spec is null, sets no `income_tax.*` or `credits.*` key (a stub such as
+  `{"first_year": 2027}` counts as null), or no provision is modeled (for example, amounts indexed by a
   factor the bill does not state).
-- `partial`: a spec, but some provision is not modeled or has a blank amount (for example, a credit
-  the spec cannot express, or a sunset past 2031).
-- `full`: every provision is modeled and none is blank. Rare; read it with suspicion.
+- `partial`: a spec, but some provision is not modeled, has a blank amount (for example, a credit
+  the spec cannot express, or a sunset past 2031), or is modeled only approximately.
+- `full`: every provision is modeled exactly and none is blank. Rare; read it with suspicion.
+
+A provision the spec can only express roughly (HB 1850 HD2 taxes capital gains as ordinary income except
+gains on a principal home; the spec has one rate) is still modeled, with `approximate: true` and an
+`approximation` text saying what is lost and whether the estimate is too high or too low. `approximate`
+is only allowed on a modeled provision and needs non-empty text; an answer without the two fields reads
+as not approximate. The note lists these under "Scored approximately" and `diff` shows changes to them.
 
 ## What the checks do and do not catch
 
