@@ -33,7 +33,14 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-from state_revenue.annual_report import HEADINGS, AnnualTable, parse_tax_collections, residuals
+from state_revenue.annual_report import (
+    HEADINGS,
+    AnnualTable,
+    GetActivityTable,
+    parse_get_activity,
+    parse_tax_collections,
+    residuals,
+)
 
 INDEX_URL = "https://tax.hawaii.gov/stats/a5_1annual/a5_1tax_annuals/"
 REPORT_LINK = re.compile(
@@ -112,6 +119,28 @@ def merge(tables: dict[str, AnnualTable]) -> dict[int, dict]:
     return out
 
 
+def merge_get_activity(tables: dict[str, GetActivityTable]) -> dict[int, dict]:
+    """The general excise base and tax by activity, one entry per fiscal year,
+    by the same rule as :func:`merge` (base and tax must both add up)."""
+    def gaps(t: GetActivityTable, fy: int) -> tuple[int, int]:
+        return (t.base_totals[fy] - sum(t.base[fy].values()),
+                t.tax_totals[fy] - sum(t.tax[fy].values()))
+    by_fy: dict[int, list[tuple[str, GetActivityTable]]] = {}
+    for name, t in tables.items():
+        for fy in t.years:
+            by_fy.setdefault(fy, []).append((name, t))
+    out: dict[int, dict] = {}
+    for fy, cands in sorted(by_fy.items()):
+        cands.sort(key=lambda c: c[1].years[0], reverse=True)
+        ok = [c for c in cands if max(map(abs, gaps(c[1], fy))) <= TOLERANCE]
+        name, t = (ok or cands)[0]
+        out[fy] = {"base": dict(sorted(t.base[fy].items())), "tax": dict(sorted(t.tax[fy].items())),
+                   "rates": dict(sorted(t.rates.items())), "base_total": t.base_totals[fy],
+                   "tax_total": t.tax_totals[fy], "report": name,
+                   "residual": max(gaps(t, fy), key=abs)}
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--since", type=int, default=2005, help="first report year to fetch")
@@ -128,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     cache.mkdir(parents=True, exist_ok=True)
 
     tables: dict[str, dict[str, AnnualTable]] = {name: {} for name in HEADINGS}
+    activity: dict[str, GetActivityTable] = {}
     sources: dict[str, dict] = {}
     for url in urls.values():
         pdf = cache / url.rsplit("/", 1)[-1]
@@ -142,11 +172,18 @@ def main(argv: list[str] | None = None) -> int:
             tables[name][pdf.name] = t
             print(f"[annual] {pdf.name} {name}: FY{t.years[1]}-FY{t.years[0]}, "
                   f"residuals {residuals(t)}", file=sys.stderr)
+        a = parse_get_activity(text)
+        if a.unmatched:
+            print(f"ERROR: {pdf.name} general excise: rows with no activity: {a.unmatched}",
+                  file=sys.stderr)
+            return 1
+        activity[pdf.name] = a
         sources[pdf.name] = {"url": url,
                              "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
                              "fiscal_years": list(t.years)}
 
     merged = {name: merge(by_report) for name, by_report in tables.items()}
+    merged["general_excise_by_activity"] = merge_get_activity(activity)
     for name, years in merged.items():
         bad = {fy: e["residual"] for fy, e in years.items() if abs(e["residual"]) > TOLERANCE}
         if bad:
@@ -154,14 +191,17 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     fiscal_years = merged["collections"]
     payload = {
-        "source": "Hawaii Department of Taxation, Annual Report, tables 'Tax Collections' and "
-                  f"'State General Fund' (index: {INDEX_URL})",
+        "source": "Hawaii Department of Taxation, Annual Report, tables 'Tax Collections', "
+                  "'State General Fund' and 'General Excise and Use Tax Base and Taxes' "
+                  f"(index: {INDEX_URL})",
         "fetch_date": date.today().isoformat(),
         "units": "thousands of dollars, fiscal year ending June 30",
         "limitations": LIMITATIONS,
         "reports": sources,
         "fiscal_years": {str(fy): e for fy, e in fiscal_years.items()},
         "general_fund": {str(fy): e for fy, e in merged["general_fund"].items()},
+        "general_excise_by_activity": {str(fy): e for fy, e in
+                                       merged["general_excise_by_activity"].items()},
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n")

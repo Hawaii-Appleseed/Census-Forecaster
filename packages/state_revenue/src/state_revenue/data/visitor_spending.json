@@ -1,0 +1,77 @@
+{
+ "source": "Hawaii Tourism Authority, Annual Visitor Research Report, 'Total Visitor Expenditures by Category' (air, cruise and supplemental business visitors)",
+ "fetch_date": "2026-11-27",
+ "units": "$ millions, calendar year",
+ "reports": [
+  {
+   "url": "https://hta.hawaii.gov/wp-content/uploads/2026/06/2024-annual-visitor-research-report-tables-for-posting-final-8-20-25.xlsx",
+   "sha256": "285918ad298ba5c6684e4533744553eb1f731e0a419e4dbe8170591c9647127b"
+  },
+  {
+   "url": "https://hta.hawaii.gov/wp-content/uploads/2026/09/2025-Annual-Visitor-Research-Report-tables-final-for-posting.xlsx",
+   "sha256": "60d89cfe898c882686a5cdf57cac50de746baea37846f88d204832869b1899d6"
+  }
+ ],
+ "years": {
+  "2023": {
+   "total": 20866.308,
+   "restaurants": 2873.234,
+   "dinner_shows": 475.87,
+   "groceries": 1035.597,
+   "entertainment": 1880.617,
+   "interisland_air": 153.424,
+   "ground_transport": 183.448,
+   "rental_vehicles": 1484.85,
+   "gasoline_parking": 134.333,
+   "clothing": 855.304,
+   "jewelry": 242.286,
+   "cosmetics": 59.841,
+   "leather": 190.501,
+   "hawaii_food_products": 338.803,
+   "souvenirs": 434.274,
+   "lodging": 9639.182,
+   "all_other": 753.654,
+   "supplemental_business": 132.028
+  },
+  "2024": {
+   "total": 20719.654,
+   "restaurants": 2910.207,
+   "dinner_shows": 426.796,
+   "groceries": 1035.613,
+   "entertainment": 1945.326,
+   "interisland_air": 197.648,
+   "ground_transport": 187.373,
+   "rental_vehicles": 1404.707,
+   "gasoline_parking": 125.488,
+   "clothing": 810.795,
+   "jewelry": 247.501,
+   "cosmetics": 62.001,
+   "leather": 152.446,
+   "hawaii_food_products": 345.256,
+   "souvenirs": 462.937,
+   "lodging": 9544.528,
+   "all_other": 719.376,
+   "supplemental_business": 141.656
+  },
+  "2025": {
+   "total": 21911.371,
+   "restaurants": 3149.531,
+   "dinner_shows": 494.052,
+   "groceries": 1076.782,
+   "entertainment": 2056.182,
+   "interisland_air": 254.271,
+   "ground_transport": 205.41,
+   "rental_vehicles": 1476.037,
+   "gasoline_parking": 135.194,
+   "clothing": 862.365,
+   "jewelry": 258.039,
+   "cosmetics": 54.434,
+   "leather": 143.576,
+   "hawaii_food_products": 352.117,
+   "souvenirs": 483.796,
+   "lodging": 10028.206,
+   "all_other": 720.428,
+   "supplemental_business": 160.951
+  }
+ }
+}

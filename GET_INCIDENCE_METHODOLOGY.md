@@ -83,6 +83,9 @@ billion. The rest is not an estimate of anything. It holds, together:
   state, which Hawaiʻi does not tax.
 
 So every figure is the tax in resident households' own purchases, not the tax residents bear.
+`state_revenue.general_excise` takes the rest from DBEDT's 2022 input-output table: residents
+bear 51 percent of the state tax counting what businesses pass on, visitors 27 percent,
+investment 12, government 6 and exports 4 (`STATE_REVENUE_SCOPE.md`, phase 3).
 An exemption's cost is likewise what resident households stop paying; visitors buy groceries too.
 
 ## First run (November 26, 2026)
@@ -194,10 +197,9 @@ standing in for means, not the extension.
 2. Survey microdata (the interview files). bls.gov refuses scripted downloads, so someone has to
    download the zip in a browser. With it: spending by income, household size, age and tenure,
    and the Honolulu sample as a check on the national shape.
-3. Business inputs through DBEDT's input-output table, which turns the unmodelled contracting
-   and business-services tax into price effects by category.
-4. Visitors' share from DBEDT visitor spending by category, so an exemption's full cost can be
-   stated.
+3. ~~Business inputs through DBEDT's input-output table~~ and 4. ~~visitors' share~~: done in
+   `state_revenue.general_excise` (`STATE_REVENUE_SCOPE.md`, phase 3), which places every dollar
+   of the tax on a final purchaser and adds visitors to an exemption's cost.
 5. The simulator's GET line (`TAX_SIMULATOR_SCOPE.md`, "General excise tax").
 
 ## Refreshing
