@@ -113,7 +113,7 @@ LINES: tuple[TaxLine, ...] = (
     ),
     TaxLine(
         "rental_vehicle", "Rental vehicle tax and fees", "base_rate",
-        ("rental vehicle tax and fees", "rental motor vehicle tax and fees"),
+        ("rental vehicle tax and fees", "rental motor vehicle tax and fees", "rental vehicle tax"),
         statute="HRS ch. 251",
         notes="Inside motor vehicle through FY2018.",
     ),
@@ -131,12 +131,12 @@ LINES: tuple[TaxLine, ...] = (
     ),
     TaxLine(
         "liquor", "Liquor and permits", "base_rate",
-        ("liquor and permits",),
+        ("liquor and permits", "liquor and licenses"),
         statute="HRS ch. 244D",
     ),
     TaxLine(
         "environmental_response", "Environmental response", "base_rate",
-        ("environmental response", "environmental response tax"),
+        ("environmental response", "environmental response tax", "environmental tax"),
         statute="HRS §243-3.5",
         notes="The barrel tax on petroleum. Inside fuel through FY2018.",
     ),

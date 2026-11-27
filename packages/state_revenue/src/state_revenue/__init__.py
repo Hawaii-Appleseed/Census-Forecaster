@@ -1,7 +1,8 @@
 """Every Hawaiʻi state tax as one ledger.
 
 ``lines`` names each tax line DOTAX reports and how far it can be modelled;
-``ledger`` holds its collections by fiscal year. Scope and phases:
+``ledger`` holds its collections by fiscal year; ``cor`` the Council on
+Revenues' line-item forecasts; ``baseline`` every line forward. Scope and phases:
 ``STATE_REVENUE_SCOPE.md`` at the repository root.
 
 This package imports nothing from the other workspace packages, so no

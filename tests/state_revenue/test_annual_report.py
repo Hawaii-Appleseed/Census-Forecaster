@@ -103,3 +103,29 @@ def test_report_urls_newest_link_per_year():
     urls = report_urls(html, since=2003)
     assert list(urls) == [2003, 2024, 2025]
     assert urls[2024].endswith("24annrpt_2.pdf")
+
+
+# The FY2005 and FY2024 general fund tables: a negative amount and percent in
+# parentheses, and a doubled dollar sign.
+GENERAL_FUND = """
+                                                TABLE 1.9 - STATE GENERAL FUND
+                                                     (In Thousands of Dollars)
+                                                                  FY 2024                                              FY 2023
+                                                      Amount                     % of                          Amount          % of
+  SOURCE OF REVENUE                                   Collected                  Total                         Collected       Total
+  Banks - Financial Corps.                     $      $28,912                0.30                    $      (534)        (0.02)
+  Trans. Accom. Tax                                  715,475                 7.48                           756,578        8.22
+  Environmental Response Tax                          21,968                 0.23                            22,074        0.24
+      TOTAL                                        $766,355            100.00                          $ 778,118    100.00
+"""
+
+
+def test_general_fund_table():
+    t = parse_tax_collections(GENERAL_FUND, "general_fund")
+    assert t.years == (2024, 2023)
+    assert t.lines[2024] == {"banks": 28_912, "transient_accommodations": 715_475,
+                             "environmental_response": 21_968}
+    assert t.lines[2023]["banks"] == -534
+    assert residuals(t) == {2024: 0, 2023: 0}
+    with pytest.raises(TableNotFound):
+        parse_tax_collections(GENERAL_FUND)          # no collections table in it

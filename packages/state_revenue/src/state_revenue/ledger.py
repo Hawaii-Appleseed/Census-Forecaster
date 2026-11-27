@@ -77,7 +77,16 @@ def _from_payload(payload: dict) -> Ledger:
     return Ledger(years=years, fetch_date=payload["fetch_date"])
 
 
-@lru_cache(maxsize=1)
-def load_ledger() -> Ledger:
-    """The bundled ledger (cached)."""
-    return _from_payload(json.loads(DATA_PATH.read_text()))
+#: The two tables the bundled file holds: every dollar collected, and the
+#: general fund's part of it (what the Council on Revenues forecasts).
+FUNDS = {"all": "fiscal_years", "general_fund": "general_fund"}
+
+
+@lru_cache(maxsize=2)
+def load_ledger(fund: str = "all") -> Ledger:
+    """The bundled ledger (cached): ``fund="all"`` or ``"general_fund"``."""
+    if fund not in FUNDS:
+        raise ValueError(f"fund must be one of {sorted(FUNDS)}, got {fund!r}")
+    payload = json.loads(DATA_PATH.read_text())
+    return _from_payload({"fiscal_years": payload[FUNDS[fund]],
+                          "fetch_date": payload["fetch_date"]})

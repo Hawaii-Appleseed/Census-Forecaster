@@ -1,9 +1,11 @@
 """Fetch DOTAX annual reports and rebuild the annual collections file.
 
 Each annual report carries every tax's collections for its fiscal year and
-the one before. This downloads the reports listed on DOTAX's annual reports
-page, reads the table from each (``pdftotext -layout``, from poppler), and
-writes one row per fiscal year to ``data/annual_collections.json``.
+the one before, and the part of each the general fund kept. This downloads
+the reports listed on DOTAX's annual reports page, reads both tables from
+each (``pdftotext -layout``, from poppler), and writes one row per fiscal
+year and table to ``data/annual_collections.json`` (``fiscal_years``: all
+collections; ``general_fund``: the general fund's part).
 
 Which report a year comes from: the newest one whose lines add to its
 printed total (within :data:`TOLERANCE` thousand). The newer report carries
@@ -31,7 +33,7 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-from state_revenue.annual_report import AnnualTable, parse_tax_collections, residuals
+from state_revenue.annual_report import HEADINGS, AnnualTable, parse_tax_collections, residuals
 
 INDEX_URL = "https://tax.hawaii.gov/stats/a5_1annual/a5_1tax_annuals/"
 REPORT_LINK = re.compile(
@@ -49,6 +51,9 @@ LIMITATIONS = [
     "Rows change over time: the county surcharge starts in FY2007 (Honolulu only until FY2019); "
     "through FY2018 the fuel row includes the environmental response tax and motor vehicle "
     "includes rental vehicles (state_revenue.lines.HOST).",
+    "The general fund table is what the general fund kept of each line after transfers to "
+    "special funds and the counties; the transient accommodations, conveyance and fuel taxes "
+    "are mostly elsewhere, and their shares follow the law of the year.",
     "Individual and corporate income tax for FY2017 on are not comparable to earlier years: DOTAX "
     "changed how it compiles them (FY2018 report, Table 1.8 note 4).",
 ]
@@ -122,36 +127,41 @@ def main(argv: list[str] | None = None) -> int:
     cache = args.cache or Path(tempfile.mkdtemp(prefix="dotax_annual_"))
     cache.mkdir(parents=True, exist_ok=True)
 
-    tables: dict[str, AnnualTable] = {}
+    tables: dict[str, dict[str, AnnualTable]] = {name: {} for name in HEADINGS}
     sources: dict[str, dict] = {}
     for url in urls.values():
         pdf = cache / url.rsplit("/", 1)[-1]
         if not pdf.exists():
             pdf.write_bytes(_fetch(url))
-        t = parse_tax_collections(pdf_text(pdf))
-        if t.unmatched:
-            print(f"ERROR: {pdf.name}: rows with no line: {t.unmatched}", file=sys.stderr)
-            return 1
-        tables[pdf.name] = t
+        text = pdf_text(pdf)
+        for name in HEADINGS:
+            t = parse_tax_collections(text, name)
+            if t.unmatched:
+                print(f"ERROR: {pdf.name} {name}: rows with no line: {t.unmatched}", file=sys.stderr)
+                return 1
+            tables[name][pdf.name] = t
+            print(f"[annual] {pdf.name} {name}: FY{t.years[1]}-FY{t.years[0]}, "
+                  f"residuals {residuals(t)}", file=sys.stderr)
         sources[pdf.name] = {"url": url,
                              "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
                              "fiscal_years": list(t.years)}
-        print(f"[annual] {pdf.name}: FY{t.years[1]}-FY{t.years[0]}, residuals {residuals(t)}",
-              file=sys.stderr)
 
-    fiscal_years = merge(tables)
-    bad = {fy: e["residual"] for fy, e in fiscal_years.items() if abs(e["residual"]) > TOLERANCE}
-    if bad:
-        print(f"ERROR: years whose lines miss the total: {bad}", file=sys.stderr)
-        return 1
+    merged = {name: merge(by_report) for name, by_report in tables.items()}
+    for name, years in merged.items():
+        bad = {fy: e["residual"] for fy, e in years.items() if abs(e["residual"]) > TOLERANCE}
+        if bad:
+            print(f"ERROR: {name}: years whose lines miss the total: {bad}", file=sys.stderr)
+            return 1
+    fiscal_years = merged["collections"]
     payload = {
-        "source": "Hawaii Department of Taxation, Annual Report, table 'Tax Collections' "
-                  f"(index: {INDEX_URL})",
+        "source": "Hawaii Department of Taxation, Annual Report, tables 'Tax Collections' and "
+                  f"'State General Fund' (index: {INDEX_URL})",
         "fetch_date": date.today().isoformat(),
         "units": "thousands of dollars, fiscal year ending June 30",
         "limitations": LIMITATIONS,
         "reports": sources,
         "fiscal_years": {str(fy): e for fy, e in fiscal_years.items()},
+        "general_fund": {str(fy): e for fy, e in merged["general_fund"].items()},
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n")

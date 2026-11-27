@@ -1,10 +1,11 @@
 {
-  "source": "Hawaii Department of Taxation, Annual Report, table 'Tax Collections' (index: https://tax.hawaii.gov/stats/a5_1annual/a5_1tax_annuals/)",
+  "source": "Hawaii Department of Taxation, Annual Report, tables 'Tax Collections' and 'State General Fund' (index: https://tax.hawaii.gov/stats/a5_1annual/a5_1tax_annuals/)",
   "fetch_date": "2026-11-27",
   "units": "thousands of dollars, fiscal year ending June 30",
   "limitations": [
     "Cash collections by fiscal year (July to June), in thousands of dollars, as DOTAX's annual report prints them. Includes taxes collected by the counties (motor vehicle), the Insurance Commissioner (insurance premiums) and the Bureau of Conveyances (conveyance).",
     "Rows change over time: the county surcharge starts in FY2007 (Honolulu only until FY2019); through FY2018 the fuel row includes the environmental response tax and motor vehicle includes rental vehicles (state_revenue.lines.HOST).",
+    "The general fund table is what the general fund kept of each line after transfers to special funds and the counties; the transient accommodations, conveyance and fuel taxes are mostly elsewhere, and their shares follow the law of the year.",
     "Individual and corporate income tax for FY2017 on are not comparable to earlier years: DOTAX changed how it compiles them (FY2018 report, Table 1.8 note 4)."
   ],
   "reports": {
@@ -715,6 +716,440 @@
       "total": 11456335,
       "report": "25annrpt.pdf",
       "residual": -1
+    }
+  },
+  "general_fund": {
+    "2004": {
+      "lines": {
+        "all_others": 679,
+        "banks": -534,
+        "conveyance": 7884,
+        "corporate_income": 56653,
+        "estate": 9830,
+        "general_excise": 1900377,
+        "individual_income": 1168570,
+        "insurance_premiums": 78142,
+        "liquor": 41250,
+        "public_service_companies": 99505,
+        "tobacco": 78400,
+        "transient_accommodations": 5628
+      },
+      "total": 3446385,
+      "report": "05annrpt.pdf",
+      "residual": 1
+    },
+    "2005": {
+      "lines": {
+        "all_others": 781,
+        "banks": 36520,
+        "conveyance": 12292,
+        "corporate_income": 85605,
+        "estate": 12712,
+        "general_excise": 2136603,
+        "individual_income": 1381058,
+        "insurance_premiums": 83077,
+        "liquor": 43737,
+        "public_service_companies": 108686,
+        "tobacco": 84079,
+        "transient_accommodations": 12389
+      },
+      "total": 3997539,
+      "report": "06annrpt.pdf",
+      "residual": 0
+    },
+    "2006": {
+      "lines": {
+        "all_others": 534,
+        "banks": 16324,
+        "conveyance": 20720,
+        "corporate_income": 130010,
+        "estate": 4017,
+        "general_excise": 2355316,
+        "individual_income": 1550164,
+        "insurance_premiums": 88068,
+        "liquor": 45955,
+        "public_service_companies": 120679,
+        "tobacco": 86827,
+        "transient_accommodations": 16378
+      },
+      "total": 4434993,
+      "report": "07annrpt.pdf",
+      "residual": 1
+    },
+    "2007": {
+      "lines": {
+        "all_others": 525,
+        "banks": 16599,
+        "conveyance": 7033,
+        "corporate_income": 81834,
+        "estate": 595,
+        "general_excise": 2555762,
+        "individual_income": 1559690,
+        "insurance_premiums": 92196,
+        "liquor": 46034,
+        "public_service_companies": 124017,
+        "tobacco": 84219,
+        "transient_accommodations": 17076
+      },
+      "total": 4585580,
+      "report": "08annrpt.pdf",
+      "residual": 0
+    },
+    "2008": {
+      "lines": {
+        "all_others": 586,
+        "banks": 18212,
+        "conveyance": 6513,
+        "corporate_income": 85081,
+        "estate": 164,
+        "general_excise": 2618787,
+        "individual_income": 1544307,
+        "insurance_premiums": 95742,
+        "liquor": 45620,
+        "public_service_companies": 127481,
+        "tobacco": 83443,
+        "transient_accommodations": 15935
+      },
+      "total": 4641872,
+      "report": "09annrpt.pdf",
+      "residual": 1
+    },
+    "2009": {
+      "lines": {
+        "all_others": 535,
+        "banks": 26075,
+        "conveyance": 8311,
+        "corporate_income": 53522,
+        "estate": 274,
+        "general_excise": 2417580,
+        "individual_income": 1338451,
+        "insurance_premiums": 93720,
+        "liquor": 47242,
+        "public_service_companies": 126069,
+        "tobacco": 76955,
+        "transient_accommodations": 13566
+      },
+      "total": 4202301,
+      "report": "10annrpt.pdf",
+      "residual": 1
+    },
+    "2010": {
+      "lines": {
+        "all_others": 783,
+        "banks": 18666,
+        "conveyance": 18216,
+        "corporate_income": 59186,
+        "estate": 0,
+        "general_excise": 2316434,
+        "individual_income": 1527619,
+        "insurance_premiums": 104721,
+        "liquor": 44074,
+        "public_service_companies": 157661,
+        "tobacco": 85503,
+        "transient_accommodations": 31696
+      },
+      "total": 4364559,
+      "report": "11annrpt.pdf",
+      "residual": 0
+    },
+    "2011": {
+      "lines": {
+        "all_others": 19812,
+        "banks": 31677,
+        "conveyance": 21527,
+        "corporate_income": 34573,
+        "estate": 6899,
+        "general_excise": 2495807,
+        "individual_income": 1246672,
+        "insurance_premiums": 140456,
+        "liquor": 48054,
+        "public_service_companies": 117940,
+        "tobacco": 106137,
+        "transient_accommodations": 59757
+      },
+      "total": 4329311,
+      "report": "12annrpt.pdf",
+      "residual": 0
+    },
+    "2012": {
+      "lines": {
+        "all_others": 77888,
+        "banks": 5229,
+        "conveyance": 18917,
+        "corporate_income": 73027,
+        "estate": 14125,
+        "general_excise": 2697951,
+        "individual_income": 1540604,
+        "insurance_premiums": 117617,
+        "liquor": 48854,
+        "public_service_companies": 150528,
+        "tobacco": 102853,
+        "transient_accommodations": 126302
+      },
+      "total": 4973895,
+      "report": "13annrpt.pdf",
+      "residual": 0
+    },
+    "2013": {
+      "lines": {
+        "all_others": 672,
+        "banks": 20673,
+        "conveyance": 19132,
+        "corporate_income": 100988,
+        "environmental_response": 15537,
+        "estate": 14886,
+        "general_excise": 2944487,
+        "individual_income": 1735499,
+        "insurance_premiums": 131906,
+        "liquor": 48962,
+        "public_service_companies": 163930,
+        "rental_vehicle": 4516,
+        "tobacco": 94180,
+        "transient_accommodations": 171556
+      },
+      "total": 5466923,
+      "report": "14annrpt.pdf",
+      "residual": -1
+    },
+    "2014": {
+      "lines": {
+        "all_others": 707,
+        "banks": 36983,
+        "conveyance": 26508,
+        "corporate_income": 87021,
+        "environmental_response": 17356,
+        "estate": 14789,
+        "general_excise": 2825041,
+        "individual_income": 1745312,
+        "insurance_premiums": 137179,
+        "liquor": 48305,
+        "public_service_companies": 166179,
+        "tobacco": 77659,
+        "transient_accommodations": 187229
+      },
+      "total": 5370268,
+      "report": "15annrpt.pdf",
+      "residual": 0
+    },
+    "2015": {
+      "lines": {
+        "all_others": 755,
+        "banks": 17930,
+        "conveyance": 11534,
+        "corporate_income": 52319,
+        "environmental_response": 14833,
+        "estate": 12071,
+        "general_excise": 2992707,
+        "individual_income": 1987752,
+        "insurance_premiums": 145679,
+        "liquor": 50281,
+        "public_service_companies": 163481,
+        "tobacco": 82829,
+        "transient_accommodations": 202970
+      },
+      "total": 5735141,
+      "report": "16annrpt.pdf",
+      "residual": 0
+    },
+    "2016": {
+      "lines": {
+        "all_others": 708,
+        "banks": 12691,
+        "conveyance": 26415,
+        "corporate_income": 93036,
+        "environmental_response": 15359,
+        "estate": 49613,
+        "general_excise": 3206154,
+        "individual_income": 2116392,
+        "insurance_premiums": 153173,
+        "liquor": 50590,
+        "public_service_companies": 152760,
+        "tobacco": 83685,
+        "transient_accommodations": 233781
+      },
+      "total": 6194356,
+      "report": "17annrpt.pdf",
+      "residual": -1
+    },
+    "2017": {
+      "lines": {
+        "all_others": 755,
+        "banks": 9174,
+        "conveyance": 49737,
+        "corporate_income": 173666,
+        "environmental_response": 15090,
+        "estate": 18968,
+        "general_excise": 3239225,
+        "individual_income": 2095436,
+        "insurance_premiums": 164688,
+        "liquor": 51167,
+        "public_service_companies": 122159,
+        "tobacco": 82792,
+        "transient_accommodations": 292357
+      },
+      "total": 6315215,
+      "report": "18annrpt.pdf",
+      "residual": 1
+    },
+    "2018": {
+      "lines": {
+        "all_others": 1260,
+        "banks": 13712,
+        "conveyance": 55803,
+        "corporate_income": 131119,
+        "environmental_response": 15373,
+        "estate": 29351,
+        "general_excise": 3395566,
+        "individual_income": 2429836,
+        "insurance_premiums": 159814,
+        "liquor": 51383,
+        "public_service_companies": 117641,
+        "tobacco": 79914,
+        "transient_accommodations": 315264
+      },
+      "total": 6796036,
+      "report": "19annrpt.pdf",
+      "residual": 0
+    },
+    "2019": {
+      "lines": {
+        "all_others": 882,
+        "banks": 24808,
+        "conveyance": 41165,
+        "corporate_income": 163676,
+        "environmental_response": 15904,
+        "estate": 18921,
+        "general_excise": 3541389,
+        "individual_income": 2568114,
+        "insurance_premiums": 173844,
+        "liquor": 51913,
+        "public_service_companies": 126691,
+        "tobacco": 74526,
+        "transient_accommodations": 339956
+      },
+      "total": 7141790,
+      "report": "20annrpt.pdf",
+      "residual": 1
+    },
+    "2020": {
+      "lines": {
+        "all_others": 703,
+        "banks": 33271,
+        "conveyance": 22746,
+        "corporate_income": 8407,
+        "environmental_response": 17244,
+        "estate": 45451,
+        "general_excise": 3429459,
+        "individual_income": 2359003,
+        "insurance_premiums": 180753,
+        "liquor": 50674,
+        "public_service_companies": 134639,
+        "tobacco": 74858,
+        "transient_accommodations": 337601
+      },
+      "total": 6694808,
+      "report": "21annrpt.pdf",
+      "residual": -1
+    },
+    "2021": {
+      "lines": {
+        "all_others": 834,
+        "banks": 3079,
+        "conveyance": 26259,
+        "corporate_income": 186347,
+        "environmental_response": 15441,
+        "estate": 31275,
+        "general_excise": 3054356,
+        "individual_income": 3354561,
+        "insurance_premiums": 185337,
+        "liquor": 45178,
+        "public_service_companies": 125201,
+        "tobacco": 72747,
+        "transient_accommodations": 149647
+      },
+      "total": 7250261,
+      "report": "22annrpt.pdf",
+      "residual": -1
+    },
+    "2022": {
+      "lines": {
+        "all_others": 882,
+        "banks": 57252,
+        "conveyance": 145318,
+        "corporate_income": 255621,
+        "environmental_response": 20878,
+        "estate": 57405,
+        "general_excise": 3978993,
+        "individual_income": 3759753,
+        "insurance_premiums": 195607,
+        "liquor": 53983,
+        "public_service_companies": 122068,
+        "tobacco": 65658,
+        "transient_accommodations": 645429
+      },
+      "total": 9358848,
+      "report": "23annrpt.pdf",
+      "residual": 1
+    },
+    "2023": {
+      "lines": {
+        "all_others": 812,
+        "banks": 28969,
+        "conveyance": 49032,
+        "corporate_income": 316831,
+        "environmental_response": 22074,
+        "estate": 58083,
+        "general_excise": 4408473,
+        "individual_income": 3099886,
+        "insurance_premiums": 203791,
+        "liquor": 54513,
+        "public_service_companies": 142195,
+        "tobacco": 59070,
+        "transient_accommodations": 756578
+      },
+      "total": 9200305,
+      "report": "24annrpt_2.pdf",
+      "residual": -2
+    },
+    "2024": {
+      "lines": {
+        "all_others": 672,
+        "banks": 28912,
+        "conveyance": 54311,
+        "corporate_income": 483676,
+        "environmental_response": 21968,
+        "estate": 55794,
+        "general_excise": 4446125,
+        "individual_income": 3280416,
+        "insurance_premiums": 211352,
+        "liquor": 51602,
+        "public_service_companies": 159222,
+        "tobacco": 58789,
+        "transient_accommodations": 715475
+      },
+      "total": 9568313,
+      "report": "25annrpt.pdf",
+      "residual": -1
+    },
+    "2025": {
+      "lines": {
+        "all_others": 642,
+        "banks": 8296,
+        "conveyance": 52945,
+        "corporate_income": 400297,
+        "environmental_response": 21824,
+        "estate": 405766,
+        "general_excise": 4599977,
+        "individual_income": 3287127,
+        "insurance_premiums": 218833,
+        "liquor": 50149,
+        "public_service_companies": 154478,
+        "tobacco": 56922,
+        "transient_accommodations": 716905
+      },
+      "total": 9974161,
+      "report": "25annrpt.pdf",
+      "residual": 0
     }
   }
 }
