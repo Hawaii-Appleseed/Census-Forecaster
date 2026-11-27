@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -37,6 +38,10 @@ from fiscal_notes.translator import Translation, run_claude, translate_bill
 
 DEFAULT_HUB = "https://staff-updates-internal.pages.dev"
 ROUTE = "/api/events-sync/fiscal-notes"
+#: The only hosts the stored service token is ever sent to. Any other hub URL (a local mock) gets
+#: placeholder credentials, so a typo or a test server never receives the real secret.
+TOKEN_HOSTS = frozenset({"staff-updates-internal.pages.dev", "staging.staff-updates-internal.pages.dev"})
+PLACEHOLDER_CREDENTIALS = ("local-mock", "local-mock")
 USER_AGENT = "Census-Forecaster-fiscal-notes/1 (Hawaii Appleseed shadow fiscal notes; hub client)"
 ENV_FILE = Path("~/.config/fiscal-notes/hub.env")
 KEYCHAIN_SERVICES = {"CF_ACCESS_CLIENT_ID": "apps-script:CF_ACCESS_CLIENT_ID",
@@ -180,12 +185,15 @@ class HubClient:
     def __init__(self, hub: str = DEFAULT_HUB, credentials: tuple[str, str] | None = None,
                  transport: Transport = urllib_transport, timeout: float = 60.0):
         self.url = hub.rstrip("/") + ROUTE
+        parts = urllib.parse.urlsplit(self.url)
+        self.sends_token = parts.scheme == "https" and parts.hostname in TOKEN_HOSTS
         self._credentials = credentials
         self.transport = transport
         self.timeout = timeout
 
     def _headers(self) -> dict:
-        cid, sec = self._credentials or load_credentials()
+        cid, sec = self._credentials or (
+            load_credentials() if self.sends_token else PLACEHOLDER_CREDENTIALS)
         self._credentials = (cid, sec)
         return {"CF-Access-Client-Id": cid, "CF-Access-Client-Secret": sec,
                 "Content-Type": "application/json", "Accept": "application/json",

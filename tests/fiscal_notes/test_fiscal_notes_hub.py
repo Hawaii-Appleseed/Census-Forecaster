@@ -461,7 +461,11 @@ def test_cli_exits_nonzero_when_the_hub_is_unreachable(capsys):
 
 def test_cli_exits_nonzero_without_credentials(capsys, monkeypatch):
     monkeypatch.setattr(hub.sys, "platform", "linux")   # no Keychain either
-    code = main(["hub", "--hub", "https://hub.example"], deps=deps_for("2026_HB2306_HD1"))
+    monkeypatch.delenv("CF_ACCESS_CLIENT_ID", raising=False)
+    monkeypatch.delenv("CF_ACCESS_CLIENT_SECRET", raising=False)
+    monkeypatch.setattr(hub, "ENV_FILE", Path("/nonexistent/fiscal-notes/hub.env"))
+    # the real hub host is the only one stored credentials are looked up for; nothing is sent
+    code = main(["hub", "--hub", hub.DEFAULT_HUB], deps=deps_for("2026_HB2306_HD1"))
     assert code != 0 and "No Access service token" in capsys.readouterr().err
 
 
@@ -699,3 +703,19 @@ def test_cli_fetch_writes_the_file_or_reports(tmp_path, capsys):
 def test_default_hub_url_is_production_but_never_contacted_here():
     assert hub.DEFAULT_HUB == "https://staff-updates-internal.pages.dev"
     assert os.environ.get("CF_ACCESS_CLIENT_ID") is None   # the fixture removed any real token
+
+
+def test_stored_token_goes_only_to_the_hub_hosts(monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("stored credentials were read for a host that is not the hub")
+    monkeypatch.setattr(hub, "load_credentials", boom)
+    for url in ("http://127.0.0.1:8787", "https://example.org", "http://staff-updates-internal.pages.dev",
+                "https://staff-updates-internal.pages.dev.example.org"):
+        c = hub.HubClient(url)
+        assert not c.sends_token
+        assert c._headers()["CF-Access-Client-Secret"] == hub.PLACEHOLDER_CREDENTIALS[1]
+    monkeypatch.setattr(hub, "load_credentials", lambda: ("real-id", "real-sec"))
+    for url in (hub.DEFAULT_HUB, "https://staging.staff-updates-internal.pages.dev/"):
+        c = hub.HubClient(url)
+        assert c.sends_token
+        assert c._headers()["CF-Access-Client-Secret"] == "real-sec"
