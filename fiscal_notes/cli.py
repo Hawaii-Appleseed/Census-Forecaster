@@ -1,4 +1,4 @@
-"""``python -m fiscal_notes translate|eval|score|run|diff``."""
+"""``python -m fiscal_notes translate|eval|score|run|diff|fetch|hub``."""
 from __future__ import annotations
 
 import argparse
@@ -230,8 +230,49 @@ def cmd_diff(args) -> int:
     return 0
 
 
+def cmd_fetch(args, fetcher: Callable[[int, str, str], dict] | None = None) -> int:
+    from fiscal_notes import hub
+
+    fetcher = fetcher or hub.fetch_draft
+    try:
+        page = fetcher(args.year, args.bill.upper(), args.draft.upper())
+    except (hub.FetchError, hub._lrt_fetch.DraftError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    if args.out:
+        Path(args.out).write_text(page["text"])
+        print(f"wrote {args.out} (from {page['url']})")
+    else:
+        sys.stdout.write(page["text"])
+        print(f"from {page['url']}", file=sys.stderr)
+    return 0
+
+
+def cmd_hub(args, hub_client=None, deps=None) -> int:
+    from fiscal_notes import hub
+
+    try:
+        client = hub_client or hub.HubClient(args.hub)
+        deps = deps or hub.Deps(model=args.model)
+        work = Path(args.work_dir) if args.work_dir else None
+        print(f"{'DRY RUN, nothing is posted: ' if args.dry_run else ''}hub {args.hub}")
+        outcomes = hub.process_queue(client, deps, work_root=work, dry_run=args.dry_run,
+                                     limit=args.limit,
+                                     report=lambda o: print(hub.describe(o), flush=True))
+    except hub.HubError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    tally: dict[str, int] = {}
+    for o in outcomes:
+        tally[o.status] = tally.get(o.status, 0) + 1
+    shown = ", ".join(f"{n} {k}" for k, n in sorted(tally.items())) or "nothing queued"
+    print(f"{len(outcomes)} request(s): {shown}")
+    return 0
+
+
 def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = None,
-         scorer: Callable[[Path], dict] | None = None) -> int:
+         scorer: Callable[[Path], dict] | None = None, fetcher: Callable[[int, str, str], dict] | None = None,
+         hub_client=None, deps=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m fiscal_notes", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     tr = sub.add_parser("translate", help="translate one bill draft into a spec")
@@ -255,6 +296,18 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
     df.add_argument("old", help="DIR/name prefix or .score.json of the older draft")
     df.add_argument("new", help="DIR/name prefix or .score.json of the newer draft")
     df.add_argument("--out", help="also write the comparison to this Markdown file")
+    fe = sub.add_parser("fetch", help="fetch a bill draft's text from the Capitol (via LRT) in the input format")
+    fe.add_argument("--year", type=int, required=True, help="session year")
+    fe.add_argument("--bill", required=True, help="HB2306")
+    fe.add_argument("--draft", default="", help="HD1, SD2, CD1; omit for the introduced draft")
+    fe.add_argument("--out", help="write the text to this file (default: stdout)")
+    hb = sub.add_parser("hub", help="process the staff hub's queued fiscal-note requests once")
+    hb.add_argument("--hub", default="https://staff-updates-internal.pages.dev", help="hub base URL")
+    hb.add_argument("--once", action="store_true", help="process the queue once and exit (the default)")
+    hb.add_argument("--dry-run", action="store_true", help="do everything except the POSTs; print them")
+    hb.add_argument("--limit", type=int, help="process at most N requests, oldest first")
+    hb.add_argument("--model", default="sonnet")
+    hb.add_argument("--work-dir", help="where each request's files go (default runs/fiscal_notes/)")
     args = ap.parse_args(argv)
     logging.disable(logging.INFO)  # tax_modeler logs every schedule it loads
     if args.cmd == "translate":
@@ -265,6 +318,10 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
         return cmd_score(args, scorer)
     if args.cmd == "run":
         return cmd_run(args, runner, scorer)
+    if args.cmd == "fetch":
+        return cmd_fetch(args, fetcher)
+    if args.cmd == "hub":
+        return cmd_hub(args, hub_client, deps)
     return cmd_diff(args)
 
 

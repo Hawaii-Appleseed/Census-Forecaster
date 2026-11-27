@@ -33,6 +33,8 @@ python -m fiscal_notes eval [--record] [--model sonnet]
 python -m fiscal_notes score SPEC.yaml [--translation FILE] [--out DIR] [--population DIR]
 python -m fiscal_notes run BILL.txt [--out DIR] [--model sonnet] [--population DIR]
 python -m fiscal_notes diff OLD NEW [--out FILE.md]
+python -m fiscal_notes fetch --year 2026 --bill HB2306 [--draft HD1] [--out FILE]
+python -m fiscal_notes hub [--hub URL] [--once] [--dry-run] [--limit N] [--model sonnet] [--work-dir DIR]
 ```
 
 `translate` writes `<name>.spec.yaml` (only for a `full` or `partial` verdict; a header comment says it is
@@ -143,3 +145,57 @@ Do not catch:
 So a person reads every spec against the bill before it is scored or cited.
 `tests/fiscal_notes/test_fiscal_notes_translator.py` shows each check failing on a tampered copy of
 a recorded answer.
+
+## Fetching a draft, and the staff hub client
+
+`fetch` writes the translator's input for one draft of a bill (header lines, a blank line, sections
+separated by blank lines; `--draft` omitted is the introduced draft, labelled `Introduced`), so
+`fetch --out BILL.txt` then `run BILL.txt` works by hand. It does not reimplement Legislative-Research-Tool's
+(LRT) parser: it runs `fiscal_notes/_lrt_fetch.py` under LRT's own interpreter
+(`$FISCAL_NOTES_LRT_ROOT/.venv/bin/python`, default `~/repos/Legislative-Research-Tool`, with
+`PYTHONPATH` set to that checkout), which uses `testimony.drafttext.parse` and LRT's paced, cached
+client. The URL is built directly, `https://data.capitol.hawaii.gov/sessions/session<year>/bills/<BILL>_<DRAFT>_.HTM`
+(introduced: `<BILL>_.HTM`), not from LegiScan's list, which can lag or lack a draft. `data.capitol`,
+never `www`, which refuses scripts. A bill carried over the biennium can keep its files in the first
+(odd) year's directory: when an even year's URL is a 404 the previous year is tried, and the page must
+name the bill or it is refused. The helper's cache entries are `fiscal-notes-draft-<dir year>-<file>`
+in LRT's `data/cache/`, so they cannot collide with LRT's own (which are keyed by LegiScan's session).
+Not found in either directory, LRT missing, or a page with no sections is an error whose text is what the hub shows.
+
+`hub` is the staff hub client, meant to be run by hand or by a scheduler on a staff Mac (scheduling is
+left to the owner: nothing here creates a job, and there is no daemon loop). One run reads the queue
+once, oldest request first, and for each: posts `running`, fetches the draft, translates, scores a
+`full` or `partial` verdict, renders the note, posts `ready` (the contract's `Result`) or `failed` (the
+draft could not be fetched, the translation is `invalid` (its problems, first 2,000 characters), the
+translator could not run, or scoring raised). A 409 on `running` means the request was withdrawn
+meanwhile: it is skipped. One request failing never stops the next; a hub that cannot be reached, or
+that refuses the token, does. Exit 0 when the queue was processed (including requests reported
+`failed`), 2 when the hub could not be used. `--dry-run` does everything except the POSTs and prints what
+it would post (verdict, headline, counts, sizes); `--limit N` takes the N oldest.
+
+Each request's files are kept in `runs/fiscal_notes/<year>/<name>/` (`CF_RUNS_DIR` or `--work-dir` moves
+the root; `runs/` is gitignored): `<name>.txt`, `.spec.yaml`, `.translation.json`, `.score.json`,
+`.note.md`, and `posted.json`, the last body sent, so a person can inspect what the hub received.
+
+Credentials, the Cloudflare Access service token, looked up in this order and never printed or logged:
+the environment (`CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`); `~/.config/fiscal-notes/hub.env`
+(`KEY=value` lines), only if it exists and is `chmod 600` (otherwise the run stops); the macOS Keychain
+items `apps-script:CF_ACCESS_CLIENT_ID` and `apps-script:CF_ACCESS_CLIENT_SECRET`. The default hub is
+production; `--hub` points at another. Access answers a bad token with its sign-in page and status 200,
+so any non-JSON answer is reported as a refused token.
+
+The contract with the hub (the hub side is built to the same text):
+
+- `GET /api/events-sync/fiscal-notes` returns `{"requests": [{id, bill, year, draft, by, at}]}`, every
+  queued request, oldest first. `draft` is `""` for the introduced draft.
+- `POST` the same route with `{"id", "status": "running"}`, or `{"id", "status": "ready", "result": Result}`,
+  or `{"id", "status": "failed", "detail": "<= 2,000 chars"}`. Answers: 200, 400 bad body, 404 unknown id,
+  409 not in an allowed state.
+- `Result` is `verdict` (`full`, `partial`, `out_of_scope`), `label`, `markdown` (the note, at most 100,000
+  characters; longer is cut with a visible marker line), `headline` (`five_year_mid`, `five_year_low`,
+  `five_year_high` in $ millions, positive raises revenue, from the score's five-year totals with
+  credits; `first_year`, `last_year`; null for `out_of_scope`), `counts` (`scored`: modeled with an amount
+  and exact; `approximate`; `not_scored`: not modeled or the amount is blank), `tool` (`commit`, `model`,
+  `bill_sha256`), `score` (the score JSON, null for `out_of_scope`) and `translation` (the translation
+  JSON), each at most 400,000 serialized characters. A score over the cap loses `revenue_rows` first
+  (`revenue_rows_dropped: true` is added inside it); still over, or a translation over, fails the request.
