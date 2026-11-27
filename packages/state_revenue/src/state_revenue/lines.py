@@ -47,7 +47,8 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "general_excise", "General excise and use", "base_rate",
         ("general excise and use", "general excise and use tax"),
-        model="tax_modeler.excise.get_incidence (resident households only)",
+        model="state_revenue.general_excise (all purchasers, scorers); "
+              "tax_modeler.excise.get_incidence (resident households by income)",
         statute="HRS ch. 237, 238",
         notes="Base by activity in DOTAX's General Excise and Use Tax Collections and Base report.",
     ),

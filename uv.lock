@@ -165,6 +165,10 @@ provides-extras = ["markets"]
 name = "census-state-revenue"
 version = "0.1.0"
 source = { editable = "packages/state_revenue" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.optional-dependencies]
 dev = [
@@ -172,7 +176,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" }]
+requires-dist = [
+    { name = "numpy" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
+]
 provides-extras = ["dev"]
 
 [[package]]

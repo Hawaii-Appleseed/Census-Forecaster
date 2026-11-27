@@ -1,7 +1,7 @@
 # State tax revenue, every line — Scope
 
-**Status (2026-11-27): phases 1 and 2 built** (the ledger; the baseline and its backtest against
-the Council on Revenues, below). Phases 3–5 are scope.
+**Status (2026-11-27): phases 1–3 built** (the ledger; the baseline and its backtest against the
+Council on Revenues; the general excise tax in full, below). Phases 4–5 are scope.
 
 Goal: model all of Hawaiʻi's state tax collections, not only the individual income tax, so
 that a baseline forecast covers every dollar and a change to any tax the repository can model
@@ -25,10 +25,10 @@ collected by DOTAX and would be its own parcel-based build.
   law decides the number. So the published levels come from the Council where it itemises a line;
   the model covers what it does not (fuel, vehicle taxes, unemployment contributions, the
   non-general-fund parts) and is the check on the rest.
-- **The general excise tax is most of the remaining work.** A rate change scores directly. An
-  exemption needs the part of the base the resident incidence model leaves out: visitors,
-  business inputs and insurer-paid medical care (`GET_INCIDENCE_METHODOLOGY.md`, "What is left
-  out").
+- **Phase 3's answer: who bears the general excise tax.** Counting the tax businesses pay on
+  their inputs and pass on, residents bear 51% of the state tax, visitors 27%, investment 12%,
+  government 6%, exports 4% (DBEDT's 2022 input-output table). A grocery exemption would cost
+  the state about $305M in FY2025, 18% of it tax visitors pay now.
 
 ## The ledger (FY2025, DOTAX Annual Report Table 1.8)
 
@@ -280,6 +280,102 @@ Refreshing the Council's line items after each general fund meeting:
 
     .venv/bin/python -m state_revenue.scripts.refresh_cor_forecasts --cache /tmp/cor
 
+## As built (phase 3, November 27, 2026)
+
+| Piece | Where |
+|---|---|
+| General excise base and tax by activity (Table 1.1), FY2004–FY2025 | `annual_collections.json` (`general_excise_by_activity`), `annual_report.parse_get_activity` |
+| DBEDT's 2022 input-output table, 62 sectors | `.../state_revenue/data/io_2022.json` |
+| Visitor spending by category, 2023–2025 (HTA) | `.../state_revenue/data/visitor_spending.json` |
+| Fetch for both | `.../state_revenue/scripts/refresh_get_inputs.py` |
+| Burden by final purchaser; rate-change, category and sector scorers | `.../state_revenue/general_excise.py` (`python -m state_revenue.general_excise`) |
+
+### The data
+
+- **Table 1.1** gives each activity's base, tax and rate in all 22 years. Every year's activity tax
+  plus "unallocated" (penalties, assessments, refunds) equals the collections table's general
+  excise line to the dollar. Two columns don't add up (the FY2007 base in the FY2007 report, a
+  missing use row in the FY2010 report); the newest report that does wins, as in phase 1.
+- **The input-output table** (DBEDT, 2022) records the state general excise tax each sector pays:
+  $4,117M in all, against DOTAX's $4,226M averaged over FY2022 and FY2023. DBEDT placed DOTAX's
+  activities on sectors: retail trade's $1,732.3M is DOTAX's FY2022 retailing exactly, and
+  construction's $413.1M is contracting. Each sector's sales add to its output within $0.05M.
+- **Visitor spending** is HTA's "Total Visitor Expenditures by Category" (air, cruise and
+  supplemental business visitors): $21.9B in 2025, groceries and snacks $1,077M, Hawaiʻi food
+  products $352M, restaurants $3,150M.
+
+### Who bears it
+
+The tax per dollar of each sector's output (`t`), carried through the Leontief inverse, puts every
+dollar on a final purchaser: `t L f_k`. Direct is the tax on the final sale, embedded the tax on
+inputs carried into its price (full forward shifting assumed).
+
+| Purchaser | Direct | Embedded | Total | Share |
+|---|---|---|---|---|
+| residents | 1,553 | 551 | 2,104 | 51.1% |
+| visitors | 882 | 210 | 1,092 | 26.5% |
+| investment | 364 | 141 | 505 | 12.3% |
+| government | 155 | 81 | 236 | 5.7% |
+| exports | 101 | 78 | 179 | 4.4% |
+| total | 3,056 | 1,061 | 4,117 | |
+
+- **Residents' direct share checks out.** Households' own purchases carry 37.7% of the tax here
+  and 35% in the resident incidence model (which levels spending to BEA). The 51% adds what
+  businesses pass on in prices.
+- **Investment** is mostly construction (the contracting tax is 52% investment, 23% government):
+  new housing and commercial buildings. It lands on whoever buys or rents them, residents mostly;
+  the table cannot say how much.
+- **Visitors** bear 69% of the tax on accommodation, 31% of the retailing tax, 16% of services.
+
+### Scorers
+
+All static: the base does not respond, and prices rise or fall by the tax alone.
+
+- `score_rate_change({activity: rate}, fy)`: the change in rate times the activity's last base
+  (FY2025), grown with the phase 2 baseline. Who bears it: the burden of the sectors the activity
+  maps to (`ACTIVITY_SECTORS`; exact for retailing and contracting, approximate for services and
+  rentals).
+- `score_category_exemption(category, fy)`: residents' spending is BEA's lines for the category
+  (the incidence model's mapping), groceries less SNAP benefits (DHS, $695M in state FY2025);
+  visitors' is HTA's (`VISITOR_CATEGORIES`; groceries are groceries and snacks plus Hawaiʻi food
+  products). State 4% and county 0.5% of both. The wholesale levy on the goods stays.
+- `score_sector_exemption(sectors, fy, purchasers=...)`: removes the tax on input-output sectors'
+  sales, to final purchasers and, with `"businesses"`, to other sectors. The relief from the
+  latter follows the price chain to final purchasers.
+
+FY2027, state revenue ($ millions):
+
+| Change | State | County | Residents | Visitors | Investment | Government | Exports |
+|---|---|---|---|---|---|---|---|
+| Every 4% activity to 4.5% | 608.5 | 0.0 | 50% | 26% | 14% | 6% | 4% |
+| Retailing to 4.5% | 267.6 | 0.0 | 54% | 31% | 10% | 3% | 2% |
+| Exempt groceries | -332.0 | -41.5 | 82% | 18% | 0% | 0% | 0% |
+| Exempt restaurant meals | -390.4 | -48.8 | 63% | 37% | 0% | 0% | 0% |
+| Exempt hospitals and outpatient care | -279.7 | -35.0 | 97% | 3% | 0% | 0% | 0% |
+
+- **Groceries** check against the resident model: residents' $6,236M of taxable grocery spending
+  (2024) taxed 4% is $249M; the incidence model has $251M. Visitors add $55M. The $332M is
+  FY2027's, grown with the baseline.
+- **Hospitals and outpatient care** is the tax those sectors pay now (much of their revenue is
+  already exempt). Its cost and the out-of-pocket category's in the incidence model answer
+  different questions.
+
+### Limits
+
+- **One year's structure.** The input-output table is 2022; shares are held to its structure.
+  DBEDT benchmarks every five years.
+- **Activity versus industry.** Restaurants file as retailers with DOTAX but are their own sector
+  (eating and drinking, $164M) in the table, so the restaurant line of the table and the retailing
+  activity overlap in ways the table does not show.
+- **Visitor categories are coarse.** "Groceries and snacks" includes snacks a food exemption might
+  not reach; Hawaiʻi food products include gifts.
+- **No behaviour.** A rate change's cost is static, and full forward shifting decides who bears
+  it.
+
+Refreshing (after DBEDT's next benchmark table or HTA's next annual report):
+
+    .venv/bin/python -m state_revenue.scripts.refresh_get_inputs --cache /tmp/get_inputs
+
 ## Phases
 
 1. **Ledger and data.** Done (above).
@@ -287,11 +383,9 @@ Refreshing the Council's line items after each general fund meeting:
    general fund, the model elsewhere. Open: unemployment contributions on the trust fund's rate
    schedule (DLIR publishes it) and motor vehicle taxes on the rate history, the two model-only
    lines that miss by more than 10%.
-3. **General excise, all of it (2–3 weeks).** Visitors' share from DBEDT visitor spending by
-   category; business inputs through DBEDT's input-output table; base by activity from DOTAX's
-   General Excise and Use Tax Collections and Base report (already in
-   `tax_modeler/data/excise/dotax_get_by_activity.json` for FY2025–26, needs history). Scores
-   rate changes by activity and exemptions with their visitor and business parts.
+3. **General excise, all of it.** Done (above). Open: the base by activity by industry from DOTAX's
+   detailed GET reports, to tighten `ACTIVITY_SECTORS` for services and rentals; behaviour (a
+   rate's effect on the base); the simulator's GET line.
 4. **Transient accommodations and excise scorers (about 1 week).** TAT on DBEDT/HTA visitor
    nights and room rates; fuel on DOTAX gallons; tobacco and liquor on quantities with published
    price elasticities; vehicle taxes on registrations.
