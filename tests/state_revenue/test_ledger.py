@@ -56,3 +56,14 @@ def test_catalogue():
     assert all(k in BY_KEY and h in BY_KEY for k, h in HOST.items())
     assert {k for k, line in BY_KEY.items() if line.tier == "structural"} == {
         "individual_income", "conveyance"}
+
+
+def test_general_fund_ledger():
+    gf = load_ledger("general_fund")
+    assert gf.fiscal_years == list(range(2004, 2026))
+    assert gf[2025].total == 9_974_161                 # FY2025 annual report, Table 1.9
+    for fy in gf.fiscal_years:
+        assert abs(gf[fy].residual) <= 25, fy
+        assert gf[fy].total < load_ledger()[fy].total
+    with pytest.raises(ValueError):
+        load_ledger("special_funds")

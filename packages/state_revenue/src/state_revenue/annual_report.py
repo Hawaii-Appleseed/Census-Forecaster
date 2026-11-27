@@ -31,14 +31,19 @@ class AnnualTable:
 
 
 _NUM = r"(?:\(?\d[\d,]*\)?|-+)"
-_PCT = r"(?:-?\d+\.\d+%?|-+)"
+_PCT = r"(?:\(?-?\d+\.\d+%?\)?|-+)"
 _ROW = re.compile(
     r"^\s*(?P<label>[A-Za-z][^$\d]*?)"
     r"(?:\s+\d{1,2}/?(?:,\s*\d{1,2}/?)*)?"            # footnote marks: "3, 4", "1/"
-    rf"\s+\$?\s*(?P<a>{_NUM})\s+(?P<pa>{_PCT})"
-    rf"\s+\$?\s*(?P<b>{_NUM})\s+(?P<pb>{_PCT})\s*$"
+    rf"\s+(?:\$\s*)*(?P<a>{_NUM})\s+(?P<pa>{_PCT})"     # "$      $28,912" (FY2024 report)
+    rf"\s+(?:\$\s*)*(?P<b>{_NUM})\s+(?P<pb>{_PCT})\s*$"
 )
-_HEADER = re.compile(r"TAX COLLECTIONS(?:\s+\d{1,2})?\s*$")
+#: Table headings, by the table's name. The general fund table distributes
+#: the same collections: what of each line the general fund kept.
+HEADINGS = {
+    "collections": re.compile(r"TAX COLLECTIONS(?:\s+\d{1,2})?\s*$"),
+    "general_fund": re.compile(r"STATE GENERAL FUND\s*\**(?:\s+\d{1,2})?\s*$"),
+}
 #: A label wrapped onto two lines leaves a line of words only.
 _WORDS_ONLY = re.compile(r"^\s*[A-Za-z][A-Za-z .&’'–—\-]*$")
 
@@ -60,17 +65,18 @@ def _amount(tok: str) -> int | None:
     return -v if neg else v
 
 
-def _table_start(lines: list[str]) -> int:
+def _table_start(lines: list[str], table: str) -> int:
+    heading = HEADINGS[table]
     for i, line in enumerate(lines[:-1]):
-        if _HEADER.search(line) and "thousands" in lines[i + 1].lower():
+        if heading.search(line) and "thousands" in lines[i + 1].lower():
             return i
-    raise TableNotFound("no 'TAX COLLECTIONS' heading followed by '(In Thousands of Dollars)'")
+    raise TableNotFound(f"no {heading.pattern!r} heading followed by '(In Thousands of Dollars)'")
 
 
-def parse_tax_collections(text: str) -> AnnualTable:
-    """Parse the collections table from a report's layout text."""
+def parse_tax_collections(text: str, table: str = "collections") -> AnnualTable:
+    """Parse a table (``collections`` or ``general_fund``) from a report's layout text."""
     lines = text.splitlines()
-    start = _table_start(lines)
+    start = _table_start(lines, table)
     years = None
     for line in lines[start: start + 8]:
         found = re.findall(r"FY\s*(\d{4})", line)

@@ -1,6 +1,7 @@
 # State tax revenue, every line — Scope
 
-**Status (2026-11-27): phase 1 built** (the ledger and its data, below). Phases 2–5 are scope.
+**Status (2026-11-27): phases 1 and 2 built** (the ledger; the baseline and its backtest against
+the Council on Revenues, below). Phases 3–5 are scope.
 
 Goal: model all of Hawaiʻi's state tax collections, not only the individual income tax, so
 that a baseline forecast covers every dollar and a change to any tax the repository can model
@@ -17,6 +18,13 @@ collected by DOTAX and would be its own parcel-based build.
 - **The rest (12.8%) is forecast only:** estate, corporate income, unemployment contributions,
   insurance premiums, public service companies, banks. No usable base, or a few payers decide
   the year (estate collections were $406M in FY2025 and $56M the year before).
+- **Phase 2's answer: the Council's line items are the baseline for the general fund.** A
+  forecast from each line's history alone matches the Council on the general fund total (mean
+  error 2.9% a year out, 4.7% two out, against the Council's 2.9% and 4.9%, outside COVID) but
+  loses badly on the transient accommodations tax and on income tax two years out, where enacted
+  law decides the number. So the published levels come from the Council where it itemises a line;
+  the model covers what it does not (fuel, vehicle taxes, unemployment contributions, the
+  non-general-fund parts) and is the check on the rest.
 - **The general excise tax is most of the remaining work.** A rate change scores directly. An
   exemption needs the part of the base the resident incidence model leaves out: visitors,
   business inputs and insurer-paid medical care (`GET_INCIDENCE_METHODOLOGY.md`, "What is left
@@ -66,13 +74,14 @@ A workspace package, `packages/state_revenue` (`census-state-revenue`).
 - **Why its own package.** The ledger is aggregate, fiscal-year and cash-basis; `tax_modeler`
   is tax-unit, tax-year and liability-basis. Kept apart, nothing in the chain imports it, so no
   step's cache key (`common.fingerprint`, narrow by default) moves when it changes.
-- **Direction of imports.** `state_revenue` may import `tax_modeler` and `census_forecaster`
-  (from phase 2); neither imports it. The GET incidence model (`tax_modeler.excise`) and the
+- **Direction of imports.** `state_revenue` may import `tax_modeler` and `census_forecaster`;
+  neither imports it. Through phase 2 it imports neither. The GET incidence model (`tax_modeler.excise`) and the
   conveyance model stay where they are, because they need the household population and the
   band data. The ledger calls them.
 - **Name.** Not `revenue`: `tax_modeler.revenue` is already the income-tax estimator.
-- **Shape.** One catalogue of lines (`lines.py`) whose collections must add to DOTAX's total.
-  From phase 2 each line exposes `baseline(fy)` and, for the first two tiers, `score(change)`.
+- **Shape.** One catalogue of lines (`lines.py`) whose collections must add to DOTAX's total;
+  `baseline.build_baseline()` gives every line by fiscal year with its source. Scorers
+  (phases 3–5) will take a change and return each line's difference from that baseline.
 
 ## As built (phase 1, November 27, 2026)
 
@@ -113,15 +122,171 @@ Refreshing (each January, after the annual report is posted):
 
 It needs `pdftotext` (poppler). pdfplumber splits digits inside numbers on the newer reports.
 
+## As built (phase 2, November 27, 2026)
+
+| Piece | Where |
+|---|---|
+| General fund table (Table 1.9) beside collections, FY2004–FY2025 | `annual_collections.json` (`general_fund`), `load_ledger("general_fund")` |
+| The Council's line items, 52 meetings, January 2014 to September 2026 | `.../state_revenue/data/cor_line_forecasts.json`, `cor.py`, `scripts/refresh_cor_forecasts.py` |
+| Line forecaster (damped trend or level) | `.../state_revenue/forecast.py` |
+| Backtest against the Council, and of the model alone | `.../state_revenue/backtest.py` (`python -m state_revenue.backtest`) |
+| Baseline by line and source | `.../state_revenue/baseline.py` (`python -m state_revenue.baseline`) |
+
+### The Council's line items
+
+COR forecasts only the general fund's total. With each forecast DOTAX's Tax Research and Planning
+Office posts Attachment 1, line items consistent with that total: two BASE fiscal years and seven
+estimated, twelve tax rows. Every attachment since January 2014 is in the archive; each one's rows
+add to its total within $2 thousand. Its BASE figures equal the annual report's general fund table
+for FY2012–FY2024 (to $1 thousand of rounding), so the annual report is a fair truth for both
+forecasts. FY2025 differs slightly (banks by $2.0M) because the September 2026 attachment carries
+later revisions.
+
+### The forecaster
+
+Each line is forecast from its own history (`forecast.py`):
+
+- **damped**: log growth starts at the recency-weighted geometric mean of the last 8 years'
+  growth (weight 0.85 per year back) and decays toward the line's long-run growth (median of 15
+  years) at φ = 0.85 a year, the repository's annual damping. Growth beyond ±40% in a year is a
+  break and is left out.
+- **level**: the median of the last 5 years grown at the long-run rate, for lines whose growth
+  swings by more than 25% a year (estate, corporate income, banks, conveyance, unemployment).
+- A line with fewer than 8 years of growth (rental vehicles, the barrel tax as its own row)
+  takes the total's long-run growth.
+- The county surcharge is forecast as a share of the general excise forecast (its ratio in the
+  last actual year), since it is levied on the same base: 7.2% error a year out instead of the
+  level method's 11.8%.
+
+The window and recency weight were chosen on this backtest, so its figures flatter the model
+somewhat. The grid tried, general fund total, error a year / two years out: the first version
+(5 years, weight 0.5) 3.2% / 6.2%; 8 years and 0.85, 3.1% / 4.8% before the short-history
+fallback; a median of recent growth in place of the weighted mean did about as well (2.5% /
+5.7%) but the repository's rule is the weighted geometric mean, and a compliant setting matched
+it.
+
+### Backtest against the Council
+
+One origin a year: the August or September meeting, when the fiscal year just ended is known.
+Horizon 1 is the fiscal year in progress (the Council has two months of its collections), 2 the
+next. Origins 2014–2024; the model sees the general fund history through the origin year and
+nothing else. Mean absolute percentage error, FY2020–FY2022 targets left out (the pandemic):
+
+| Line | h | n | Model MAPE | COR MAPE | Model / COR | Model closer |
+|---|---|---|---|---|---|---|
+| general_excise | 1 | 8 | 2.7% | 3.1% | 0.89 | 5/8 |
+| general_excise | 2 | 7 | 6.9% | 5.9% | 1.18 | 4/7 |
+| individual_income | 1 | 8 | 8.4% | 8.8% | 0.96 | 4/8 |
+| individual_income | 2 | 7 | 14.6% | 10.5% | 1.39 | 3/7 |
+| transient_accommodations | 1 | 8 | 24.0% | 5.8% | 4.14 | 0/8 |
+| transient_accommodations | 2 | 7 | 30.6% | 13.9% | 2.21 | 0/7 |
+| corporate_income | 1 | 8 | 35.5% | 37.0% | 0.96 | 5/8 |
+| corporate_income | 2 | 7 | 36.4% | 53.0% | 0.69 | 7/7 |
+| insurance_premiums | 1 | 8 | 2.3% | 5.2% | 0.44 | 7/8 |
+| insurance_premiums | 2 | 7 | 2.8% | 5.6% | 0.50 | 5/7 |
+| public_service_companies | 1 | 8 | 11.1% | 9.4% | 1.18 | 3/8 |
+| public_service_companies | 2 | 7 | 22.0% | 15.8% | 1.39 | 1/7 |
+| tobacco | 1 | 8 | 4.2% | 5.8% | 0.72 | 5/8 |
+| tobacco | 2 | 7 | 7.9% | 10.5% | 0.75 | 5/7 |
+| liquor | 1 | 8 | 2.1% | 3.3% | 0.63 | 5/8 |
+| liquor | 2 | 7 | 6.6% | 6.3% | 1.04 | 2/7 |
+| banks | 1 | 8 | 80.4% | 93.9% | 0.86 | 5/8 |
+| banks | 2 | 7 | 100.3% | 158.2% | 0.63 | 6/7 |
+| estate | 1 | 8 | 36.8% | 56.7% | 0.65 | 5/8 |
+| estate | 2 | 7 | 40.9% | 47.4% | 0.86 | 4/7 |
+| conveyance | 1 | 8 | 36.1% | 42.1% | 0.86 | 3/8 |
+| conveyance | 2 | 7 | 34.1% | 56.1% | 0.61 | 4/7 |
+| total | 1 | 8 | 2.9% | 2.9% | 1.02 | 3/8 |
+| total | 2 | 7 | 4.7% | 4.9% | 0.96 | 4/7 |
+
+What it says:
+
+- **The total is a draw.** History alone does as well as the Council on the general fund's total.
+  Neither is good at turning points: both missed FY2020 by 11–12% from September 2019.
+- **Law decides the transient accommodations line.** The general fund's share of it was changed
+  repeatedly (FY2004 $5.6M, FY2019 $340M, FY2021 $150M, FY2023 $757M). The Council knows the
+  law; history cannot. Model 22% against 6% a year out.
+- **Income tax two years out** goes to the Council for the same reason: enacted rate steps
+  (Act 46, from TY2024). The Council is also closer on public service companies, whose tax
+  follows utility revenue and so the price of oil.
+- **The Council's small lines are mechanical.** On corporate income, banks, estate, conveyance,
+  insurance premiums and tobacco the model is closer, often by half. Those lines are noise around
+  a trend and the Council's line items carry its total's growth onto them.
+- With every target in, the model's general fund total error is 4.9% / 7.6% against the
+  Council's 6.3% / 8.2%: the Council missed the FY2021–FY2022 rebound by more.
+
+**Gate (phase 2's own rule):** general excise passes a year out (2.7% against 3.1%) and is near two
+out (6.9% against 5.9%); transient accommodations fails. So the model's own levels are not the
+published baseline for the general fund lines; the Council's are.
+
+### The model alone, lines the Council does not itemise
+
+All funds, origins FY2010–FY2024, FY2020–FY2022 targets left out:
+
+| Line | h | n | Model MAPE | Method |
+|---|---|---|---|---|
+| county_surcharge | 1 | 12 | 7.2% | rides_on general_excise |
+| county_surcharge | 2 | 11 | 10.2% | rides_on general_excise |
+| fuel | 1 | 12 | 4.9% | damped |
+| fuel | 2 | 11 | 6.8% | damped |
+| motor_vehicle | 1 | 12 | 12.0% | damped |
+| motor_vehicle | 2 | 11 | 18.8% | damped |
+| rental_vehicle | 1 | 3 | 24.4% | level |
+| rental_vehicle | 2 | 2 | 27.8% | level |
+| environmental_response | 1 | 3 | 3.2% | damped |
+| environmental_response | 2 | 2 | 4.9% | damped |
+| unemployment | 1 | 12 | 50.7% | level |
+| unemployment | 2 | 11 | 65.8% | level |
+| transient_accommodations | 1 | 12 | 7.3% | damped/level |
+| transient_accommodations | 2 | 11 | 8.4% | damped/level |
+| conveyance | 1 | 12 | 14.2% | level |
+| conveyance | 2 | 11 | 17.4% | level |
+
+Fuel, the barrel tax and the transient accommodations total (all funds) forecast well from
+history. Motor vehicle taxes carry rate increases and the FY2019 split of rental vehicles out of
+the row; unemployment contributions follow the trust fund's rate schedule, which moves with the fund's
+balance (contributions more than tripled from FY2022 to FY2024), and history cannot see it: their baseline is wide and says so.
+
+### The baseline
+
+`build_baseline(fund)` (`fund="all"` or `"general_fund"`), through the Council's last year
+(FY2033 from the September 2026 meeting). Each value carries its source:
+
+- `cor`: the general fund's part of a line the Council itemises (its latest meeting; the
+  preliminary FY2026 BASE column counts as its figure for that year).
+- `cor_scaled`: all funds, a line the Council itemises: its figure times the line's
+  all-funds-to-general-fund ratio in FY2025 (current law's split between funds held). The
+  transient accommodations tax is 1.14 times its general fund part; the general excise tax 1.01.
+- `rides_on`: the county surcharge, a share of the general excise baseline.
+- `model`: everything else.
+
+`build_baseline(source="model")` forecasts every line from history alone: the check, and the
+fallback past the Council's horizon.
+
+Totals, $ billions (September 2026 meeting):
+
+| | FY2026 | FY2027 | FY2028 | FY2029 | FY2030 | FY2031 | FY2032 | FY2033 |
+|---|---|---|---|---|---|---|---|---|
+| General fund (the Council's) | 9.79 | 10.04 | 10.34 | 10.65 | 10.83 | 11.23 | 11.60 | 12.03 |
+| All funds | 11.22 | 11.51 | 11.86 | 12.22 | 12.45 | 12.90 | 13.32 | 13.80 |
+| All funds, history alone | 11.64 | 12.19 | 12.78 | 13.41 | 14.07 | 14.78 | 15.52 | 16.32 |
+
+FY2026 sits below FY2025's $11.46B because the estate tax returns to about $50M from $406M and
+income tax falls with the Act 46 steps. The history-only line runs $2.5B above by FY2033, most
+of it income tax ($4.8B against the Council's $3.4B: the rate cuts) and the transient
+accommodations tax.
+
+Refreshing the Council's line items after each general fund meeting:
+
+    .venv/bin/python -m state_revenue.scripts.refresh_cor_forecasts --cache /tmp/cor
+
 ## Phases
 
 1. **Ledger and data.** Done (above).
-2. **Baseline for every line, backtested (1–2 weeks).** Fiscal-year forecast per line: the
-   structural lines from their models, base-times-rate lines from their bases and drivers, trend
-   lines from history and the economy. Rolling-origin backtest FY2010–FY2025 against the Council
-   on Revenues' forecasts made at the time (COR publishes general fund forecasts and the
-   individual income line; the archive needs collecting). **Gate:** if the general excise and
-   transient accommodations levels cannot get near COR's error, publish changes only, not levels.
+2. **Baseline for every line, backtested.** Done (above): the Council's line items for the
+   general fund, the model elsewhere. Open: unemployment contributions on the trust fund's rate
+   schedule (DLIR publishes it) and motor vehicle taxes on the rate history, the two model-only
+   lines that miss by more than 10%.
 3. **General excise, all of it (2–3 weeks).** Visitors' share from DBEDT visitor spending by
    category; business inputs through DBEDT's input-output table; base by activity from DOTAX's
    General Excise and Use Tax Collections and Base report (already in
@@ -137,9 +302,9 @@ It needs `pdftotext` (poppler). pdfplumber splits digits inside numbers on the n
 ## Risks
 
 - **Cash versus liability.** The income-tax model is tax-year liability; the ledger is
-  fiscal-year cash. The repository's FY(n+1) = TY(n) convention is crude at this level
-  (estimated payments and refunds cross fiscal years). Phase 2 needs a timing model for the
-  income line or it will miss COR by the timing alone.
+  fiscal-year cash. The baseline sidesteps it (income tax levels are the Council's), but a scorer
+  that moves income tax must still turn a tax-year change into fiscal-year cash; the repository's
+  FY(n+1) = TY(n) convention is crude for that.
 - **Interactions between taxes.** A transient accommodations change moves the general excise tax
   on hotel rentals; a general excise rate change moves the county surcharge base. Each scorer
   must say which other lines it moves.
@@ -151,3 +316,5 @@ It needs `pdftotext` (poppler). pdfplumber splits digits inside numbers on the n
 - State taxes only (no county real property tax).
 - Annual (fiscal-year) first; monthly only if a nowcast needs it.
 - Its own package, imported by nothing in the chain.
+- The baseline's general fund levels are the Council's line items; the model's levels are a check
+  and cover only what the Council does not itemise (phase 2's gate).
