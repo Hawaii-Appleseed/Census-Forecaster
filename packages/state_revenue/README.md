@@ -26,6 +26,9 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
 - `general_excise.py`: the general excise tax by final purchaser (DBEDT's input-output
   table), and scorers for rate changes by activity and for exemptions (residents and
   visitors); `python -m state_revenue.general_excise`.
+- `excise.py`: scorers for the transient accommodations tax, fuel and the barrel tax,
+  cigarettes, the rental vehicle surcharge, and any line proportionally;
+  `python -m state_revenue.excise`.
 - `baseline.py`: every line by fiscal year, from the Council where it itemises a line, the model
   elsewhere.
 - `annual_report.py`: reads the "Tax Collections" table from an annual report.
@@ -33,6 +36,8 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
   `data/annual_collections.json` (needs `pdftotext`).
 - `scripts/refresh_get_inputs.py`: fetches the input-output table and HTA's visitor
   spending by category into `data/`.
+- `scripts/refresh_excise_bases.py`: fetches DOTAX's calendar-year fuel and tobacco
+  summaries into `data/excise_bases.json`.
 - `scripts/refresh_cor_forecasts.py`: fetches the Council's attachments and rewrites
   `data/cor_line_forecasts.json`.
 
