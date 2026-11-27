@@ -57,6 +57,23 @@ _PLAIN_ROWS = {
     "county surcharges": "county_surcharge",
     "trans. accomm. tax/time share occup. tax": "tat",
     "state general fund": "general_fund",
+    # The other tax lines (keys as in state_revenue.lines, for the state
+    # revenue ledger). With the rows above they add to the total.
+    "banks/financial corp.": "banks",
+    "conveyance": "conveyance",
+    "employment sec. contri.": "unemployment",
+    "fuel": "fuel",
+    "environmental": "environmental_response",
+    "ge licenses": "ge_licenses",
+    "inheritance/estate": "estate",
+    "insurance premiums": "insurance_premiums",
+    "liquor tax and permits": "liquor",
+    "mtr. vehicle tax and fees": "motor_vehicle",
+    "rental vehicle tax and fees": "rental_vehicle",
+    "public service co.": "public_service_companies",
+    "tobacco tax and licenses/permits": "tobacco",
+    "trans. accomm./time share occup. fees": "tat_fees",
+    "all others": "all_others",
 }
 _SECTION_ROWS = {
     ("corp", "decl. of est. taxes"): "corp_est",
@@ -67,6 +84,9 @@ _SECTION_ROWS = {
     ("ind", "wh tax on wages"): "ind_wh",
     ("ind", "refunds"): "ind_refunds",
 }
+#: Every tax row of the report: their sum is the TOTAL row (rounding aside).
+TAX_LINE_KEYS = tuple(k for k in (*_PLAIN_ROWS.values(), *_SECTION_ROWS.values())
+                      if k != "general_fund")
 
 LIMITATIONS = [
     "Collections are cash-basis by *deposit* month — payment-deadline "

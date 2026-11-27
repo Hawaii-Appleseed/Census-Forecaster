@@ -1,0 +1,720 @@
+{
+  "source": "Hawaii Department of Taxation, Annual Report, table 'Tax Collections' (index: https://tax.hawaii.gov/stats/a5_1annual/a5_1tax_annuals/)",
+  "fetch_date": "2026-11-27",
+  "units": "thousands of dollars, fiscal year ending June 30",
+  "limitations": [
+    "Cash collections by fiscal year (July to June), in thousands of dollars, as DOTAX's annual report prints them. Includes taxes collected by the counties (motor vehicle), the Insurance Commissioner (insurance premiums) and the Bureau of Conveyances (conveyance).",
+    "Rows change over time: the county surcharge starts in FY2007 (Honolulu only until FY2019); through FY2018 the fuel row includes the environmental response tax and motor vehicle includes rental vehicles (state_revenue.lines.HOST).",
+    "Individual and corporate income tax for FY2017 on are not comparable to earlier years: DOTAX changed how it compiles them (FY2018 report, Table 1.8 note 4)."
+  ],
+  "reports": {
+    "05annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/05annrpt.pdf",
+      "sha256": "18caa3661db2cae3e882dad4e5ac7ddbc5f6a9194cd68339e1606ecfeb6f388e",
+      "fiscal_years": [
+        2005,
+        2004
+      ]
+    },
+    "06annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/06annrpt.pdf",
+      "sha256": "da1f7976e29c3a1bc44dbaebdfccdd10e3e992f2ae1a0872bc0467e8e0edd67f",
+      "fiscal_years": [
+        2006,
+        2005
+      ]
+    },
+    "07annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/07annrpt.pdf",
+      "sha256": "e00d26ec6d62a6a83b9efc4d8d25193549c3360644e8c150153068dd446800f0",
+      "fiscal_years": [
+        2007,
+        2006
+      ]
+    },
+    "08annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/08annrpt.pdf",
+      "sha256": "ee157e0dcd8515c7cc4da1199a2d07fdfb2092a9826dfd445639c22a4a617259",
+      "fiscal_years": [
+        2008,
+        2007
+      ]
+    },
+    "09annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/09annrpt.pdf",
+      "sha256": "0fc1cae9dd234b8992898bdb84a97a5488d4a51e8459c9b8029a93034093bdeb",
+      "fiscal_years": [
+        2009,
+        2008
+      ]
+    },
+    "10annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/10annrpt.pdf",
+      "sha256": "ce0f62b6dbf3b56a71df1ee87e14d3b04aca5c24d7044451572d7154f36c6656",
+      "fiscal_years": [
+        2010,
+        2009
+      ]
+    },
+    "11annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/11annrpt.pdf",
+      "sha256": "48a186563e58ca0577cf5a43b7a9265dccacd5da78a7d0237035bd83c54f8207",
+      "fiscal_years": [
+        2011,
+        2010
+      ]
+    },
+    "12annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/12annrpt.pdf",
+      "sha256": "f2aa84e6c82eb450c6be003f50f231680d287b8aa244e320039eb07404470249",
+      "fiscal_years": [
+        2012,
+        2011
+      ]
+    },
+    "13annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/13annrpt.pdf",
+      "sha256": "7dff3d3f4220c868f7498571ea0dcc4ca338569f706ba82e186b571b2b59fcb7",
+      "fiscal_years": [
+        2013,
+        2012
+      ]
+    },
+    "14annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/14annrpt.pdf",
+      "sha256": "ab13bc168ba7dc9292771bef27b371ba7c53cc262c5fc8a8357d5d60c848247f",
+      "fiscal_years": [
+        2014,
+        2013
+      ]
+    },
+    "15annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/15annrpt.pdf",
+      "sha256": "48a81db23a3891d374e399a9f6a9b0dff33037a60dc9fb05bfa80a2e2f997420",
+      "fiscal_years": [
+        2015,
+        2014
+      ]
+    },
+    "16annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/16annrpt.pdf",
+      "sha256": "5a1b2ffced979ee1f79cb95355c6d2765aa8d2ad5c0cf3402e2609ca4a2fef26",
+      "fiscal_years": [
+        2016,
+        2015
+      ]
+    },
+    "17annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/17annrpt.pdf",
+      "sha256": "a7928b66c0b4c0c6eb2fd79c230ca15b54f6f93cb61837938aee9f64f64d4cd2",
+      "fiscal_years": [
+        2017,
+        2016
+      ]
+    },
+    "18annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/18annrpt.pdf",
+      "sha256": "e584a7f12e628fe61462be644b641ca0fe0da0841fad37fa476be1edf2ba6bec",
+      "fiscal_years": [
+        2018,
+        2017
+      ]
+    },
+    "19annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/19annrpt.pdf",
+      "sha256": "1d990ba930254c5d843b40678eb3f7a557fafe4d9586019bcf14a4b2cca6e1e0",
+      "fiscal_years": [
+        2019,
+        2018
+      ]
+    },
+    "20annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/20annrpt.pdf",
+      "sha256": "b7b405b7ac1bf64e25e5518566afff21611b60d4162a6dc5d0cadb82037e27c8",
+      "fiscal_years": [
+        2020,
+        2019
+      ]
+    },
+    "21annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/21annrpt.pdf",
+      "sha256": "6ca9f989b560af23efc9d96973533ca787efebf63ff43641ee47524771816955",
+      "fiscal_years": [
+        2021,
+        2020
+      ]
+    },
+    "22annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/22annrpt.pdf",
+      "sha256": "329e8db6f77cf8bf128ee6501990e38bac4c80bc51cb7e73cbe4e50de8d9af13",
+      "fiscal_years": [
+        2022,
+        2021
+      ]
+    },
+    "23annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/23annrpt.pdf",
+      "sha256": "0d8282977f086dff95bf9b7c60cb63fcfaa2cc02b6324fc903c07c60560d7a82",
+      "fiscal_years": [
+        2023,
+        2022
+      ]
+    },
+    "24annrpt_2.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/archive/24annrpt_2.pdf",
+      "sha256": "2a40bf5b12e2722a288bcb75b9c2105c1dd3c4d85c4a0dffe92884a01bb86213",
+      "fiscal_years": [
+        2024,
+        2023
+      ]
+    },
+    "25annrpt.pdf": {
+      "url": "https://files.hawaii.gov/tax/stats/stats/annual/25annrpt.pdf",
+      "sha256": "850e202fa1977deb2c8d41a5e328826b8dd0789ab8bb1d31d0927e388b256d79",
+      "fiscal_years": [
+        2025,
+        2024
+      ]
+    }
+  },
+  "fiscal_years": {
+    "2004": {
+      "lines": {
+        "all_others": 666,
+        "banks": 1466,
+        "conveyance": 15767,
+        "corporate_income": 56653,
+        "estate": 9830,
+        "fuel": 160127,
+        "general_excise": 1900377,
+        "individual_income": 1168953,
+        "insurance_premiums": 78142,
+        "liquor": 41250,
+        "motor_vehicle": 91957,
+        "public_service_companies": 99505,
+        "tobacco": 79387,
+        "transient_accommodations": 181848,
+        "transient_accommodations_fees": 12,
+        "unemployment": 158281
+      },
+      "total": 4044223,
+      "report": "05annrpt.pdf",
+      "residual": 2
+    },
+    "2005": {
+      "lines": {
+        "all_others": 770,
+        "banks": 38520,
+        "conveyance": 24583,
+        "corporate_income": 85605,
+        "estate": 12712,
+        "fuel": 162873,
+        "general_excise": 2136603,
+        "individual_income": 1381480,
+        "insurance_premiums": 83077,
+        "liquor": 43737,
+        "motor_vehicle": 100278,
+        "public_service_companies": 108686,
+        "tobacco": 85245,
+        "transient_accommodations": 198774,
+        "transient_accommodations_fees": 10,
+        "unemployment": 134459
+      },
+      "total": 4597415,
+      "report": "06annrpt.pdf",
+      "residual": 3
+    },
+    "2006": {
+      "lines": {
+        "all_others": 522,
+        "banks": 18324,
+        "conveyance": 59201,
+        "corporate_income": 130010,
+        "estate": 4017,
+        "fuel": 166138,
+        "general_excise": 2355316,
+        "individual_income": 1550596,
+        "insurance_premiums": 88068,
+        "liquor": 45955,
+        "motor_vehicle": 107527,
+        "public_service_companies": 120679,
+        "tobacco": 88261,
+        "transient_accommodations": 216996,
+        "transient_accommodations_fees": 12,
+        "unemployment": 149388
+      },
+      "total": 5101011,
+      "report": "07annrpt.pdf",
+      "residual": 1
+    },
+    "2007": {
+      "lines": {
+        "all_others": 514,
+        "banks": 18599,
+        "conveyance": 46887,
+        "corporate_income": 81834,
+        "county_surcharge": 53805,
+        "estate": 595,
+        "fuel": 169712,
+        "general_excise": 2555762,
+        "individual_income": 1560286,
+        "insurance_premiums": 92196,
+        "liquor": 46034,
+        "motor_vehicle": 112412,
+        "public_service_companies": 124017,
+        "tobacco": 94387,
+        "transient_accommodations": 224931,
+        "transient_accommodations_fees": 11,
+        "unemployment": 134612
+      },
+      "total": 5316593,
+      "report": "07annrpt.pdf",
+      "residual": -1
+    },
+    "2008": {
+      "lines": {
+        "all_others": 576,
+        "banks": 20212,
+        "conveyance": 43421,
+        "corporate_income": 85081,
+        "county_surcharge": 187904,
+        "estate": 164,
+        "fuel": 169927,
+        "general_excise": 2618787,
+        "individual_income": 1544835,
+        "insurance_premiums": 95742,
+        "liquor": 45620,
+        "motor_vehicle": 112448,
+        "public_service_companies": 127481,
+        "tobacco": 104624,
+        "transient_accommodations": 229378,
+        "transient_accommodations_fees": 10,
+        "unemployment": 92279
+      },
+      "total": 5478491,
+      "report": "09annrpt.pdf",
+      "residual": 2
+    },
+    "2009": {
+      "lines": {
+        "all_others": 528,
+        "banks": 28075,
+        "conveyance": 23772,
+        "corporate_income": 53522,
+        "county_surcharge": 178729,
+        "estate": 274,
+        "fuel": 165717,
+        "general_excise": 2417580,
+        "individual_income": 1339056,
+        "insurance_premiums": 93720,
+        "liquor": 47242,
+        "motor_vehicle": 101991,
+        "public_service_companies": 126069,
+        "tobacco": 108164,
+        "transient_accommodations": 210614,
+        "unemployment": 49071
+      },
+      "total": 4944133,
+      "report": "10annrpt.pdf",
+      "residual": 9
+    },
+    "2010": {
+      "lines": {
+        "all_others": 482,
+        "banks": 20666,
+        "conveyance": 40634,
+        "corporate_income": 59186,
+        "county_surcharge": 175061,
+        "estate": 0,
+        "fuel": 155703,
+        "general_excise": 2316434,
+        "individual_income": 1528110,
+        "insurance_premiums": 105014,
+        "liquor": 44074,
+        "motor_vehicle": 102319,
+        "public_service_companies": 157661,
+        "tobacco": 123489,
+        "transient_accommodations": 224243,
+        "transient_accommodations_fees": 9,
+        "unemployment": 82017
+      },
+      "total": 5135100,
+      "report": "11annrpt.pdf",
+      "residual": -2
+    },
+    "2011": {
+      "lines": {
+        "all_others": 939,
+        "banks": 33677,
+        "conveyance": 47906,
+        "corporate_income": 34573,
+        "county_surcharge": 199010,
+        "estate": 6899,
+        "fuel": 195336,
+        "general_excise": 2495807,
+        "individual_income": 1247153,
+        "insurance_premiums": 145325,
+        "liquor": 48054,
+        "motor_vehicle": 106166,
+        "public_service_companies": 117940,
+        "tobacco": 143293,
+        "transient_accommodations": 284463,
+        "transient_accommodations_fees": 9,
+        "unemployment": 190511
+      },
+      "total": 5297062,
+      "report": "12annrpt.pdf",
+      "residual": 1
+    },
+    "2012": {
+      "lines": {
+        "all_others": 672,
+        "banks": 7229,
+        "conveyance": 42106,
+        "corporate_income": 73027,
+        "county_surcharge": 211850,
+        "estate": 14125,
+        "fuel": 193101,
+        "general_excise": 2697951,
+        "individual_income": 1541050,
+        "insurance_premiums": 117617,
+        "liquor": 48854,
+        "motor_vehicle": 211742,
+        "public_service_companies": 150528,
+        "tobacco": 138798,
+        "transient_accommodations": 323940,
+        "transient_accommodations_fees": 11,
+        "unemployment": 231669
+      },
+      "total": 6004268,
+      "report": "13annrpt.pdf",
+      "residual": -2
+    },
+    "2013": {
+      "lines": {
+        "all_others": 648,
+        "banks": 22673,
+        "conveyance": 54686,
+        "corporate_income": 100988,
+        "county_surcharge": 193136,
+        "estate": 14886,
+        "fuel": 193949,
+        "general_excise": 2944487,
+        "individual_income": 1736007,
+        "insurance_premiums": 131906,
+        "liquor": 48962,
+        "motor_vehicle": 176295,
+        "public_service_companies": 163930,
+        "tobacco": 127881,
+        "transient_accommodations": 368556,
+        "transient_accommodations_fees": 20,
+        "unemployment": 262290
+      },
+      "total": 6541300,
+      "report": "14annrpt.pdf",
+      "residual": 0
+    },
+    "2014": {
+      "lines": {
+        "all_others": 692,
+        "banks": 38983,
+        "conveyance": 75831,
+        "corporate_income": 87021,
+        "county_surcharge": 242657,
+        "estate": 14789,
+        "fuel": 193550,
+        "general_excise": 2880541,
+        "individual_income": 1745810,
+        "insurance_premiums": 137179,
+        "liquor": 48305,
+        "motor_vehicle": 168726,
+        "public_service_companies": 166179,
+        "tobacco": 121742,
+        "transient_accommodations": 395229,
+        "transient_accommodations_fees": 13,
+        "unemployment": 264178
+      },
+      "total": 6581424,
+      "report": "15annrpt.pdf",
+      "residual": -1
+    },
+    "2015": {
+      "lines": {
+        "all_others": 742,
+        "banks": 19930,
+        "conveyance": 78702,
+        "corporate_income": 52319,
+        "county_surcharge": 248518,
+        "estate": 12071,
+        "fuel": 193082,
+        "general_excise": 3048207,
+        "individual_income": 1988194,
+        "insurance_premiums": 145679,
+        "liquor": 50281,
+        "motor_vehicle": 180755,
+        "public_service_companies": 163481,
+        "tobacco": 129851,
+        "transient_accommodations": 420970,
+        "transient_accommodations_fees": 12,
+        "unemployment": 167248
+      },
+      "total": 6900042,
+      "report": "16annrpt.pdf",
+      "residual": 0
+    },
+    "2016": {
+      "lines": {
+        "all_others": 693,
+        "banks": 14691,
+        "conveyance": 66083,
+        "corporate_income": 93036,
+        "county_surcharge": 259248,
+        "estate": 49613,
+        "fuel": 198136,
+        "general_excise": 3206154,
+        "individual_income": 2116859,
+        "insurance_premiums": 153173,
+        "liquor": 50590,
+        "motor_vehicle": 187704,
+        "public_service_companies": 152760,
+        "tobacco": 125093,
+        "transient_accommodations": 446781,
+        "transient_accommodations_fees": 13,
+        "unemployment": 128577
+      },
+      "total": 7249205,
+      "report": "17annrpt.pdf",
+      "residual": 1
+    },
+    "2017": {
+      "lines": {
+        "all_others": 734,
+        "banks": 11174,
+        "conveyance": 94537,
+        "corporate_income": 173666,
+        "county_surcharge": 248158,
+        "estate": 18968,
+        "fuel": 194761,
+        "general_excise": 3239225,
+        "individual_income": 2095898,
+        "insurance_premiums": 164688,
+        "liquor": 51167,
+        "motor_vehicle": 186490,
+        "public_service_companies": 122159,
+        "tobacco": 124066,
+        "transient_accommodations": 508357,
+        "transient_accommodations_fees": 20,
+        "unemployment": 104313
+      },
+      "total": 7338382,
+      "report": "18annrpt.pdf",
+      "residual": 1
+    },
+    "2018": {
+      "lines": {
+        "all_others": 1236,
+        "banks": 15712,
+        "conveyance": 100603,
+        "corporate_income": 131119,
+        "county_surcharge": 281589,
+        "estate": 29351,
+        "fuel": 201778,
+        "general_excise": 3395566,
+        "individual_income": 2430356,
+        "insurance_premiums": 159814,
+        "liquor": 51383,
+        "motor_vehicle": 193241,
+        "public_service_companies": 117641,
+        "tobacco": 120522,
+        "transient_accommodations": 554890,
+        "transient_accommodations_fees": 22,
+        "unemployment": 110885
+      },
+      "total": 7895708,
+      "report": "19annrpt.pdf",
+      "residual": 0
+    },
+    "2019": {
+      "lines": {
+        "all_others": 855,
+        "banks": 26808,
+        "conveyance": 85965,
+        "corporate_income": 163676,
+        "county_surcharge": 290719,
+        "environmental_response": 27951,
+        "estate": 18921,
+        "fuel": 178394,
+        "general_excise": 3541389,
+        "individual_income": 2568616,
+        "insurance_premiums": 173844,
+        "liquor": 51913,
+        "motor_vehicle": 138126,
+        "public_service_companies": 126691,
+        "rental_vehicle": 57994,
+        "tobacco": 112518,
+        "transient_accommodations": 600310,
+        "transient_accommodations_fees": 24,
+        "unemployment": 110309
+      },
+      "total": 8275024,
+      "report": "20annrpt.pdf",
+      "residual": 1
+    },
+    "2020": {
+      "lines": {
+        "all_others": 681,
+        "banks": 35271,
+        "conveyance": 61110,
+        "corporate_income": 8407,
+        "county_surcharge": 329926,
+        "environmental_response": 26104,
+        "estate": 45451,
+        "fuel": 169156,
+        "general_excise": 3436138,
+        "individual_income": 2359816,
+        "insurance_premiums": 180753,
+        "liquor": 50674,
+        "motor_vehicle": 134211,
+        "public_service_companies": 134639,
+        "rental_vehicle": 72503,
+        "tobacco": 111983,
+        "transient_accommodations": 564298,
+        "transient_accommodations_fees": 20,
+        "unemployment": 104068
+      },
+      "total": 7825208,
+      "report": "21annrpt.pdf",
+      "residual": -1
+    },
+    "2021": {
+      "lines": {
+        "all_others": 808,
+        "banks": 5079,
+        "conveyance": 62725,
+        "corporate_income": 186680,
+        "county_surcharge": 313545,
+        "environmental_response": 23348,
+        "estate": 31275,
+        "fuel": 148716,
+        "general_excise": 3080194,
+        "individual_income": 3355452,
+        "insurance_premiums": 185337,
+        "liquor": 45178,
+        "motor_vehicle": 138513,
+        "public_service_companies": 125201,
+        "rental_vehicle": 32210,
+        "tobacco": 108454,
+        "transient_accommodations": 215293,
+        "transient_accommodations_fees": 23,
+        "unemployment": 110591
+      },
+      "total": 8168623,
+      "report": "22annrpt.pdf",
+      "residual": 1
+    },
+    "2022": {
+      "lines": {
+        "all_others": 840,
+        "banks": 59252,
+        "conveyance": 188418,
+        "corporate_income": 256033,
+        "county_surcharge": 388211,
+        "environmental_response": 25949,
+        "estate": 57405,
+        "fuel": 170555,
+        "general_excise": 4009909,
+        "individual_income": 3761269,
+        "insurance_premiums": 195607,
+        "liquor": 53983,
+        "motor_vehicle": 142806,
+        "public_service_companies": 122068,
+        "rental_vehicle": 79576,
+        "tobacco": 96863,
+        "transient_accommodations": 738634,
+        "transient_accommodations_fees": 29,
+        "unemployment": 114431
+      },
+      "total": 10461837,
+      "report": "23annrpt.pdf",
+      "residual": -1
+    },
+    "2023": {
+      "lines": {
+        "all_others": 781,
+        "banks": 30969,
+        "conveyance": 92132,
+        "corporate_income": 316599,
+        "county_surcharge": 431568,
+        "environmental_response": 27455,
+        "estate": 58083,
+        "fuel": 171647,
+        "general_excise": 4442651,
+        "individual_income": 3100465,
+        "insurance_premiums": 203791,
+        "liquor": 54513,
+        "motor_vehicle": 143329,
+        "public_service_companies": 142195,
+        "rental_vehicle": 101450,
+        "tobacco": 87016,
+        "transient_accommodations": 865234,
+        "transient_accommodations_fees": 23,
+        "unemployment": 167886
+      },
+      "total": 10437786,
+      "report": "24annrpt_2.pdf",
+      "residual": -1
+    },
+    "2024": {
+      "lines": {
+        "all_others": 650,
+        "banks": 30912,
+        "conveyance": 97411,
+        "corporate_income": 484370,
+        "county_surcharge": 489688,
+        "environmental_response": 27309,
+        "estate": 55794,
+        "fuel": 168586,
+        "general_excise": 4481056,
+        "individual_income": 3281525,
+        "insurance_premiums": 211352,
+        "liquor": 51602,
+        "motor_vehicle": 143094,
+        "public_service_companies": 159222,
+        "rental_vehicle": 106069,
+        "tobacco": 84166,
+        "transient_accommodations": 828327,
+        "transient_accommodations_fees": 19,
+        "unemployment": 377458
+      },
+      "total": 11078610,
+      "report": "25annrpt.pdf",
+      "residual": 0
+    },
+    "2025": {
+      "lines": {
+        "all_others": 638,
+        "banks": 10296,
+        "conveyance": 96045,
+        "corporate_income": 400384,
+        "county_surcharge": 565256,
+        "environmental_response": 27125,
+        "estate": 405766,
+        "fuel": 167966,
+        "general_excise": 4630396,
+        "individual_income": 3288093,
+        "insurance_premiums": 218833,
+        "liquor": 50149,
+        "motor_vehicle": 145418,
+        "public_service_companies": 154478,
+        "rental_vehicle": 118181,
+        "tobacco": 79887,
+        "transient_accommodations": 816184,
+        "transient_accommodations_fees": 16,
+        "unemployment": 281225
+      },
+      "total": 11456335,
+      "report": "25annrpt.pdf",
+      "residual": -1
+    }
+  }
+}

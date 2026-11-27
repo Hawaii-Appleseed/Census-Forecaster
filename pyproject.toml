@@ -5,6 +5,7 @@ members = [
     "packages/pums_estimator",
     "packages/tax_modeler",
     "packages/lab",
+    "packages/state_revenue",
 ]
 
 [tool.uv.sources]
@@ -13,6 +14,7 @@ census-forecaster = { workspace = true }
 pums-estimator = { workspace = true }
 tax-modeler = { workspace = true }
 census-lab = { workspace = true }
+census-state-revenue = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

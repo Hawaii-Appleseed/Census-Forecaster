@@ -80,3 +80,44 @@ def test_throttle_fails_without_flag(monkeypatch, tmp_path):
     out = _bundle(tmp_path)
     assert dotax.main(["--out", str(out), "--months-back", "3"]) == 1
     assert json.loads(out.read_text())["monthly"] == {"2026-01": {"iit_withholding": 1.0}}
+
+
+def _collec_workbook(rows):
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["STATE OF HAWAII"])
+    ws.append(["SOURCE OF REVENUE", None, "DEC 2025", "DEC 2024"])
+    for label, cur, prior in rows:
+        ws.append([label, None, cur, prior])
+    return wb
+
+
+def test_parse_collec_keeps_every_tax_line():
+    # Labels as the December 2025 report prints them, footnote marks included.
+    rows = [
+        ("Banks/Financial Corp. 1/", 1.0, 2.0), ("Conveyance 1/", 1.0, 2.0),
+        ("Employment Sec. Contri.", 1.0, 2.0), ("Fuel 6/", 1.0, 2.0),
+        ("Environmental", 1.0, 2.0), ("GE Licenses", 1.0, 2.0),
+        ("General Excise & Use 2/", 1.0, 2.0), ("County Surcharges 3/", 1.0, 2.0),
+        ("Income-Corp.:", None, None), ("Decl. of Est. Taxes", 1.0, 2.0),
+        ("Payment W/ Returns", 1.0, 2.0), ("Refunds", -1.0, -2.0),
+        ("Income-Ind.: 1/", None, None), ("Decl. of Est. Taxes", 1.0, 2.0),
+        ("Payment W/ Returns", 1.0, 2.0), ("WH Tax on Wages", 1.0, 2.0), ("Refunds", -1.0, -2.0),
+        ("Inheritance/Estate", 1.0, 2.0), ("Insurance Premiums", 1.0, 2.0),
+        ("Liquor Tax and Permits", 1.0, 2.0), ("Mtr. Vehicle Tax and Fees 4/", 1.0, 2.0),
+        ("Rental Vehicle Tax and Fees", 1.0, 2.0), ("Public Service Co.", 1.0, 2.0),
+        ("Tobacco Tax and Licenses/Permits 1/", 1.0, 2.0),
+        ("Trans. Accomm./Time Share Occup. Fees", 1.0, 2.0),
+        ("Trans. Accomm. Tax/Time Share Occup. Tax 1/ ", 1.0, 2.0),
+        ("All Others 5/", 1.0, 2.0),
+        ("TOTAL - DECEMBER 2025", 21.0, None),
+        ("TOTAL - DECEMBER 2024", 42.0, None),
+    ]
+    out = dotax.parse_collec(_collec_workbook(rows), 2025, 12)
+    for month, total in (("2025-12", 21.0), ("2024-12", 42.0)):
+        got = out[month]
+        assert set(dotax.TAX_LINE_KEYS) <= set(got), month
+        assert sum(got[k] for k in dotax.TAX_LINE_KEYS) == total
+        assert got["total"] == total
+    assert out["2025-12"]["corp_refunds"] == -1.0 and out["2025-12"]["ind_refunds"] == -1.0
