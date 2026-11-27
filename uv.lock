@@ -16,6 +16,7 @@ members = [
     "census-common",
     "census-forecaster",
     "census-lab",
+    "census-state-revenue",
     "pums-estimator",
     "tax-modeler",
 ]
@@ -159,6 +160,20 @@ requires-dist = [
     { name = "yfinance", marker = "extra == 'markets'", specifier = ">=0.2" },
 ]
 provides-extras = ["markets"]
+
+[[package]]
+name = "census-state-revenue"
+version = "0.1.0"
+source = { editable = "packages/state_revenue" }
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" }]
+provides-extras = ["dev"]
 
 [[package]]
 name = "certifi"
