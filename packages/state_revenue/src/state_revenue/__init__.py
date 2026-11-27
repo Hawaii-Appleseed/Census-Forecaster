@@ -3,7 +3,8 @@
 ``lines`` names each tax line DOTAX reports and how far it can be modelled;
 ``ledger`` holds its collections by fiscal year; ``cor`` the Council on
 Revenues' line-item forecasts; ``baseline`` every line forward;
-``general_excise`` who bears the general excise tax and what changes cost. Scope and phases:
+``general_excise`` who bears the general excise tax and what changes cost;
+``excise`` scorers for the transient accommodations tax and per-unit excises. Scope and phases:
 ``STATE_REVENUE_SCOPE.md`` at the repository root.
 
 This package imports nothing from the other workspace packages, so no

@@ -1,0 +1,78 @@
+{
+ "source": "Hawaii Department of Taxation, calendar-year summaries: Liquid Fuel Tax Base & Tax Collections; Cigarette & Tobacco Tax Collections and Allocations",
+ "fetch_date": "2026-11-27",
+ "calendar_year": 2024,
+ "units": "fuel: gallons (barrels, MMBtu for the environmental response tax) and dollars; tobacco: dollars",
+ "reports": [
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/2024cy-fuels.pdf",
+   "sha256": "6aeb6af95c65e8af1f50a02435712d5055fc7e0eee5e42161f645338e9570331"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/2024cy-tob.pdf",
+   "sha256": "3078e9338469260cbdbbe5fd86e3a79b2a003489f6f6a03dd571fa11b31ba033"
+  }
+ ],
+ "fuel": {
+  "gasoline": {
+   "quantity": 421543837.0,
+   "state_tax": 67403071.71,
+   "county_tax": 79519760.87
+  },
+  "diesel_off_highway": {
+   "quantity": 175119451.0,
+   "state_tax": 1751194.51,
+   "county_tax": 0.0
+  },
+  "diesel_highway": {
+   "quantity": 43769449.0,
+   "state_tax": 7143543.52,
+   "county_tax": 8640779.06
+  },
+  "lpg_highway": {
+   "quantity": -6923.0,
+   "state_tax": -355.45,
+   "county_tax": -255.66
+  },
+  "small_boats_gasoline": {
+   "quantity": 1272941.0,
+   "state_tax": 203670.56,
+   "county_tax": 236765.04
+  },
+  "small_boats_diesel": {
+   "quantity": -2758526.0,
+   "state_tax": -27585.26,
+   "county_tax": 0.0
+  },
+  "aviation": {
+   "quantity": 249738049.0,
+   "state_tax": 2527699.41,
+   "county_tax": 0.0
+  },
+  "other": {
+   "quantity": 10562209.0,
+   "state_tax": 235714.86,
+   "county_tax": 114876.28
+  },
+  "ert_barrel": {
+   "quantity": 24624198.0,
+   "state_tax": 25855407.9,
+   "county_tax": 0.0
+  },
+  "ert_mmbtu": {
+   "quantity": 5823582.0,
+   "state_tax": 1106480.58,
+   "county_tax": 0.0
+  }
+ },
+ "tobacco": {
+  "cigarettes": 64013496.0,
+  "other_tobacco": 8701974.78,
+  "e_liquids": 6739711.56,
+  "cigars": 2176266.26,
+  "little_cigars": 76891.32,
+  "license_fees": 45500.0,
+  "retail_permits": 60610.0,
+  "unallocated": 434854.71
+ }
+}

@@ -61,6 +61,7 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "transient_accommodations", "Transient accommodations tax", "base_rate",
         ("trans. accom. tax", "transient accommodations tax"),
+        model="state_revenue.excise.score_tat",
         statute="HRS ch. 237D",
         notes="Includes the timeshare occupancy tax.",
     ),
@@ -97,6 +98,7 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "fuel", "Fuel", "base_rate",
         ("fuel", "fuel and environmental"),
+        model="state_revenue.excise.score_fuel",
         statute="HRS ch. 243",
         notes="Gallons times per-gallon rates; DOTAX publishes gallons by fuel type. "
               "Includes the environmental response tax through FY2018.",
@@ -115,6 +117,7 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "rental_vehicle", "Rental vehicle tax and fees", "base_rate",
         ("rental vehicle tax and fees", "rental motor vehicle tax and fees", "rental vehicle tax"),
+        model="state_revenue.excise.score_rental_vehicle",
         statute="HRS ch. 251",
         notes="Inside motor vehicle through FY2018.",
     ),
@@ -128,6 +131,7 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "tobacco", "Tobacco and licenses", "base_rate",
         ("tobacco and licenses",),
+        model="state_revenue.excise.score_cigarettes",
         statute="HRS ch. 245",
     ),
     TaxLine(
@@ -138,6 +142,7 @@ LINES: tuple[TaxLine, ...] = (
     TaxLine(
         "environmental_response", "Environmental response", "base_rate",
         ("environmental response", "environmental response tax", "environmental tax"),
+        model="state_revenue.excise.score_fuel (ert_*)",
         statute="HRS §243-3.5",
         notes="The barrel tax on petroleum. Inside fuel through FY2018.",
     ),

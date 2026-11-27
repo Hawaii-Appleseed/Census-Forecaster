@@ -1,7 +1,8 @@
 # State tax revenue, every line — Scope
 
-**Status (2026-11-27): phases 1–3 built** (the ledger; the baseline and its backtest against the
-Council on Revenues; the general excise tax in full, below). Phases 4–5 are scope.
+**Status (2026-11-27): phases 1–4 built** (the ledger; the baseline and its backtest against the
+Council on Revenues; the general excise tax in full; the transient accommodations and excise
+scorers, below). Phase 5 is scope.
 
 Goal: model all of Hawaiʻi's state tax collections, not only the individual income tax, so
 that a baseline forecast covers every dollar and a change to any tax the repository can model
@@ -29,6 +30,10 @@ collected by DOTAX and would be its own parcel-based build.
   their inputs and pass on, residents bear 51% of the state tax, visitors 27%, investment 12%,
   government 6%, exports 4% (DBEDT's 2022 input-output table). A grocery exemption would cost
   the state about $305M in FY2025, 18% of it tax visitors pay now.
+- **Phase 4: every base-times-rate line scores.** The transient accommodations tax, fuel and the
+  barrel tax, cigarettes and the rental vehicle surcharge on their own bases and statutory rates;
+  liquor and the rest proportionally. A point on the transient accommodations tax is about $88M
+  in FY2027, 69% of it paid by visitors.
 
 ## The ledger (FY2025, DOTAX Annual Report Table 1.8)
 
@@ -376,6 +381,66 @@ Refreshing (after DBEDT's next benchmark table or HTA's next annual report):
 
     .venv/bin/python -m state_revenue.scripts.refresh_get_inputs --cache /tmp/get_inputs
 
+## As built (phase 4, November 27, 2026)
+
+| Piece | Where |
+|---|---|
+| Fuel gallons and tax by type, the barrel tax, tobacco by product (calendar 2024) | `.../state_revenue/data/excise_bases.json`, `scripts/refresh_excise_bases.py` |
+| Rate schedules and scorers | `.../state_revenue/excise.py` (`python -m state_revenue.excise`) |
+
+### Bases and rates
+
+- **Fuel.** DOTAX's calendar-year "Liquid Fuel Tax Base & Tax Collections": gallons and state and
+  county tax by fuel type, statewide. Each type's rate is its state tax over its gallons:
+  gasoline 16.0 cents, highway diesel 16.3, off-highway diesel and aviation 1.0. The environmental
+  response tax is $1.05 a barrel and $0.19 per MMBtu. State fuel tax adds to the report's
+  $79,236,953.86 to the cent. The ledger's fuel line is state plus county; a scorer changes the
+  state rate only.
+- **Tobacco.** The calendar-year "Cigarette & Tobacco Tax Collections": $64.0M from cigarettes
+  in 2024, so 400 million cigarettes at 16 cents. Products add to the report's $82,249,304.63.
+- **Rates in law** are the DOTAX annual report's (FY2025, sections 1.5, 1.7, 1.8), with dates, in
+  `SCHEDULES`: the transient accommodations tax 10.25% (2018–2030) plus Act 96's 0.75 points
+  (2026–2030), 9.25% after; the rental vehicle surcharge $6.00, $6.50 (2024), $7.00 (2025) a day;
+  cigarettes 16 cents (since July 2011). `rate_in(tax, fy)` weights a fiscal year's rates by days
+  (FY2026's transient accommodations rate is 10.62%).
+- **Bases without a published quantity** are the baseline's revenue over the rate in force. The
+  transient accommodations base this implies for FY2025 is $7.96B, above the general excise
+  table's transient accommodations base ($7.46B); the timeshare occupancy tax, levied on fair
+  market rental value, may account for the difference.
+
+### Scorers
+
+| Function | Changes | Base |
+|---|---|---|
+| `score_tat(rate, fy, elasticity=0)` | the transient accommodations rate | baseline revenue / rate in force |
+| `score_fuel({type: rate}, fy)` | state rates per gallon, per barrel, per MMBtu | 2024 quantities grown with the fuel (or environmental response) baseline |
+| `score_cigarettes(per_cigarette, fy, elasticity=0, pack_price=None)` | the tax per cigarette | 2024 cigarettes grown with the tobacco baseline |
+| `score_rental_vehicle(per_day, fy)` | the surcharge per day | baseline revenue / rate in force |
+| `score_proportional(line, multiplier, fy)` | every rate of a line by the same factor | the line's baseline |
+
+FY2027:
+
+| Change | State | Borne by visitors |
+|---|---|---|
+| Transient accommodations +1 point (11.00% to 12.00%) | 87.9 | 69% |
+|   same, elasticity -0.5 | 83.2 | 69% |
+| Gasoline and highway diesel +5 cents a gallon | 22.8 |  |
+| Environmental response tax +$1 a barrel | 25.2 |  |
+| Cigarettes +5 cents each ($1 a pack) | 20.0 |  |
+| Rental vehicle surcharge +$1 a day | 17.5 |  |
+| Liquor rates +10% | 5.1 |  |
+
+- Visitors' share of the transient accommodations tax is the input-output table's (its own row of
+  the tax by sector, through the same Leontief inverse as phase 3).
+- `elasticity` is the taxed quantity's response to the price with tax. It is zero by default: no
+  estimate here is sourced for Hawaiʻi.
+- The other lines (liquor, motor vehicle, insurance premiums, public service companies) score
+  proportionally: no published quantity for them is read yet.
+
+Refreshing (each year, after DOTAX posts the calendar-year summaries):
+
+    .venv/bin/python -m state_revenue.scripts.refresh_excise_bases --cache /tmp/excise
+
 ## Phases
 
 1. **Ledger and data.** Done (above).
@@ -386,9 +451,9 @@ Refreshing (after DBEDT's next benchmark table or HTA's next annual report):
 3. **General excise, all of it.** Done (above). Open: the base by activity by industry from DOTAX's
    detailed GET reports, to tighten `ACTIVITY_SECTORS` for services and rentals; behaviour (a
    rate's effect on the base); the simulator's GET line.
-4. **Transient accommodations and excise scorers (about 1 week).** TAT on DBEDT/HTA visitor
-   nights and room rates; fuel on DOTAX gallons; tobacco and liquor on quantities with published
-   price elasticities; vehicle taxes on registrations.
+4. **Transient accommodations and excise scorers.** Done (above). Open: liquor gallons by beverage
+   (DOTAX's calendar-year liquor summary gives dollars only), motor vehicle weight and
+   registration counts, and sourced elasticities.
 5. **Fiscal notes beyond income tax.** `fiscal_notes` translates a bill into an
    `IncomeTaxSpec`; add specs for general excise and transient accommodations changes and score
    them through the ledger.
