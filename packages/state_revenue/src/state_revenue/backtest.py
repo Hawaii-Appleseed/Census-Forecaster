@@ -86,7 +86,7 @@ def run(ledger: Ledger | None = None, forecasts: Iterable[CorForecast] | None = 
         totals = {t: 0.0 for t in targets}
         fallback = _total_growth(ledger, origin)
         for key in sorted({k for fy in ledger.years.values() for k in fy.lines}):
-            history = {fy: float(v) for fy, v in ledger.series(key).items() if fy <= origin}
+            history = {fy: float(v) for fy, v in ledger.clean_series(key).items() if fy <= origin}
             if origin not in history:
                 continue
             fc = forecast_line(history, max(HORIZONS), fallback_growth=fallback)
@@ -140,8 +140,8 @@ def summarize(records: list[Record], *, exclude_covid: bool = True) -> list[Summ
 #: fund's part of: the model is their only forecast.
 MODEL_ONLY_LINES = (
     "county_surcharge", "fuel", "motor_vehicle", "rental_vehicle", "environmental_response",
-    "unemployment", "transient_accommodations", "conveyance",
-)
+    "transient_accommodations", "conveyance",
+)       # unemployment contributions have their own model and backtest (state_revenue.unemployment)
 
 
 @dataclass(frozen=True)
@@ -160,7 +160,7 @@ def run_model_only(ledger: Ledger | None = None, lines: Iterable[str] = MODEL_ON
     ledger = ledger or load_ledger("all")
     out = []
     for key in lines:
-        series = {fy: float(v) for fy, v in ledger.series(key).items()}
+        series = {fy: float(v) for fy, v in ledger.clean_series(key).items()}
         errs: dict[int, list[float]] = {h: [] for h in HORIZONS}
         methods = set()
         for origin in origins:
@@ -169,7 +169,7 @@ def run_model_only(ledger: Ledger | None = None, lines: Iterable[str] = MODEL_ON
                 continue
             fallback = _total_growth(ledger, origin)
             if key in RIDES_ON:              # as the baseline does it: a share of the host
-                host = {fy: float(v) for fy, v in ledger.series(RIDES_ON[key]).items()
+                host = {fy: float(v) for fy, v in ledger.clean_series(RIDES_ON[key]).items()
                         if fy <= origin}
                 fc = forecast_line(host, max(HORIZONS), fallback_growth=fallback)
                 share = history[origin] / host[origin]
@@ -208,7 +208,7 @@ def run_holdout(ledger: Ledger | None = None,
         fallback = _total_growth(ledger, origin)
         totals = dict.fromkeys((origin + h for h in HORIZONS), 0.0)
         for key in sorted({k for y in ledger.years.values() for k in y.lines}):
-            history = {fy: float(v) for fy, v in ledger.series(key).items() if fy <= origin}
+            history = {fy: float(v) for fy, v in ledger.clean_series(key).items() if fy <= origin}
             if origin not in history:
                 continue
             fc = forecast_line(history, max(HORIZONS), fallback_growth=fallback)

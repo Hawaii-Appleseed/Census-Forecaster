@@ -366,6 +366,8 @@ jobs:
           uv run python -m state_revenue.scripts.refresh_cor_forecasts --if-new
           uv run python -m state_revenue.scripts.refresh_excise_bases --if-new
           uv run python -m state_revenue.scripts.refresh_get_inputs --if-new
+          # Monthly by nature: DOL's unemployment insurance files gain a month each time.
+          uv run python -m state_revenue.scripts.refresh_ui
 
       - name: Regenerate BLS v3 calibration
         id: regenerate-bls-v3-calibration

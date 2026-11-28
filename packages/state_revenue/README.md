@@ -29,6 +29,8 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
 - `excise.py`: scorers for the transient accommodations tax, fuel and the barrel tax,
   cigarettes, the rental vehicle surcharge, and any line proportionally;
   `python -m state_revenue.excise`.
+- `unemployment.py`: unemployment contributions as the rate schedule in force times
+  taxable payroll, on the Department of Labor's series; `python -m state_revenue.unemployment`.
 - `baseline.py`: every line by fiscal year, from the Council where it itemises a line, the model
   elsewhere.
 - `annual_report.py`: reads the "Tax Collections" table from an annual report.
@@ -39,8 +41,10 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
 - `scripts/refresh_excise_bases.py`: fetches DOTAX's calendar-year fuel and tobacco
   summaries and its transient accommodations base into `data/excise_bases.json`.
 
-Every refresh script takes `--if-new` (do nothing unless the source posted a report the
+Every refresh script but `refresh_ui` (monthly data) takes `--if-new` (do nothing unless the source posted a report the
 bundled file lacks); the monthly `refresh-data` workflow runs them that way.
+- `scripts/refresh_ui.py`: fetches DOL's unemployment insurance files and DLIR's rate
+  schedules into `data/ui_hawaii.json`.
 - `scripts/refresh_cor_forecasts.py`: fetches the Council's attachments and rewrites
   `data/cor_line_forecasts.json`.
 
