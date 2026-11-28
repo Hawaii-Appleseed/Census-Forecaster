@@ -51,16 +51,18 @@ def state_headline(score: dict) -> dict:
     """The hub's headline block from a state-tax score: five-year totals in
     $ millions, positive raises revenue. The years are FISCAL years (the income
     tax path's are tax years); the note says so. ``low`` is the total under
-    the largest sourced response where one is scored (transient
-    accommodations), else the static figure; ``high`` and ``mid`` are static."""
+    the largest sourced response of each component that has one (transient
+    accommodations, cigarettes, gasoline); ``high`` and ``mid`` are static."""
     years = score["fiscal_years"]
     if len(years) < 1:
         raise ResultError("the state-tax score has no fiscal years")
     static = float(score["state_total"])
     low = static
-    tat = score["components"].get("transient_accommodations", {}).get("with_response")
-    if tat:
-        low = static + float(tat["high"]) - float(tat["low"])
+    for comp in score["components"].values():
+        r = comp.get("with_response")
+        if r:                                    # the largest sourced response against none
+            static_part = sum(float(v) for v in comp["state"].values())
+            low += float(r["high"]) - static_part
     lo, hi = min(low, static), max(low, static)
     return {"five_year_mid": round(static / 1e3, 1) + 0.0, "five_year_low": round(lo / 1e3, 1) + 0.0,
             "five_year_high": round(hi / 1e3, 1) + 0.0,

@@ -320,6 +320,12 @@ def _first_year_share(effective: dt.date, fy: int) -> float:
     return max(0.0, (end - effective).days / (end - start).days)
 
 
+def _range_total(ranges: dict[int, dict[str, float]], eff: dt.date, years: list[int]) -> dict[str, float]:
+    """Sum a component's low, middle and high responses over the scored years."""
+    return {k: sum(ranges[fy][k] * _first_year_share(eff, fy) for fy in years)
+            for k in ("low", "mid", "high")}
+
+
 def score_spec(spec: dict) -> dict:
     """Static change in state revenue by fiscal year, $ thousands, by component.
 
@@ -386,18 +392,21 @@ def score_spec(spec: dict) -> dict:
             tat["rate"] / 100 if "rate" in tat else
             excise.rate_in("transient_accommodations", fy) + tat["rate_change_points"] / 100, fy)
             for fy in years}
-        components["transient_accommodations"]["with_response"] = {
-            k: sum(ranges[fy][k] * _first_year_share(eff, fy) for fy in years)
-            for k in ("low", "mid", "high")}
+        components["transient_accommodations"]["with_response"] = _range_total(ranges, eff, years)
     if "cigarettes" in spec:
         cents = spec["cigarettes"]["cents_per_cigarette"]
         add("cigarettes", "Cigarette tax", lambda fy: excise.score_cigarettes(cents / 100, fy))
+        components["cigarettes"]["with_response"] = _range_total(
+            {fy: excise.cigarette_range(cents / 100, fy) for fy in years}, eff, years)
     fuel = spec.get("fuel") or {}
     new_fuel = {k: v / 100 for k, v in (fuel.get("cents_per_gallon") or {}).items()}
     if "dollars_per_barrel" in fuel:
         new_fuel["ert_barrel"] = fuel["dollars_per_barrel"]
     if new_fuel:
         add("fuel", "Fuel and environmental response taxes", lambda fy: excise.score_fuel(new_fuel, fy))
+        if {"gasoline", "diesel_highway"} & set(new_fuel):
+            components["fuel"]["with_response"] = _range_total(
+                {fy: excise.gasoline_range(new_fuel, fy) for fy in years}, eff, years)
     if "liquor" in spec:
         add("liquor", "Liquor tax",
             lambda fy: excise.score_liquor(spec["liquor"]["dollars_per_gallon"], fy))
@@ -439,6 +448,16 @@ def _m(thousands: float) -> str:
     """$ millions with sign, from thousands."""
     v = thousands / 1e3
     return f"{'+' if v > 0 else '−' if v < 0 else ''}${abs(v):,.1f}M"
+
+
+_RESPONSE_NOTES = {
+    "transient_accommodations": "Room nights to the room price: none (Bonham and Gangnes 1996, on the 1987 "
+                                "room tax), -1.0 and -1.5 (Fujii, Khaled and Mak 1988).",
+    "cigarettes": "Adult demand to the price of a pack: -0.29, -0.37, -0.47 (Community Preventive Services "
+                  "Task Force 2012, national), at the average Hawaii pack price (CDC, Tax Burden on Tobacco).",
+    "fuel": "Gasoline and highway diesel to the pump price, short run: -0.034, -0.077, -0.21 (Hughes, "
+            "Knittel and Sperling 2006, national), at DBEDT's Hawaii prices; other fuels static.",
+}
 
 
 def _provision_lines(provisions: list[dict]) -> list[str]:
@@ -484,15 +503,17 @@ def render_note(translation: dict, score: dict | None) -> str:
             co = [score["county"][fy] if fy in score["county"] else score["county"][str(fy)] for fy in years]
             lines.append("| County surcharge | " + " | ".join(_m(v) for v in co) + f" | {_m(sum(co))} |")
         lines.append("")
-        tat_c = score["components"].get("transient_accommodations", {})
-        if "with_response" in tat_c:
-            r = tat_c["with_response"]
-            lines += ["## If visitors respond", "",
-                      "The table above is static. If room nights respond to the higher price, the "
-                      f"transient accommodations change over the period is {_m(r['low'])} (no response: "
-                      f"Bonham and Gangnes 1996 found none from the 1987 room tax), {_m(r['mid'])} "
-                      f"(elasticity -1.0) or {_m(r['high'])} (-1.5; Fujii, Khaled and Mak 1988). "
-                      "The general excise tax lost on those rooms is not counted.", ""]
+        responding = [(k, c) for k, c in score["components"].items() if "with_response" in c]
+        if responding:
+            lines += ["## If buyers respond", "",
+                      "The table above is static. With the sourced responses (low, middle, high; "
+                      "`state_revenue/elasticities.py`), the change over the period is:", ""]
+            for key, c in responding:
+                r = c["with_response"]
+                lines.append(f"- {c['label']}: {_m(r['low'])}, {_m(r['mid'])}, {_m(r['high'])}. "
+                             + _RESPONSE_NOTES[key])
+            lines += ["", "Tax lost on other lines when less is sold (the general excise tax on rooms, "
+                      "packs or gallons) is not counted.", ""]
         borne = [(c["label"], c["borne_by"]) for c in score["components"].values() if c["borne_by"]]
         if borne:
             lines += ["## Who bears it", ""]

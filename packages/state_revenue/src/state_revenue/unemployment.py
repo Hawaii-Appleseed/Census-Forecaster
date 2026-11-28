@@ -23,8 +23,9 @@ rate year and the February-June part of the next.
 The forecast: rate-year receipts = the effective rate of the schedule in
 force (the latest rate year under the same schedule; for a schedule not yet
 seen, the last year's rate moved by the ratio of the schedules' new-employer
-rates) times taxable payroll (ETA 204, grown by its own damped trend). A year whose schedule DLIR has not
-announced keeps the last announced one. Months DOL has already reported are
+rates) times taxable payroll (ETA 204, grown by its own damped trend). A year
+whose schedule DLIR has not announced takes the one the statute's rule gives
+on the projected trust fund (``state_revenue.ui_schedule``). Months DOL has already reported are
 used as they are.
 """
 from __future__ import annotations
@@ -40,14 +41,22 @@ from state_revenue.ledger import load_ledger
 
 SHARE_YEARS = 5          # rate years the February-June share is averaged over
 
+#: The rate a new employer pays under each schedule, percent: the ".0000 to
+#: .0299" reserve-ratio line of the table in HRS §383-68(d). DLIR's page shows
+#: the same figures for the schedules it has used (C 2.4, D 3.0, F 4.0).
+NEW_EMPLOYER_RATE = {"A": 1.7, "B": 1.9, "C": 2.4, "D": 3.0, "E": 3.4, "F": 4.0, "G": 4.6, "H": 5.2}
+
 
 @dataclass(frozen=True)
 class UIData:
     monthly: dict[str, float]                 # "YYYY-MM" -> net contributions, dollars
     balance: dict[str, float]                 # trust fund balance forward
     taxable_payroll: dict[int, float]         # calendar year -> dollars
-    schedules: dict[int, str]                 # calendar year -> "A".."H"
+    schedules: dict[int, str]                 # calendar year -> "A".."H", as DLIR announced
     new_employer_rate: dict[int, float]       # calendar year -> the schedule's new-employer rate
+    benefits: dict[str, float]                # "YYYY-MM" -> net UI benefits paid, dollars
+    interest: dict[str, float]                # "YYYY-MM" -> Treasury interest credited
+    total_payroll: dict[int, float]           # calendar year -> dollars
 
     def window(self, first: str, last: str) -> float | None:
         """Contributions from month ``first`` to ``last`` inclusive; None if any is missing."""
@@ -84,6 +93,9 @@ def load_ui() -> UIData:
         taxable_payroll={int(y): v["taxable_payroll"] for y, v in d["payroll"].items()},
         schedules={int(y): v["schedule"] for y, v in d["schedules"].items()},
         new_employer_rate={int(y): v["new_employer_rate"] for y, v in d["schedules"].items()},
+        benefits={k: v["benefits"] for k, v in d["monthly"].items()},
+        interest={k: v["interest"] for k, v in d["monthly"].items()},
+        total_payroll={int(y): v["total_payroll"] for y, v in d["payroll"].items()},
     )
 
 
@@ -131,16 +143,20 @@ def forecast_rate_year(year: int, ui: UIData | None = None, *, known_through: in
     last = max(rates)
     if year <= last:
         return ui.rate_year(year)
-    in_force = max(y for y in ui.schedules if y <= year)           # unannounced years keep the last
-    schedule = schedule or ui.schedules[in_force]
+    if schedule is None:
+        schedule = ui.schedules.get(year)
+    if schedule is None:
+        # not announced yet: the statute's rule on the projected trust fund (ui_schedule)
+        from state_revenue.ui_schedule import projected_schedules
+        schedule = projected_schedules(year, ui)[year]
     try:
         rate = schedule_rate(schedule, ui, through=last)
     except KeyError:
         # A schedule with no complete year yet: the last year's effective rate,
         # moved by the ratio of the two schedules' new-employer rates.
         rate = rates[last]
-        if last in ui.new_employer_rate and schedule == ui.schedules[in_force]:
-            rate *= ui.new_employer_rate[in_force] / ui.new_employer_rate[last]
+        if last in ui.schedules:
+            rate *= NEW_EMPLOYER_RATE[schedule] / NEW_EMPLOYER_RATE[ui.schedules[last]]
     history = {y: v for y, v in ui.taxable_payroll.items() if y <= last}
     payroll = forecast_line(history, year - last, method="damped").values[year]
     return rate * payroll

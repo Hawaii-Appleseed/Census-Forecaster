@@ -8,8 +8,10 @@ pytestmark = pytest.mark.smoke
 
 
 def test_parsers():
-    m = parse_2112('"st","rptdate","c1","c3","c9"\n"HI","2025-10-31",1,800.5,42.8\n"AK","2025-10-31",1,2,3\n')
-    assert m == {"2025-10": {"contributions": 42.8, "trust_fund_balance": 800.5}}
+    m = parse_2112('"st","rptdate","c1","c3","c9","c13","c51"\n"HI","2025-10-31",1,800.5,42.8,5.5,12.25\n'
+                   '"AK","2025-10-31",1,2,3,4,5\n')
+    assert m == {"2025-10": {"contributions": 42.8, "trust_fund_balance": 800.5, "benefits": 12.25,
+                             "interest": 5.5}}
     p = parse_204('"st","rptdate","c5","c7","c8"\n"HI","2026-12-31",2025-12-31,31.0,21.9\n'
                   '"HI","1990-12-31",1990-06-30,9,8\n')
     assert p == {2025: {"total_payroll": 31.0, "taxable_payroll": 21.9}}
@@ -60,3 +62,32 @@ def test_backtest_and_forecast():
     later = un.forecast_fiscal_year(2028)
     assert 0.8 * ui.fiscal_year(2026) < later < 1.4 * ui.fiscal_year(2026)
     assert un.ledger_line(2028) == pytest.approx(later * un.dotax_ratio(ui)[1] / 1e3)
+
+
+def test_statutory_rule_reproduces_announced_schedules():
+    from state_revenue import ui_schedule as us
+    assert [us.schedule_for_ratio(r) for r in (1.70, 1.694, 1.30, 1.294, 1.0, 0.8, 0.43, 0.2, 0.19)] == [
+        "A", "B", "B", "C", "C", "D", "F", "G", "H"]
+    rows = {r["for_year"]: r for r in us.check()}
+    assert set(rows) == {2020, 2021, 2022, 2023, 2024, 2025, 2026}
+    for year in (2023, 2024, 2025, 2026):                       # set by the ratio, and reproduced
+        assert rows[year]["match"] and not rows[year]["statutory"], year
+    assert rows[2023]["ratio"] == pytest.approx(0.43, abs=0.01)
+    assert rows[2021]["statutory"] and rows[2021]["ratio"] < 0.05     # the statute overrode schedule H
+    # The one miss: 1.37 where DLIR's own figures must have been under 1.30.
+    assert not rows[2020]["match"] and rows[2020]["ratio"] == pytest.approx(1.37, abs=0.02)
+
+
+def test_projected_schedules_feed_the_forecast():
+    from state_revenue import ui_schedule as us
+    ui = un.load_ui()
+    sched = us.projected_schedules(2031)
+    assert {y: sched[y] for y in ui.schedules} == ui.schedules     # announced years are kept
+    ratios = us.projected_ratios(2031)
+    assert set(ratios) == set(range(max(ui.schedules) + 1, 2032))
+    assert all(sched[y] == us.schedule_for_ratio(ratios[y]) for y in ratios)
+    # a schedule never used takes the last rate moved by the statute's new-employer rates
+    last = max(un.effective_rates(ui))
+    fc = un.forecast_rate_year(last + 2, ui, schedule="B")
+    same = un.forecast_rate_year(last + 2, ui, schedule=ui.schedules[last])
+    assert fc / same == pytest.approx(un.NEW_EMPLOYER_RATE["B"] / un.NEW_EMPLOYER_RATE[ui.schedules[last]])

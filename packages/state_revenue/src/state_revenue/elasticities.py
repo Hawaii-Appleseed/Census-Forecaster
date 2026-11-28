@@ -7,8 +7,8 @@ response (the most revenue from a rate increase), ``high`` the largest.
 
 The scorers stay static unless a caller passes an elasticity. An ad valorem
 tax (transient accommodations) needs nothing else. A per-unit tax
-(cigarettes, fuel) also needs the price with tax, which is not bundled: no
-Hawaiʻi retail price series is read yet.
+(cigarettes, fuel) also needs the price with tax: ``excise.retail_price``
+(DBEDT's monthly gasoline and diesel prices; CDC's average cost of a pack).
 """
 from __future__ import annotations
 

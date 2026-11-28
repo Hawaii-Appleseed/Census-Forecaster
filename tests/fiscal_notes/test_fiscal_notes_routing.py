@@ -80,7 +80,7 @@ def test_state_only_bill_posts_the_state_note(tmp_path):
     assert body["status"] == "ready"
     r = body["result"]
     assert r["verdict"] == "partial"
-    assert "Transient accommodations tax rate" in r["markdown"] and "If visitors respond" in r["markdown"]
+    assert "Transient accommodations tax rate" in r["markdown"] and "If buyers respond" in r["markdown"]
     h = r["headline"]
     assert h["first_year"] == 2027 and h["last_year"] == 2031
     assert h["five_year_mid"] == pytest.approx(r["score"]["state_total"] / 1e3, abs=0.06)

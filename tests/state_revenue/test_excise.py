@@ -164,3 +164,22 @@ def test_fuel_response_needs_a_price():
     static = ex.score_fuel(new, data_fy).state
     assert ex.score_fuel(new, data_fy, elasticity=-0.077).state == pytest.approx(static)
     assert ex.score_fuel(new, data_fy, elasticity=-0.077, prices={"gasoline": 4.50}).state < static
+
+
+def test_retail_prices_and_ranges():
+    from state_revenue.scripts.refresh_retail_prices import parse_cigarettes
+    gas, period = ex.retail_price("gasoline")
+    assert 3.0 < gas < 8.0 and " to " in period
+    pack, year = ex.retail_price("cigarettes")
+    assert pack == pytest.approx(9.444) and year == "2019"        # the dataset's last year
+    with pytest.raises(KeyError):
+        ex.retail_price("jet fuel")
+    assert parse_cigarettes([{"locationabbr": "HI", "year": "2019", "data_value": "9.444",
+                              "submeasuredesc": "Average Cost per pack"},
+                             {"locationabbr": "HI", "year": "2019", "data_value": "3.2",
+                              "submeasuredesc": "State Tax per pack"}]) == {2019: 9.444}
+    c = ex.cigarette_range(0.21, 2027)
+    assert c["high"] < c["mid"] < c["low"] < c["static"]
+    g = ex.gasoline_range({"gasoline": ex.fuel_rates()["gasoline"] + 0.05}, 2027)
+    assert g["high"] < g["mid"] < g["low"] < g["static"]
+    assert g["high"] / g["static"] > 0.98                         # a nickel on a $5 gallon barely moves demand
