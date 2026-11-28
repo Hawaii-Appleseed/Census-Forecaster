@@ -197,3 +197,15 @@ def test_cli_state_run_out_of_scope_and_invalid(tmp_path):
     rc = main(["state-run", str(ex.BILLS_DIR / f"{case}.txt"), "--out", str(tmp_path / "bad")],
               runner=lambda prompt: "not json")
     assert rc == 1
+
+
+def test_tat_note_gives_the_sourced_response_range():
+    score = st.score_spec({"effective": "2027-07-01", "transient_accommodations": {"rate_change_points": 1}})
+    r = score["components"]["transient_accommodations"]["with_response"]
+    assert r["low"] == pytest.approx(score["state_total"]) and r["high"] < r["mid"] < r["low"]
+    translation = {"label": "TEST (2027)", "verdict": "full", "provisions": [], "notes": "",
+                   "bill_sha256": "0" * 64, "model": "x"}
+    note = st.render_note(translation, json.loads(st.dumps(score)))
+    assert "## If visitors respond" in note and "Fujii, Khaled and Mak 1988" in note
+    other = st.render_note(translation, st.score_spec({"cigarettes": {"cents_per_cigarette": 21}}))
+    assert "If visitors respond" not in other

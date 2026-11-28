@@ -142,3 +142,25 @@ def test_cigarettes_and_rental_vehicles():
 def test_proportional():
     revenue = load_ledger()[2025].lines["liquor"]
     assert ex.score_proportional("liquor", 1.1, 2025).state == pytest.approx(0.1 * revenue)
+
+
+def test_sourced_elasticities_and_tat_range():
+    from state_revenue.elasticities import ELASTICITIES, get
+    for e in ELASTICITIES.values():
+        assert e.high <= e.mid <= e.low <= 0             # low is the smallest response
+        assert e.sources and all("http" in src for src in e.sources)
+    assert get("cigarettes").mid == -0.37
+    with pytest.raises(KeyError):
+        get("liquor")
+    r = ex.tat_range(ex.rate_in("transient_accommodations", 2027) + 0.01, 2027)
+    assert r["low"] == pytest.approx(r["static"])        # Bonham and Gangnes: no response
+    assert r["high"] < r["mid"] < r["static"]
+    assert r["mid"] / r["static"] == pytest.approx(0.89, abs=0.02)
+
+
+def test_fuel_response_needs_a_price():
+    data_fy = ex.load_bases()["calendar_year"] + 1
+    new = {"gasoline": ex.fuel_rates()["gasoline"] + 0.05}
+    static = ex.score_fuel(new, data_fy).state
+    assert ex.score_fuel(new, data_fy, elasticity=-0.077).state == pytest.approx(static)
+    assert ex.score_fuel(new, data_fy, elasticity=-0.077, prices={"gasoline": 4.50}).state < static
