@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fiscal_notes import _lrt_fetch
+from fiscal_notes import _lrt_fetch, routing
 from fiscal_notes.cli import _write_note, parse_header, sha256, write_outputs
 from fiscal_notes.hub_result import (
     ResultError,
@@ -298,6 +298,12 @@ class Deps:
     commit: Callable[[], str | None] = lambda: model_provenance()["model_git_sha"]
     model: str = "sonnet"
     population: str | None = None
+    #: Also send a bill that touches the general excise tax, the transient accommodations tax or
+    #: an excise down the state-tax path (``routing.py``). Off here so a caller opts in; the CLI
+    #: turns it on.
+    route_state: bool = False
+    translate_state: Callable[[str], Translation] | None = None   # bill_text; None: run_claude
+    score_state: Callable[[dict], dict] | None = None             # spec; None: state_taxes.score_spec
 
 
 @dataclass
@@ -331,12 +337,58 @@ def work_dir_for(root: Path, year: int, name: str) -> Path:
     return root / str(year) / name
 
 
+def _state_part(text: str, header: dict, deps: Deps, out: Path) -> dict | None:
+    """The state-tax path's ``{"translation", "score", "note"}`` for a bill it can score, with its
+    files written under ``out``; None when the path is off, the bill does not touch those taxes,
+    nothing in it can be scored there, or that path fails (the income tax result then stands alone;
+    the reason is left in ``<name>.state_path.txt``)."""
+    if not deps.route_state or not routing.mentions_state_taxes(text):
+        return None
+    from fiscal_notes import state_taxes as st
+    from fiscal_notes.cli import _state_outputs
+
+    why = out / f"{header['name']}.state_path.txt"
+    try:
+        translate = deps.translate_state or (
+            lambda bill: st.translate_bill(bill, functools.partial(run_claude, model=deps.model)))
+        t = translate(text)
+        translation = _state_outputs(text, t, header, deps.model, out, quiet=True)
+        if translation["verdict"] not in routing.SCORED:
+            why.write_text(f"state-tax path: {translation['verdict']}\n"
+                           + "".join(f"- {p}\n" for p in translation["problems"]))
+            return None
+        score = (deps.score_state or st.score_spec)(t.result.spec)
+        note = st.render_note(translation, score)
+        (out / f"{header['name']}.state_score.json").write_text(st.dumps(score))
+        (out / f"{header['name']}.state_note.md").write_text(note)
+        return {"translation": translation, "score": json.loads(st.dumps(score)), "note": note}
+    except Exception as e:  # noqa: BLE001 - the second path must never sink the first
+        why.write_text(f"state-tax path raised {type(e).__name__}: {e}\n")
+        return None
+
+
+def _state_result(req: dict, state: dict, text: str, deps: Deps) -> dict:
+    """The body to post for a bill only the state-tax path scored."""
+    try:
+        result = build_result(state["translation"], state["score"], state["note"],
+                              commit=deps.commit() or "unknown", model=deps.model,
+                              bill_sha256=sha256(text), headline=routing.state_headline(state["score"]))
+    except ResultError as e:
+        return {"id": req["id"], "status": "failed", "detail": failed_detail(str(e))}
+    return {"id": req["id"], "status": "ready", "result": result}
+
+
 def make_note_and_result(req: dict, text: str, t: Translation, deps: Deps, out: Path) -> dict:
     """Write the request's files under ``out`` and return the body to post (ready or failed)."""
     header = parse_header(text)
     write_outputs(text, t, header, deps.model, out)
     translation = json.loads((out / f"{header['name']}.translation.json").read_text())
     verdict = translation["verdict"]
+    state = _state_part(text, header, deps, out)
+    if state is not None and verdict not in routing.SCORED:
+        # the income tax path found nothing to score (or could not read the bill): the note is
+        # the state-tax path's
+        return _state_result(req, state, text, deps)
     if verdict == "invalid":
         return {"id": req["id"], "status": "failed", "detail": invalid_detail(translation["problems"])}
     spec_path = out / f"{header['name']}.spec.yaml"
@@ -351,9 +403,26 @@ def make_note_and_result(req: dict, text: str, t: Translation, deps: Deps, out: 
                     "detail": failed_detail(f"scoring raised {type(e).__name__}: {e}")}
     _write_note(translation, score, out, header["name"])
     note = (out / f"{header['name']}.note.md").read_text()
+    head = None
+    if state is not None and score is not None:
+        # both paths scored: one note, the two headlines added, one provision list
+        from fiscal_notes.hub_result import headline as income_headline
+        try:
+            head = routing.combined_headline(income_headline(score), routing.state_headline(state["score"]))
+        except ResultError as e:
+            return {"id": req["id"], "status": "failed", "detail": failed_detail(str(e))}
+        note = routing.combine_notes(translation["label"], note, state["note"], head)
+        (out / f"{header['name']}.combined_note.md").write_text(note)
+        translation = {**translation,
+                       "verdict": routing.combined_verdict(verdict, state["translation"]["verdict"]),
+                       "provisions": routing.merge_provisions(translation["provisions"],
+                                                              state["translation"]["provisions"]),
+                       "notes": "\n\n".join(n for n in (translation["notes"],
+                                                        state["translation"]["notes"]) if n)}
+        score = {**score, "state_taxes": state["score"]}
     try:
         result = build_result(translation, score, note, commit=deps.commit() or "unknown",
-                              model=deps.model, bill_sha256=sha256(text))
+                              model=deps.model, bill_sha256=sha256(text), headline=head)
     except ResultError as e:
         return {"id": req["id"], "status": "failed", "detail": failed_detail(str(e))}
     return {"id": req["id"], "status": "ready", "result": result}
