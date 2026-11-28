@@ -732,11 +732,8 @@ three rates 10% is $5.2M, where the proportional scorer gave $5.1M.
 
 ### Still open
 
-- **Retail prices** for cigarettes and gasoline in Hawaiʻi, so their sourced elasticities
-  (next section) can be applied in fiscal notes.
-- **The unemployment schedule after 2026** (the adequate reserve computation).
-- **Phase 5:** fiscal notes for bills that change the general excise or transient
-  accommodations tax.
+- Nothing from this list: the monthly history, cash timing, investment, liquor, elasticities,
+  retail prices, the unemployment schedule and phase 5 are each done in a section below or above.
 
 ## Sourced elasticities (November 28, 2026)
 
@@ -764,6 +761,87 @@ unless a caller passes one.
 Sources that would not open to a script or the browser (bot checks): the National Tax Journal
 page for Fujii, Khaled and Mak (1985), and CBO's 2012 cigarette tax report. The working paper and
 the task force statement above carry the same figures and did open.
+
+## The unemployment schedule by rule, and retail prices (November 28, 2026)
+
+### Which schedule the statute puts in force
+
+`state_revenue/ui_schedule.py`. HRS §383-68(c) sets the next year's contribution rate schedule by
+the ratio of the *current reserve fund* (the trust fund on November 30) to the *adequate reserve
+fund* (§383-63: the highest twelve-month benefit cost rate of the last ten years, times total
+remuneration in the four quarters ending June 30; for 2023–2030 the rates of June 2020 to August
+2021 are left out). Above 1.69 is schedule A, 1.30–1.69 B, 1.00–1.29 C, 0.80–0.99 D, 0.60–0.79
+E, 0.40–0.59 F, 0.20–0.39 G, below that H.
+
+Computed from the Department of Labor's files (benefits and the fund's balance by month, payroll
+by year):
+
+| For year | Current reserve ($M) | Adequate reserve ($M) | Ratio | Rule gives | DLIR announced |
+|---|---|---|---|---|---|
+| 2020 | 605.7 | 443.3 | 1.37 | B | C **miss** |
+| 2021 | 24.9 | 1,460.3 | 0.02 | H | D (set by statute) |
+| 2022 | 55.6 | 1,564.2 | 0.04 | H | D (set by statute) |
+| 2023 | 223.8 | 518.4 | 0.43 | F | F |
+| 2024 | 499.1 | 563.4 | 0.89 | D | D |
+| 2025 | 670.9 | 599.6 | 1.12 | C | C |
+| 2026 | 764.7 | 628.8 | 1.22 | C | C |
+
+- The rule reproduces the four schedules it set most recently (2023–2026). 2021 and 2022 were
+  fixed at D by the statute; the ratio alone would have given H.
+- **It misses 2020**: 1.37 here, where DLIR's own figures must have been under 1.30. Two things
+  are approximated: remuneration for four quarters ending June 30 is the mean of the two calendar
+  years (DOL's payroll is annual), and the balance carried into December stands for the fund on
+  November 30. So a projected ratio within about 0.1 of a band's edge can fall either side.
+- The twelve-month periods counted are those that begin inside the ten years, as §383-63 words
+  it. Counting periods that merely end inside them reproduces 2020 too, but would bring the
+  pandemic's benefit cost rates back for 2031, when the exclusion lapses, and put schedule H in
+  force with a full fund; the statute's wording avoids that.
+
+### Running it forward
+
+The fund is rolled forward by month: contributions from the schedule model, benefits at the
+latest twelve months' benefit cost rate, interest at the latest twelve months' rate. Each
+November the ratio sets the next year's schedule, which sets the next year's contributions. A
+schedule never used (A, B) takes the last year's effective rate moved by the ratio of the
+statute's new-employer rates (A 1.7%, B 1.9%, C 2.4%, D 3.0%, F 4.0%).
+
+| Calendar year | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 | 2033 |
+|---|---|---|---|---|---|---|---|
+| Projected ratio | 1.30 | 1.31 | 1.31 | 1.32 | 2.13 | 3.60 | 3.52 |
+| Schedule | B | B | B | B | A | A | A |
+
+| Fiscal year | 2026 | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 | 2033 |
+|---|---|---|---|---|---|---|---|---|
+| Ledger line ($M) | 247 | 233 | 209 | 220 | 231 | 234 | 228 | 239 |
+
+- **2027 sits on an edge** (1.30, the floor of B). DLIR announces it in December 2026; the next
+  refresh replaces the projection.
+- From 2031 the pandemic rolls out of the ten-year window, the adequate reserve fund falls by
+  more than half over two years, and the rule gives schedule A.
+- The all-funds baseline is $11.29B in FY2026 and $13.83B in FY2033 (was $11.29B and
+  $13.93B with schedule C held).
+
+### Retail prices, so the per-unit taxes can respond
+
+`excise.retail_price`; `scripts/refresh_retail_prices.py` writes `data/retail_prices.json`.
+
+- **Gasoline and diesel**: DBEDT's Monthly Energy Data, statewide, by month from 2006. The mean
+  of the last twelve months: regular gasoline $5.13 a gallon, diesel $6.36.
+- **Cigarettes**: CDC's Tax Burden on Tobacco, average cost of a pack in Hawaiʻi: $9.44 in 2019,
+  the dataset's last year. Stale: a higher price today would make the response smaller than
+  scored.
+
+With prices, the sourced elasticities apply to cigarettes and fuel (`excise.cigarette_range`,
+`excise.gasoline_range`), FY2027, $ millions:
+
+| Change | Static | Low | Middle | High |
+|---|---|---|---|---|
+| Cigarettes to 21 cents | 20.0 | 17.4 | 16.7 | 15.8 |
+| Gasoline and highway diesel +5 cents | 23.0 | 22.9 | 22.9 | 22.8 |
+
+A nickel on a five-dollar gallon is 1% of the price, so gasoline barely moves. Fiscal notes now
+carry the range for cigarettes and fuel as well as the transient accommodations tax, under "If
+buyers respond", and the hub headline's low figure uses the largest response of each.
 
 ## Phases
 

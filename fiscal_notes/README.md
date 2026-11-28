@@ -233,8 +233,8 @@ the tax, and none of the income tax fixtures trips the gate. `--no-state-taxes` 
 | nothing / invalid | nothing / fails | what the income tax path alone decides |
 
 The wire contract is unchanged: no field is added. For a state-tax note the headline's years are
-fiscal years and `five_year_low` is the total under the largest sourced response where one applies
-(the transient accommodations tax), else the static figure. For a combined note the headlines are
+fiscal years and `five_year_low` is the total under the largest sourced response of each component that has one
+(the transient accommodations tax, cigarettes, gasoline), else the static figure. For a combined note the headlines are
 added, the year labels are the income tax path's, the provision list is merged (each provision
 tagged `path`), and the state-tax score sits under `score.state_taxes`. A failure on the state-tax
 path never fails the request: the income tax result is posted and the reason is left in

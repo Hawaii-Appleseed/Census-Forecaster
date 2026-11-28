@@ -4,8 +4,9 @@ Three public sources, no keys:
 
 - US Department of Labor, ETA 2112 (UI Financial Transaction Summary),
   ``ar2112.csv``: by state and month. Kept for Hawaiʻi: net UI contributions
-  (line 11, column ``c9``) and the trust fund account's balance forward (line
-  1, ``c3``). Column meanings are DOL's data map (ET Handbook 402, "ar2112").
+  (line 11, column ``c9``), the trust fund account's balance forward (line 1,
+  ``c3``), net UI benefits (line 31, ``c51``) and Treasury interest credits
+  (line 13, ``c13``). Column meanings are DOL's data map (ET Handbook 402, "ar2112").
 - ETA 204 (Experience Rating Report), ``ar204.csv``: by state and rate year.
   Kept: total and taxable payroll of taxable accounts (line 101, ``c7`` and
   ``c8``) for the 12 months ending ``c5``.
@@ -37,7 +38,7 @@ STATE = "HI"
 
 
 def parse_2112(text: str, state: str = STATE) -> dict[str, dict[str, float]]:
-    """``{"YYYY-MM": {"contributions", "trust_fund_balance"}}``, dollars."""
+    """``{"YYYY-MM": {"contributions", "trust_fund_balance", "benefits", "interest"}}``, dollars."""
     out = {}
     for row in csv.DictReader(io.StringIO(text)):
         if row["st"] != state:
@@ -45,6 +46,8 @@ def parse_2112(text: str, state: str = STATE) -> dict[str, dict[str, float]]:
         out[row["rptdate"][:7]] = {
             "contributions": float(row["c9"] or 0),
             "trust_fund_balance": float(row["c3"] or 0),
+            "benefits": float(row["c51"] or 0),
+            "interest": float(row["c13"] or 0),
         }
     if not out:
         raise ValueError(f"ETA 2112: no rows for {state}")

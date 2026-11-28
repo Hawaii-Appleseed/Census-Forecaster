@@ -24,7 +24,8 @@ Rates come from DOTAX documents, not from memory:
 
 Static by default. ``elasticity`` (of the taxed quantity to the tax-inclusive
 price) applies where the price is known: the transient accommodations tax,
-an ad valorem rate, and cigarettes and fuel when the caller gives a price.
+an ad valorem rate, and cigarettes and fuel at Hawaiʻi retail prices
+(``retail_price``; DBEDT for fuel, CDC's Tax Burden on Tobacco for cigarettes).
 Sourced low, middle and high values are in ``state_revenue.elasticities``. Liquor scores per gallon on NIAAA's gallons
 (``score_liquor``). Motor vehicle and the rest take
 ``score_proportional``: a rate change of x% moves the line's revenue x%.
@@ -32,6 +33,7 @@ Sourced low, middle and high values are in ``state_revenue.elasticities``. Liquo
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import date
 from functools import lru_cache
 
@@ -89,6 +91,54 @@ def _line(line: str, fiscal_year: int, baseline: dict[int, float] | None) -> flo
 
 def _growth(line: str, fiscal_year: int, data_fy: int, baseline: dict[int, float] | None) -> float:
     return _line(line, fiscal_year, baseline) / _line(line, data_fy, baseline)
+
+
+# --- retail prices (for per-unit taxes) ------------------------------------------------
+
+@lru_cache(maxsize=1)
+def load_prices() -> dict:
+    return json.loads((DATA / "retail_prices.json").read_text())
+
+
+def retail_price(kind: str) -> tuple[float, str]:
+    """The latest Hawaiʻi retail price with tax and its period: ``"gasoline"``
+    and ``"diesel"`` in dollars a gallon (the mean of the last twelve months,
+    DBEDT), ``"cigarettes"`` in dollars a pack (the last year CDC's Tax Burden
+    on Tobacco carries). Prices are not projected: a rate change's response is
+    measured against today's price."""
+    d = load_prices()
+    if kind == "cigarettes":
+        year = max(d["cigarettes_per_pack"], key=int)
+        return float(d["cigarettes_per_pack"][year]), year
+    if kind not in d["fuel"]:
+        raise KeyError(f"no retail price for {kind!r}; there are {sorted(d['fuel'])} and 'cigarettes'")
+    months = sorted(d["fuel"][kind])[-12:]
+    return sum(d["fuel"][kind][m] for m in months) / len(months), f"{months[0]} to {months[-1]}"
+
+
+def response_range(kind: str, score: Callable[[float], Score]) -> dict[str, float]:
+    """A change's state revenue, $ thousands, static and under the sourced low,
+    middle and high elasticities for ``kind`` (``score`` takes the elasticity)."""
+    from state_revenue.elasticities import get
+    out = {"static": score(0.0).state}
+    for name, value in get(kind).items():
+        out[name] = score(value).state
+    return out
+
+
+def cigarette_range(per_cigarette: float, fiscal_year: int, *,
+                    baseline: dict[int, float] | None = None) -> dict[str, float]:
+    price, _ = retail_price("cigarettes")
+    return response_range("cigarettes", lambda e: score_cigarettes(
+        per_cigarette, fiscal_year, elasticity=e, pack_price=price, baseline=baseline))
+
+
+def gasoline_range(new_rates: dict[str, float], fiscal_year: int) -> dict[str, float]:
+    """For fuel rate changes: gasoline and highway diesel respond at the sourced
+    gasoline elasticities and DBEDT's prices; other fuels stay static."""
+    prices = {"gasoline": retail_price("gasoline")[0], "diesel_highway": retail_price("diesel")[0]}
+    return response_range("gasoline", lambda e: score_fuel(new_rates, fiscal_year, elasticity=e,
+                                                             prices=prices))
 
 
 # --- transient accommodations ---------------------------------------------------
