@@ -1,5 +1,5 @@
 {
- "source": "Hawaii Department of Taxation, calendar-year summaries: Liquid Fuel Tax Base & Tax Collections; Cigarette & Tobacco Tax Collections and Allocations",
+ "source": "Hawaii Department of Taxation: calendar-year summaries (Liquid Fuel Tax Base & Tax Collections; Cigarette & Tobacco Tax Collections and Allocations) and June 'Transient Accommodations Tax Liabilities Incurred' reports",
  "fetch_date": "2026-11-27",
  "calendar_year": 2024,
  "units": "fuel: gallons (barrels, MMBtu for the environmental response tax) and dollars; tobacco: dollars",
@@ -11,6 +11,38 @@
   {
    "url": "https://files.hawaii.gov/tax/stats/monthly/archive/2024cy-tob.pdf",
    "sha256": "3078e9338469260cbdbbe5fd86e3a79b2a003489f6f6a03dd571fa11b31ba033"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/201806liab-by-d_tat.pdf",
+   "sha256": "ec88b0bdbf8f58bcd7cacf5a89e382894e78e10724bd2681e03855ecf16f364d"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/201906liab-by-d_tat.pdf",
+   "sha256": "a90ca85005c485bf56141eb7c3c30496c46e34e965638d1eab490f1ba897c276"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202006liab-by-d_tat.pdf",
+   "sha256": "ee51c274b7decd5296fde2ea9c7c244129ce24e6301b3b9f40b8183dd506f645"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202106liab-by-d_tat.pdf",
+   "sha256": "8763d3eb8983aa4ce562a07dec91cf34cefbdb0b856124f08afcb7bee12c5a83"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202206liab-by-d_tat.pdf",
+   "sha256": "4811696d748b47b680c0bc3702dafd65b9fcade8af3718158943db87a3b47388"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202306liab-by-d_tat.pdf",
+   "sha256": "454da543e59eb4363aa609911452e96bb7e0867095a6a2b288fb3c9dba5a8578"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202406liab-by-d_tat.pdf",
+   "sha256": "08f0f87f58165120b57531b7b78ffd82e60d4c614c3ae79f8ee941bebf60e903"
+  },
+  {
+   "url": "https://files.hawaii.gov/tax/stats/monthly/archive/202506liab-by-d_tat.pdf",
+   "sha256": "d625fe6fe3ea95eb0599d2f79492cc966aae5b11cecf021c516396326de6bd5d"
   }
  ],
  "fuel": {
@@ -74,5 +106,31 @@
   "license_fees": 45500.0,
   "retail_permits": 60610.0,
   "unallocated": 434854.71
+ },
+ "transient_accommodations": {
+  "2022": {
+   "liability": 698046452.0,
+   "liability_timeshare": 31873196.0,
+   "base": 6810209289.0,
+   "base_timeshare": 310958008.0
+  },
+  "2023": {
+   "liability": 803668338.0,
+   "liability_timeshare": 36530392.0,
+   "base": 7840666714.0,
+   "base_timeshare": 356394069.0
+  },
+  "2024": {
+   "liability": 767347031.0,
+   "liability_timeshare": 37696341.0,
+   "base": 7486312497.0,
+   "base_timeshare": 367769184.0
+  },
+  "2025": {
+   "liability": 764446093.0,
+   "liability_timeshare": 42926245.0,
+   "base": 7458010659.0,
+   "base_timeshare": 418792631.0
+  }
  }
 }

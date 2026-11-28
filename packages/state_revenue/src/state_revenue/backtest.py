@@ -190,6 +190,39 @@ def run_model_only(ledger: Ledger | None = None, lines: Iterable[str] = MODEL_ON
     return out
 
 
+#: Origins before the Council's line items begin (January 2014). The
+#: forecaster's settings were chosen on origins 2014-2024, so these are out
+#: of sample for them.
+HOLDOUT_ORIGINS = range(2008, 2014)
+
+
+def run_holdout(ledger: Ledger | None = None,
+                lines: Iterable[str] = ("general_excise", "individual_income", "total"),
+                origins: Iterable[int] = HOLDOUT_ORIGINS) -> list[ModelOnly]:
+    """The model alone on the general fund, origins its settings were not
+    chosen on. History starts in FY2004, so the earliest origins have five
+    years of it. No Council comparison: its line items start in 2014."""
+    ledger = ledger or load_ledger("general_fund")
+    errs: dict[tuple[str, int], list[float]] = {(k, h): [] for k in lines for h in HORIZONS}
+    for origin in origins:
+        fallback = _total_growth(ledger, origin)
+        totals = dict.fromkeys((origin + h for h in HORIZONS), 0.0)
+        for key in sorted({k for y in ledger.years.values() for k in y.lines}):
+            history = {fy: float(v) for fy, v in ledger.series(key).items() if fy <= origin}
+            if origin not in history:
+                continue
+            fc = forecast_line(history, max(HORIZONS), fallback_growth=fallback)
+            for h in HORIZONS:
+                t = origin + h
+                totals[t] += fc.values[t]
+                if key in lines and key in ledger[t].lines:
+                    errs[(key, h)].append(abs(fc.values[t] / ledger[t].lines[key] - 1))
+        if "total" in lines:
+            for h in HORIZONS:
+                errs[("total", h)].append(abs(totals[origin + h] / ledger[origin + h].total - 1))
+    return [ModelOnly(k, h, len(v), statistics.mean(v), "holdout") for (k, h), v in errs.items() if v]
+
+
 def _table(summaries: list[Summary]) -> str:
     rows = ["| Line | h | n | Model MAPE | COR MAPE | Model / COR | Model closer |",
             "|---|---|---|---|---|---|---|"]
@@ -222,6 +255,11 @@ def main(argv: list[str] | None = None) -> int:
     print("| Line | h | n | Model MAPE | Method |\n|---|---|---|---|---|")
     for m in run_model_only():
         print(f"| {m.line} | {m.horizon} | {m.n} | {m.mape:.1%} | {m.method} |")
+    print(f"\nModel alone, general fund, origins FY{HOLDOUT_ORIGINS[0]}-FY{HOLDOUT_ORIGINS[-1]} "
+          "(settings not chosen on these), all targets:\n")
+    print("| Line | h | n | Model MAPE |\n|---|---|---|---|")
+    for m in run_holdout():
+        print(f"| {m.line} | {m.horizon} | {m.n} | {m.mape:.1%} |")
     return 0
 
 

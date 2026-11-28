@@ -125,3 +125,20 @@ def test_visitor_spending_file():
         parts = sum(v for k, v in row.items() if k != "total")
         assert parts == pytest.approx(row["total"], abs=2)
     assert years[2025]["groceries"] == pytest.approx(1076.8, abs=0.1)
+
+
+def test_exemptions_in_law_match_dotax_foregone_taxes():
+    tax_year, table = ge.load_exemptions()
+    assert tax_year == 2024 and len(table) == 55
+    assert table["119"]["name"].startswith("Food Stamps and WIC")
+    fy = tax_year + 1
+    # DOTAX's own figure for drugs and prosthetic devices (its Table 5): $119,336 thousand.
+    assert ge.score_exemption_repeal("113", fy).state == pytest.approx(119_336.0, abs=1.0)
+    total = sum(ge.score_exemption_repeal(c, fy).state for c, v in table.items()
+                if v["total"] is not None)
+    # Its grand total of foregone taxes (Table 3) is $1,371.1M with five suppressed rows in.
+    assert total / 1e3 == pytest.approx(1371.1, abs=6)
+    with pytest.raises(ValueError):
+        ge.score_exemption_repeal("135", fy)          # petroleum refining: suppressed
+    with pytest.raises(KeyError):
+        ge.score_exemption_repeal("999", fy)

@@ -114,3 +114,24 @@ def test_model_baseline_uses_no_council_figures():
     rv = b.line("rental_vehicle")
     years = sorted(rv)
     assert math.log(rv[years[-1]] / rv[years[-2]]) < 0.08
+
+
+def test_holdout_origins_are_before_the_councils_line_items():
+    from state_revenue.backtest import HOLDOUT_ORIGINS, run_holdout
+    assert max(HOLDOUT_ORIGINS) < 2014
+    out = {(m.line, m.horizon): m for m in run_holdout()}
+    assert out[("total", 1)].n == len(HOLDOUT_ORIGINS)
+    # Worse than on the origins the settings were chosen on (4.9% with every target in).
+    assert out[("total", 1)].mape == pytest.approx(0.078, abs=0.003)
+
+
+def test_tat_fixed_funds_are_not_scaled():
+    from state_revenue.baseline import TAT_FIXED_FUNDS
+    from state_revenue.ledger import tat_distribution
+    b, gf = build_baseline("all"), build_baseline("general_fund")
+    fixed = sum(tat_distribution(b.origin).get(k, 0) for k in TAT_FIXED_FUNDS)
+    assert fixed == 15_500
+    a, g = b.line("transient_accommodations"), gf.line("transient_accommodations")
+    years = sorted(a)
+    ratio = (a[years[0]] - fixed) / g[years[0]]
+    assert (a[years[-1]] - fixed) / g[years[-1]] == pytest.approx(ratio)

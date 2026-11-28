@@ -37,7 +37,9 @@ from state_revenue.annual_report import (
     HEADINGS,
     AnnualTable,
     GetActivityTable,
+    parse_county_fuel,
     parse_get_activity,
+    parse_tat_distribution,
     parse_tax_collections,
     residuals,
 )
@@ -145,6 +147,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--since", type=int, default=2005, help="first report year to fetch")
     ap.add_argument("--cache", type=Path, help="keep downloaded PDFs here (reused if present)")
+    ap.add_argument("--if-new", action="store_true",
+                    help="do nothing unless the index lists a report the bundled file lacks")
     ap.add_argument("--out", type=Path,
                     default=Path(__file__).resolve().parent.parent / "data" / "annual_collections.json")
     args = ap.parse_args(argv)
@@ -153,11 +157,18 @@ def main(argv: list[str] | None = None) -> int:
     if not urls:
         print(f"ERROR: no annual report links on {INDEX_URL}", file=sys.stderr)
         return 1
+    if args.if_new and args.out.exists():
+        have = set(json.loads(args.out.read_text()).get("reports", {}))
+        if {u.rsplit("/", 1)[-1] for u in urls.values()} <= have:
+            print("[annual] no new report; bundled file kept", file=sys.stderr)
+            return 0
     cache = args.cache or Path(tempfile.mkdtemp(prefix="dotax_annual_"))
     cache.mkdir(parents=True, exist_ok=True)
 
     tables: dict[str, dict[str, AnnualTable]] = {name: {} for name in HEADINGS}
     activity: dict[str, GetActivityTable] = {}
+    county_fuel: dict[int, int] = {}                 # reports are read oldest first,
+    tat_distribution: dict[int, dict[str, int]] = {}  # so the newest one's figure stays
     sources: dict[str, dict] = {}
     for url in urls.values():
         pdf = cache / url.rsplit("/", 1)[-1]
@@ -178,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
                   file=sys.stderr)
             return 1
         activity[pdf.name] = a
+        county_fuel.update(parse_county_fuel(text))
+        tat_distribution.update(parse_tat_distribution(text))
         sources[pdf.name] = {"url": url,
                              "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
                              "fiscal_years": list(t.years)}
@@ -202,6 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         "general_fund": {str(fy): e for fy, e in merged["general_fund"].items()},
         "general_excise_by_activity": {str(fy): e for fy, e in
                                        merged["general_excise_by_activity"].items()},
+        "county_fuel": {str(fy): v for fy, v in sorted(county_fuel.items())},
+        "tat_distribution": {str(fy): v for fy, v in sorted(tat_distribution.items())},
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n")

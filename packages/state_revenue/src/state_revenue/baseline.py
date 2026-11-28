@@ -11,7 +11,8 @@ Revenues (``state_revenue.backtest``, ``STATE_REVENUE_SCOPE.md``):
 ``cor_scaled``
     All funds, a line the Council itemises: its general fund figure times the
     line's all-funds-to-general-fund ratio in the last actual year (current
-    law's split between funds held).
+    law's split between funds held). The transient accommodations tax's
+    fixed-dollar funds (:data:`TAT_FIXED_FUNDS`) are added, not scaled.
 ``rides_on``
     The county surcharge: the general excise baseline times the surcharge's
     ratio to it in the last actual year (it is levied on the same base).
@@ -69,6 +70,27 @@ class Baseline:
         return {fy: row[key].value for fy, row in sorted(self.values.items()) if key in row}
 
 
+#: Funds that take a fixed dollar amount of the transient accommodations tax
+#: each year (HRS §237D-6.5), as the annual report's distribution table labels
+#: them. They do not grow with the tax; the mass transit and tax administration
+#: shares, and the general fund's remainder, do.
+TAT_FIXED_FUNDS = ("Turtle Bay Special Fund", "Convention Center Fund", "Land & Development Fund",
+                   "Tourism Emergency Special Fund")
+
+
+def _fixed_funds(key: str, origin: int) -> float:
+    """The part of a line's all-funds collections that is a fixed dollar amount
+    in law, in the last actual year (thousands)."""
+    if key != "transient_accommodations":
+        return 0.0
+    from state_revenue.ledger import tat_distribution
+    try:
+        row = tat_distribution(origin)
+    except KeyError:
+        return 0.0
+    return float(sum(row.get(label, 0) for label in TAT_FIXED_FUNDS))
+
+
 def _cor_years(cor: CorForecast, origin: int) -> dict[int, dict[str, int]]:
     """The Council's figures for years after ``origin``: preliminary BASE years, then estimates."""
     out = {fy: row for fy, row in cor.base.items() if fy > origin}
@@ -110,8 +132,9 @@ def build_baseline(fund: str = "all", *, source: Literal["best", "model"] = "bes
                 if not gf_last:
                     values[fy][key] = Value(model[key][fy], "model")
                 else:
-                    ratio = last.lines[key] / gf_last
-                    values[fy][key] = Value(cor_years[fy][key] * ratio, "cor_scaled")
+                    fixed = _fixed_funds(key, origin)
+                    ratio = (last.lines[key] - fixed) / gf_last
+                    values[fy][key] = Value(cor_years[fy][key] * ratio + fixed, "cor_scaled")
     for key, host in RIDES_ON.items():
         if key in last.lines and host in last.lines:
             ratio = last.lines[key] / last.lines[host]

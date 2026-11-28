@@ -12,6 +12,10 @@
     71: air, cruise and supplemental business visitors), every year the two
     newest workbooks carry. $ millions, calendar years.
 
+``get_exemptions.json``
+    General excise exemptions claimed, by exemption and rate (DOTAX's annual
+    Act 94, SLH 2015 report, Table A-1), the newest tax year. $ thousands.
+
     python -m state_revenue.scripts.refresh_get_inputs --cache /tmp/get_inputs
 """
 from __future__ import annotations
@@ -32,6 +36,9 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 IO_URL = "https://files.hawaii.gov/dbedt/economic/reports/IO/2022-State-IO-Detailed_Final.xlsx"
 HTA_PAGE = "https://hta.hawaii.gov/research/annual-visitor-research-reports/"
 HTA_LINK = re.compile(r'href="([^"]*(\d{4})-annual-visitor-research-report-tables[^"]*\.xlsx)"', re.I)
+
+ACT94_PAGE = "https://tax.hawaii.gov/stats/a5_1annual/a5_7ge_use/"
+ACT94_LINK = re.compile(r'href="([^"]*act94_2015_taxyr(\d{4})_tables\.xlsx)"')
 
 #: The input-output table's final demand columns, as the workbook heads them.
 FINAL_DEMAND = (
@@ -138,9 +145,34 @@ def parse_visitor_totals(content: bytes) -> dict[int, dict[str, float]]:
     return out
 
 
+def parse_exemptions(content: bytes) -> dict[str, dict]:
+    """Table A-1: ``{code: {"name", "wholesale", "retail", "insurance", "total"}}``,
+    $ thousands of exempt gross income by the rate it would have been taxed at.
+    A suppressed row ("*") has None amounts."""
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    ws = next((w for w in wb.worksheets if w.title.replace("-", "").replace(" ", "").lower()
+               == "tablea1"), None)
+    if ws is None:
+        raise SystemExit("exemptions workbook: no Table A-1 sheet")
+    out: dict[str, dict] = {}
+    for r in ws.iter_rows(values_only=True):
+        m = re.match(r"^(\d{3})\s*-\s*(.+)$", str(r[0] or "").strip())
+        if not m:
+            continue
+        vals = [None if not isinstance(v, (int, float)) else round(float(v), 3) for v in r[1:5]]
+        out[m[1]] = {"name": re.sub(r"\s+", " ", m[2]).strip(), "wholesale": vals[0],
+                     "retail": vals[1], "insurance": vals[2], "total": vals[3]}
+    if len(out) < 40:
+        raise SystemExit(f"exemptions workbook: only {len(out)} exemptions read")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cache", type=Path, help="keep downloads here (reused if present)")
+    ap.add_argument("--if-new", action="store_true",
+                    help="do nothing unless HTA or DOTAX posted a workbook the bundled files lack")
     args = ap.parse_args(argv)
     cache = args.cache or Path(tempfile.mkdtemp(prefix="get_inputs_"))
     cache.mkdir(parents=True, exist_ok=True)
@@ -151,6 +183,20 @@ def main(argv: list[str] | None = None) -> int:
             f.write_bytes(_fetch(url))
         return f.read_bytes()
 
+    hta = sorted({(int(y), u) for u, y in HTA_LINK.findall(_fetch(HTA_PAGE).decode("utf-8", "replace"))},
+                 reverse=True)[:2]
+    act94 = sorted({(int(y), u) for u, y in
+                    ACT94_LINK.findall(_fetch(ACT94_PAGE).decode("utf-8", "replace"))}, reverse=True)[:1]
+    if not hta or not act94:
+        print(f"ERROR: no workbook links on {HTA_PAGE} or {ACT94_PAGE}", file=sys.stderr)
+        return 1
+    if args.if_new and all((DATA / n).exists() for n in ("visitor_spending.json", "get_exemptions.json")):
+        have = {r["url"] for n in ("visitor_spending.json", "get_exemptions.json")
+                for r in json.loads((DATA / n).read_text())["reports"]}
+        if {u for _, u in (*hta, *act94)} <= have:
+            print("[get] no new workbook; bundled files kept", file=sys.stderr)
+            return 0
+
     content = get(IO_URL)
     table = parse_io(content)
     table.update(source=IO_URL, sha256=hashlib.sha256(content).hexdigest(),
@@ -159,11 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[get] input-output: {len(table['sectors'])} sectors, state GET "
           f"{sum(table['rows']['state_get']):,.1f}M", file=sys.stderr)
 
-    links = sorted({(int(y), u) for u, y in HTA_LINK.findall(_fetch(HTA_PAGE).decode("utf-8", "replace"))},
-                   reverse=True)[:2]
-    if not links:
-        print(f"ERROR: no annual visitor research tables on {HTA_PAGE}", file=sys.stderr)
-        return 1
+    links = hta
     years: dict[int, dict[str, float]] = {}
     sources = []
     for _, url in reversed(links):                  # newer workbook wins on overlap
@@ -180,6 +222,21 @@ def main(argv: list[str] | None = None) -> int:
     }
     (DATA / "visitor_spending.json").write_text(json.dumps(payload, indent=1) + "\n")
     print(f"[get] visitor spending: {sorted(years)}", file=sys.stderr)
+
+    tax_year, url = act94[0]
+    content = get(url)
+    exemptions = parse_exemptions(content)
+    payload = {
+        "source": "Hawaii Department of Taxation, 'Hawaii General Excise & Use Tax Exemptions' "
+                  "(Act 94, SLH 2015 report), Table A-1: exemptions claimed by GET rate",
+        "fetch_date": date.today().isoformat(),
+        "tax_year": tax_year,
+        "units": "$ thousands of exempt gross income, calendar (tax) year",
+        "reports": [{"url": url, "sha256": hashlib.sha256(content).hexdigest()}],
+        "exemptions": dict(sorted(exemptions.items())),
+    }
+    (DATA / "get_exemptions.json").write_text(json.dumps(payload, indent=1, ensure_ascii=False) + "\n")
+    print(f"[get] exemptions: tax year {tax_year}, {len(exemptions)} exemptions", file=sys.stderr)
     return 0
 
 

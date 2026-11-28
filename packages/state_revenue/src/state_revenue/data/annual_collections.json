@@ -2231,5 +2231,161 @@
       "report": "25annrpt.pdf",
       "residual": -2
     }
+  },
+  "county_fuel": {
+    "2004": 73807,
+    "2005": 74923,
+    "2006": 76970,
+    "2007": 78270,
+    "2008": 74240,
+    "2009": 72416,
+    "2010": 67911,
+    "2011": 75299,
+    "2012": 72297,
+    "2013": 74407,
+    "2014": 73999,
+    "2015": 74223,
+    "2016": 78677,
+    "2017": 81278,
+    "2018": 86946,
+    "2019": 90643,
+    "2020": 87586,
+    "2021": 77943,
+    "2022": 88767,
+    "2023": 89287,
+    "2024": 87817,
+    "2025": 87761
+  },
+  "tat_distribution": {
+    "2010": {
+      "Counties Share": 90568,
+      "Convention Center Fund": 32838,
+      "Tourism Special Fund": 69139,
+      "General Fund": 31705
+    },
+    "2011": {
+      "Counties' Share": 102931,
+      "Convention Center Fund": 36795,
+      "Tourism Special Fund": 84981,
+      "General Fund": 59766
+    },
+    "2012": {
+      "Counties' Share": 93000,
+      "Convention Center Fund": 35637,
+      "Tourism Special Fund": 69000,
+      "General Fund": 126313
+    },
+    "2013": {
+      "Counties Share": 93000,
+      "Convention Center Fund": 33000,
+      "Tourism Special Fund": 71000,
+      "General Fund": 171576
+    },
+    "2014": {
+      "Counties Share": 93000,
+      "Convention Center Fund": 33000,
+      "Tourism Special Fund": 82000,
+      "General Fund": 187242
+    },
+    "2015": {
+      "Counties Share": 103000,
+      "Convention Center Fund": 33000,
+      "Tourism Special Fund": 82000,
+      "Turtle Bay Special Fund": 0,
+      "General Fund": 202981
+    },
+    "2016": {
+      "Counties Share": 103000,
+      "Convention Center Fund": 26500,
+      "Tourism Special Fund": 82000,
+      "Turtle Bay Special Fund": 1500,
+      "Land & Development Fund": 0,
+      "General Fund": 233794
+    },
+    "2017": {
+      "Counties Share": 103000,
+      "Convention Center Fund": 26500,
+      "Tourism Special Fund": 82000,
+      "Turtle Bay Special Fund": 1500,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 0,
+      "General Fund": 292377
+    },
+    "2018": {
+      "Counties Share": 103000,
+      "Convention Center Fund": 26500,
+      "Tourism Special Fund": 82000,
+      "Turtle Bay Special Fund": 1500,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 23626,
+      "General Fund": 315286
+    },
+    "2019": {
+      "Counties Share": 103000,
+      "Convention Center Fund": 16500,
+      "Tourism Special Fund": 79000,
+      "Turtle Bay Special Fund": 1500,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 57354,
+      "Tax Administration Fund": 0,
+      "General Fund": 339980
+    },
+    "2020": {
+      "Counties Share": 85833,
+      "Convention Center Fund": 13750,
+      "Tourism Special Fund": 65833,
+      "Turtle Bay Special Fund": 1250,
+      "Land & Development Fund": 2500,
+      "Mass Transit Fund": 53857,
+      "Tax Administration Fund": 3674,
+      "General Fund": 337620
+    },
+    "2021": {
+      "Turtle Bay Special Fund": 1500,
+      "Convention Center Fund": 16500,
+      "Tourism Special Fund": 21505,
+      "Tourism Emergency Special Fund": 0,
+      "Counties Share": 0,
+      "Land & Development Fund": 0,
+      "Mass Transit Fund": 19935,
+      "Tax Administration Fund": 6207,
+      "General Fund": 149669
+    },
+    "2022": {
+      "Turtle Bay Special Fund": 1500,
+      "Convention Center Fund": 11000,
+      "Tourism Emergency Special Fund": 0,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 69992,
+      "Tax Administration Fund": 7713,
+      "General Fund": 645458
+    },
+    "2023": {
+      "Turtle Bay Special Fund": 1500,
+      "Convention Center Fund": 11000,
+      "Tourism Emergency Special Fund": 0,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 82707,
+      "Tax Administration Fund": 10449,
+      "General Fund": 756601
+    },
+    "2024": {
+      "Turtle Bay Special Fund": 1500,
+      "Convention Center Fund": 11000,
+      "Tourism Emergency Special Fund": 0,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 79668,
+      "Tax Administration Fund": 17685,
+      "General Fund": 715493
+    },
+    "2025": {
+      "Turtle Bay Special Fund": 1500,
+      "Convention Center Fund": 11000,
+      "Tourism Emergency Special Fund": 0,
+      "Land & Development Fund": 3000,
+      "Mass Transit Fund": 78758,
+      "Tax Administration Fund": 36305,
+      "General Fund": 685637
+    }
   }
 }

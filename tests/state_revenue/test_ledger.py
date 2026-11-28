@@ -67,3 +67,17 @@ def test_general_fund_ledger():
         assert gf[fy].total < load_ledger()[fy].total
     with pytest.raises(ValueError):
         load_ledger("special_funds")
+
+
+def test_fuel_split_and_tat_distribution():
+    from state_revenue.ledger import fuel_split, tat_distribution
+    for fy in range(2004, 2026):
+        split = fuel_split(fy)
+        assert split["state"] + split["county"] == load_ledger()[fy].lines["fuel"]
+        assert split["state"] > 0 and split["county"] > 0
+    assert fuel_split(2025) == {"state": 80_205, "county": 87_761}
+    d = tat_distribution(2025)
+    assert d["Convention Center Fund"] == 11_000
+    assert sum(d.values()) == 816_200                  # the tax and its fees
+    with pytest.raises(KeyError):
+        tat_distribution(2005)
