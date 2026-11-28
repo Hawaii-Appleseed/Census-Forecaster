@@ -596,6 +596,108 @@ waits for the next change.
   year out is 3.0% (was 2.9%), and on the out-of-sample origins 7.9% and 9.2% (were 7.8% and
   8.9%). The tables in the dated sections above are as they were when written.
 
+## Open items closed (November 27, 2026)
+
+Four items were left open. Three are done; one is blocked.
+
+| Item | What changed | Where |
+|---|---|---|
+| Monthly history was 24 months, full detail in eight | Every month from July 2013 to December 2025 with all tax lines, from DOTAX's PDF archive | `census_forecaster/scripts/backfill_dotax_collections.py`, `dotax_monthly/collections.json` |
+| Income tax: tax-year liability to fiscal-year cash | Shares by channel from those months | `.../state_revenue/income_timing.py` (`python -m state_revenue.income_timing`) |
+| Investment's 12% of the general excise tax | Passed on to the purchasers who use the capital | `general_excise.allocate_investment` |
+| Liquor had rates but no gallons | NIAAA's gallons by beverage; a per-gallon scorer | `excise.score_liquor`, `excise_bases.json` (`liquor_gallons`) |
+| Elasticities | **Blocked.** The research browser (Perplexity) now asks for a sign-in before answering. Scorers still take an `elasticity`; none is sourced | |
+
+### Monthly collections back to July 2013
+
+DOTAX archives each month's "State Tax Collections and Distribution" as a PDF back to 2010. The
+backfill reads 132 of them (July 2014 to June 2025; each carries the same month a year before).
+Every report's tax rows add to its printed total within $5. Twelve months equal the annual
+report's fiscal year to the thousand: individual income in FY2015, FY2019, FY2024 and FY2025,
+general excise in FY2019, FY2024 and FY2025.
+
+- Through FY2021 the report leads with four tax-district columns; the statewide month is the
+  fifth. Read as the newer layout, the first district's rows still add to the first district's
+  total, so the total check alone would not have caught it; the fiscal-year check did.
+- A month appears in its own report and, a year later, as the prior-year column. The later one
+  wins: it carries revisions and the newer rows (rental vehicles left the motor vehicle row
+  during FY2020, restated for the year before). A month with no `rental_vehicle` or
+  `environmental_response` value still has them inside `motor_vehicle` or `fuel`.
+- FY2017's months sum $96.9M above the annual report's individual income figure: the report
+  restated FY2017 under "a new compiling method" (FY2018 report, Table 1.8 note).
+- The backfill never overwrites a value from the XLSX refresh. July and August 2025 keep only
+  the 13 series read before the parser was widened; their PDFs are not in the archive yet.
+
+### Income tax cash timing
+
+| Tax year | Withholding Jan-Jun | Jul-Dec | Estimates Feb-Jun | Jul-Jan | With returns | Refunds | Net |
+|---|---|---|---|---|---|---|---|
+| 2014 | 831 | 853 | 263 | 220 | 189 | -447 | 1,908 |
+| 2015 | 876 | 881 | 279 | 257 | 203 | -469 | 2,027 |
+| 2016 | 929 | 926 | 301 | 311 | 193 | -507 | 2,153 |
+| 2017 | 991 | 957 | 241 | 390 | 222 | -480 | 2,321 |
+| 2018 | 1,075 | 1,030 | 310 | 293 | 280 | -525 | 2,463 |
+| 2019 | 1,072 | 1,081 | 432 | 400 | 299 | -596 | 2,687 |
+| 2020 * | 1,051 | 1,046 | 184 | 600 | 425 | -541 | 2,765 |
+| 2021 * | 1,115 | 1,164 | 659 | 605 | 536 | -954 | 3,125 |
+| 2022 | 1,226 | 1,256 | 859 | 529 | 413 | -767 | 3,518 |
+| 2023 | 1,307 | 1,357 | 627 | 394 | 398 | -845 | 3,239 |
+| 2024 | 1,417 | 1,445 | 556 | 484 | 446 | -872 | 3,475 |
+
+\* 2020 and 2021 (moved deadlines) are left out of the averages.
+
+Withholding is 67% of gross payments and half of it arrives in January to June; estimated
+payments are 24%, 53% of them by June; payments with returns 9%.
+
+- **A change that reaches withholding** (DOTAX changes the tables with the law): 46% in the
+  fiscal year that ends in the tax year's June, 54% in the next.
+- **A change settled on returns** (a credit, or tables left alone): all in the next fiscal year.
+  This is the repository's FY(n+1) = TY(n) convention, which therefore puts a withholding
+  change about half a year late.
+
+`to_fiscal_years({tax_year: change}, channel)` spreads a scored change. Extension payments and
+late refunds, which reach a third fiscal year, are counted with the second.
+
+### Investment passed on
+
+The input-output table ends at investment: a new building is a final purchase. Its general
+excise tax is borne later by whoever uses it. `allocate_investment` sends the tax in
+single-family construction to residents ($63M of investment's $505M) and spreads the rest
+(other buildings $206M, equipment bought at retail $122M, civil works $68M) over the other
+purchasers in proportion to the tax they already bear, as if capital were one more input.
+
+| Purchaser | Total | Share |
+|---|---|---|
+| residents | 2,424 | 58.9% |
+| visitors | 1,226 | 29.8% |
+| government | 265 | 6.4% |
+| exports | 201 | 4.9% |
+
+Residents 59%, visitors 30%, against 51% and 27% with investment left as its own purchaser. The
+rule is an assumption: the table has no capital-flow matrix saying which sectors buy which
+capital, and a hotel's building bears on visitors more than this split says.
+
+### Liquor
+
+NIAAA's "apparent per capita alcohol consumption" file gives gallons of spirits, wine and beer
+sold in each state by year, compiled from state sales and tax records. Hawaiʻi, 2024: 2.46M
+gallons of spirits, 5.13M of wine, 31.25M of beer. At DOTAX's rates per gallon ($5.98, $1.38
+still wine, $0.93 beer other than draft) that is $50.9M; DOTAX collected $50.1M in FY2025 and
+$50.5M in calendar 2024. The same check for 2022 gives $53.8M against $54.5M. Sparkling wine
+($2.12), coolers ($0.85) and draft beer ($0.54) are not separated in the gallons; the fit says
+they roughly offset.
+
+`score_liquor({"beer": 1.03}, fy)`: a dime a gallon on beer is $3.2M in FY2027. Raising all
+three rates 10% is $5.2M, where the proportional scorer gave $5.1M.
+
+### Still open
+
+- **Elasticities**, once the research browser is signed in: hotel room nights, cigarettes,
+  gasoline, with a low, middle and high value each and its source.
+- **The unemployment schedule after 2026** (the adequate reserve computation).
+- **Phase 5:** fiscal notes for bills that change the general excise or transient
+  accommodations tax.
+
 ## Phases
 
 1. **Ledger and data.** Done (above).

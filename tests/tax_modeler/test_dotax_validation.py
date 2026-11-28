@@ -36,8 +36,10 @@ def test_yoy_window_growth_strict_on_missing_months():
     """A window touching a month absent from the bundle returns None —
     never a silently shrunken comparison."""
     d = load_dotax_collections()
-    assert "2025-05" not in d["monthly"] or "ge_use" not in d["monthly"].get("2025-05", {})
-    assert yoy_window_growth("ge_use", ["2025-05", "2025-06"]) is None
+    # January-June 2026 hold only the GE-specific report's series: the full
+    # report lags, and the PDF backfill stops at June 2025.
+    assert "ge_use" not in d["monthly"].get("2026-05", {})
+    assert yoy_window_growth("ge_use", ["2026-05", "2026-06"]) is None
 
 
 def test_latest_complete_windows_shapes():
