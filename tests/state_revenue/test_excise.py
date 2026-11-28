@@ -67,12 +67,53 @@ def test_rate_in_weights_by_days():
 
 
 def test_tat_score():
-    revenue = load_ledger()[2025].lines["transient_accommodations"]
     assert ex.score_tat(0.1025, 2025).state == pytest.approx(0.0, abs=1e-6)
     s = ex.score_tat(0.1125, 2025)
-    assert s.state == pytest.approx(revenue * 0.01 / 0.1025)
+    # DOTAX's FY2025 base: $7,458.0M of rooms and $418.8M of timeshare.
+    assert s.detail["base"] == pytest.approx(7_876_803.29)
+    assert s.detail["base_timeshare"] == pytest.approx(418_792.631)
+    assert s.state == pytest.approx(0.01 * 7_876_803.29)
     assert ex.score_tat(0.1125, 2025, elasticity=-0.5).state < s.state
     assert s.borne_by["visitors"] > 0.6
+
+
+def test_tat_base_reported_and_grown():
+    bases = ex.load_bases()["transient_accommodations"]
+    assert {"2022", "2023", "2024", "2025"} <= set(bases)
+    for row in bases.values():                      # liability is the rate on the base
+        rate = (row["liability"] + row["liability_timeshare"]) / (row["base"] + row["base_timeshare"])
+        assert rate == pytest.approx(0.1025, abs=1e-4)
+    # Collections sit a little above the liability (penalties, assessments).
+    collected = load_ledger()[2025].lines["transient_accommodations"] * 1e3
+    owed = bases["2025"]["liability"] + bases["2025"]["liability_timeshare"]
+    assert 1.0 < collected / owed < 1.04
+    later = ex.tat_base(2027, baseline={2027: 900_000.0})
+    grow = (900_000.0 / 0.11) / (load_ledger()[2025].lines["transient_accommodations"] / 0.1025)
+    assert later["rooms"] == pytest.approx(7_458_010.659 * grow)
+
+
+TAT_LIABILITY = """
+                                                    TRANSIENT ACCOMMODATIONS TAX LIABILITIES INCURRED IN THE JUNE 2025 FILING PERIOD*
+                                  OAHU             MAUI              HAWAII             KAUAI                ALL DISTRICTS                        CUMULATIVE TOTALS
+                                DISTRICT          DISTRICT          DISTRICT          DISTRICT         JUN 2025         JUN 2024              FY 2025           FY 2024
+  Transient Accommodations       31,608,868        19,393,098        10,532,422          9,658,249      71,192,637        70,249,313          764,446,093       767,347,031
+  Timeshare Occupancy             1,266,002         1,215,024           523,375            761,768       3,766,169         3,573,424           42,926,245        37,696,341
+    TOTAL                        32,874,870        20,608,121        11,055,797        10,420,017       74,958,806        73,822,736          807,372,337       805,043,372
+                                              TRANSIENT ACCOMMODATIONS TAX BASE FOR TAX LIABILITIES INCURRED IN THE JUNE 2025 FILING PERIOD
+                                DISTRICT          DISTRICT          DISTRICT          DISTRICT         JUN 2025         JUN 2024            FY 2025           FY 2024
+  Transient Accommodations      308,379,200       189,200,951       102,755,336        94,226,822      694,562,310       685,359,149      7,458,010,659     7,486,312,497
+  Timeshare Occupancy            12,351,238        11,853,888         5,106,101          7,431,882      36,743,110        34,862,670        418,792,631       367,769,184
+"""
+
+
+def test_parse_tat_liability():
+    from state_revenue.scripts.refresh_excise_bases import parse_tat_liability
+    t = parse_tat_liability(TAT_LIABILITY)
+    assert t[2025] == {"liability": 764_446_093, "liability_timeshare": 42_926_245,
+                       "base": 7_458_010_659, "base_timeshare": 418_792_631}
+    assert t[2024]["base"] == 7_486_312_497
+    with pytest.raises(ValueError):
+        parse_tat_liability("CY 2018   CY 2017")
 
 
 def test_fuel_rates_and_score():

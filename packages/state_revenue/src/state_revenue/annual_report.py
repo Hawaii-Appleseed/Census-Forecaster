@@ -236,3 +236,74 @@ def parse_get_activity(text: str) -> GetActivityTable:
     if not totals["tax"] or not totals["base"]:
         raise TableNotFound(f"no TOTAL rows in the FY{cur} general excise table")
     return GetActivityTable(years, base, tax, rates, totals["tax"], totals["base"], tuple(unmatched))
+
+
+# County fuel taxes (the "Allocation of Fuel Taxes" table) and how the
+# transient accommodations tax is distributed (its own table): what the
+# collections table does not split.
+
+def _two_years(lines: list[str], start: int, span: int = 12) -> tuple[int, int] | None:
+    for line in lines[start: start + span]:
+        found = re.findall(r"FY\s*(\d{4})", line)
+        if len(found) >= 2:
+            return int(found[0]), int(found[1])
+    return None
+
+
+def parse_county_fuel(text: str) -> dict[int, int]:
+    """County fuel taxes by fiscal year, thousands: the COUNTY HIGHWAY FUNDS
+    total of the allocation table. The collections table's fuel row is state
+    plus county. Empty when the report's table is not found (FY2024's heading
+    wraps); the next report carries the year."""
+    lines = text.splitlines()
+    heads = [i for i, line in enumerate(lines)
+             if "ALLOCATION OF FUEL TAX" in line and "...." not in line]
+    if not heads:
+        return {}
+    start = heads[-1]
+    years = _two_years(lines, start)
+    county = next((j for j in range(start, min(start + 80, len(lines)))
+                   if "COUNTY HIGHWAY FUND" in lines[j].upper()), None)
+    if years is None or county is None:
+        return {}
+    for line in lines[county + 1: county + 12]:
+        m = re.match(r"^\s*(?:Sub-?total|TOTAL)\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)", line, re.I)
+        if m:
+            return {years[0]: int(m[1].replace(",", "")), years[1]: int(m[2].replace(",", ""))}
+    return {}
+
+
+_TAT_HEADING = re.compile(r"TRANSIENT ACCOMMODATIONS TAX(?:\s+\d)?\s*$")
+_TAT_ROW = re.compile(r"^\s*([A-Za-z][A-Za-z .&’'/]*?)\s+\$?\s*([\d,]+|-)\s+\$?\s*([\d,]+|-)(?:\s|$)")
+
+
+def parse_tat_distribution(text: str) -> dict[int, dict[str, int]]:
+    """Where the transient accommodations tax went, by fund, thousands
+    (``{fiscal_year: {fund label: amount}}``; HRS §237D-6.5). Empty if not found."""
+    lines = text.splitlines()
+    heads = [i for i, line in enumerate(lines)
+             if _TAT_HEADING.search(line) and "...." not in line
+             and i + 1 < len(lines) and "thousands" in lines[i + 1].lower()]
+    if not heads:
+        return {}
+    start = heads[-1]
+    years = _two_years(lines, start)
+    if years is None:
+        return {}
+    out: dict[int, dict[str, int]] = {years[0]: {}, years[1]: {}}
+    inside = False
+    for line in lines[start: start + 40]:
+        if line.strip().lower().startswith("distribution"):
+            inside = True
+            continue
+        if not inside:
+            continue
+        m = _TAT_ROW.match(line)
+        if not m:
+            continue
+        label = re.sub(r"\s+", " ", m[1]).strip()
+        if label.lower() == "total":
+            break
+        for fy, tok in zip(years, (m[2], m[3]), strict=True):
+            out[fy][label] = 0 if tok == "-" else int(tok.replace(",", ""))
+    return out if out[years[0]] else {}

@@ -350,6 +350,23 @@ jobs:
 
           Run: \$RUN_URL"
 
+      - name: Refresh state revenue ledger inputs
+        id: refresh-state-revenue-inputs
+        continue-on-error: true
+        run: |
+          # The state_revenue package's bundled files (STATE_REVENUE_SCOPE.md):
+          # DOTAX annual report tables, the Council on Revenues' line items,
+          # the excise bases, and the input-output, visitor spending and GET
+          # exemption workbooks. Each script first reads its index page and
+          # exits without downloading unless a report it has not bundled is
+          # listed (--if-new), so a quiet month costs a handful of requests
+          # to hawaii.gov. The PDF tables are read with pdftotext (poppler).
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          uv run python -m state_revenue.scripts.refresh_annual_collections --if-new
+          uv run python -m state_revenue.scripts.refresh_cor_forecasts --if-new
+          uv run python -m state_revenue.scripts.refresh_excise_bases --if-new
+          uv run python -m state_revenue.scripts.refresh_get_inputs --if-new
+
       - name: Regenerate BLS v3 calibration
         id: regenerate-bls-v3-calibration
         continue-on-error: true
@@ -414,6 +431,7 @@ jobs:
             packages/census_forecaster/src/census_forecaster/data/markets/ \
             packages/census_forecaster/src/census_forecaster/data/dotax_monthly/ \
             packages/census_forecaster/src/census_forecaster/data/cor/ \
+            packages/state_revenue/src/state_revenue/data/ \
             backtests/results/
 
           if git diff --staged --quiet; then
@@ -442,6 +460,7 @@ jobs:
           - DOL weekly UI initial claims re-fetched
           - DOTAX monthly tax collections merged into the accumulating bundle
           - Council on Revenues IIT projections re-derived from the newest GF attachment
+          - State revenue ledger inputs re-fetched where DOTAX, COR, HTA or DBEDT posted something new
           - BLS v3 calibration regenerated against the new panel
           - ACS v3 calibration regenerated against the bundled panel
 

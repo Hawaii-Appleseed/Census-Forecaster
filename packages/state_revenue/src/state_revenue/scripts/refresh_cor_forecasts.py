@@ -40,12 +40,19 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cache", type=Path, help="keep downloaded PDFs here (reused if present)")
     ap.add_argument("--out", type=Path, default=DATA_PATH)
+    ap.add_argument("--if-new", action="store_true",
+                    help="do nothing unless a meeting is posted that the bundled file lacks")
     args = ap.parse_args(argv)
 
     urls = attachment_urls([_fetch(p).decode("utf-8", "replace") for p in PAGES])
     if not urls:
         print("ERROR: no general fund attachments found", file=sys.stderr)
         return 1
+    if args.if_new and args.out.exists():
+        have = {m["file"] for m in json.loads(args.out.read_text())["meetings"]}
+        if set(urls) <= have:
+            print("[cor] no new meeting; bundled file kept", file=sys.stderr)
+            return 0
     cache = args.cache or Path(tempfile.mkdtemp(prefix="cor_"))
     cache.mkdir(parents=True, exist_ok=True)
 

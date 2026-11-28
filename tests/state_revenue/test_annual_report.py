@@ -129,3 +129,44 @@ def test_general_fund_table():
     assert residuals(t) == {2024: 0, 2023: 0}
     with pytest.raises(TableNotFound):
         parse_tax_collections(GENERAL_FUND)          # no collections table in it
+
+
+FUEL_ALLOCATION = """
+                                                          TABLE 1.6 - ALLOCATION OF FUEL TAXES
+                                                                    (In Thousands of Dollars)
+                                                                                                FY 2025                 FY 2024                 Amount
+STATE HIGHWAY FUND
+       Gasoline                                                                                  $ 66,909               $ 67,063              $      (154)
+          Subtotal                                                                               $ 75,909               $ 76,446              $   (537)
+          TOTAL                                                                                  $ 339,306              $ 325,187             $ 14,119
+COUNTY HIGHWAY FUNDS
+       City and County of Honolulu                                                               $ 44,814               $ 45,100              $      (286)
+       County of Maui                                                                              16,300                 16,200                      100
+          Subtotal                                                                               $ 87,761               $ 87,817              $       (56)
+"""
+
+TAT_TABLE = """
+                                       TABLE 1.4 - TRANSIENT ACCOMMODATIONS TAX
+                                                     (In Thousands of Dollars)
+                                                                   FY 2025                  FY 2024                 Amount
+Collection
+   Trans. Accom./Time Share Occ. Tax                           $ 816,184                $ 828,327               $       (12,144)
+     Total                                                     $ 816,200                $ 828,346               $       (12,147)
+Distribution 1
+       Turtle Bay Special Fund                                 $   1,500                $   1,500               $           -
+       Tourism Emergency Special Fund                                -                        -                             -
+       Mass Transit Fund                                          78,758                   79,668                          (910)
+       General Fund                                              685,637                  715,493                       (29,856)
+        Total                                                  $ 766,895                $ 796,661               $       (12,147)
+"""
+
+
+def test_county_fuel_and_tat_distribution():
+    from state_revenue.annual_report import parse_county_fuel, parse_tat_distribution
+    assert parse_county_fuel(FUEL_ALLOCATION) == {2025: 87_761, 2024: 87_817}
+    assert parse_county_fuel("no table") == {}
+    d = parse_tat_distribution(TAT_TABLE)
+    assert d[2025] == {"Turtle Bay Special Fund": 1_500, "Tourism Emergency Special Fund": 0,
+                       "Mass Transit Fund": 78_758, "General Fund": 685_637}
+    assert d[2024]["Mass Transit Fund"] == 79_668
+    assert parse_tat_distribution("no table") == {}

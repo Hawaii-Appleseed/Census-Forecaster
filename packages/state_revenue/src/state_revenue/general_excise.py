@@ -325,6 +325,38 @@ def score_sector_exemption(sectors: tuple[str, ...], fiscal_year: int, *,
                  {f"{k}_relief": -v * 1e3 * scale for k, v in relief.items()})
 
 
+
+# --- exemptions in law now (DOTAX's Act 94 report) -----------------------------------
+
+@lru_cache(maxsize=1)
+def load_exemptions() -> tuple[int, dict[str, dict]]:
+    """``(tax_year, {code: {"name", "wholesale", "retail", "insurance", "total"}})``:
+    exempt gross income claimed on returns, $ thousands, by the rate it would
+    have been taxed at. Suppressed rows have None."""
+    d = json.loads((DATA / "get_exemptions.json").read_text())
+    return d["tax_year"], d["exemptions"]
+
+
+def score_exemption_repeal(code: str, fiscal_year: int, *,
+                           baseline_get: dict[int, float] | None = None) -> Score:
+    """Repeal an exemption in law (its three-digit code on Schedule GE): the
+    exempt income claimed, at the rate it would have paid (4%, 0.5%, 0.15%),
+    plus the county surcharge on the retail part. DOTAX's "foregone taxes",
+    grown with the general excise baseline from the tax year (read as the
+    fiscal year ending the next June). Static, and an upper bound: some claims
+    would move to another exemption or stop."""
+    tax_year, table = load_exemptions()
+    if code not in table:
+        raise KeyError(f"no exemption {code!r}; codes are {sorted(table)}")
+    row = table[code]
+    if row["total"] is None:
+        raise ValueError(f"exemption {code} ({row['name']}) is suppressed in DOTAX's report")
+    g = _growth(fiscal_year, tax_year + 1, baseline_get) if fiscal_year != tax_year + 1 else 1.0
+    state = (row["retail"] * STATE_RATE + row["wholesale"] * 0.005 + row["insurance"] * 0.0015) * g
+    return Score(fiscal_year, state, row["retail"] * COUNTY_RATE * g, {},
+                 {"exempt_income": row["total"] * g})
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print who bears the tax and a few standard changes.
 

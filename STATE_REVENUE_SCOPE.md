@@ -32,7 +32,7 @@ collected by DOTAX and would be its own parcel-based build.
   the state about $305M in FY2025, 18% of it tax visitors pay now.
 - **Phase 4: every base-times-rate line scores.** The transient accommodations tax, fuel and the
   barrel tax, cigarettes and the rental vehicle surcharge on their own bases and statutory rates;
-  liquor and the rest proportionally. A point on the transient accommodations tax is about $88M
+  liquor and the rest proportionally. A point on the transient accommodations tax is about $87M
   in FY2027, 69% of it paid by visitors.
 
 ## The ledger (FY2025, DOTAX Annual Report Table 1.8)
@@ -403,16 +403,15 @@ Refreshing (after DBEDT's next benchmark table or HTA's next annual report):
   (2026–2030), 9.25% after; the rental vehicle surcharge $6.00, $6.50 (2024), $7.00 (2025) a day;
   cigarettes 16 cents (since July 2011). `rate_in(tax, fy)` weights a fiscal year's rates by days
   (FY2026's transient accommodations rate is 10.62%).
-- **Bases without a published quantity** are the baseline's revenue over the rate in force. The
-  transient accommodations base this implies for FY2025 is $7.96B, above the general excise
-  table's transient accommodations base ($7.46B); the timeshare occupancy tax, levied on fair
-  market rental value, may account for the difference.
+- **Bases without a published quantity** (the rental vehicle surcharge) are the baseline's revenue
+  over the rate in force. The transient accommodations base is DOTAX's own since "Limitations
+  addressed" below.
 
 ### Scorers
 
 | Function | Changes | Base |
 |---|---|---|
-| `score_tat(rate, fy, elasticity=0)` | the transient accommodations rate | baseline revenue / rate in force |
+| `score_tat(rate, fy, elasticity=0)` | the transient accommodations rate | DOTAX's reported base (rooms and timeshare), grown with the baseline |
 | `score_fuel({type: rate}, fy)` | state rates per gallon, per barrel, per MMBtu | 2024 quantities grown with the fuel (or environmental response) baseline |
 | `score_cigarettes(per_cigarette, fy, elasticity=0, pack_price=None)` | the tax per cigarette | 2024 cigarettes grown with the tobacco baseline |
 | `score_rental_vehicle(per_day, fy)` | the surcharge per day | baseline revenue / rate in force |
@@ -422,8 +421,8 @@ FY2027:
 
 | Change | State | Borne by visitors |
 |---|---|---|
-| Transient accommodations +1 point (11.00% to 12.00%) | 87.9 | 69% |
-|   same, elasticity -0.5 | 83.2 | 69% |
+| Transient accommodations +1 point (11.00% to 12.00%) | 86.7 | 69% |
+|   same, elasticity -0.5 | 82.0 | 69% |
 | Gasoline and highway diesel +5 cents a gallon | 22.8 |  |
 | Environmental response tax +$1 a barrel | 25.2 |  |
 | Cigarettes +5 cents each ($1 a pack) | 20.0 |  |
@@ -440,6 +439,46 @@ FY2027:
 Refreshing (each year, after DOTAX posts the calendar-year summaries):
 
     .venv/bin/python -m state_revenue.scripts.refresh_excise_bases --cache /tmp/excise
+
+## Limitations addressed (November 27, 2026)
+
+Six limits of phases 1–4, each closed with data DOTAX already publishes.
+
+| Limit | What changed | Where |
+|---|---|---|
+| The transient accommodations base was collections over the rate ($7.96B), not the GET table's $7.46B | DOTAX reports the base: June's "Tax Liabilities Incurred" report cumulates the fiscal year. FY2025: $7,458.0M of rooms plus $418.8M of timeshare occupancy (fair market rental value), $7,876.8M in all. The scorer uses it | `excise.tat_base`, `excise_bases.json` (`transient_accommodations`, FY2022–FY2025) |
+| The fuel line mixed state and county tax | County fuel taxes from the annual reports' allocation table, every year | `ledger.fuel_split(fy)`: FY2025 state $80.2M, county $87.8M |
+| Exemption scores rested on BEA and HTA alone | DOTAX's Act 94 report: exempt income claimed on returns, by exemption and rate, tax year 2024 | `general_excise.load_exemptions`, `score_exemption_repeal`, `get_exemptions.json` |
+| All-funds scaling held one ratio per line | The transient accommodations tax's fixed-dollar funds ($15.5M: Turtle Bay, convention center, land and development) are added, not scaled | `baseline.TAT_FIXED_FUNDS`, `ledger.tat_distribution(fy)` (FY2010 on) |
+| Refreshes were by hand | The four refresh scripts run in the monthly `refresh-data` workflow with `--if-new`: each reads its index page and downloads only when a report it has not bundled is listed | `.github/workflows/refresh-data.yml` |
+| The forecaster's settings were chosen on the backtest that scores them | Origins FY2008–FY2013, which the settings were not chosen on | `backtest.run_holdout` |
+
+What the new data says:
+
+- **Transient accommodations.** Liability over base is 10.25% in each of FY2022–FY2025, the
+  statutory rate. Collections run 1–3% above liability (penalties and assessments), which a rate
+  change does not move, so a point on the rate is $78.8M on FY2025's base ($79.6M before).
+  The 2018 and 2020–2022 June reports cumulate by calendar year and are skipped.
+- **Exemptions in law.** Repealing every exemption DOTAX does not suppress scores $1,367.6M
+  (FY2025) here; DOTAX's own total of foregone taxes is $1,371.1M with the five suppressed rows
+  in. Drugs and prosthetic devices: $119.3M both ways. The largest: nonprofit organizations
+  ($8.3B of exempt income, $331M), the subcontract deduction ($5.5B, $221M), out-of-state sales
+  ($3.8B), drugs ($3.0B). A repeal's score is an upper bound: claims can move to another
+  exemption.
+- **Groceries and SNAP.** DOTAX's "food stamps and WIC" exemption claimed $842M in 2024; the
+  grocery exemption's cost subtracts DHS's SNAP issuance, $695M. The difference (WIC, and
+  timing) is $6M of tax on a $305M estimate. The SNAP figure stays, to match the incidence
+  model.
+- **Out of sample, the forecaster is worse.** On origins FY2008–FY2013 the general fund total
+  misses by 7.8% a year out and 8.9% two out, against 4.9% and 7.6% on the origins the settings
+  were chosen on (every target in). Those years hold the 2009–2010 recession and start from
+  five years of history, so it is not a clean comparison, but it confirms the phase 2 decision:
+  the Council's line items, not the model's levels, are the baseline.
+
+Still open (from the plan of the same day): unemployment contributions on DLIR's rate schedule;
+motor vehicle taxes on the rate history; splitting investment's share of the general excise tax
+between residents and others; income tax cash timing; sourced elasticities; liquor gallons (DOTAX
+publishes rates per gallon by beverage, no gallons).
 
 ## Phases
 

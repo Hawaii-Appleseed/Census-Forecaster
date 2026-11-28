@@ -2,8 +2,9 @@
 
 Each tax is a base times a rate. The base in a fiscal year is the phase 2
 baseline's revenue over the rate in force (``rate_in``), or, where DOTAX
-publishes it, the base itself grown with that baseline (fuel gallons by type,
-cigarettes from tobacco collections by product). A change is the new rate
+publishes it, the base itself grown with that baseline (the transient
+accommodations base, fuel gallons by type, cigarettes from tobacco
+collections by product). A change is the new rate
 minus the old, times that base, for a whole fiscal year.
 
 Rates come from DOTAX documents, not from memory:
@@ -90,22 +91,41 @@ def _growth(line: str, fiscal_year: int, data_fy: int, baseline: dict[int, float
 
 # --- transient accommodations ---------------------------------------------------
 
+def tat_base(fiscal_year: int, *, baseline: dict[int, float] | None = None) -> dict[str, float]:
+    """The transient accommodations tax base in a fiscal year, $ thousands:
+    ``{"rooms", "timeshare"}``. DOTAX's reported base (gross rental proceeds,
+    and timeshares' fair market rental value) for the years it publishes;
+    later years grow the last one with the baseline's revenue over the rate
+    in force. Collections run 1-3% above the liability on this base
+    (penalties, assessments), which a rate change does not move."""
+    years = {int(fy): v for fy, v in load_bases()["transient_accommodations"].items()}
+    data_fy = fiscal_year if fiscal_year in years else max(years)
+    row = years[data_fy]
+    g = 1.0
+    if fiscal_year != data_fy:
+        g = ((_line("transient_accommodations", fiscal_year, baseline)
+              / rate_in("transient_accommodations", fiscal_year))
+             / (_line("transient_accommodations", data_fy, baseline)
+                / rate_in("transient_accommodations", data_fy)))
+    return {"rooms": row["base"] * g / 1e3, "timeshare": row["base_timeshare"] * g / 1e3}
+
+
 def score_tat(rate: float, fiscal_year: int, *, elasticity: float = 0.0,
               baseline: dict[int, float] | None = None) -> Score:
     """Set the transient accommodations tax rate for a whole fiscal year.
 
-    Base: the baseline's collections over the rate in force. ``elasticity``
-    is room nights' response to the price with tax (``-0.5``: a 1% higher
-    price, 0.5% fewer nights). Who bears it: the input-output table's
-    accommodation tax by final purchaser (visitors about 70%).
+    Base: :func:`tat_base` (rooms and timeshare, both taxed at the rate).
+    ``elasticity`` is room nights' response to the price with tax (``-0.5``:
+    a 1% higher price, 0.5% fewer nights). Who bears it: the input-output
+    table's accommodation tax by final purchaser (visitors about 70%).
     """
     old = rate_in("transient_accommodations", fiscal_year)
-    revenue = _line("transient_accommodations", fiscal_year, baseline)
-    base = revenue / old
+    parts = tat_base(fiscal_year, baseline=baseline)
+    base = parts["rooms"] + parts["timeshare"]
     quantity = 1.0 + elasticity * ((1 + rate) / (1 + old) - 1)
-    delta = rate * base * quantity - revenue
+    delta = rate * base * quantity - old * base
     return Score(fiscal_year, delta, 0.0, shares(burden_by_purchaser(tax="state_tat")),
-                 {"base": base, "rate_in_force": old})
+                 {"base": base, "base_timeshare": parts["timeshare"], "rate_in_force": old})
 
 
 # --- fuel and the environmental response tax --------------------------------------

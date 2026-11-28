@@ -90,3 +90,28 @@ def load_ledger(fund: str = "all") -> Ledger:
     payload = json.loads(DATA_PATH.read_text())
     return _from_payload({"fiscal_years": payload[FUNDS[fund]],
                           "fetch_date": payload["fetch_date"]})
+
+
+@lru_cache(maxsize=1)
+def _payload() -> dict:
+    return json.loads(DATA_PATH.read_text())
+
+
+def fuel_split(fy: int) -> dict[str, int]:
+    """The fuel line as state and county tax, thousands. The collections
+    table's row is both; county fuel taxes are the allocation table's. Through
+    FY2018 the state part still includes the environmental response tax."""
+    county = _payload()["county_fuel"].get(str(fy))
+    if county is None:
+        raise KeyError(f"no county fuel tax for FY{fy}")
+    total = load_ledger("all")[fy].lines["fuel"]
+    return {"state": total - county, "county": county}
+
+
+def tat_distribution(fy: int) -> dict[str, int]:
+    """Where the transient accommodations tax went in a fiscal year, by fund,
+    thousands (the annual report's distribution table; FY2010 on)."""
+    row = _payload()["tat_distribution"].get(str(fy))
+    if row is None:
+        raise KeyError(f"no transient accommodations distribution for FY{fy}")
+    return dict(row)

@@ -1,0 +1,399 @@
+{
+ "source": "Hawaii Department of Taxation, 'Hawaii General Excise & Use Tax Exemptions' (Act 94, SLH 2015 report), Table A-1: exemptions claimed by GET rate",
+ "fetch_date": "2026-11-27",
+ "tax_year": 2024,
+ "units": "$ thousands of exempt gross income, calendar (tax) year",
+ "reports": [
+  {
+   "url": "https://files.hawaii.gov/tax/stats/stats/act94_2015/act94_2015_taxyr2024_tables.xlsx",
+   "sha256": "7b7e3416f691e083d609e2c1d98de37bb2cd916c2577f492c08744285cb35023"
+  }
+ ],
+ "exemptions": {
+  "100": {
+   "name": "Affordable Housing (§§46-15.1, 201H-36 237-29, 238-3(j))",
+   "wholesale": 31358.53,
+   "retail": 1363585.232,
+   "insurance": 0.0,
+   "total": 1394943.762
+  },
+  "101": {
+   "name": "Air Pollution Control Facilities (§§237-27.5, 238-3(k))",
+   "wholesale": 112.205,
+   "retail": 75495.343,
+   "insurance": 0.0,
+   "total": 75607.548
+  },
+  "102": {
+   "name": "Aircraft Leasing (§§237-24.3(11), 238-1)",
+   "wholesale": null,
+   "retail": null,
+   "insurance": null,
+   "total": null
+  },
+  "103": {
+   "name": "Aircraft Service and Maintenance Facility (§§237-24.9, 238-1)",
+   "wholesale": 1202.893,
+   "retail": 90313.893,
+   "insurance": 0.0,
+   "total": 91516.785
+  },
+  "104": {
+   "name": "Bad Debts (§237-3(b))",
+   "wholesale": 2201.094,
+   "retail": 54638.08,
+   "insurance": 0.0,
+   "total": 56839.174
+  },
+  "105": {
+   "name": "Certain Convention, Conference and Trade Show (§237-16.8)",
+   "wholesale": 0.0,
+   "retail": 1574.119,
+   "insurance": 0.0,
+   "total": 1574.119
+  },
+  "106": {
+   "name": "Common Paymaster Exemption (§237-23.5(b))",
+   "wholesale": 6.0,
+   "retail": 1781.543,
+   "insurance": 0.0,
+   "total": 1787.543
+  },
+  "107": {
+   "name": "Contracting Activity in an Enterprise Zone (§209E-11)",
+   "wholesale": 0.0,
+   "retail": 10410.124,
+   "insurance": 0.0,
+   "total": 10410.124
+  },
+  "110": {
+   "name": "Diplomats and Consular Officials (§§237-24.3(10), 238-1)",
+   "wholesale": 0.0,
+   "retail": 2853.9,
+   "insurance": 0.0,
+   "total": 2853.9
+  },
+  "111": {
+   "name": "Disability Provisions (§237-24(13))",
+   "wholesale": 2218.339,
+   "retail": 0.0,
+   "insurance": 0.0,
+   "total": 2218.339
+  },
+  "112": {
+   "name": "Discounts and Returned Merchandise (§237-3(b))",
+   "wholesale": 158841.875,
+   "retail": 490604.867,
+   "insurance": 0.0,
+   "total": 649446.742
+  },
+  "113": {
+   "name": "Drugs and Prosthetic Devices (§237-24.3(6))",
+   "wholesale": 0.0,
+   "retail": 2983400.235,
+   "insurance": 0.0,
+   "total": 2983400.235
+  },
+  "114": {
+   "name": "Employee Benefit Plans (§237-24.3(4))",
+   "wholesale": 0.0,
+   "retail": 185352.617,
+   "insurance": 0.0,
+   "total": 185352.617
+  },
+  "115": {
+   "name": "Enterprise Zones (§209E-11)",
+   "wholesale": 96286.145,
+   "retail": 53085.279,
+   "insurance": 0.0,
+   "total": 149371.424
+  },
+  "116": {
+   "name": "Exported Services (§237-29.53)",
+   "wholesale": 53892.84,
+   "retail": 921831.403,
+   "insurance": 0.0,
+   "total": 975724.243
+  },
+  "117": {
+   "name": "Federal Cost-Plus Contractors (§237-13(3)(C))",
+   "wholesale": 19670.718,
+   "retail": 102036.389,
+   "insurance": 0.0,
+   "total": 121707.107
+  },
+  "118": {
+   "name": "Federal Preempted Amount (§§237-22, 238-3(a))",
+   "wholesale": 83477.744,
+   "retail": 420509.427,
+   "insurance": 4340.007,
+   "total": 508327.179
+  },
+  "119": {
+   "name": "Food Stamps and WIC (§237-24.3(5))",
+   "wholesale": 0.0,
+   "retail": 842332.104,
+   "insurance": 0.0,
+   "total": 842332.104
+  },
+  "120": {
+   "name": "Foreign Trade Zone Sales (§212-8)",
+   "wholesale": 298.674,
+   "retail": 1063859.658,
+   "insurance": 0.0,
+   "total": 1064158.332
+  },
+  "121": {
+   "name": "Hawaii Convention Center Operator (§237-24.75(2))",
+   "wholesale": null,
+   "retail": null,
+   "insurance": null,
+   "total": null
+  },
+  "122": {
+   "name": "Hotel Operator/Suboperator (§237-24.7(1))",
+   "wholesale": 2.0,
+   "retail": 169723.278,
+   "insurance": 0.0,
+   "total": 169725.278
+  },
+  "123": {
+   "name": "Insurance Proceeds Received b/c of a Natural Disaster (§237-24.7(6))",
+   "wholesale": 0.619,
+   "retail": 43089.652,
+   "insurance": 0.0,
+   "total": 43090.271
+  },
+  "124": {
+   "name": "Intercompany Charges (§237-23.5(a))",
+   "wholesale": 0.0,
+   "retail": 416543.586,
+   "insurance": 0.0,
+   "total": 416543.586
+  },
+  "125": {
+   "name": "Labor Organizations (§237-24.3(9))",
+   "wholesale": 0.0,
+   "retail": 251.901,
+   "insurance": 0.0,
+   "total": 251.901
+  },
+  "126": {
+   "name": "Subleases of Real Property (§237-16.5)",
+   "wholesale": 0.0,
+   "retail": 217515.652,
+   "insurance": 0.0,
+   "total": 217515.652
+  },
+  "127": {
+   "name": "Maintenance Fees (§§237-24.3(2), 237-24(16))",
+   "wholesale": 0.0,
+   "retail": 2165513.525,
+   "insurance": 0.0,
+   "total": 2165513.525
+  },
+  "128": {
+   "name": "Mass Transit (§237-24.7(2))",
+   "wholesale": 0.0,
+   "retail": 8391.037,
+   "insurance": 0.0,
+   "total": 8391.037
+  },
+  "129": {
+   "name": "Merchants’ Association Dues (§237-24.3(8))",
+   "wholesale": 0.0,
+   "retail": 12196.067,
+   "insurance": 0.0,
+   "total": 12196.067
+  },
+  "130": {
+   "name": "Non-profit Organizations (§237-23)",
+   "wholesale": 75.703,
+   "retail": 8276441.576,
+   "insurance": 0.0,
+   "total": 8276517.279
+  },
+  "131": {
+   "name": "Orchard Operator (§237-24.7(4))",
+   "wholesale": null,
+   "retail": null,
+   "insurance": null,
+   "total": null
+  },
+  "132": {
+   "name": "Out of State Sales (§237-29.5(1))",
+   "wholesale": 1100732.987,
+   "retail": 2731997.04,
+   "insurance": 0.0,
+   "total": 3832730.027
+  },
+  "133": {
+   "name": "Out of State Services/Contracting to Foreign Customers (§238-2.3(1)(C))",
+   "wholesale": 1735.806,
+   "retail": 13350.578,
+   "insurance": 0.0,
+   "total": 15086.385
+  },
+  "134": {
+   "name": "Patient-Centered Community Care (§237-24(18))",
+   "wholesale": 0.0,
+   "retail": 17644.981,
+   "insurance": 0.0,
+   "total": 17644.981
+  },
+  "135": {
+   "name": "Petroleum Refining (§237-27)",
+   "wholesale": null,
+   "retail": null,
+   "insurance": null,
+   "total": null
+  },
+  "136": {
+   "name": "Potable Water (§237-23(a)(7))",
+   "wholesale": 55.966,
+   "retail": 6752.652,
+   "insurance": 0.0,
+   "total": 6808.618
+  },
+  "137": {
+   "name": "Professional Employer Organizations (§237-24.75(3))",
+   "wholesale": 117.031,
+   "retail": 88885.826,
+   "insurance": 0.0,
+   "total": 89002.857
+  },
+  "138": {
+   "name": "Producers (Certain property used) (§238-4)",
+   "wholesale": null,
+   "retail": null,
+   "insurance": null,
+   "total": null
+  },
+  "139": {
+   "name": "Real Estate Sales (§237-3(b))",
+   "wholesale": 0.0,
+   "retail": 350634.891,
+   "insurance": 0.0,
+   "total": 350634.891
+  },
+  "140": {
+   "name": "Reimbursement of Payroll Costs (§237-24.7(9))",
+   "wholesale": 0.0,
+   "retail": 97008.756,
+   "insurance": 0.0,
+   "total": 97008.756
+  },
+  "141": {
+   "name": "Sales to Federal Government and Credit Unions (§237-25(a))",
+   "wholesale": 105.835,
+   "retail": 2232536.219,
+   "insurance": 0.0,
+   "total": 2232642.054
+  },
+  "142": {
+   "name": "Scientific Contracts (§§237-26, 238-3(j)).",
+   "wholesale": 38031.38,
+   "retail": 296695.382,
+   "insurance": 0.0,
+   "total": 334726.763
+  },
+  "143": {
+   "name": "Service Related to Ship & Aircraft (§237-24.3(3))",
+   "wholesale": 10464.054,
+   "retail": 818312.071,
+   "insurance": 0.0,
+   "total": 828776.125
+  },
+  "144": {
+   "name": "Shipbuilding and Ship Repairs (§237-28.1).",
+   "wholesale": 1012.289,
+   "retail": 336533.18,
+   "insurance": 0.0,
+   "total": 337545.47
+  },
+  "145": {
+   "name": "Shipping and Handling of Agricultural Commodities (§237-24.3(1))",
+   "wholesale": 288.985,
+   "retail": 38514.337,
+   "insurance": 0.0,
+   "total": 38803.322
+  },
+  "146": {
+   "name": "Small Business Innovation Research Grants (§237-24.7(10))",
+   "wholesale": 0.0,
+   "retail": 6155.374,
+   "insurance": 0.0,
+   "total": 6155.374
+  },
+  "147": {
+   "name": "Stock Exchange Transactions (§237-24.5)",
+   "wholesale": 0.0,
+   "retail": 1036.862,
+   "insurance": 0.0,
+   "total": 1036.862
+  },
+  "148": {
+   "name": "Subcontract Deduction (§237-13(3)(B))",
+   "wholesale": 387.885,
+   "retail": 5531685.459,
+   "insurance": 0.0,
+   "total": 5532073.344
+  },
+  "149": {
+   "name": "Sugar Cane Payments to Independent Producers (§237-24(14))",
+   "wholesale": 0.0,
+   "retail": 0.0,
+   "insurance": 0.0,
+   "total": 0.0
+  },
+  "150": {
+   "name": "Taxes Passed On (§§237-24(8), 237-24(9), 237-24(10), 237-24(12))",
+   "wholesale": 325013.069,
+   "retail": 723060.528,
+   "insurance": 0.0,
+   "total": 1048073.597
+  },
+  "151": {
+   "name": "TRICARE (§237-24(17))",
+   "wholesale": 0.0,
+   "retail": 0.0,
+   "insurance": 0.0,
+   "total": 0.0
+  },
+  "152": {
+   "name": "Wholesale Amusements (§237-4(a)(13))",
+   "wholesale": 0.0,
+   "retail": 38844.753,
+   "insurance": 0.0,
+   "total": 38844.753
+  },
+  "153": {
+   "name": "Wholesale Transactions (§237-29.55)",
+   "wholesale": 2124665.115,
+   "retail": 0.0,
+   "insurance": 0.0,
+   "total": 2124665.115
+  },
+  "154": {
+   "name": "Sales Tax Paid Offset (§§237-22(b), 238-3(i))",
+   "wholesale": 6892.818,
+   "retail": 100658.271,
+   "insurance": 0.0,
+   "total": 107551.09
+  },
+  "156": {
+   "name": "Exported Intangibles (§237-29.57)",
+   "wholesale": 0.0,
+   "retail": 5501.733,
+   "insurance": 0.0,
+   "total": 5501.733
+  },
+  "157": {
+   "name": "Imported for Resale at Wholesale (§238-2(1),238-2.3(a)(1)(A))",
+   "wholesale": 2178736.717,
+   "retail": 0.0,
+   "insurance": 0.0,
+   "total": 2178736.717
+  }
+ }
+}

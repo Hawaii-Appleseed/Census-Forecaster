@@ -9,7 +9,13 @@ DOTAX's calendar-year summaries, from its archive of monthly reports
 - ``YYYYcy-tob.pdf``: "Cigarette & Tobacco Tax Collections", net collections by
   product. The statewide calendar-year column is read.
 
-Writes ``data/excise_bases.json`` from the newest year both reports cover.
+- ``YYYY06liab-by-d_tat.pdf``: "Transient Accommodations Tax Liabilities
+  Incurred" for June, whose cumulative columns are the fiscal year's tax base
+  and liability, for transient accommodations and for timeshare occupancy.
+  Every June report in the archive that cumulates by fiscal year is read.
+
+Writes ``data/excise_bases.json``: fuel and tobacco from the newest calendar
+year both reports cover, the transient accommodations base for every fiscal year.
 
     python -m state_revenue.scripts.refresh_excise_bases --cache /tmp/excise
 """
@@ -28,6 +34,8 @@ from state_revenue.scripts.refresh_annual_collections import _fetch, pdf_text
 
 ARCHIVE_PAGE = "https://tax.hawaii.gov/stats/a5_3txcolrptarchive/"
 LINK = re.compile(r"https://files\.hawaii\.gov/tax/stats/monthly/(?:archive/)?(\d{4})cy-(fuels|tob)\.pdf")
+TAT_LINK = re.compile(
+    r"https://files\.hawaii\.gov/tax/stats/monthly/(?:archive/)?(\d{4})06liab-by-d_tat[^\"']*\.pdf")
 OUT = Path(__file__).resolve().parent.parent / "data" / "excise_bases.json"
 
 FUEL_ROWS = {
@@ -112,20 +120,57 @@ def parse_tobacco(text: str) -> dict[str, float]:
     return out
 
 
+def parse_tat_liability(text: str) -> dict[int, dict[str, float]]:
+    """A June report's cumulative columns: ``{fiscal_year: {"liability",
+    "liability_timeshare", "base", "base_timeshare"}}`` in dollars, for the
+    report's fiscal year and the one before."""
+    lines = text.splitlines()
+    years = None
+    for line in lines:
+        found = re.findall(r"FY\s*(\d{4})", line)
+        if len(found) >= 2:
+            years = (int(found[0]), int(found[1]))
+            break
+    if years is None:
+        raise ValueError("TAT liability report: no 'FY yyyy  FY yyyy' header")
+    seen: dict[str, list[tuple[float, float]]] = {"transient accommodations": [],
+                                                  "timeshare occupancy": []}
+    for line in lines:
+        m = re.match(rf"^\s*(Transient Accommodations|Timeshare Occupancy)\s+((?:{_AMOUNT}\s+){{7}}{_AMOUNT})",
+                     line, re.I)
+        if m:
+            nums = [_num(t) for t in re.findall(_AMOUNT, m[2])]
+            seen[m[1].lower()].append((nums[6], nums[7]))        # FY cumulative: current, prior
+    ta, ts = seen["transient accommodations"], seen["timeshare occupancy"]
+    if len(ta) != 2 or len(ts) != 2:
+        raise ValueError("TAT liability report: expected a liability block and a base block")
+    return {fy: {"liability": ta[0][i], "liability_timeshare": ts[0][i],
+                 "base": ta[1][i], "base_timeshare": ts[1][i]} for i, fy in enumerate(years)}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cache", type=Path)
+    ap.add_argument("--if-new", action="store_true",
+                    help="do nothing unless the archive lists a report the bundled file lacks")
     args = ap.parse_args(argv)
     cache = args.cache or Path(tempfile.mkdtemp(prefix="excise_"))
     cache.mkdir(parents=True, exist_ok=True)
+    page = _fetch(ARCHIVE_PAGE).decode("utf-8", "replace")
     found: dict[tuple[int, str], str] = {}
-    for m in LINK.finditer(_fetch(ARCHIVE_PAGE).decode("utf-8", "replace")):
+    for m in LINK.finditer(page):
         found[(int(m[1]), m[2])] = m[0]
+    tat_urls = {int(m[1]): m[0] for m in TAT_LINK.finditer(page)}
     years = sorted({y for y, k in found if (y, "fuels") in found and (y, "tob") in found})
     if not years:
         print(f"ERROR: no calendar-year fuel and tobacco reports on {ARCHIVE_PAGE}", file=sys.stderr)
         return 1
     year = years[-1]
+    if args.if_new and OUT.exists():
+        have = {r["url"] for r in json.loads(OUT.read_text()).get("reports", [])}
+        if {found[(year, "fuels")], found[(year, "tob")], *tat_urls.values()} <= have:
+            print("[excise] no new report; bundled file kept", file=sys.stderr)
+            return 0
     texts, sources = {}, []
     for kind in ("fuels", "tob"):
         url = found[(year, kind)]
@@ -134,9 +179,20 @@ def main(argv: list[str] | None = None) -> int:
             pdf.write_bytes(_fetch(url))
         texts[kind] = pdf_text(pdf)
         sources.append({"url": url, "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest()})
+    tat: dict[int, dict[str, float]] = {}
+    for _, url in sorted(tat_urls.items()):             # oldest first: newer reports revise
+        pdf = cache / url.rsplit("/", 1)[-1]
+        if not pdf.exists():
+            pdf.write_bytes(_fetch(url))
+        try:
+            tat.update(parse_tat_liability(pdf_text(pdf)))
+        except ValueError as e:                         # the 2018 reports cumulate by calendar year
+            print(f"[excise] {pdf.name} skipped: {e}", file=sys.stderr)
+        sources.append({"url": url, "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest()})
     payload = {
-        "source": "Hawaii Department of Taxation, calendar-year summaries: Liquid Fuel Tax Base & "
-                  "Tax Collections; Cigarette & Tobacco Tax Collections and Allocations",
+        "source": "Hawaii Department of Taxation: calendar-year summaries (Liquid Fuel Tax Base & "
+                  "Tax Collections; Cigarette & Tobacco Tax Collections and Allocations) and June "
+                  "'Transient Accommodations Tax Liabilities Incurred' reports",
         "fetch_date": date.today().isoformat(),
         "calendar_year": year,
         "units": "fuel: gallons (barrels, MMBtu for the environmental response tax) and dollars; "
@@ -144,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         "reports": sources,
         "fuel": parse_fuels(texts["fuels"]),
         "tobacco": parse_tobacco(texts["tob"]),
+        "transient_accommodations": {str(fy): v for fy, v in sorted(tat.items())},
     }
     OUT.write_text(json.dumps(payload, indent=1) + "\n")
     print(f"[excise] calendar {year} -> {OUT}", file=sys.stderr)

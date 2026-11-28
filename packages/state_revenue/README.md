@@ -34,10 +34,13 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
 - `annual_report.py`: reads the "Tax Collections" table from an annual report.
 - `scripts/refresh_annual_collections.py`: fetches the reports and rewrites
   `data/annual_collections.json` (needs `pdftotext`).
-- `scripts/refresh_get_inputs.py`: fetches the input-output table and HTA's visitor
-  spending by category into `data/`.
+- `scripts/refresh_get_inputs.py`: fetches the input-output table, HTA's visitor
+  spending by category and DOTAX's GET exemptions claimed into `data/`.
 - `scripts/refresh_excise_bases.py`: fetches DOTAX's calendar-year fuel and tobacco
-  summaries into `data/excise_bases.json`.
+  summaries and its transient accommodations base into `data/excise_bases.json`.
+
+Every refresh script takes `--if-new` (do nothing unless the source posted a report the
+bundled file lacks); the monthly `refresh-data` workflow runs them that way.
 - `scripts/refresh_cor_forecasts.py`: fetches the Council's attachments and rewrites
   `data/cor_line_forecasts.json`.
 
