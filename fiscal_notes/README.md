@@ -199,3 +199,47 @@ The contract with the hub (the hub side is built to the same text):
   `bill_sha256`), `score` (the score JSON, null for `out_of_scope`) and `translation` (the translation
   JSON), each at most 400,000 serialized characters. A score over the cap loses `revenue_rows` first
   (`revenue_rows_dropped: true` is added inside it); still over, or a translation over, fails the request.
+
+## State taxes: general excise, transient accommodations, excises
+
+A second path for bills that change the general excise tax, the transient accommodations tax, the
+cigarette, fuel and liquor taxes or the rental vehicle surcharge (`state_taxes.py`,
+`prompt_state_taxes.md`). Same pipeline, another model: the spec is scored through `state_revenue`
+(`STATE_REVENUE_SCOPE.md`), not the tax-unit simulator, so it needs no population file.
+
+```
+python -m fiscal_notes state-run BILL.txt [--out DIR] [--model sonnet]
+python -m fiscal_notes state-score NAME.state_spec.yaml [--translation FILE] [--out DIR]
+python -m fiscal_notes state-eval [--record] [--model sonnet]
+```
+
+`state-run` writes `<name>.state_spec.yaml`, `<name>.state_translation.json`,
+`<name>.state_score.json` and `<name>.state_note.md`. Which path a bill takes is the caller's choice:
+the hub client still sends every request down the income tax path.
+
+The spec (every key optional; `validate_spec` is the schema):
+
+| Key | Meaning |
+|---|---|
+| `effective` | first day the provisions apply, `YYYY-MM-DD`, or null |
+| `general_excise.exempt` | consumer categories exempted: `groceries`, `restaurants`, `apparel`, `medical_services` |
+| `general_excise.rates` | `{activity: percent}` for DOTAX's activities (`retailing`, `services`, `contracting`, ...) |
+| `general_excise.repeal_exemptions` | Schedule GE exemption codes repealed in full (`"130"` nonprofits, ...) |
+| `transient_accommodations.rate_change_points` or `.rate` | points added to the rate in force, or the new rate |
+| `cigarettes.cents_per_cigarette` | tax per cigarette |
+| `fuel.cents_per_gallon`, `fuel.dollars_per_barrel` | state fuel tax by fuel; the barrel tax |
+| `liquor.dollars_per_gallon` | `spirits`, `wine`, `beer` |
+| `rental_vehicle.dollars_per_day` | the surcharge |
+
+Checks, as on the income tax path: the spec validates; every quote is verbatim in the bill; every
+figure in the spec appears in the bill's in-force text, as digits or as the statute spells it ("one
+percentage point", "four and one-half per cent"); every spec key is claimed by a modeled provision.
+The verdict is derived from those, never taken from the model.
+
+Scoring: five fiscal years from the one holding `effective`, the first prorated by days. A date
+that is absent or already past is replaced by the start of the baseline's second fiscal year, and
+the note says so. Static, one tax at a time, state revenue with the county surcharge beside it.
+
+Fixtures are six 2026 bills in `tests/fiscal_notes/bills_state/` with recorded answers in
+`responses_state/`; expectations in `state_expectations.py`. Re-record with `state-eval --record`
+after any change to `prompt_state_taxes.md`.

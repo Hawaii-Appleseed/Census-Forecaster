@@ -1,8 +1,8 @@
 # State tax revenue, every line — Scope
 
-**Status (2026-11-27): phases 1–4 built** (the ledger; the baseline and its backtest against the
+**Status (2026-11-28): phases 1–5 built.** The ledger; the baseline and its backtest against the
 Council on Revenues; the general excise tax in full; the transient accommodations and excise
-scorers, below). Phase 5 is scope.
+scorers; fiscal notes for those taxes. Each has a dated section below.
 
 Goal: model all of Hawaiʻi's state tax collections, not only the individual income tax, so
 that a baseline forecast covers every dollar and a change to any tax the repository can model
@@ -440,6 +440,45 @@ Refreshing (each year, after DOTAX posts the calendar-year summaries):
 
     .venv/bin/python -m state_revenue.scripts.refresh_excise_bases --cache /tmp/excise
 
+## As built (phase 5, November 28, 2026)
+
+Fiscal notes for bills that change the general excise tax, the transient accommodations tax or the
+excises: `fiscal_notes/state_taxes.py`, `prompt_state_taxes.md`, CLI `state-run`, `state-score`,
+`state-eval` (`fiscal_notes/README.md`, "State taxes"). The income tax path is untouched.
+
+- **Spec.** One JSON object: an effective date and any of general excise exemptions by consumer
+  category, general excise rates by DOTAX activity, repeals of exemptions in law, the transient
+  accommodations rate, cents per cigarette, fuel cents per gallon and dollars per barrel, liquor
+  dollars per gallon, the rental vehicle surcharge. Each maps to one `state_revenue` scorer.
+- **Checks.** The same four as the income tax translator. Figures are matched as the statutes
+  write them, in digits or words ("increased by one percentage point").
+- **Score.** Five fiscal years from the effective date, the first prorated by days; state revenue
+  by component, the county surcharge beside it, who bears each component.
+- **Fixtures.** Six real 2026 bills, answers recorded from the model (`sonnet`):
+
+| Bill | What it does | Verdict | Spec |
+|---|---|---|---|
+| HB 1585 | Exempts SNAP- and WIC-eligible groceries | partial (approximate) | `general_excise.exempt: [groceries]` |
+| HB 604 | Transient accommodations tax up one point | partial (approximate) | `rate_change_points: 1` |
+| HB 1085 | Cigarettes from 16 to 21 cents | partial (little cigars, fund shares) | `cents_per_cigarette: 21` |
+| HB 959 | Grocery exemption; general excise increase left blank; income tax | partial | groceries only |
+| HB 1991 | Liquor tax by alcohol content | partial (approximate) | three beverage rates |
+| HB 2156 | Filing thresholds | out of scope | none |
+
+All six carry dates already past (they were 2026 bills), so each note assumes July 1, 2026 and
+says so. HB 604's note: +$478.5M over FY2027–FY2031, 69% borne by visitors.
+
+Limits:
+
+- **No routing.** A person picks the path; the hub client sends requests down the income tax path
+  only. A bill that changes both taxes (HB 959) needs both runs and the notes are not combined.
+- **Consumer categories are four.** Nonprescription drugs, reduced rates on one kind of good, and
+  exemptions limited to some buyers are listed as not scored.
+- **After 2030** the transient accommodations rate in law falls back to 9.25% while the Council's
+  line keeps growing, so the base implied for FY2031 on is about 9% high. HB 604's FY2031 figure
+  ($109.9M against $97.7M the year before) shows it.
+- **Static.** No behavioural response until elasticities are sourced.
+
 ## Limitations addressed (November 27, 2026)
 
 Six limits of phases 1–4, each closed with data DOTAX already publishes.
@@ -709,9 +748,8 @@ three rates 10% is $5.2M, where the proportional scorer gave $5.1M.
 4. **Transient accommodations and excise scorers.** Done (above). Open: liquor gallons by beverage
    (DOTAX's calendar-year liquor summary gives dollars only), motor vehicle weight and
    registration counts, and sourced elasticities.
-5. **Fiscal notes beyond income tax.** `fiscal_notes` translates a bill into an
-   `IncomeTaxSpec`; add specs for general excise and transient accommodations changes and score
-   them through the ledger.
+5. **Fiscal notes beyond income tax.** Done (above). Open: routing in the hub client; a combined
+   note for a bill that changes income and excise taxes.
 
 ## Risks
 

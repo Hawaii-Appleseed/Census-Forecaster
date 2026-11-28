@@ -1,4 +1,4 @@
-"""``python -m fiscal_notes translate|eval|score|run|diff|fetch|hub``."""
+"""``python -m fiscal_notes translate|eval|score|run|diff|fetch|hub|state-run|state-score|state-eval``."""
 from __future__ import annotations
 
 import argparse
@@ -212,6 +212,114 @@ def cmd_run(args, runner: Callable[[str], str] | None = None,
     return _score_and_write(translation, spec_path, out, header["name"], scorer, args.population)
 
 
+# ---- state taxes (general excise, transient accommodations, excises) ---------------------------
+
+
+def _state_outputs(bill_text: str, t: Translation, header: dict, model: str, out: Path) -> dict:
+    """Write the spec and translation JSON for a state-tax bill; return the translation dict."""
+    from fiscal_notes import state_taxes as st
+
+    out.mkdir(parents=True, exist_ok=True)
+    res = t.result
+    spec_path = out / f"{header['name']}.state_spec.yaml"
+    if res.verdict in ("out_of_scope", "invalid") or res.spec is None:
+        spec_path.unlink(missing_ok=True)
+    else:
+        body = {"name": header["name"], "label": header["label"], **res.spec}
+        spec_path.write_text(_SPEC_COMMENT + yaml.safe_dump(body, sort_keys=False, allow_unicode=True))
+        print(f"wrote {spec_path}")
+    translation = {
+        "name": header["name"], "label": header["label"], "verdict": res.verdict,
+        "provisions": res.provisions, "notes": res.notes, "problems": res.problems,
+        "model": model, "attempts": t.attempts, "bill_sha256": sha256(bill_text),
+        "prompt_sha256": sha256(st.PROMPT_PATH.read_bytes()),
+    }
+    path = out / f"{header['name']}.state_translation.json"
+    path.write_text(json.dumps(translation, indent=2, ensure_ascii=False) + "\n")
+    print(f"wrote {path}")
+    return translation
+
+
+def _state_note(translation: dict, spec: dict | None, out: Path, name: str,
+                scorer: Callable[[dict], dict] | None) -> int:
+    from fiscal_notes import state_taxes as st
+
+    if translation["verdict"] == "invalid":
+        print(f"refusing to score {translation['label']}: the translation is invalid", file=sys.stderr)
+        for p in translation.get("problems", []):
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+    score = None
+    if translation["verdict"] != "out_of_scope":
+        try:
+            score = (scorer or st.score_spec)(spec)
+        except st.SpecError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        path = out / f"{name}.state_score.json"
+        path.write_text(st.dumps(score))
+        print(f"wrote {path}")
+    path = out / f"{name}.state_note.md"
+    path.write_text(st.render_note(translation, score))
+    print(f"wrote {path}")
+    return 0
+
+
+def cmd_state_run(args, runner: Callable[[str], str] | None = None,
+                  scorer: Callable[[dict], dict] | None = None) -> int:
+    from fiscal_notes import state_taxes as st
+
+    bill_text = Path(args.bill).read_text()
+    header = parse_header(bill_text)
+    runner = runner or functools.partial(run_claude, model=args.model)
+    t = st.translate_bill(bill_text, runner)
+    out = Path(args.out) if args.out else REPO / "reforms" / "bills" / header["session"]
+    print(summary(t, header))
+    translation = _state_outputs(bill_text, t, header, args.model, out)
+    return _state_note(translation, t.result.spec, out, header["name"], scorer)
+
+
+def cmd_state_score(args, scorer: Callable[[dict], dict] | None = None) -> int:
+    spec_path = Path(args.spec)
+    name = spec_path.name.removesuffix(".state_spec.yaml")
+    tr_path = (Path(args.translation) if args.translation
+               else spec_path.with_name(f"{name}.state_translation.json"))
+    if not tr_path.exists():
+        print(f"ERROR: translation file not found: {tr_path} (pass --translation)", file=sys.stderr)
+        return 2
+    spec = yaml.safe_load(spec_path.read_text())
+    out = Path(args.out) if args.out else spec_path.parent
+    return _state_note(json.loads(tr_path.read_text()), spec, out, name, scorer)
+
+
+def cmd_state_eval(args, runner: Callable[[str], str] | None = None) -> int:
+    from fiscal_notes import state_expectations as ex
+    from fiscal_notes import state_taxes as st
+
+    runner = runner or functools.partial(run_claude, model=args.model)
+    cases = list(ex.CASES)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        done = dict(zip(cases, pool.map(lambda c: st.translate_bill(ex.bill_text(c), runner), cases),
+                        strict=True))
+    failures = 0
+    for case in cases:
+        t = done[case]
+        checks = ex.evaluate(case, t.result)
+        ok = all(passed for _, passed in checks)
+        failures += not ok
+        print(f"{case}: verdict {t.result.verdict}, attempts {t.attempts}, {'ALL MET' if ok else 'FAILED'}")
+        for label, passed in checks:
+            print(f"    {'ok  ' if passed else 'FAIL'} {label}")
+        for prob in t.result.problems:
+            print(f"    problem: {prob}")
+        if args.record:
+            ex.RESPONSES_DIR.mkdir(parents=True, exist_ok=True)
+            (ex.RESPONSES_DIR / f"{case}.json").write_text(t.responses[-1].strip() + "\n")
+    if args.record:
+        print(f"recorded {len(cases)} responses under {ex.RESPONSES_DIR}")
+    return 1 if failures else 0
+
+
 def cmd_diff(args) -> int:
     paths = [resolve_draft(a) for a in (args.old, args.new)]
     for score_path, _ in paths:
@@ -308,6 +416,18 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
     hb.add_argument("--limit", type=int, help="process at most N requests, oldest first")
     hb.add_argument("--model", default="sonnet")
     hb.add_argument("--work-dir", help="where each request's files go (default runs/fiscal_notes/)")
+    sr = sub.add_parser("state-run", help="translate a general excise, transient accommodations "
+                                          "or excise bill, score it, write the note")
+    sr.add_argument("bill", help="bill text file")
+    sr.add_argument("--out", help="output directory (default reforms/bills/<session>/)")
+    sr.add_argument("--model", default="sonnet")
+    ss = sub.add_parser("state-score", help="score a state-tax spec and write the draft note")
+    ss.add_argument("spec", help="spec file (.state_spec.yaml)")
+    ss.add_argument("--translation", help="translation JSON (default: beside the spec)")
+    ss.add_argument("--out", help="output directory (default: beside the spec)")
+    se = sub.add_parser("state-eval", help="run the real state-tax translator over its fixture bills")
+    se.add_argument("--record", action="store_true", help="rewrite the recorded responses")
+    se.add_argument("--model", default="sonnet")
     args = ap.parse_args(argv)
     logging.disable(logging.INFO)  # tax_modeler logs every schedule it loads
     if args.cmd == "translate":
@@ -322,6 +442,12 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
         return cmd_fetch(args, fetcher)
     if args.cmd == "hub":
         return cmd_hub(args, hub_client, deps)
+    if args.cmd == "state-run":
+        return cmd_state_run(args, runner)
+    if args.cmd == "state-score":
+        return cmd_state_score(args)
+    if args.cmd == "state-eval":
+        return cmd_state_eval(args, runner)
     return cmd_diff(args)
 
 
