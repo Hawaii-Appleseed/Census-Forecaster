@@ -470,8 +470,9 @@ says so. HB 604's note: +$478.5M over FY2027–FY2031, 69% borne by visitors.
 
 Limits:
 
-- **No routing.** A person picks the path; the hub client sends requests down the income tax path
-  only. A bill that changes both taxes (HB 959) needs both runs and the notes are not combined.
+- **Routing** was added the next day (`fiscal_notes/routing.py`, "Routing in the hub client" in
+  `fiscal_notes/README.md`): the hub client sends a bill that amends chapter 237, 237D, 243, 244D,
+  245 or 251 down this path too, and posts one combined note when both paths score it.
 - **Consumer categories are four.** Nonprescription drugs, reduced rates on one kind of good, and
   exemptions limited to some buyers are listed as not scored.
 - **After 2030** the transient accommodations rate in law falls back to 9.25% while the Council's
@@ -775,8 +776,7 @@ the task force statement above carry the same figures and did open.
 4. **Transient accommodations and excise scorers.** Done (above). Open: liquor gallons by beverage
    (DOTAX's calendar-year liquor summary gives dollars only), motor vehicle weight and
    registration counts, and sourced elasticities.
-5. **Fiscal notes beyond income tax.** Done (above). Open: routing in the hub client; a combined
-   note for a bill that changes income and excise taxes.
+5. **Fiscal notes beyond income tax.** Done (above), with routing and combined notes.
 
 ## Risks
 

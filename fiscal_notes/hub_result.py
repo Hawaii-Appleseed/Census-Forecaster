@@ -77,7 +77,7 @@ def counts(provisions: list[dict]) -> dict:
     return {"scored": scored, "approximate": approx, "not_scored": len(provisions) - scored - approx}
 
 
-def headline(score: dict) -> dict:
+def headline(score: dict) -> dict:  # noqa: D401 - the income tax path's
     """Five-year totals, $ millions, vs current law; positive raises revenue. The ``total`` block
     is income tax plus credits, which is the note's bottom line."""
     total = score["five_year"]["total"]
@@ -92,11 +92,14 @@ def headline(score: dict) -> dict:
     return out
 
 
+_income_headline = headline      # build_result's keyword of the same name shadows it
+
+
 # --------------------------------------------------------------------------- result
 
 
 def build_result(translation: dict, score: dict | None, note: str, *, commit: str, model: str,
-                 bill_sha256: str) -> dict:
+                 bill_sha256: str, headline: dict | None = None) -> dict:
     """The contract's ``Result`` for a ``full``, ``partial`` or ``out_of_scope`` translation.
 
     ``invalid`` is not a Result: the caller posts ``failed`` with :func:`invalid_detail`.
@@ -111,7 +114,8 @@ def build_result(translation: dict, score: dict | None, note: str, *, commit: st
     else:
         if score is None:
             raise ResultError(f"a {verdict} translation needs a score and none was produced")
-        head = headline(score)
+        # a caller that scored another way (state taxes, or both paths) brings its own headline
+        head = headline if headline is not None else _income_headline(score)
 
     translation = copy.deepcopy(translation)
     if score is not None:

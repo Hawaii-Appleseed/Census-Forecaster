@@ -214,8 +214,31 @@ python -m fiscal_notes state-eval [--record] [--model sonnet]
 ```
 
 `state-run` writes `<name>.state_spec.yaml`, `<name>.state_translation.json`,
-`<name>.state_score.json` and `<name>.state_note.md`. Which path a bill takes is the caller's choice:
-the hub client still sends every request down the income tax path.
+`<name>.state_score.json` and `<name>.state_note.md`. On the command line the path is the caller's
+choice; the hub client routes (next section).
+
+### Routing in the hub client
+
+`python -m fiscal_notes hub` reads every bill with the income tax path, as before, and also with the
+state-tax path when the bill AMENDS a chapter that path models (237 general excise, 237D transient
+accommodations, 243 fuel, 244D liquor, 245 tobacco, 251 rental vehicles; `routing.mentions_state_taxes`).
+A mention is not enough: income tax bills cite "general excise tax license number" without changing
+the tax, and none of the income tax fixtures trips the gate. `--no-state-taxes` turns routing off.
+
+| Income tax path | State-tax path | Posted |
+|---|---|---|
+| scored | not run, or nothing to score | the income tax note, as before |
+| nothing to score, or invalid | scored | the state-tax note |
+| scored | scored | one combined note: a combined bottom line, then each part in full |
+| nothing / invalid | nothing / fails | what the income tax path alone decides |
+
+The wire contract is unchanged: no field is added. For a state-tax note the headline's years are
+fiscal years and `five_year_low` is the total under the largest sourced response where one applies
+(the transient accommodations tax), else the static figure. For a combined note the headlines are
+added, the year labels are the income tax path's, the provision list is merged (each provision
+tagged `path`), and the state-tax score sits under `score.state_taxes`. A failure on the state-tax
+path never fails the request: the income tax result is posted and the reason is left in
+`<name>.state_path.txt` in the work directory.
 
 The spec (every key optional; `validate_spec` is the schema):
 

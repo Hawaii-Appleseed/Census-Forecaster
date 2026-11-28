@@ -215,7 +215,8 @@ def cmd_run(args, runner: Callable[[str], str] | None = None,
 # ---- state taxes (general excise, transient accommodations, excises) ---------------------------
 
 
-def _state_outputs(bill_text: str, t: Translation, header: dict, model: str, out: Path) -> dict:
+def _state_outputs(bill_text: str, t: Translation, header: dict, model: str, out: Path,
+                   quiet: bool = False) -> dict:
     """Write the spec and translation JSON for a state-tax bill; return the translation dict."""
     from fiscal_notes import state_taxes as st
 
@@ -227,7 +228,8 @@ def _state_outputs(bill_text: str, t: Translation, header: dict, model: str, out
     else:
         body = {"name": header["name"], "label": header["label"], **res.spec}
         spec_path.write_text(_SPEC_COMMENT + yaml.safe_dump(body, sort_keys=False, allow_unicode=True))
-        print(f"wrote {spec_path}")
+        if not quiet:
+            print(f"wrote {spec_path}")
     translation = {
         "name": header["name"], "label": header["label"], "verdict": res.verdict,
         "provisions": res.provisions, "notes": res.notes, "problems": res.problems,
@@ -236,7 +238,8 @@ def _state_outputs(bill_text: str, t: Translation, header: dict, model: str, out
     }
     path = out / f"{header['name']}.state_translation.json"
     path.write_text(json.dumps(translation, indent=2, ensure_ascii=False) + "\n")
-    print(f"wrote {path}")
+    if not quiet:
+        print(f"wrote {path}")
     return translation
 
 
@@ -361,7 +364,7 @@ def cmd_hub(args, hub_client=None, deps=None) -> int:
 
     try:
         client = hub_client or hub.HubClient(args.hub)
-        deps = deps or hub.Deps(model=args.model)
+        deps = deps or hub.Deps(model=args.model, route_state=not args.no_state_taxes)
         work = Path(args.work_dir) if args.work_dir else None
         print(f"{'DRY RUN, nothing is posted: ' if args.dry_run else ''}hub {args.hub}")
         outcomes = hub.process_queue(client, deps, work_root=work, dry_run=args.dry_run,
@@ -416,6 +419,9 @@ def main(argv: list[str] | None = None, runner: Callable[[str], str] | None = No
     hb.add_argument("--limit", type=int, help="process at most N requests, oldest first")
     hb.add_argument("--model", default="sonnet")
     hb.add_argument("--work-dir", help="where each request's files go (default runs/fiscal_notes/)")
+    hb.add_argument("--no-state-taxes", action="store_true",
+                    help="income tax path only: do not also read bills that touch the general excise, "
+                         "transient accommodations or excise taxes with the state-tax path")
     sr = sub.add_parser("state-run", help="translate a general excise, transient accommodations "
                                           "or excise bill, score it, write the note")
     sr.add_argument("bill", help="bill text file")
