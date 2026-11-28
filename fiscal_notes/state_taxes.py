@@ -381,6 +381,14 @@ def score_spec(spec: dict) -> dict:
             new = tat["rate"] / 100 if "rate" in tat else now + tat["rate_change_points"] / 100
             return excise.score_tat(new, fy)
         add("transient_accommodations", "Transient accommodations tax rate", tat_score)
+        # The one tax with a sourced, Hawaii-specific response and no price needed.
+        ranges = {fy: excise.tat_range(
+            tat["rate"] / 100 if "rate" in tat else
+            excise.rate_in("transient_accommodations", fy) + tat["rate_change_points"] / 100, fy)
+            for fy in years}
+        components["transient_accommodations"]["with_response"] = {
+            k: sum(ranges[fy][k] * _first_year_share(eff, fy) for fy in years)
+            for k in ("low", "mid", "high")}
     if "cigarettes" in spec:
         cents = spec["cigarettes"]["cents_per_cigarette"]
         add("cigarettes", "Cigarette tax", lambda fy: excise.score_cigarettes(cents / 100, fy))
@@ -476,6 +484,15 @@ def render_note(translation: dict, score: dict | None) -> str:
             co = [score["county"][fy] if fy in score["county"] else score["county"][str(fy)] for fy in years]
             lines.append("| County surcharge | " + " | ".join(_m(v) for v in co) + f" | {_m(sum(co))} |")
         lines.append("")
+        tat_c = score["components"].get("transient_accommodations", {})
+        if "with_response" in tat_c:
+            r = tat_c["with_response"]
+            lines += ["## If visitors respond", "",
+                      "The table above is static. If room nights respond to the higher price, the "
+                      f"transient accommodations change over the period is {_m(r['low'])} (no response: "
+                      f"Bonham and Gangnes 1996 found none from the 1987 room tax), {_m(r['mid'])} "
+                      f"(elasticity -1.0) or {_m(r['high'])} (-1.5; Fujii, Khaled and Mak 1988). "
+                      "The general excise tax lost on those rooms is not counted.", ""]
         borne = [(c["label"], c["borne_by"]) for c in score["components"].values() if c["borne_by"]]
         if borne:
             lines += ["## Who bears it", ""]

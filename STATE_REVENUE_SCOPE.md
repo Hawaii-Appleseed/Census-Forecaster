@@ -477,7 +477,7 @@ Limits:
 - **After 2030** the transient accommodations rate in law falls back to 9.25% while the Council's
   line keeps growing, so the base implied for FY2031 on is about 9% high. HB 604's FY2031 figure
   ($109.9M against $97.7M the year before) shows it.
-- **Static.** No behavioural response until elasticities are sourced.
+- **Static** except the transient accommodations tax, whose note also gives the sourced range.
 
 ## Limitations addressed (November 27, 2026)
 
@@ -731,11 +731,38 @@ three rates 10% is $5.2M, where the proportional scorer gave $5.1M.
 
 ### Still open
 
-- **Elasticities**, once the research browser is signed in: hotel room nights, cigarettes,
-  gasoline, with a low, middle and high value each and its source.
+- **Retail prices** for cigarettes and gasoline in Hawaiʻi, so their sourced elasticities
+  (next section) can be applied in fiscal notes.
 - **The unemployment schedule after 2026** (the adequate reserve computation).
 - **Phase 5:** fiscal notes for bills that change the general excise or transient
   accommodations tax.
+
+## Sourced elasticities (November 28, 2026)
+
+`state_revenue/elasticities.py` holds a low, middle and high response for three taxes, each read
+from the source itself (through the standard browser, not from memory). Scorers stay static
+unless a caller passes one.
+
+| Tax | Low | Middle | High | Source |
+|---|---|---|---|---|
+| Transient accommodations (room nights to room price) | 0 | −1.0 | −1.5 | Low: Bonham and Gangnes (1996), *Applied Economics* 28: "no statistically significant impact on hotel room revenues" from Hawaiʻi's 5% room tax of 1987. Middle and high: Fujii, Khaled and Mak (1988), UH Economics Working Paper 88-9: demand elasticity 1.0 in their 1985 estimates, 1.5 in the fuller model |
+| Cigarettes (adult total demand to price) | −0.29 | −0.37 | −0.47 | Community Preventive Services Task Force (2012), 16 studies: median −0.37, interquartile interval −0.47 to −0.29 |
+| Gasoline (short run) | −0.034 | −0.077 | −0.21 | Hughes, Knittel and Sperling (2006), NBER Working Paper 12530: −0.034 to −0.077 for 2001–2006, −0.21 to −0.34 for 1975–1980 |
+
+- **Transient accommodations** is the only one that is Hawaiʻi-specific, and its two sources
+  disagree: an after-the-fact study that found no effect, and demand estimates of −1.0 to −1.5.
+  A point on the rate in FY2027 is $86.7M static, $77.3M at −1.0 and $72.6M at −1.5
+  (`excise.tat_range`). The fiscal note for a transient accommodations bill now carries the three
+  figures under "If visitors respond".
+- **Cigarettes and gasoline** are national figures, and a per-unit tax needs the retail price
+  with tax to turn an elasticity into gallons or packs. No Hawaiʻi price series is bundled, so
+  `score_cigarettes` and `score_fuel` take the price from the caller and fiscal notes leave those
+  taxes static.
+- The lost general excise tax when fewer rooms or packs are sold is not counted.
+
+Sources that would not open to a script or the browser (bot checks): the National Tax Journal
+page for Fujii, Khaled and Mak (1985), and CBO's 2012 cigarette tax report. The working paper and
+the task force statement above carry the same figures and did open.
 
 ## Phases
 

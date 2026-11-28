@@ -33,6 +33,8 @@ b.total(2027), b.values[2027]["general_excise"].source     # (..., 'cor_scaled')
   taxable payroll, on the Department of Labor's series; `python -m state_revenue.unemployment`.
 - `income_timing.py`: how a tax year's individual income tax splits across fiscal years,
   from DOTAX's monthly collections; `python -m state_revenue.income_timing`.
+- `elasticities.py`: sourced low, middle and high behavioural responses (hotel rooms,
+  cigarettes, gasoline), each with its citation.
 - `baseline.py`: every line by fiscal year, from the Council where it itemises a line, the model
   elsewhere.
 - `annual_report.py`: reads the "Tax Collections" table from an annual report.

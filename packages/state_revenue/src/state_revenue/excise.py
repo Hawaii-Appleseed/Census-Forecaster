@@ -24,7 +24,8 @@ Rates come from DOTAX documents, not from memory:
 
 Static by default. ``elasticity`` (of the taxed quantity to the tax-inclusive
 price) applies where the price is known: the transient accommodations tax,
-an ad valorem rate. Liquor scores per gallon on NIAAA's gallons
+an ad valorem rate, and cigarettes and fuel when the caller gives a price.
+Sourced low, middle and high values are in ``state_revenue.elasticities``. Liquor scores per gallon on NIAAA's gallons
 (``score_liquor``). Motor vehicle and the rest take
 ``score_proportional``: a rate change of x% moves the line's revenue x%.
 """
@@ -129,6 +130,18 @@ def score_tat(rate: float, fiscal_year: int, *, elasticity: float = 0.0,
                  {"base": base, "base_timeshare": parts["timeshare"], "rate_in_force": old})
 
 
+def tat_range(rate: float, fiscal_year: int, *,
+              baseline: dict[int, float] | None = None) -> dict[str, float]:
+    """The change in state revenue, $ thousands, with no response and under the
+    sourced low, middle and high responses of room nights
+    (``state_revenue.elasticities``)."""
+    from state_revenue.elasticities import get
+    out = {"static": score_tat(rate, fiscal_year, baseline=baseline).state}
+    for name, value in get("transient_accommodations").items():
+        out[name] = score_tat(rate, fiscal_year, elasticity=value, baseline=baseline).state
+    return out
+
+
 # --- fuel and the environmental response tax --------------------------------------
 
 def fuel_rates() -> dict[str, float]:
@@ -138,6 +151,7 @@ def fuel_rates() -> dict[str, float]:
 
 
 def score_fuel(new_rates: dict[str, float], fiscal_year: int, *,
+               elasticity: float = 0.0, prices: dict[str, float] | None = None,
                baseline_fuel: dict[int, float] | None = None,
                baseline_ert: dict[int, float] | None = None) -> Score:
     """Set state rates per unit by fuel type (``{"gasoline": 0.20}``, dollars a
@@ -146,7 +160,9 @@ def score_fuel(new_rates: dict[str, float], fiscal_year: int, *,
     Quantities: the calendar-year report's, grown with the baseline of the
     line that holds them (fuel, or environmental response for ``ert_*``);
     the calendar year is read as the fiscal year that ends in the next June.
-    County fuel taxes are unchanged.
+    County fuel taxes are unchanged. With ``elasticity`` and ``prices`` (the
+    retail price per gallon with tax, by fuel, dollars), gallons of a fuel
+    whose price is given respond to the change in that price.
     """
     bases = load_bases()
     data_fy = bases["calendar_year"] + 1
@@ -159,7 +175,10 @@ def score_fuel(new_rates: dict[str, float], fiscal_year: int, *,
         g = _growth(line, fiscal_year, data_fy,
                     baseline_ert if fuel.startswith("ert_") else baseline_fuel)
         quantity = bases["fuel"][fuel]["quantity"] * g
-        detail[fuel] = (rate - current[fuel]) * quantity / 1e3
+        response = 1.0
+        if elasticity and prices and fuel in prices:
+            response = 1.0 + elasticity * (rate - current[fuel]) / prices[fuel]
+        detail[fuel] = (rate * response - current[fuel]) * quantity / 1e3
     return Score(fiscal_year, sum(detail.values()), 0.0, {}, detail)
 
 
@@ -268,7 +287,9 @@ def main(argv: list[str] | None = None) -> int:
     cases = [
         (f"Transient accommodations +1 point ({tat_now:.2%} to {tat_now + 0.01:.2%})",
          score_tat(tat_now + 0.01, fy)),
-        ("  same, elasticity -0.5", score_tat(tat_now + 0.01, fy, elasticity=-0.5)),
+        ("  same, room nights respond (Fujii, Khaled and Mak: -1.0)",
+         score_tat(tat_now + 0.01, fy, elasticity=-1.0)),
+        ("  same, larger response (-1.5)", score_tat(tat_now + 0.01, fy, elasticity=-1.5)),
         ("Gasoline and highway diesel +5 cents a gallon",
          score_fuel({"gasoline": fuel_rates()["gasoline"] + 0.05,
                      "diesel_highway": fuel_rates()["diesel_highway"] + 0.05}, fy)),
