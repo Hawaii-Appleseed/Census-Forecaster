@@ -14,6 +14,12 @@ DOTAX's calendar-year summaries, from its archive of monthly reports
   and liability, for transient accommodations and for timeshare occupancy.
   Every June report in the archive that cumulates by fiscal year is read.
 
+- NIAAA, "Apparent per capita alcohol consumption" data file
+  (``pcyr1970-YYYY.txt``, linked from its surveillance reports page): gallons
+  of spirits, wine and beer sold in Hawaiʻi by calendar year, compiled from
+  state sales and tax records. DOTAX publishes liquor tax dollars and rates
+  per gallon but no gallons.
+
 Writes ``data/excise_bases.json``: fuel and tobacco from the newest calendar
 year both reports cover, the transient accommodations base for every fiscal year.
 
@@ -36,6 +42,10 @@ ARCHIVE_PAGE = "https://tax.hawaii.gov/stats/a5_3txcolrptarchive/"
 LINK = re.compile(r"https://files\.hawaii\.gov/tax/stats/monthly/(?:archive/)?(\d{4})cy-(fuels|tob)\.pdf")
 TAT_LINK = re.compile(
     r"https://files\.hawaii\.gov/tax/stats/monthly/(?:archive/)?(\d{4})06liab-by-d_tat[^\"']*\.pdf")
+NIAAA_PAGE = "https://www.niaaa.nih.gov/publications/surveillance-reports"
+NIAAA_LINK = re.compile(r'href="(/sites/default/files/pcyr1970-(\d{4})[^"]*\.txt)"')
+HAWAII_FIPS = "15"
+BEVERAGES = {"1": "spirits", "2": "wine", "3": "beer"}
 OUT = Path(__file__).resolve().parent.parent / "data" / "excise_bases.json"
 
 FUEL_ROWS = {
@@ -148,6 +158,22 @@ def parse_tat_liability(text: str) -> dict[int, dict[str, float]]:
                  "base": ta[1][i], "base_timeshare": ts[1][i]} for i, fy in enumerate(years)}
 
 
+def parse_niaaa(text: str, fips: str = HAWAII_FIPS) -> dict[int, dict[str, int]]:
+    """``{calendar year: {"spirits", "wine", "beer"}}``, gallons of beverage.
+    Fixed columns: year 1-4, state FIPS 6-7, beverage 9, gallons 11-20."""
+    out: dict[int, dict[str, int]] = {}
+    for line in text.splitlines():
+        if len(line) < 20 or not line[:4].isdigit() or line[5:7].strip() != fips:
+            continue
+        kind, gallons = BEVERAGES.get(line[8]), line[10:20].strip()
+        if kind and gallons.isdigit():
+            out.setdefault(int(line[:4]), {})[kind] = int(gallons)
+    out = {y: v for y, v in out.items() if len(v) == len(BEVERAGES)}
+    if not out:
+        raise ValueError("NIAAA file: no complete Hawaii rows")
+    return dict(sorted(out.items()))
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cache", type=Path)
@@ -161,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
     for m in LINK.finditer(page):
         found[(int(m[1]), m[2])] = m[0]
     tat_urls = {int(m[1]): m[0] for m in TAT_LINK.finditer(page)}
+    niaaa = sorted({(int(y), u) for u, y in
+                    NIAAA_LINK.findall(_fetch(NIAAA_PAGE).decode("utf-8", "replace"))})
+    if not niaaa:
+        print(f"ERROR: no consumption data file on {NIAAA_PAGE}", file=sys.stderr)
+        return 1
+    niaaa_url = "https://www.niaaa.nih.gov" + niaaa[-1][1]
     years = sorted({y for y, k in found if (y, "fuels") in found and (y, "tob") in found})
     if not years:
         print(f"ERROR: no calendar-year fuel and tobacco reports on {ARCHIVE_PAGE}", file=sys.stderr)
@@ -168,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     year = years[-1]
     if args.if_new and OUT.exists():
         have = {r["url"] for r in json.loads(OUT.read_text()).get("reports", [])}
-        if {found[(year, "fuels")], found[(year, "tob")], *tat_urls.values()} <= have:
+        if {found[(year, "fuels")], found[(year, "tob")], niaaa_url, *tat_urls.values()} <= have:
             print("[excise] no new report; bundled file kept", file=sys.stderr)
             return 0
     texts, sources = {}, []
@@ -189,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as e:                         # the 2018 reports cumulate by calendar year
             print(f"[excise] {pdf.name} skipped: {e}", file=sys.stderr)
         sources.append({"url": url, "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest()})
+    liquor_file = cache / niaaa_url.rsplit("/", 1)[-1]
+    if not liquor_file.exists():
+        liquor_file.write_bytes(_fetch(niaaa_url))
+    liquor = parse_niaaa(liquor_file.read_text(errors="replace"))
+    sources.append({"url": niaaa_url, "sha256": hashlib.sha256(liquor_file.read_bytes()).hexdigest()})
     payload = {
         "source": "Hawaii Department of Taxation: calendar-year summaries (Liquid Fuel Tax Base & "
                   "Tax Collections; Cigarette & Tobacco Tax Collections and Allocations) and June "
@@ -201,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
         "fuel": parse_fuels(texts["fuels"]),
         "tobacco": parse_tobacco(texts["tob"]),
         "transient_accommodations": {str(fy): v for fy, v in sorted(tat.items())},
+        "liquor_gallons": {str(y): v for y, v in liquor.items() if y >= 2000},
     }
     OUT.write_text(json.dumps(payload, indent=1) + "\n")
     print(f"[excise] calendar {year} -> {OUT}", file=sys.stderr)

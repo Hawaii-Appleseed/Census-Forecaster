@@ -161,6 +161,36 @@ def burden_by_purchaser(io: IOTable | None = None, *, tax: str = "state_get",
     return out
 
 
+#: Private investment whose buyer is a household: single-family construction.
+RESIDENTIAL_INVESTMENT = ("S7",)
+
+
+def allocate_investment(burdens: list[Burden], io: IOTable | None = None, *,
+                        tax: str = "state_get") -> dict[str, float]:
+    """Total burden by purchaser with private investment passed on, $ millions.
+
+    The input-output table stops at "investment": a new building or machine is
+    a final purchase. Its tax is borne later by whoever uses the capital. The
+    rule here: the tax in single-family construction goes to residents (they
+    buy the houses); the rest (other buildings, equipment, software) is
+    business capital and is spread over the other purchasers in proportion to
+    the tax they already bear, as if capital were one more input. An
+    assumption, not a measurement: the table has no capital-flow matrix.
+    """
+    io = io or load_io()
+    out = {b.purchaser: b.total for b in burdens}
+    investment = out.pop("investment")
+    carried = io.tax_rate(tax) @ io.leontief
+    idx = io.index(RESIDENTIAL_INVESTMENT)
+    housing = float(carried[idx] @ io.final["Gross private investment"][idx])
+    housing = min(housing, investment)
+    rest = investment - housing
+    base = sum(out.values())
+    out = {k: v + rest * v / base for k, v in out.items()}
+    out["residents"] += housing
+    return out
+
+
 def shares(burdens: list[Burden]) -> dict[str, float]:
     total = sum(b.total for b in burdens)
     return {b.purchaser: b.total / total for b in burdens}
@@ -376,6 +406,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"| {b.purchaser} | {b.direct:,.0f} | {b.embedded:,.0f} | {b.total:,.0f} | {b.total / total:.1%} |")
     print(f"| total | {sum(b.direct for b in burdens):,.0f} | {sum(b.embedded for b in burdens):,.0f} "
           f"| {total:,.0f} | |\n")
+    passed = allocate_investment(burdens, io)
+    print("With private investment passed on (single-family construction to residents, the rest "
+          "spread as an input):\n")
+    print("| Purchaser | Total | Share |\n|---|---|---|")
+    for k, v in passed.items():
+        print(f"| {k} | {v:,.0f} | {v / total:.1%} |")
+    print()
     print(f"Changes, FY{fy}, state revenue ($ millions; county surcharge beside):\n")
     print("| Change | State | County | Residents | Visitors | Investment | Government | Exports |")
     print("|---|---|---|---|---|---|---|---|")

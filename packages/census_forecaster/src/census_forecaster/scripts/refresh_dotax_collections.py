@@ -99,6 +99,11 @@ LIMITATIONS = [
     "The full 'collec' report publishes with ~6-7 months of lag and only "
     "the current fiscal year stays up as XLSX; the bundle accumulates "
     "history across refreshes and must never be truncated to one fetch.",
+    "Months before July 2024 (and series the XLSX refresh did not read) were "
+    "filled from DOTAX's PDF archive by backfill_dotax_collections. Through "
+    "early 2019 motor_vehicle includes rental vehicles and fuel includes the "
+    "environmental response tax: a month without a rental_vehicle or "
+    "environmental_response value has them inside the parent row.",
     "ge_allocated comes from the GE-specific report (~3-month lag); it is "
     "'allocated collections', which differs in timing from the collec "
     "report's 'General Excise & Use' row — do not mix the two series.",

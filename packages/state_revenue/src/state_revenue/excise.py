@@ -24,7 +24,8 @@ Rates come from DOTAX documents, not from memory:
 
 Static by default. ``elasticity`` (of the taxed quantity to the tax-inclusive
 price) applies where the price is known: the transient accommodations tax,
-an ad valorem rate. Liquor, motor vehicle and the rest take
+an ad valorem rate. Liquor scores per gallon on NIAAA's gallons
+(``score_liquor``). Motor vehicle and the rest take
 ``score_proportional``: a rate change of x% moves the line's revenue x%.
 """
 from __future__ import annotations
@@ -202,6 +203,48 @@ def score_rental_vehicle(per_day: float, fiscal_year: int, *,
                  {"vehicle_days": days, "rate_in_force": old})
 
 
+# --- liquor ---------------------------------------------------------------------------
+
+#: Tax per wine gallon (DOTAX Annual Report FY2025, section 1.12.1). The gallons
+#: come by spirits, wine and beer only, so each takes its main rate: still
+#: wine (sparkling is $2.12, coolers $0.85) and beer other than draft ($0.54).
+LIQUOR_RATES = {"spirits": 5.98, "wine": 1.38, "beer": 0.93}
+
+
+def liquor_check(year: int | None = None) -> dict[str, float]:
+    """Gallons times :data:`LIQUOR_RATES` beside the fiscal year's collections
+    ($ thousands) for a calendar year of gallons (default: the latest)."""
+    gallons = {int(y): v for y, v in load_bases()["liquor_gallons"].items()}
+    year = year or max(gallons)
+    implied = sum(gallons[year][k] * r for k, r in LIQUOR_RATES.items()) / 1e3
+    ledger = load_ledger("all")
+    fy = year + 1 if year + 1 in ledger.years else year
+    return {"calendar_year": year, "implied": implied, "fiscal_year": fy,
+            "collected": float(ledger[fy].lines["liquor"])}
+
+
+def score_liquor(new_rates: dict[str, float], fiscal_year: int, *,
+                 baseline: dict[int, float] | None = None) -> Score:
+    """Set the tax per gallon on spirits, wine or beer (``{"beer": 1.03}``).
+
+    Gallons: NIAAA's for the latest calendar year (read as the fiscal year
+    ending the next June), grown with the liquor line's baseline. A category's
+    change applies to all its gallons (sparkling wine and draft beer move by
+    the same dollars a gallon as still wine and bottled beer).
+    """
+    gallons = {int(y): v for y, v in load_bases()["liquor_gallons"].items()}
+    year = max(gallons)
+    ledger = load_ledger("all")
+    data_fy = year + 1 if year + 1 in ledger.years else year
+    g = _growth("liquor", fiscal_year, data_fy, baseline)
+    detail = {}
+    for kind, rate in new_rates.items():
+        if kind not in LIQUOR_RATES:
+            raise KeyError(f"unknown beverage {kind!r}; choose from {sorted(LIQUOR_RATES)}")
+        detail[kind] = (rate - LIQUOR_RATES[kind]) * gallons[year][kind] * g / 1e3
+    return Score(fiscal_year, sum(detail.values()), 0.0, {}, detail)
+
+
 # --- everything else ----------------------------------------------------------------
 
 def score_proportional(line: str, multiplier: float, fiscal_year: int, *,
@@ -234,7 +277,8 @@ def main(argv: list[str] | None = None) -> int:
         ("Cigarettes +5 cents each ($1 a pack)", score_cigarettes(0.21, fy)),
         ("Rental vehicle surcharge +$1 a day",
          score_rental_vehicle(rate_in("rental_vehicle", fy) + 1.0, fy)),
-        ("Liquor rates +10%", score_proportional("liquor", 1.10, fy)),
+        ("Liquor rates +10%", score_liquor({k: r * 1.10 for k, r in LIQUOR_RATES.items()}, fy)),
+        ("Beer +10 cents a gallon", score_liquor({"beer": LIQUOR_RATES["beer"] + 0.10}, fy)),
     ]
     print(f"FY{fy}, change in state revenue ($ millions):\n")
     print("| Change | State | Borne by visitors |\n|---|---|---|")
