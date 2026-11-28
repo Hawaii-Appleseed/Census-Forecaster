@@ -12,12 +12,16 @@
    it byte for byte with the merge commit, then checks that the live simulator
    population's ``web_format_version`` matches the live ``kernel.js``.
 4. Clean up. Removes the PR branch's worktree (only if it has no uncommitted
-   changes) and deletes the local branch. The remote branch is left to GitHub's
-   "Automatically delete head branches" setting.
+   changes) and deletes the local branch, working from the main checkout so this
+   also succeeds when run from inside that worktree. Then removes every other
+   worktree whose branch is merged and clean (``scripts/prune_worktrees.py``).
+   The remote branch is left to GitHub's "Automatically delete head branches"
+   setting.
 """
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -120,17 +124,34 @@ def _verify(paths: list[str], sha: str) -> bool:
     return ok
 
 
+def _prune_worktrees():
+    spec = importlib.util.spec_from_file_location("prune_worktrees",
+                                                  Path(__file__).with_name("prune_worktrees.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _clean_up(branch: str) -> None:
-    porcelain = _run("git", "worktree", "list", "--porcelain").stdout.split("\n\n")
-    for block in porcelain:
-        if f"branch refs/heads/{branch}" in block:
-            tree = block.splitlines()[0].removeprefix("worktree ")
-            if _run("git", "worktree", "remove", tree, check=False).returncode:
+    # From the main checkout: run from inside the PR's worktree, `git worktree remove` of
+    # that tree used to fail and leave it behind (#109's did).
+    prune = _prune_worktrees()
+    main_tree = prune.main_checkout(REPO)
+    for tree, tree_branch in prune.worktrees(main_tree):
+        if tree_branch == branch:
+            if subprocess.run(["git", "worktree", "remove", str(tree)], cwd=main_tree,
+                              capture_output=True).returncode:
                 print(f"kept {tree}: it has uncommitted changes")
                 return
             print(f"removed worktree {tree}")
-    if _run("git", "branch", "-D", branch, check=False).returncode == 0:
+    if subprocess.run(["git", "branch", "-D", branch], cwd=main_tree,
+                      capture_output=True).returncode == 0:
         print(f"deleted local branch {branch}")
+    try:
+        here = Path.cwd()
+    except FileNotFoundError:   # we stood in the PR's worktree, just removed
+        here = main_tree
+    prune.sweep(main_tree, go=True, here=here)
 
 
 def main() -> int:
