@@ -52,10 +52,13 @@ def test_noisy_lines_use_the_level_method():
 
 
 def test_short_history_takes_the_fallback_growth():
-    h = _grow(100.0, [0.20] * 5)
-    assert long_run_growth(h) is None
-    fc = forecast_line(h, 1, fallback_growth=0.03)
-    assert fc.long_run_growth == 0.03
+    short = _grow(100.0, [0.20] * 3)
+    assert long_run_growth(short, 4) is None
+    assert forecast_line(short, 1, fallback_growth=0.03).long_run_growth == 0.03
+    # A steady line with five years of growth keeps its own; a noisy one would not.
+    steady = _grow(100.0, [0.02] * 5)
+    assert forecast_line(steady, 1, fallback_growth=0.10).long_run_growth == pytest.approx(0.02)
+    assert long_run_growth(steady) is None
 
 
 def test_one_origin_meeting_a_year():
@@ -68,7 +71,7 @@ def test_backtest_gate():
     """The figures STATE_REVENUE_SCOPE.md reports (excluding FY2020-FY2022)."""
     s = {(x.line, x.horizon): x for x in summarize(run())}
     assert s[("total", 1)].n == 8 and s[("total", 2)].n == 7
-    assert s[("total", 1)].model_mape == pytest.approx(0.029, abs=0.002)
+    assert s[("total", 1)].model_mape == pytest.approx(0.030, abs=0.002)
     assert s[("total", 1)].cor_mape == pytest.approx(0.029, abs=0.002)
     assert s[("total", 2)].model_mape == pytest.approx(0.047, abs=0.002)
     assert s[("total", 2)].cor_mape == pytest.approx(0.049, abs=0.002)
@@ -79,7 +82,11 @@ def test_backtest_gate():
 
 def test_model_only_backtest_covers_its_lines():
     lines = {m.line for m in run_model_only()}
-    assert {"fuel", "motor_vehicle", "unemployment", "county_surcharge"} <= lines
+    assert {"fuel", "motor_vehicle", "county_surcharge"} <= lines
+    assert "unemployment" not in lines              # its own model: state_revenue.unemployment
+    by = {(m.line, m.horizon): m for m in run_model_only()}
+    # From FY2019, when its row stopped holding rental vehicles, the line is steady.
+    assert by[("motor_vehicle", 1)].mape < 0.03
 
 
 def test_general_fund_baseline_is_the_councils():
@@ -98,7 +105,7 @@ def test_all_funds_baseline_sources():
     assert row["general_excise"].source == "cor_scaled"
     assert row["transient_accommodations"].source == "cor_scaled"
     assert row["county_surcharge"].source == "rides_on"
-    assert row["fuel"].source == "model" and row["unemployment"].source == "model"
+    assert row["fuel"].source == "model" and row["unemployment"].source == "ui_model"
     # All funds hold more than the general fund's part.
     gf = build_baseline("general_fund")
     for fy in b.fiscal_years:
@@ -109,7 +116,8 @@ def test_all_funds_baseline_sources():
 def test_model_baseline_uses_no_council_figures():
     b = build_baseline("all", source="model")
     assert b.cor_meeting is None
-    assert {v.source for row in b.values.values() for v in row.values()} <= {"model", "rides_on"}
+    assert {v.source for row in b.values.values() for v in row.values()} <= {
+        "model", "rides_on", "ui_model"}
     # Rental vehicles have six years of growth: they take the total's long-run rate.
     rv = b.line("rental_vehicle")
     years = sorted(rv)
@@ -122,7 +130,7 @@ def test_holdout_origins_are_before_the_councils_line_items():
     out = {(m.line, m.horizon): m for m in run_holdout()}
     assert out[("total", 1)].n == len(HOLDOUT_ORIGINS)
     # Worse than on the origins the settings were chosen on (4.9% with every target in).
-    assert out[("total", 1)].mape == pytest.approx(0.078, abs=0.003)
+    assert out[("total", 1)].mape == pytest.approx(0.079, abs=0.003)
 
 
 def test_tat_fixed_funds_are_not_scaled():
@@ -135,3 +143,14 @@ def test_tat_fixed_funds_are_not_scaled():
     years = sorted(a)
     ratio = (a[years[0]] - fixed) / g[years[0]]
     assert (a[years[-1]] - fixed) / g[years[-1]] == pytest.approx(ratio)
+
+
+def test_series_start_keeps_folded_history_out():
+    from state_revenue import load_ledger
+    from state_revenue.lines import SERIES_START
+    ledger = load_ledger()
+    assert min(ledger.clean_series("motor_vehicle")) == SERIES_START["motor_vehicle"] == 2019
+    assert min(ledger.clean_series("general_excise")) == 2004
+    # Six steady years: the line keeps its own long-run growth, not the total's.
+    h = {fy: float(v) for fy, v in ledger.clean_series("motor_vehicle").items()}
+    assert forecast_line(h, 1, fallback_growth=0.10).long_run_growth < 0.03

@@ -87,7 +87,9 @@ LINES: tuple[TaxLine, ...] = (
         "unemployment", "Employment security contributions", "trend",
         ("employment security contributions", "employment security contrib."),
         statute="HRS ch. 383",
-        notes="Rates follow the trust fund's balance; goes to the Unemployment Trust Fund, not the general fund.",
+        model="state_revenue.unemployment (schedule times taxable payroll, DOL series)",
+        notes="Rates follow the trust fund's balance; goes to the Unemployment Trust Fund, not the "
+              "general fund. DOTAX's line was 50-70% of DOL's net contributions through FY2023.",
     ),
     TaxLine(
         "insurance_premiums", "Insurance premiums", "trend",
@@ -173,6 +175,12 @@ HOST: dict[str, str] = {
     "environmental_response": "fuel",
     "rental_vehicle": "motor_vehicle",
 }
+
+
+#: First fiscal year a line's row means what it means now. Before FY2019 the
+#: fuel and motor vehicle rows held the lines in :data:`HOST`, so their
+#: earlier history is another series and is kept out of forecasts.
+SERIES_START: dict[str, int] = {"fuel": 2019, "motor_vehicle": 2019}
 
 
 def line_for_label(normalized: str) -> TaxLine | None:

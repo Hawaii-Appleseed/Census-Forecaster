@@ -475,18 +475,132 @@ What the new data says:
   five years of history, so it is not a clean comparison, but it confirms the phase 2 decision:
   the Council's line items, not the model's levels, are the baseline.
 
-Still open (from the plan of the same day): unemployment contributions on DLIR's rate schedule;
-motor vehicle taxes on the rate history; splitting investment's share of the general excise tax
+Unemployment contributions and motor vehicle taxes followed the same day (next section). Still
+open: splitting investment's share of the general excise tax
 between residents and others; income tax cash timing; sourced elasticities; liquor gallons (DOTAX
 publishes rates per gallon by beverage, no gallons).
+
+## Unemployment contributions and motor vehicle taxes (November 27, 2026)
+
+The two lines the model forecast worst (about 50% and 12–19% error). Both errors were in the
+series, not the method.
+
+| Piece | Where |
+|---|---|
+| DOL's net UI contributions by month (ETA 2112), taxable payroll (ETA 204), DLIR's schedules | `.../state_revenue/data/ui_hawaii.json`, `scripts/refresh_ui.py` |
+| Schedule-times-payroll model, its backtest, the carry to DOTAX's line | `.../state_revenue/unemployment.py` (`python -m state_revenue.unemployment`) |
+| First year a row means what it means now | `lines.SERIES_START`, `Ledger.clean_series` |
+
+### Unemployment contributions
+
+**DOTAX's line changed coverage.** Against the Department of Labor's count of net contributions
+deposited, DOTAX's "employment security contributions" was 50–70% through FY2023, 87% in FY2024
+and 107% in FY2025. Month by month the two agree within $1–2M since September 2024 (October
+2025: DOTAX $44.0M, DOL $42.8M). So the line's rise from $114M in FY2022 to $377M in FY2024 is
+partly a change in what DOTAX counted; no report read here says what changed. The DOL series is
+the one modelled.
+
+| FY | DOL | DOTAX | DOTAX / DOL |
+|---|---|---|---|
+| 2016 | 182.4 | 128.6 | 0.71 |
+| 2017 | 152.8 | 104.3 | 0.68 |
+| 2018 | 167.1 | 110.9 | 0.66 |
+| 2019 | 177.6 | 110.3 | 0.62 |
+| 2020 | 188.1 | 104.1 | 0.55 |
+| 2021 | 180.3 | 110.6 | 0.61 |
+| 2022 | 238.8 | 114.4 | 0.48 |
+| 2023 | 333.7 | 167.9 | 0.50 |
+| 2024 | 434.1 | 377.5 | 0.87 |
+| 2025 | 262.7 | 281.2 | 1.07 |
+
+**The rate is a rule.** DLIR puts one of eight contribution rate schedules in force each calendar
+year by the trust fund's reserve (HRS §383-68). Receipts for a rate year (February through the
+next January, when the fourth quarter's report is paid) over that year's taxable payroll:
+
+| Rate year | Schedule | Receipts | Taxable payroll ($B) | Effective rate |
+|---|---|---|---|---|
+| 2016 |  | 158.8 | 14.32 | 1.11% |
+| 2017 |  | 161.9 | 15.27 | 1.06% |
+| 2018 |  | 172.5 | 16.05 | 1.08% |
+| 2019 |  | 192.0 | 16.41 | 1.17% |
+| 2020 | C | 178.5 | 14.52 | 1.23% |
+| 2021 | D | 235.2 | 15.99 | 1.47% |
+| 2022 | D | 240.6 | 18.00 | 1.34% |
+| 2023 | F | 505.0 | 20.01 | 2.52% |
+| 2024 | D | 289.1 | 20.96 | 1.38% |
+| 2025 | C | 219.2 | 21.89 | 1.00% |
+
+Schedule C runs 1.0–1.2%, D 1.3–1.5%, F 2.5%. Schedules before 2020 are not on DLIR's page.
+
+**The model.** Rate-year receipts = the latest effective rate under the schedule in force, times
+taxable payroll grown by its own damped trend. A schedule with no complete year yet takes the
+last year's rate moved by the ratio of the two schedules' new-employer rates. A year DLIR has
+not announced keeps the last schedule (C for 2026). A fiscal year is the July–January part of one
+rate year (66%) and the February–June part of the next; months DOL has reported are used as they
+are. The ledger's line is the DOL-basis figure times DOTAX's ratio to it in FY2025 (1.07).
+
+Each rate year forecast from the years before it, its schedule known (DLIR announces it before
+the year starts):
+
+| Rate year | Schedule | Actual | Forecast | Error | Schedule seen before |
+|---|---|---|---|---|---|
+| 2020 | C | 178.5 | 201.3 | +12.8% | no |
+| 2021 | D | 235.2 | 226.4 | -3.7% | no |
+| 2022 | D | 240.6 | 241.9 | +0.5% | yes |
+| 2023 | F | 505.0 | 335.3 | -33.6% | no |
+| 2024 | D | 289.1 | 282.7 | -2.2% | yes |
+| 2025 | C | 219.2 | 271.7 | +24.0% | yes |
+
+Mean absolute error 12.8% over six rate years, against about 50% for the line's own history. The
+misses are the first year under a schedule (F in 2023) and drift within one (C was 1.23% in 2020,
+1.00% in 2025). Six years is a small sample.
+
+| FY | DOL basis | Ledger line |
+|---|---|---|
+| 2026 | 230.5 | 246.8 |
+| 2027 | 234.8 | 251.3 |
+| 2028 | 246.9 | 264.3 |
+| 2029 | 259.4 | 277.7 |
+
+FY2026 is DOL's reported months. The baseline carries the line as `ui_model` in both the "best"
+and the history-only versions.
+
+Limits: the schedule for 2027 on is assumed, not predicted. Predicting it needs the adequate
+reserve fund computation (the trust fund balance is bundled, the benefit cost rate behind the
+adequate reserve is not). The 1.07 carry to DOTAX's line rests on one year.
+
+### Motor vehicle taxes and fuel
+
+Through FY2018 the motor vehicle row held rental vehicles and the fuel row the environmental
+response tax (`lines.HOST`), so forecasts read a break in FY2019 as a trend. `SERIES_START` now
+keeps the earlier years out, and a steady line with at least four years of growth keeps its own
+long-run rate instead of the total's.
+
+| Line | Before (origins FY2010–24) | After (origins FY2022–24) |
+|---|---|---|
+| Motor vehicle, 1 year out | 12.0% (n=12) | 1.3% (n=3) |
+| Motor vehicle, 2 years out | 18.8% (n=11) | 2.5% (n=2) |
+| Fuel, 1 year out | 4.9% (n=12) | 0.7% (n=3) |
+| Fuel, 2 years out | 6.8% (n=11) | 1.7% (n=2) |
+
+The "after" sample is three origins, and those years were quiet. The annual reports name one
+rate change in the line's history (Act 86, SLH 2011: the weight tax from 0.75 to 1.75 cents a
+pound), before the clean series starts; a rate schedule like the transient accommodations tax's
+waits for the next change.
+
+### What moved elsewhere
+
+- The all-funds baseline: FY2026 $11.29B and FY2033 $13.93B (were $11.22B and $13.79B), nearly
+  all of it unemployment contributions ($247M in FY2026 where history alone gave $179M).
+- The steadier long-run rule moved the general fund backtest slightly: the model's total error a
+  year out is 3.0% (was 2.9%), and on the out-of-sample origins 7.9% and 9.2% (were 7.8% and
+  8.9%). The tables in the dated sections above are as they were when written.
 
 ## Phases
 
 1. **Ledger and data.** Done (above).
 2. **Baseline for every line, backtested.** Done (above): the Council's line items for the
-   general fund, the model elsewhere. Open: unemployment contributions on the trust fund's rate
-   schedule (DLIR publishes it) and motor vehicle taxes on the rate history, the two model-only
-   lines that miss by more than 10%.
+   general fund, the model elsewhere.
 3. **General excise, all of it.** Done (above). Open: the base by activity by industry from DOTAX's
    detailed GET reports, to tighten `ACTIVITY_SECTORS` for services and rentals; behaviour (a
    rate's effect on the base); the simulator's GET line.

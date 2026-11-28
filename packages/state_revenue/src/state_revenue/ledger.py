@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from state_revenue.lines import BY_KEY, HOST, LINES, TIERS, Tier
+from state_revenue.lines import BY_KEY, HOST, LINES, SERIES_START, TIERS, Tier
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "annual_collections.json"
 
@@ -59,6 +59,12 @@ class Ledger:
         if key not in BY_KEY:
             raise KeyError(f"unknown line {key!r}; lines are {[line.key for line in LINES]}")
         return {fy: y.lines[key] for fy, y in sorted(self.years.items()) if key in y.lines}
+
+    def clean_series(self, key: str) -> dict[int, int]:
+        """:meth:`series` from the year the row took its present meaning
+        (``lines.SERIES_START``): the history a forecast may use."""
+        start = SERIES_START.get(key, 0)
+        return {fy: v for fy, v in self.series(key).items() if fy >= start}
 
     def coverage(self, fy: int) -> dict[Tier, float]:
         """Share of a year's total in each tier."""

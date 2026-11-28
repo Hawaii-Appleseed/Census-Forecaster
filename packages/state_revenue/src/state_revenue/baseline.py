@@ -16,10 +16,15 @@ Revenues (``state_revenue.backtest``, ``STATE_REVENUE_SCOPE.md``):
 ``rides_on``
     The county surcharge: the general excise baseline times the surcharge's
     ratio to it in the last actual year (it is levied on the same base).
+``ui_model``
+    Unemployment contributions: the contribution rate schedule in force times
+    taxable payroll, on the Department of Labor's series
+    (``state_revenue.unemployment``). In both the "best" and "model" baselines:
+    DOTAX's own line changed coverage and cannot be forecast from itself.
 ``model``
-    Everything else (fuel, vehicle taxes, unemployment contributions, the
-    environmental response tax, fees): ``state_revenue.forecast`` on the
-    line's own history.
+    Everything else (fuel, vehicle taxes, the environmental response tax,
+    fees): ``state_revenue.forecast`` on the line's own history, from the year
+    its row took its present meaning (``lines.SERIES_START``).
 
 ``build_baseline(source="model")`` forecasts every line from history alone,
 the check on the Council and the fallback past its last year.
@@ -38,7 +43,7 @@ from state_revenue.cor import CorForecast, load_cor_forecasts
 from state_revenue.forecast import forecast_line, long_run_growth
 from state_revenue.ledger import Ledger, load_ledger
 
-Source = Literal["cor", "cor_scaled", "rides_on", "model"]
+Source = Literal["cor", "cor_scaled", "rides_on", "ui_model", "model"]
 
 #: Lines levied on another line's base: forecast as a share of it.
 RIDES_ON = {"county_surcharge": "general_excise"}
@@ -114,7 +119,7 @@ def build_baseline(fund: str = "all", *, source: Literal["best", "model"] = "bes
     total_growth = long_run_growth({fy: float(y.total) for fy, y in ledger.years.items()}) or 0.0
     model: dict[str, dict[int, float]] = {}
     for key in last.lines:
-        history = {fy: float(v) for fy, v in ledger.series(key).items()}
+        history = {fy: float(v) for fy, v in ledger.clean_series(key).items()}
         model[key] = forecast_line(history, horizon, fallback_growth=total_growth).values
 
     values: dict[int, dict[str, Value]] = {fy: {} for fy in years}
@@ -135,6 +140,12 @@ def build_baseline(fund: str = "all", *, source: Literal["best", "model"] = "bes
                     fixed = _fixed_funds(key, origin)
                     ratio = (last.lines[key] - fixed) / gf_last
                     values[fy][key] = Value(cor_years[fy][key] * ratio + fixed, "cor_scaled")
+    if fund == "all" and "unemployment" in last.lines:
+        # Schedule times taxable payroll on the Department of Labor's series,
+        # carried to DOTAX's line (state_revenue.unemployment).
+        from state_revenue import unemployment
+        for fy in years:
+            values[fy]["unemployment"] = Value(unemployment.ledger_line(fy), "ui_model")
     for key, host in RIDES_ON.items():
         if key in last.lines and host in last.lines:
             ratio = last.lines[key] / last.lines[host]

@@ -37,9 +37,13 @@ RECENCY = 0.85          # weight per year back
 LEVEL_WINDOW = 5        # years whose median is the "level" method's base
 NOISY_SPREAD = 0.25     # sd of year-over-year log growth above which a line is "level"
 LONG_RUN_YEARS = 15     # history the long-run growth is the median of
-#: Fewer years of growth than this and the line's own long-run rate is noise
-#: (rental vehicles have six, from FY2019); ``fallback_growth`` is used instead.
+#: Fewer years of growth than this and a noisy ("level") line's own long-run
+#: rate is noise (rental vehicles have six, from FY2019, two of them COVID);
+#: ``fallback_growth`` is used instead. A steady ("damped") line needs only
+#: :data:`MIN_LONG_RUN_STEADY` (motor vehicle taxes and fuel, whose rows took
+#: their present meaning in FY2019).
 MIN_LONG_RUN = 8
+MIN_LONG_RUN_STEADY = 4
 #: Growth beyond this either way in one year is a break (a law change, COVID),
 #: kept out of the growth estimates.
 BREAK = 0.40
@@ -67,12 +71,12 @@ def choose_method(history: dict[int, float]) -> Method:
     return "level" if statistics.pstdev(g) > NOISY_SPREAD else "damped"
 
 
-def long_run_growth(history: dict[int, float]) -> float | None:
+def long_run_growth(history: dict[int, float], min_years: int = MIN_LONG_RUN) -> float | None:
     """Median log growth over the last :data:`LONG_RUN_YEARS`, breaks out;
-    None with fewer than :data:`MIN_LONG_RUN` years of it."""
+    None with fewer than ``min_years`` years of it."""
     origin = max(history)
     g = [x for fy, x in _growths(history) if abs(x) <= BREAK and fy > origin - LONG_RUN_YEARS]
-    return statistics.median(g) if len(g) >= MIN_LONG_RUN else None
+    return statistics.median(g) if len(g) >= min_years else None
 
 
 def forecast_line(history: dict[int, float], horizon: int, *,
@@ -87,7 +91,7 @@ def forecast_line(history: dict[int, float], horizon: int, *,
     origin = max(history)
     method = method or choose_method(history)
     growths = [(fy, g) for fy, g in _growths(history) if abs(g) <= BREAK]
-    own = long_run_growth(history)
+    own = long_run_growth(history, MIN_LONG_RUN_STEADY if method == "damped" else MIN_LONG_RUN)
     g_lr = fallback_growth if own is None else own
     values: dict[int, float] = {}
 
